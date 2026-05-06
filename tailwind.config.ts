@@ -1,0 +1,35 @@
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./hooks/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}"
+  ],
+  theme: {
+    extend: {
+      colors: {
+        ams: {
+          bg: "rgb(var(--ams-bg) / <alpha-value>)",
+          panel: "rgb(var(--ams-panel) / <alpha-value>)",
+          surface: "rgb(var(--ams-surface) / <alpha-value>)",
+          field: "rgb(var(--ams-field) / <alpha-value>)",
+          border: "rgb(var(--ams-border) / <alpha-value>)",
+          cyan: "rgb(var(--ams-cyan) / <alpha-value>)",
+          blue: "rgb(var(--ams-blue) / <alpha-value>)",
+          ink: "rgb(var(--ams-ink) / <alpha-value>)",
+          muted: "rgb(var(--ams-muted) / <alpha-value>)",
+          heading: "rgb(var(--ams-heading) / <alpha-value>)"
+        }
+      },
+      boxShadow: {
+        glass: "var(--ams-shadow-glass)",
+        glow: "var(--ams-shadow-glow)"
+      }
+    }
+  },
+  plugins: []
+};
+
+export default config;

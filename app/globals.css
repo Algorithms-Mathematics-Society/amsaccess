@@ -1,0 +1,319 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --ams-bg: 0 0 0;
+  --ams-panel: 9 9 11;
+  --ams-surface: 14 15 18;
+  --ams-field: 10 11 14;
+  --ams-border: 255 255 255; /* Used with opacity */
+  --ams-cyan: 139 92 246; /* Purple (#8B5CF6) */
+  --ams-blue: 124 58 237; /* Purple (#7C3AED) */
+  --ams-ink: 255 255 255;
+  --ams-muted: 161 161 170; /* Slate 400 */
+  --ams-heading: 255 255 255;
+  --ams-shadow-glass: 0 28px 90px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --ams-shadow-glow: 0 0 48px rgba(139, 92, 246, 0.17);
+  --ams-body-bg: #000000;
+  --ams-selection: rgba(139, 92, 246, 0.28);
+  --ams-grid-line: rgba(255, 255, 255, 0.05);
+  --ams-input-bg: rgba(255, 255, 255, 0.03);
+  --ams-input-border: rgba(255, 255, 255, 0.1);
+  --ams-input-focus: rgba(139, 92, 246, 0.62);
+  --ams-input-ring: rgba(139, 92, 246, 0.12);
+}
+
+.light {
+  color-scheme: light;
+  --ams-bg: 247 249 252;
+  --ams-panel: 255 255 255;
+  --ams-surface: 240 244 249;
+  --ams-field: 255 255 255;
+  --ams-border: 208 216 226;
+  --ams-cyan: 20 135 175;
+  --ams-blue: 81 75 205;
+  --ams-ink: 34 41 54;
+  --ams-muted: 96 108 127;
+  --ams-heading: 11 18 32;
+  --ams-shadow-glass: 0 22px 70px rgba(24, 36, 58, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --ams-shadow-glow: 0 0 34px rgba(20, 135, 175, 0.18);
+  --ams-body-bg:
+    radial-gradient(circle at 16% 10%, rgba(20, 135, 175, 0.13), transparent 25rem),
+    radial-gradient(circle at 82% 16%, rgba(245, 144, 66, 0.14), transparent 24rem),
+    radial-gradient(circle at 60% 84%, rgba(81, 75, 205, 0.1), transparent 28rem),
+    linear-gradient(135deg, #f7f9fc 0%, #eef3f8 48%, #ffffff 100%);
+  --ams-selection: rgba(20, 135, 175, 0.18);
+  --ams-grid-line: rgba(24, 36, 58, 0.07);
+  --ams-input-bg: rgba(255, 255, 255, 0.78);
+  --ams-input-border: rgba(24, 36, 58, 0.16);
+  --ams-input-focus: rgba(20, 135, 175, 0.58);
+  --ams-input-ring: rgba(20, 135, 175, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: rgb(var(--ams-bg));
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background: var(--ams-body-bg);
+  color: rgb(var(--ams-ink));
+  text-rendering: geometricPrecision;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: var(--ams-selection);
+  color: rgb(var(--ams-heading));
+}
+
+.ams-grid {
+  background-image:
+    linear-gradient(var(--ams-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ams-grid-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 72%);
+}
+
+.ams-noise {
+  background-image:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.075), transparent 26%, rgba(255, 255, 255, 0.035) 49%, transparent 72%),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08), transparent 35rem);
+}
+
+.ams-hero-panel {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.035)),
+    rgb(var(--ams-panel) / 0.72);
+  box-shadow: var(--ams-shadow-glass);
+  backdrop-filter: blur(18px);
+}
+
+.ams-hero-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(110deg, rgba(98, 214, 255, 0.24), transparent 24%),
+    linear-gradient(290deg, rgba(255, 184, 108, 0.17), transparent 26%);
+  opacity: 0.78;
+  mask-image: linear-gradient(#000, transparent 42%);
+}
+
+.ams-chip {
+  border: 1px solid rgb(var(--ams-border) / 0.72);
+  background: rgb(var(--ams-panel) / 0.68);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
+}
+
+.ams-button-primary {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 38%),
+    linear-gradient(135deg, rgb(var(--ams-blue)), rgb(var(--ams-cyan)));
+  box-shadow: 0 16px 42px rgba(98, 214, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.ams-button-secondary {
+  border: 1px solid rgb(var(--ams-border) / 0.78);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    rgb(var(--ams-panel) / 0.54);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
+}
+
+.ams-console-line {
+  background:
+    linear-gradient(90deg, rgba(98, 214, 255, 0.22), transparent 68%),
+    rgba(255, 255, 255, 0.045);
+}
+
+.home-window {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #080808;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.72),
+    0 0 0 1px rgba(255, 255, 255, 0.025) inset,
+    0 1px 0 rgba(255, 255, 255, 0.08) inset;
+}
+
+.raycast-hero {
+  background: #000000;
+}
+
+.raycast-hero-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: 
+    radial-gradient(circle at 50% 30%, rgba(139, 92, 246, 0.15), transparent 40rem),
+    radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.1), transparent 30rem);
+  filter: blur(40px);
+}
+
+.glass-card {
+  background: rgba(25, 25, 25, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
+  transform: translateY(-2px);
+}
+
+.light .glass-card {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(24, 36, 58, 0.12);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.light .glass-card:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+}
+
+.animate-fade-in-up {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.animate-fade-in-up-trigger {
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+
+
+.glass-input {
+  width: 100%;
+  border-radius: 0.625rem;
+  border: 1px solid var(--ams-input-border);
+  background: var(--ams-input-bg);
+  padding: 0.9rem 1rem;
+  color: rgb(var(--ams-ink));
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.glass-input:focus {
+  border-color: var(--ams-input-focus);
+  box-shadow: 0 0 0 3px var(--ams-input-ring);
+  background: rgb(var(--ams-field) / 0.84);
+}
+
+.light .bg-white\/\[0\.04\],
+.light .bg-white\/\[0\.035\],
+.light .bg-white\/\[0\.05\] {
+  background-color: rgba(91, 45, 146, 0.055);
+}
+
+.light .bg-black\/20,
+.light .bg-black\/25,
+.light .bg-black\/30 {
+  background-color: rgba(255, 255, 255, 0.68);
+}
+
+.light .border-white\/10 {
+  border-color: rgba(91, 45, 146, 0.14);
+}
+
+.light .ams-hero-panel {
+  border-color: rgba(24, 36, 58, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.62)),
+    rgb(var(--ams-panel) / 0.82);
+}
+
+.light .ams-console-line {
+  background:
+    linear-gradient(90deg, rgba(20, 135, 175, 0.14), transparent 68%),
+    rgba(24, 36, 58, 0.045);
+}
+
+.markdown-preview h1 {
+  margin: 0.8rem 0 0.45rem;
+  color: white;
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.markdown-preview h2 {
+  margin: 0.8rem 0 0.45rem;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+
+.markdown-preview h3 {
+  margin: 0.7rem 0 0.4rem;
+  color: white;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.markdown-preview p {
+  margin: 0.45rem 0;
+}
+
+.markdown-preview strong {
+  color: white;
+  font-weight: 650;
+}
+
+@keyframes scaleYInfinite {
+  0% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+  100% { transform: scaleY(0.3); }
+}
+
+.animate-scale-y {
+  transform-origin: bottom;
+  animation: scaleYInfinite 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseRing {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.animate-pulse-ring {
+  animation: pulseRing 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
