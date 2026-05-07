@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { QUESTION_TYPES } from "@/lib/cms";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import type { Question } from "@/lib/types";
+import { TableSkeleton } from "@/components/Skeleton";
 
 const typeLabel = Object.fromEntries(QUESTION_TYPES);
 
@@ -121,7 +122,7 @@ export default function AdminQuestionsPage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td className="px-4 py-6 text-white/60" colSpan={7}>Loading questions...</td></tr>
+                  <TableSkeleton cols={7} rows={4} />
                 ) : filtered.length ? (
                   filtered.map((question) => (
                     <tr key={question.id} className="border-b border-white/10 last:border-0">

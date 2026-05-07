@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { slugify } from "@/lib/cms";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import type { Assessment, AssessmentQuestion } from "@/lib/types";
+import { TableSkeleton } from "@/components/Skeleton";
 
 export default function AdminAssessmentsPage() {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -156,7 +157,7 @@ export default function AdminAssessmentsPage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td className="px-4 py-6 text-white/60" colSpan={6}>Loading assessments...</td></tr>
+                  <TableSkeleton cols={6} rows={4} />
                 ) : filtered.length ? (
                   filtered.map((assessment) => {
                     const count = assignments.filter((assignment) => assignment.assessment_id === assessment.id).length;

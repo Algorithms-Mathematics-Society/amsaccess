@@ -11,6 +11,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { AMSLogo } from "@/components/AMSLogo";
 import { ScrollObserver } from "@/components/ScrollObserver";
 
@@ -121,7 +122,9 @@ function MiniDots() {
 
 function HeroConsole() {
   return (
-    <div className="glass-card ams-hero-console mx-auto mt-8 max-w-6xl overflow-hidden rounded-[0.65rem] md:mt-10">
+    <div 
+      className="glass-card ams-hero-console mx-auto mt-8 max-w-6xl overflow-hidden rounded-[0.65rem] md:mt-10"
+    >
       <div className="flex items-center justify-between border-b border-white/10 bg-[#09090B] px-4 py-3">
         <MiniDots />
         <div className="ams-label">Controlled Round</div>
@@ -216,7 +219,7 @@ function HeroConsole() {
                 className="ams-review-event mb-2 flex items-center justify-between text-xs last:mb-0"
                 style={{ animationDelay: `${index * 1.1}s` }}
               >
-                <span className="text-white/45">{event}</span>
+                <span className="text-white/45 typing-effect" style={{ animationDelay: `${index * 0.5}s` }}>{event}</span>
                 <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
               </div>
             ))}
@@ -224,6 +227,34 @@ function HeroConsole() {
         </aside>
       </div>
     </div>
+  );
+}
+
+function SpotlightCard({ children, featured }: { children: React.ReactNode, featured?: boolean }) {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  return (
+    <article
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`glass-card relative overflow-hidden p-5 ${featured ? "ams-card-featured" : ""}`}
+    >
+      <div
+        className="pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-300"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(139,92,246,0.12), transparent 40%)`
+        }}
+      />
+      <div className="relative z-10">{children}</div>
+    </article>
   );
 }
 
@@ -400,9 +431,11 @@ export default function LandingPage() {
             Controlled environments for written evaluations where the work, the session, and the review record all matter.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <a className="ams-cta-primary inline-flex h-[3.25rem] items-center justify-center gap-2 rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white" href="/download">
-              Get AMS Access
-              <Download className="h-4 w-4" strokeWidth={2.5} />
+            <a className="ams-cta-primary ams-glare relative overflow-hidden inline-flex h-[3.25rem] items-center justify-center gap-2 rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white group" href="/download">
+              <span className="relative z-10 flex items-center gap-2">
+                Get AMS Access
+                <Download className="h-4 w-4" strokeWidth={2.5} />
+              </span>
             </a>
             <a className="ams-cta-secondary inline-flex h-[3.25rem] items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white" href="/pricing">
               See Plans
@@ -443,41 +476,41 @@ export default function LandingPage() {
 
         <div className="mt-24 grid gap-8 md:grid-cols-[1.18fr_0.91fr_0.91fr]">
           {foundation.map((item, index) => (
-            <article key={item.title} className={`glass-card flex flex-col p-8 ${index === 0 ? "ams-card-featured md:p-10" : ""}`}>
+            <article key={item.title} className={`glass-card group flex flex-col p-8 ${index === 0 ? "ams-card-featured md:p-10" : ""}`}>
               <div className="relative mb-6 flex h-32 items-center justify-center overflow-hidden rounded border border-white/10 bg-[#09090B]">
                 {index === 0 && (
                   <div className="flex h-full w-full flex-col justify-end p-4 font-mono text-[10px] leading-relaxed text-[#A1A1AA]">
-                    <p className="text-[#D4D4D8]">{`> initializing desktop shell...`}</p>
-                    <p className="mt-1 text-[#D4D4D8]">{`> preparing fullscreen session... `}<span className="text-emerald-400">[OK]</span></p>
-                    <p className="mt-1 text-purple-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]">{`> ams access ready `}<span className="animate-pulse text-white">_</span></p>
+                    <p className="text-[#D4D4D8] transition-opacity duration-300 group-hover:opacity-100 opacity-50">{`> initializing desktop shell...`}</p>
+                    <p className="mt-1 text-[#D4D4D8] transition-opacity duration-300 delay-100 group-hover:opacity-100 opacity-50">{`> preparing fullscreen session... `}<span className="text-emerald-400 group-hover:animate-pulse">[OK]</span></p>
+                    <p className="mt-1 text-purple-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.5)] transition-opacity duration-300 delay-200 group-hover:opacity-100 opacity-50">{`> ams access ready `}<span className="animate-pulse text-white">_</span></p>
                   </div>
                 )}
                 {index === 1 && (
                   <div className="flex w-full items-center gap-3 px-4">
-                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-500/50 bg-purple-500/20 drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]">
+                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-500/50 bg-purple-500/20 drop-shadow-[0_0_8px_rgba(139,92,246,0.5)] transition-transform duration-500 group-hover:scale-110">
                       <div className="absolute inset-0 animate-pulse-ring rounded-full border-2 border-purple-400" />
                       <ShieldCheck className="h-5 w-5 text-purple-200" />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <div className="h-2 w-16 rounded bg-white/40" />
-                      <div className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.3)]">
+                      <div className="h-2 w-16 rounded bg-white/40 transition-all duration-300 group-hover:bg-white/60 group-hover:w-20" />
+                      <div className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.3)] opacity-70 transition-opacity duration-300 group-hover:opacity-100">
                         Evidence captured
                       </div>
                     </div>
                   </div>
                 )}
                 {index === 2 && (
-                  <div className="flex h-full w-full flex-col justify-between p-4">
+                  <div className="flex h-full w-full flex-col justify-between p-4 transition-transform duration-500 group-hover:-translate-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-[#A1A1AA]">Timeline</span>
+                      <span className="text-[10px] text-[#A1A1AA] transition-colors group-hover:text-white">Timeline</span>
                       <div className="flex gap-1 drop-shadow-[0_0_4px_rgba(52,211,153,0.4)]">
                         <span className="h-1.5 w-1.5 rounded-full bg-[#34D399]" />
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#34D399]" />
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 drop-shadow-[0_0_4px_rgba(239,68,68,0.4)]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#34D399] delay-75 transition-transform group-hover:scale-150" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 drop-shadow-[0_0_4px_rgba(239,68,68,0.4)] delay-150 transition-transform group-hover:scale-150" />
                         <span className="h-1.5 w-1.5 rounded-full bg-[#34D399]" />
                       </div>
                     </div>
-                    <div className="flex h-10 w-full items-end gap-1 opacity-80">
+                    <div className="flex h-10 w-full items-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                       {[4, 7, 3, 8, 5, 6, 4, 9, 6, 7].map((h, i) => (
                         <div key={i} className="flex-1 animate-scale-y rounded-t-sm bg-purple-400/80 drop-shadow-[0_0_6px_rgba(139,92,246,0.4)]" style={{ height: `${h * 10}%`, animationDelay: `${i * 0.15}s` }} />
                       ))}
@@ -519,11 +552,11 @@ export default function LandingPage() {
         </div>
         <div className="grid gap-4 md:grid-cols-4">
           {pricingPlans.map(([title, body, detail], index) => (
-            <article key={title} className={`glass-card p-5 ${index === 2 ? "ams-card-featured" : ""}`}>
+            <SpotlightCard key={title} featured={index === 2}>
               <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
               <p className="mt-4 text-sm leading-6 text-white/60">{body}</p>
               <p className="mt-8 border-t border-white/10 pt-4 text-xs leading-5 text-white/40">{detail}</p>
-            </article>
+            </SpotlightCard>
           ))}
         </div>
       </section>
@@ -584,11 +617,11 @@ export default function LandingPage() {
           </div>
           <div className="mt-16 grid gap-6 md:grid-cols-4">
             {changelog.map(([title, body]) => (
-              <article key={title} className="border-t border-white/10 pt-5">
-                <div className="mb-8 h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
+              <SpotlightCard key={title}>
+                <div className="mb-4 h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
                 <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
                 <p className="mt-3 text-xs leading-5 text-white/50">{body}</p>
-              </article>
+              </SpotlightCard>
             ))}
           </div>
         </div>
@@ -599,8 +632,8 @@ export default function LandingPage() {
           Bring the round under control.
         </h2>
         <div className="mt-10 flex justify-center gap-3">
-          <a className="ams-cta-primary rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/download">
-            Get AMS Access
+          <a className="ams-cta-primary ams-glare relative overflow-hidden group rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/download">
+            <span className="relative z-10">Get AMS Access</span>
           </a>
           <a className="ams-cta-secondary rounded-full border border-white/10 px-5 py-3 text-sm font-medium text-white/60 hover:border-white/40 hover:text-white" href="/changelog">
             Release Notes

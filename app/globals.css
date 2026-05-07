@@ -23,6 +23,8 @@
   --ams-input-border: rgba(255, 255, 255, 0.1);
   --ams-input-focus: rgba(139, 92, 246, 0.62);
   --ams-input-ring: rgba(139, 92, 246, 0.12);
+  --ams-teal: 20 184 166; /* Teal 500 */
+  --ams-amber: 245 158 11; /* Amber 500 */
 }
 
 .light {
@@ -50,6 +52,8 @@
   --ams-input-border: rgba(24, 36, 58, 0.16);
   --ams-input-focus: rgba(20, 135, 175, 0.58);
   --ams-input-ring: rgba(20, 135, 175, 0.12);
+  --ams-teal: 13 148 136; /* Teal 600 */
+  --ams-amber: 217 119 6; /* Amber 600 */
 }
 
 * {
@@ -72,8 +76,14 @@ body {
 button,
 input,
 textarea,
-select {
+select,
+a {
   font: inherit;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
+  transform: scale(0.97);
 }
 
 ::selection {
@@ -86,6 +96,7 @@ select {
     linear-gradient(var(--ams-grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--ams-grid-line) 1px, transparent 1px);
   background-size: 56px 56px;
+  background-attachment: fixed;
   mask-image: linear-gradient(to bottom, black 0%, transparent 72%);
 }
 
@@ -93,6 +104,7 @@ select {
   background-image:
     linear-gradient(115deg, rgba(255, 255, 255, 0.075), transparent 26%, rgba(255, 255, 255, 0.035) 49%, transparent 72%),
     radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08), transparent 35rem);
+  background-attachment: fixed;
 }
 
 .ams-hero-panel {
@@ -477,6 +489,71 @@ select {
   42%, 58% { border-color: rgba(139, 92, 246, 0.28); background-color: rgba(139, 92, 246, 0.055); }
 }
 
+@keyframes amsGlareSweep {
+  0% { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(200%) skewX(-15deg); }
+}
+
+.ams-glare::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  transform: translateX(-100%) skewX(-15deg);
+  animation: amsGlareSweep 3s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+@keyframes amsTyping {
+  from { width: 0; opacity: 0; }
+  1% { opacity: 1; }
+  to { width: 100%; opacity: 1; }
+}
+
+.typing-effect {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  width: 0;
+  opacity: 0;
+  animation: amsTyping 1s steps(20, end) forwards;
+}
+
+@keyframes amsSkeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.ams-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: amsSkeletonShimmer 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  border-radius: 0.375rem;
+}
+
+.light .ams-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.03) 25%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.03) 75%
+  );
+  background-size: 200% 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ams-hero-grid,
   .raycast-hero-bg,
@@ -487,6 +564,7 @@ select {
   .ams-session-indicator,
   .animate-scale-y,
   .animate-pulse-ring,
+  .ams-skeleton,
   .animate-fade-in-up-trigger {
     animation: none;
   }
@@ -498,7 +576,8 @@ select {
   .ams-cta-primary:hover,
   .ams-cta-secondary:hover,
   .ams-hero-console::after,
-  .ams-hero-console:hover::after {
+  .ams-hero-console:hover::after,
+  button, input, textarea, select, a {
     transition: none;
     transform: none;
   }

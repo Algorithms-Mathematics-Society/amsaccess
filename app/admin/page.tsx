@@ -8,6 +8,7 @@ import { AMSLogo } from "@/components/AMSLogo";
 import { calculateRiskScore, riskTone } from "@/lib/risk";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import type { ProctorEvent, Session } from "@/lib/types";
+import { TableSkeleton } from "@/components/Skeleton";
 
 type Row = Session & {
   events: ProctorEvent[];
@@ -186,11 +187,7 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr>
-                    <td className="px-4 py-6 text-white/60" colSpan={9}>
-                      Loading sessions...
-                    </td>
-                  </tr>
+                  <TableSkeleton cols={9} rows={5} />
                 ) : filteredSessions.length ? (
                   filteredSessions.map((session) => {
                     const fullscreenExits = session.events.filter((event) => event.event_type === "FULLSCREEN_EXIT").length;

@@ -12,6 +12,7 @@ import { useFullscreenGuard } from "@/hooks/useFullscreenGuard";
 import { useProctoring } from "@/hooks/useProctoring";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import type { Answer, Assessment, Question, Session } from "@/lib/types";
+import { PageSkeleton } from "@/components/Skeleton";
 
 type AnswerDraft = {
   answerText: string;
@@ -339,11 +340,7 @@ export default function AssessmentPage() {
   }
 
   if (isLoading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center px-5 text-ams-muted">
-        Loading assessment...
-      </main>
-    );
+    return <PageSkeleton />;
   }
 
   if (error && !session) {

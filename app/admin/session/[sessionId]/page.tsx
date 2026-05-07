@@ -13,6 +13,7 @@ import { safeRubric } from "@/lib/cms";
 import { calculateRiskScore, riskColor, riskTone } from "@/lib/risk";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import type { Answer, ProctorEvent, Question, Review, Session } from "@/lib/types";
+import { PageSkeleton } from "@/components/Skeleton";
 
 type AnswerWithQuestion = Answer & {
   question?: Question;
@@ -143,11 +144,7 @@ export default function AdminSessionPage() {
   }
 
   if (isLoading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center px-5 text-white/60">
-        Loading session...
-      </main>
-    );
+    return <PageSkeleton />;
   }
 
   if (!session) {

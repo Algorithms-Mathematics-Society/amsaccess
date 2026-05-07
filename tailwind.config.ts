@@ -9,6 +9,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "monospace"],
+      },
       colors: {
         ams: {
           bg: "rgb(var(--ams-bg) / <alpha-value>)",
@@ -20,7 +24,9 @@ const config: Config = {
           blue: "rgb(var(--ams-blue) / <alpha-value>)",
           ink: "rgb(var(--ams-ink) / <alpha-value>)",
           muted: "rgb(var(--ams-muted) / <alpha-value>)",
-          heading: "rgb(var(--ams-heading) / <alpha-value>)"
+          heading: "rgb(var(--ams-heading) / <alpha-value>)",
+          teal: "rgb(var(--ams-teal) / <alpha-value>)",
+          amber: "rgb(var(--ams-amber) / <alpha-value>)",
         }
       },
       boxShadow: {
