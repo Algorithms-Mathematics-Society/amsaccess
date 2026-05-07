@@ -6,9 +6,9 @@ export function MarketingHeader() {
   return (
     <header className="fixed inset-x-0 top-6 z-40 px-4">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-white/10 bg-[#09090B]/80 px-6 shadow-glass backdrop-blur-2xl">
-        <Link href="/" aria-label="AMS Access home">
-          <AMSLogo />
-        </Link>
+          <Link href="/" aria-label="AMS Access home">
+            <AMSLogo size="nav" />
+          </Link>
         <nav className="hidden items-center gap-8 text-sm font-medium text-white/56 lg:flex">
           <Link className="transition hover:text-white" href="/#showcase">Product</Link>
           <Link className="transition hover:text-white" href="/download">Download</Link>

@@ -250,6 +250,8 @@ select {
 .ams-hero-console {
   position: relative;
   isolation: isolate;
+  -webkit-mask-image: linear-gradient(to top, transparent, black 20%);
+  mask-image: linear-gradient(to top, transparent, black 20%);
 }
 
 .ams-hero-console::after {

@@ -134,9 +134,8 @@ function HeroConsole() {
           {["Product", "Desktop Sessions", "Evidence", "Reviewer Workflow", "Downloads"].map((item, index) => (
             <div
               key={item}
-              className={`mb-2 flex items-center gap-2 rounded px-2 py-2 text-xs ${
-                index === 1 ? "bg-white text-black" : "text-white/60"
-              }`}
+              className={`mb-2 flex items-center gap-2 rounded px-2 py-2 text-xs ${index === 1 ? "bg-white text-black" : "text-white/60"
+                }`}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${index === 1 ? "ams-status-pulse bg-[#09090B]" : "bg-white/25"}`} />
               {item}
@@ -366,7 +365,7 @@ export default function LandingPage() {
       <ScrollObserver />
       <header className="fixed inset-x-0 top-6 z-40 px-4">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-white/10 bg-[#09090B]/80 px-6 shadow-glass backdrop-blur-2xl">
-          <AMSLogo />
+          <AMSLogo size="nav" />
           <nav className="hidden items-center gap-8 text-sm font-medium text-white/56 lg:flex">
             {navItems.map(([item, href]) => (
               <a key={item} className="transition hover:text-white" href={href}>
@@ -389,23 +388,23 @@ export default function LandingPage() {
         <div className="raycast-hero-bg" />
         <div className="absolute left-1/2 top-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-20 blur-3xl" />
         <div className="relative z-10 mx-auto max-w-6xl text-center">
-          <div className="mx-auto mb-7 inline-flex items-center rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-purple-200 backdrop-blur-md">
+          <div className="mx-auto mb-7 inline-flex items-center rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-purple-200 backdrop-blur-md">
             Controlled evaluation software
           </div>
-          <h1 className="mx-auto max-w-6xl bg-gradient-to-b from-white via-[#F4F4F5] to-[#A1A1AA] bg-clip-text text-[2.85rem] font-semibold leading-[0.96] tracking-tight text-transparent md:text-[4.15rem] lg:text-[5.65rem]">
+          <h1 className="mx-auto max-w-6xl bg-gradient-to-b from-white via-[#F4F4F5] to-[#A1A1AA] bg-clip-text text-[2.85rem] font-semibold leading-[0.9] tracking-tight text-transparent md:text-[4.15rem] lg:text-[5.65rem]">
             <span className="block">Serious evaluations</span>
             <span className="block">need a room</span>
             <span className="block">of their own.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-lg text-base leading-7 text-white/64 md:text-[1.05rem] md:leading-8">
+          <p className="mx-auto mt-6 max-w-lg text-base leading-7 text-slate-200/90 md:text-[1.05rem] md:leading-8">
             Controlled environments for written evaluations where the work, the session, and the review record all matter.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <a className="ams-cta-primary inline-flex h-[3.25rem] items-center justify-center gap-2 rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] hover:bg-[#8B5CF6] hover:text-white" href="/download">
+            <a className="ams-cta-primary inline-flex h-[3.25rem] items-center justify-center gap-2 rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white" href="/download">
               Get AMS Access
-              <Download className="h-4 w-4" />
+              <Download className="h-4 w-4" strokeWidth={2.5} />
             </a>
-            <a className="ams-cta-secondary inline-flex h-[3.25rem] items-center justify-center rounded-full border border-white/10 px-7 text-sm font-medium text-white/60 hover:border-white/35 hover:text-white" href="/pricing">
+            <a className="ams-cta-secondary inline-flex h-[3.25rem] items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white" href="/pricing">
               See Plans
             </a>
           </div>
