@@ -160,6 +160,11 @@ select {
   background: #000000;
 }
 
+.ams-hero-grid {
+  animation: amsGridDrift 36s linear infinite;
+  background-position: 0 0;
+}
+
 .raycast-hero-bg {
   position: absolute;
   inset: 0;
@@ -169,20 +174,132 @@ select {
     radial-gradient(circle at 50% 30%, rgba(139, 92, 246, 0.15), transparent 40rem),
     radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.1), transparent 30rem);
   filter: blur(40px);
+  animation: amsBreath 8s ease-in-out infinite;
 }
 
 .glass-card {
-  background: rgba(25, 25, 25, 0.4);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(25, 25, 25, 0.4);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  transition: all 0.3s ease;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
 
 .glass-card:hover {
-  border-color: rgba(139, 92, 246, 0.4);
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
-  transform: translateY(-2px);
+  border-color: rgba(139, 92, 246, 0.24);
+  box-shadow:
+    0 30px 95px rgba(0, 0, 0, 0.42),
+    0 0 34px rgba(139, 92, 246, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.ams-card-featured {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(139, 92, 246, 0.11), transparent 22rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.016)),
+    rgba(25, 25, 25, 0.5);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 34px 120px rgba(0, 0, 0, 0.54),
+    0 0 54px rgba(139, 92, 246, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.075);
+}
+
+.ams-label {
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.ams-cta-primary,
+.ams-cta-secondary {
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ams-cta-primary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 18px 48px rgba(255, 255, 255, 0.08),
+    0 0 26px rgba(139, 92, 246, 0.08);
+}
+
+.ams-cta-secondary:hover {
+  transform: translateY(-1px);
+  background-color: rgba(255, 255, 255, 0.035);
+}
+
+.ams-cta-primary:focus-visible,
+.ams-cta-secondary:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.68);
+  outline-offset: 3px;
+}
+
+.ams-hero-console {
+  position: relative;
+  isolation: isolate;
+}
+
+.ams-hero-console::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 36%, rgba(255, 255, 255, 0.07), transparent 52%);
+  opacity: 0;
+  transform: translateX(-22%);
+  transition: opacity 500ms ease, transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1;
+}
+
+.ams-hero-console:hover::after {
+  opacity: 1;
+  transform: translateX(22%);
+}
+
+.ams-context-line {
+  transform-origin: left;
+  animation: amsContextLine 5.6s ease-in-out infinite;
+}
+
+.ams-status-pulse {
+  position: relative;
+}
+
+.ams-status-pulse::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 1px solid rgba(139, 92, 246, 0.34);
+  opacity: 0;
+  animation: amsSoftPulse 3.4s ease-out infinite;
+}
+
+.ams-log-update {
+  animation: amsLogUpdate 4.8s ease-in-out infinite;
+}
+
+.ams-review-event {
+  opacity: 0.42;
+  transform: translateX(-2px);
+  animation: amsReviewEvent 7.2s ease-in-out infinite;
+}
+
+.ams-session-indicator {
+  animation: amsSessionIndicator 6.4s ease-in-out infinite;
 }
 
 .light .glass-card {
@@ -306,7 +423,7 @@ select {
 
 .animate-scale-y {
   transform-origin: bottom;
-  animation: scaleYInfinite 1.5s ease-in-out infinite;
+  animation: scaleYInfinite 2.6s ease-in-out infinite;
 }
 
 @keyframes pulseRing {
@@ -315,5 +432,72 @@ select {
 }
 
 .animate-pulse-ring {
-  animation: pulseRing 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation: pulseRing 3.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes amsBreath {
+  0%, 100% { opacity: 0.86; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.025); }
+}
+
+@keyframes amsGridDrift {
+  from { background-position: 0 0; }
+  to { background-position: 40px 40px; }
+}
+
+@keyframes amsContextLine {
+  0%, 100% { transform: scaleX(0.42); opacity: 0.48; }
+  42% { transform: scaleX(0.92); opacity: 0.85; }
+  68% { transform: scaleX(0.68); opacity: 0.58; }
+}
+
+@keyframes amsSoftPulse {
+  0% { opacity: 0; transform: scale(0.94); }
+  35% { opacity: 0.5; }
+  100% { opacity: 0; transform: scale(1.22); }
+}
+
+@keyframes amsLogUpdate {
+  0%, 72%, 100% { opacity: 0.68; }
+  78% { opacity: 1; }
+  84% { opacity: 0.5; }
+  90% { opacity: 0.86; }
+}
+
+@keyframes amsReviewEvent {
+  0%, 100% { opacity: 0.42; transform: translateX(-2px); }
+  14%, 26% { opacity: 0.92; transform: translateX(0); }
+  32% { opacity: 0.58; transform: translateX(0); }
+}
+
+@keyframes amsSessionIndicator {
+  0%, 100% { border-color: rgba(255, 255, 255, 0.1); background-color: #09090B; }
+  42%, 58% { border-color: rgba(139, 92, 246, 0.28); background-color: rgba(139, 92, 246, 0.055); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ams-hero-grid,
+  .raycast-hero-bg,
+  .ams-context-line,
+  .ams-status-pulse::before,
+  .ams-log-update,
+  .ams-review-event,
+  .ams-session-indicator,
+  .animate-scale-y,
+  .animate-pulse-ring,
+  .animate-fade-in-up-trigger {
+    animation: none;
+  }
+
+  .glass-card,
+  .glass-card:hover,
+  .ams-cta-primary,
+  .ams-cta-secondary,
+  .ams-cta-primary:hover,
+  .ams-cta-secondary:hover,
+  .ams-hero-console::after,
+  .ams-hero-console:hover::after {
+    transition: none;
+    transform: none;
+  }
 }
