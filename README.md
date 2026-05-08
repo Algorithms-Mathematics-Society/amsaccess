@@ -2,7 +2,7 @@
 
 AMS Access is a Next.js and Supabase platform for running timed written assessment rounds. It gives candidates a focused fullscreen workspace with autosaved answers and gives admins a review console with candidate submissions, integrity events, risk scores, reusable questions, rubrics, and assessment management.
 
-The product is built for reasoning-heavy exams where the written derivation matters as much as the final answer.
+The product is built for reasoning-heavy exams where the written derivation matters as much as the final answer.  .
 
 ## What It Does
 
