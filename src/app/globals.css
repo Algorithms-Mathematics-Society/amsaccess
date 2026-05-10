@@ -81,7 +81,8 @@ textarea,
 select,
 a {
   font: inherit;
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  /* Compositor-only on the global rule — non-compositable properties live on specific component selectors */
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
 }
 
 button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
@@ -175,8 +176,22 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 }
 
 .ams-hero-grid {
+  position: relative;
+}
+
+/* Grid lives on a ::before so drift uses transform (compositor-only) instead of background-position */
+.ams-hero-grid::before {
+  content: "";
+  position: absolute;
+  inset: -40px;
+  background-image:
+    linear-gradient(to right, #ffffff05 1px, transparent 1px),
+    linear-gradient(to bottom, #ffffff05 1px, transparent 1px);
+  background-size: 40px 40px;
   animation: amsGridDrift 36s linear infinite;
-  background-position: 0 0;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .raycast-hero-bg {
@@ -202,6 +217,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
   box-shadow:
     0 28px 90px rgba(0, 0, 0, 0.38),
     inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  contain: paint;
   transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
 
@@ -278,6 +294,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 .ams-hero-console {
   position: relative;
   isolation: isolate;
+  contain: layout paint;
   -webkit-mask-image: linear-gradient(to top, transparent, black 20%);
   mask-image: linear-gradient(to top, transparent, black 20%);
 }
@@ -321,6 +338,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 
 .ams-log-update {
   animation: amsLogUpdate 4.8s ease-in-out infinite;
+  will-change: opacity;
 }
 
 .ams-review-event {
@@ -331,8 +349,22 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 }
 
 .ams-session-indicator {
+  position: relative;
+}
+
+/* Animate opacity on a composited pseudo-element instead of border-color/background-color */
+.ams-session-indicator::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  background-color: rgba(139, 92, 246, 0.055);
+  opacity: 0;
+  pointer-events: none;
   animation: amsSessionIndicator 6.4s ease-in-out infinite;
-  will-change: background-color, border-color;
+  animation-delay: var(--ams-indicator-delay, 0s);
+  will-change: opacity;
 }
 
 .light .glass-card {
@@ -477,8 +509,8 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 }
 
 @keyframes amsGridDrift {
-  from { background-position: 0 0; }
-  to { background-position: 40px 40px; }
+  from { transform: translate(0, 0); }
+  to { transform: translate(40px, 40px); }
 }
 
 @keyframes amsContextLine {
@@ -507,8 +539,8 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 }
 
 @keyframes amsSessionIndicator {
-  0%, 100% { border-color: rgba(255, 255, 255, 0.1); background-color: #09090B; }
-  42%, 58% { border-color: rgba(139, 92, 246, 0.28); background-color: rgba(139, 92, 246, 0.055); }
+  0%, 100% { opacity: 0; }
+  42%, 58% { opacity: 1; }
 }
 
 @keyframes amsGlareSweep {
@@ -531,6 +563,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
   );
   transform: translateX(-100%) skewX(-15deg);
   animation: amsGlareSweep 3s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  will-change: transform;
 }
 
 @keyframes amsTyping {
@@ -577,15 +610,16 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ams-hero-grid,
+  .ams-hero-grid::before,
   .raycast-hero-bg,
   .ams-context-line,
   .ams-status-pulse::before,
   .ams-log-update,
   .ams-review-event,
-  .ams-session-indicator,
+  .ams-session-indicator::after,
   .animate-scale-y,
   .animate-pulse-ring,
+  .ams-glare::before,
   .ams-skeleton,
   .animate-fade-in-up-trigger {
     animation: none;
@@ -603,6 +637,15 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
     transition: none;
     transform: none;
   }
+}
+
+/* ── Below-fold render deferral ──────────────────────────────── */
+/* Apply to every <section> and <footer> below the hero.         */
+/* Chrome skips layout+paint for off-screen content-visibility   */
+/* sections; intrinsic-size:auto remembers real height post-render */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
 }
 
 /* ── Mobile nav drawer ──────────────────────────────────────── */

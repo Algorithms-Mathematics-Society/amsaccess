@@ -256,7 +256,7 @@ function HeroConsole() {
         <aside className="border-l border-white/10 bg-[#09090B]/50 p-4">
           <p className="ams-label mb-5">Session state</p>
           {[["Fullscreen","Controlled"],["Responses","Saved"],["Timeline","Recording"],["Review","Ready"]].map(([label, value], index) => (
-            <div key={label} className="ams-session-indicator mb-3 rounded border border-white/10 bg-[#09090B] px-3 py-3" style={{ animationDelay: `${index * 0.7}s` }}>
+            <div key={label} className="ams-session-indicator mb-3 rounded border border-white/10 bg-[#09090B] px-3 py-3" style={{ "--ams-indicator-delay": `${index * 0.7}s` } as React.CSSProperties}>
               <div className="flex items-center justify-between gap-3 text-xs">
                 <span className="text-white/40">{label}</span>
                 <span className="text-[#8B5CF6]">{value}</span>
@@ -444,7 +444,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section id="product" className="raycast-hero ams-hero-grid relative flex min-h-screen items-center justify-center overflow-hidden px-4 pb-24 pt-32 animate-fade-in-up sm:px-5 sm:pt-32 md:pb-28 md:pt-[10rem] lg:pt-[11rem]" style={{ backgroundImage: "linear-gradient(to right, #ffffff05 1px, transparent 1px), linear-gradient(to bottom, #ffffff05 1px, transparent 1px)", backgroundSize: "40px 40px" }}>
+      <section id="product" className="raycast-hero ams-hero-grid relative flex min-h-screen items-center justify-center overflow-hidden px-4 pb-24 pt-32 animate-fade-in-up sm:px-5 sm:pt-32 md:pb-28 md:pt-[10rem] lg:pt-[11rem]">
         <div className="raycast-hero-bg" />
         <div className="absolute left-1/2 top-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-20 blur-3xl" />
         <div className="relative z-10 mx-auto max-w-6xl text-center">
@@ -474,7 +474,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="showcase" className="mx-auto max-w-6xl border-t border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
+      <section id="showcase" className="cv-auto mx-auto max-w-6xl border-t border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
         <div className="mb-10 grid gap-8 md:mb-14 md:grid-cols-[1.12fr_0.88fr]">
           <h2 className="max-w-2xl text-3xl font-semibold leading-[0.98] tracking-tight text-white sm:text-4xl md:text-6xl">
             Give the round a boundary.
@@ -541,7 +541,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl border-y border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-28 animate-fade-in-up">
+      <section className="cv-auto mx-auto max-w-6xl border-y border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-28 animate-fade-in-up">
         <div className="grid gap-8 md:gap-14 md:grid-cols-[0.74fr_1.26fr]">
           <div>
             <p className="ams-label mb-6">Worldview</p>
@@ -560,7 +560,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-20 md:py-28 animate-fade-in-up">
+      <section className="cv-auto mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-20 md:py-28 animate-fade-in-up">
         <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
             <p className="ams-label mb-4">Built for</p>
@@ -592,7 +592,7 @@ export default function LandingPage() {
       </section>
 
       {workflowSections.map((section, idx) => (
-        <section id={idx === 1 ? "review-context" : undefined} key={section.title} className={`mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-24 md:py-36 animate-fade-in-up ${idx === 0 ? "border-t border-white/5" : ""}`}>
+        <section id={idx === 1 ? "review-context" : undefined} key={section.title} className={`cv-auto mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-24 md:py-36 animate-fade-in-up ${idx === 0 ? "border-t border-white/5" : ""}`}>
           <div className={`mb-8 grid gap-6 ${idx % 2 === 0 ? "md:grid-cols-[0.86fr_1.14fr]" : "md:grid-cols-[1.12fr_0.88fr]"}`}>
             <div>
               <p className="ams-label mb-4">{section.eyebrow}</p>
@@ -611,7 +611,7 @@ export default function LandingPage() {
         </section>
       ))}
 
-      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-5 md:py-14 animate-fade-in-up">
+      <section className="cv-auto mx-auto max-w-6xl px-4 py-10 sm:px-5 md:py-14 animate-fade-in-up">
         <div className="rounded-2xl border border-white/10 bg-[#09090B] p-6 md:flex md:items-center md:justify-between md:gap-8">
           <div>
             <p className="ams-label mb-3">Positioning</p>
@@ -626,7 +626,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="pricing" className="mx-auto max-w-6xl border-t border-white/5 px-4 py-14 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
+      <section id="pricing" className="cv-auto mx-auto max-w-6xl border-t border-white/5 px-4 py-14 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
         <div className="mb-10 grid gap-6 md:mb-14 md:grid-cols-[0.82fr_1.18fr]">
           <div>
             <p className="ams-label mb-4">Pricing</p>
@@ -667,7 +667,7 @@ export default function LandingPage() {
         </Link>
       </section>
 
-      <section id="download" className="mx-auto max-w-6xl border-t border-white/5 px-4 py-14 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
+      <section id="download" className="cv-auto mx-auto max-w-6xl border-t border-white/5 px-4 py-14 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
         <div className="glass-card ams-card-featured grid overflow-hidden md:grid-cols-[1.16fr_0.84fr]">
           <div className="relative overflow-hidden bg-[#050505] p-8 text-white md:p-12">
             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_100%_100%,_rgba(139,92,246,0.08),_transparent_50%)]" />
@@ -718,7 +718,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="changelog" className="border-y border-white/10 animate-fade-in-up">
+      <section id="changelog" className="cv-auto border-y border-white/10 animate-fade-in-up">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-24">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <div>
@@ -746,7 +746,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 pb-20 pt-20 text-center sm:px-5 sm:pb-24 sm:pt-24 md:pb-32 md:pt-32 animate-fade-in-up">
+      <section className="cv-auto mx-auto max-w-6xl px-4 pb-20 pt-20 text-center sm:px-5 sm:pb-24 sm:pt-24 md:pb-32 md:pt-32 animate-fade-in-up">
         <h2 className="mx-auto max-w-3xl text-4xl font-semibold tracking-tight leading-[0.94] text-white sm:text-5xl md:text-7xl">
           Bring the round under control.
         </h2>
@@ -760,7 +760,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer id="contact" className="border-t border-white/10">
+      <footer id="contact" className="cv-auto border-t border-white/10">
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-xs text-white/40 sm:px-5 sm:py-12 grid-cols-2 md:grid-cols-[1.2fr_repeat(5,1fr)]">
           <div>
             <AMSLogo />

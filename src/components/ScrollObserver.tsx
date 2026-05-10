@@ -16,11 +16,26 @@ export function ScrollObserver() {
       { threshold: 0.1 }
     );
 
-    document.querySelectorAll(".animate-fade-in-up").forEach((el) => {
-      observer.observe(el);
-    });
+    const observeElements = () => {
+      document.querySelectorAll(".animate-fade-in-up").forEach((el) => {
+        observer.observe(el);
+      });
+    };
 
-    return () => observer.disconnect();
+    observeElements();
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        observeElements();
+      }
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("pageshow", handlePageShow);
+    };
   }, []);
 
   return null;
