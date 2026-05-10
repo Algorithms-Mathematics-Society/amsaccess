@@ -14,6 +14,7 @@ import type { LucideIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { AMSLogo } from "@/components/AMSLogo";
 import { ScrollObserver } from "@/components/ScrollObserver";
+import { MobileNav } from "@/components/MobileNav";
 
 const navItems = [
   ["Product", "/#showcase"],
@@ -122,24 +123,45 @@ function MiniDots() {
 
 function HeroConsole() {
   return (
-    <div 
-      className="glass-card ams-hero-console mx-auto mt-8 max-w-6xl overflow-hidden rounded-[0.65rem] md:mt-10"
-    >
+    <div className="glass-card ams-hero-console mx-auto mt-8 max-w-6xl overflow-hidden rounded-[0.65rem] md:mt-10">
       <div className="flex items-center justify-between border-b border-white/10 bg-[#09090B] px-4 py-3">
         <MiniDots />
         <div className="ams-label">Controlled Round</div>
         <div className="h-2 w-14 rounded-full bg-white/10" />
       </div>
 
-      <div className="grid min-h-[470px] bg-transparent md:grid-cols-[200px_1fr_280px]">
+      {/* Mobile: simplified single-column view */}
+      <div className="block md:hidden bg-[#09090B]/50 p-5">
+        <p className="ams-label mb-3">Session Context</p>
+        <div className="space-y-2 rounded border border-white/10 bg-white/[0.025] p-4">
+          <div className="ams-context-line h-2 w-full rounded bg-white/20" />
+          <div className="h-2 w-10/12 rounded bg-white/10" />
+          <div className="h-2 w-4/5 rounded bg-white/10" />
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {["Windows","macOS","Linux"].map((p) => (
+            <div key={p} className="rounded border border-white/10 bg-white/[0.03] p-3 text-center">
+              <p className="text-sm font-medium text-white">{p}</p>
+              <p className="mt-0.5 text-[10px] text-white/40">desktop</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {[["Fullscreen","Controlled"],["Timeline","Recording"],["Responses","Saved"],["Review","Ready"]].map(([l,v]) => (
+            <div key={l} className="ams-session-indicator rounded border border-white/10 bg-[#09090B] px-3 py-2 flex items-center justify-between text-xs">
+              <span className="text-white/40">{l}</span>
+              <span className="text-[#8B5CF6]">{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop: full three-column layout */}
+      <div className="hidden md:grid min-h-[470px] bg-transparent md:grid-cols-[200px_1fr_280px]">
         <aside className="border-r border-white/10 bg-[#09090B]/50 p-4">
           <div className="mb-6 h-4 w-24 rounded bg-white/10" />
           {["Product", "Desktop Sessions", "Evidence", "Reviewer Workflow", "Downloads"].map((item, index) => (
-            <div
-              key={item}
-              className={`mb-2 flex items-center gap-2 rounded px-2 py-2 text-xs ${index === 1 ? "bg-white text-black" : "text-white/60"
-                }`}
-            >
+            <div key={item} className={`mb-2 flex items-center gap-2 rounded px-2 py-2 text-xs ${index === 1 ? "bg-white text-black" : "text-white/60"}`}>
               <span className={`h-1.5 w-1.5 rounded-full ${index === 1 ? "ams-status-pulse bg-[#09090B]" : "bg-white/25"}`} />
               {item}
             </div>
@@ -154,11 +176,8 @@ function HeroConsole() {
                 The environment, the work, and the record in one place
               </h2>
             </div>
-            <span className="ams-status-pulse rounded-full border border-purple-500/25 bg-purple-500/10 px-3 py-1 text-xs text-purple-200">
-              Ready
-            </span>
+            <span className="ams-status-pulse rounded-full border border-purple-500/25 bg-purple-500/10 px-3 py-1 text-xs text-purple-200">Ready</span>
           </div>
-
           <div className="space-y-3 rounded border border-white/10 bg-white/[0.025] p-5">
             <div className="ams-context-line h-2 w-full rounded bg-white/20" />
             <div className="h-2 w-11/12 rounded bg-white/10" />
@@ -172,7 +191,6 @@ function HeroConsole() {
               </div>
             </div>
           </div>
-
           <div className="mt-6 grid grid-cols-3 gap-3">
             {metrics.slice(0, 3).map(({ value, label }) => (
               <div key={label} className="rounded border border-white/10 bg-white/[0.03] p-4">
@@ -185,17 +203,8 @@ function HeroConsole() {
 
         <aside className="border-l border-white/10 bg-[#09090B]/50 p-4">
           <p className="ams-label mb-5">Session state</p>
-          {[
-            ["Fullscreen", "Controlled"],
-            ["Responses", "Saved"],
-            ["Timeline", "Recording"],
-            ["Review", "Ready"]
-          ].map(([label, value], index) => (
-            <div
-              key={label}
-              className="ams-session-indicator mb-3 rounded border border-white/10 bg-[#09090B] px-3 py-3"
-              style={{ animationDelay: `${index * 0.7}s` }}
-            >
+          {[["Fullscreen","Controlled"],["Responses","Saved"],["Timeline","Recording"],["Review","Ready"]].map(([label, value], index) => (
+            <div key={label} className="ams-session-indicator mb-3 rounded border border-white/10 bg-[#09090B] px-3 py-3" style={{ animationDelay: `${index * 0.7}s` }}>
               <div className="flex items-center justify-between gap-3 text-xs">
                 <span className="text-white/40">{label}</span>
                 <span className="text-[#8B5CF6]">{value}</span>
@@ -204,8 +213,7 @@ function HeroConsole() {
           ))}
           <div className="mt-6 rounded border border-white/10 bg-[#09090B] p-4">
             <div className="mb-3 flex items-center justify-between text-xs text-white/50">
-              <span>Round posture</span>
-              <span>Controlled</span>
+              <span>Round posture</span><span>Controlled</span>
             </div>
             <div className="h-1.5 rounded-full bg-white/10">
               <div className="ams-context-line h-full w-[82%] rounded-full bg-[#8B5CF6]" />
@@ -213,12 +221,8 @@ function HeroConsole() {
           </div>
           <div className="mt-4 rounded border border-white/10 bg-[#09090B] p-4">
             <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-white/35">Review trace</p>
-            {["Policy locked", "Context recording", "Timeline ready"].map((event, index) => (
-              <div
-                key={event}
-                className="ams-review-event mb-2 flex items-center justify-between text-xs last:mb-0"
-                style={{ animationDelay: `${index * 1.1}s` }}
-              >
+            {["Policy locked","Context recording","Timeline ready"].map((event, index) => (
+              <div key={event} className="ams-review-event mb-2 flex items-center justify-between text-xs last:mb-0" style={{ animationDelay: `${index * 1.1}s` }}>
                 <span className="text-white/45 typing-effect" style={{ animationDelay: `${index * 0.5}s` }}>{event}</span>
                 <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
               </div>
@@ -394,8 +398,8 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-[#000000] text-white">
       <ScrollObserver />
-      <header className="fixed inset-x-0 top-6 z-40 px-4">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-white/10 bg-[#09090B]/80 px-6 shadow-glass backdrop-blur-2xl">
+      <header className="fixed inset-x-0 top-4 z-40 px-4 sm:top-6">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-white/10 bg-[#09090B]/80 px-4 shadow-glass backdrop-blur-2xl sm:px-6">
           <AMSLogo size="nav" />
           <nav className="hidden items-center gap-8 text-sm font-medium text-white/56 lg:flex">
             {navItems.map(([item, href]) => (
@@ -404,25 +408,26 @@ export default function LandingPage() {
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <a
-              className="ams-cta-primary inline-flex h-9 items-center rounded-full border border-white/25 bg-white px-4 text-sm font-semibold text-[#202020] shadow-[0_4px_14px_rgba(255,255,255,0.1)] hover:bg-[#8B5CF6] hover:text-white"
+              className="ams-cta-primary hidden lg:inline-flex h-9 items-center rounded-full border border-white/25 bg-white px-4 text-sm font-semibold text-[#202020] shadow-[0_4px_14px_rgba(255,255,255,0.1)] hover:bg-[#8B5CF6] hover:text-white"
               href="/download"
             >
               Get AMS Access
             </a>
+            <MobileNav usePlainAnchor={true} />
           </div>
         </div>
       </header>
 
-      <section id="product" className="raycast-hero ams-hero-grid relative flex min-h-screen items-center justify-center overflow-hidden px-5 pb-20 pt-32 animate-fade-in-up md:pb-24 md:pt-[8.5rem]" style={{ backgroundImage: "linear-gradient(to right, #ffffff05 1px, transparent 1px), linear-gradient(to bottom, #ffffff05 1px, transparent 1px)", backgroundSize: "40px 40px" }}>
+      <section id="product" className="raycast-hero ams-hero-grid relative flex min-h-screen items-center justify-center overflow-hidden px-4 pb-20 pt-28 animate-fade-in-up sm:px-5 sm:pt-32 md:pb-24 md:pt-[8.5rem]" style={{ backgroundImage: "linear-gradient(to right, #ffffff05 1px, transparent 1px), linear-gradient(to bottom, #ffffff05 1px, transparent 1px)", backgroundSize: "40px 40px" }}>
         <div className="raycast-hero-bg" />
         <div className="absolute left-1/2 top-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-20 blur-3xl" />
         <div className="relative z-10 mx-auto max-w-6xl text-center">
           <div className="mx-auto mb-7 inline-flex items-center rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-purple-200 backdrop-blur-md">
             Controlled evaluation software
           </div>
-          <h1 className="mx-auto max-w-6xl bg-gradient-to-b from-white via-[#F4F4F5] to-[#A1A1AA] bg-clip-text text-[2.85rem] font-semibold leading-[0.9] tracking-tight text-transparent md:text-[4.15rem] lg:text-[5.65rem]">
+          <h1 className="mx-auto max-w-6xl bg-gradient-to-b from-white via-[#F4F4F5] to-[#A1A1AA] bg-clip-text text-[2.2rem] font-semibold leading-[0.92] tracking-tight text-transparent sm:text-[2.85rem] md:text-[4.15rem] lg:text-[5.65rem]">
             <span className="block">Serious evaluations</span>
             <span className="block">need a room</span>
             <span className="block">of their own.</span>
@@ -431,12 +436,19 @@ export default function LandingPage() {
             Controlled environments for written evaluations where the work, the session, and the review record all matter.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <a className="ams-cta-primary ams-glare relative overflow-hidden inline-flex h-[3.25rem] items-center justify-center gap-2 rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white group" href="/download">
+            <a className="ams-cta-primary ams-glare relative hidden h-[3.25rem] items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white group lg:inline-flex" href="/download">
               <span className="relative z-10 flex items-center gap-2">
                 Get AMS Access
                 <Download className="h-4 w-4" strokeWidth={2.5} />
               </span>
             </a>
+            <div className="inline-flex min-h-[3.25rem] items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-5 text-left shadow-sm backdrop-blur-md lg:hidden">
+              <Monitor className="h-4 w-4 shrink-0 text-purple-200" />
+              <div>
+                <p className="text-sm font-semibold text-white">Available on desktop</p>
+                <p className="text-[11px] leading-4 text-white/45">Windows, macOS, and Linux</p>
+              </div>
+            </div>
             <a className="ams-cta-secondary inline-flex h-[3.25rem] items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white" href="/pricing">
               See Plans
             </a>
@@ -445,11 +457,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl border-y border-white/10 px-5 py-28 md:py-40 animate-fade-in-up">
-        <div className="grid gap-14 md:grid-cols-[0.74fr_1.26fr]">
+      <section className="mx-auto max-w-6xl border-y border-white/10 px-4 py-16 sm:px-5 sm:py-28 md:py-40 animate-fade-in-up">
+        <div className="grid gap-8 md:gap-14 md:grid-cols-[0.74fr_1.26fr]">
           <div>
             <p className="ams-label mb-6">Worldview</p>
-            <h2 className="max-w-lg text-4xl font-semibold leading-[0.98] tracking-tight text-white md:text-6xl">
+            <h2 className="max-w-lg text-3xl font-semibold leading-[0.98] tracking-tight text-white sm:text-4xl md:text-6xl">
               Submissions are not enough.
             </h2>
           </div>
@@ -464,9 +476,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="showcase" className="mx-auto max-w-6xl px-5 py-24 md:py-32 animate-fade-in-up">
-        <div className="grid gap-12 md:grid-cols-[1.12fr_0.88fr]">
-          <h2 className="max-w-2xl text-4xl font-semibold leading-[0.98] tracking-tight text-white md:text-6xl">
+      <section id="showcase" className="mx-auto max-w-6xl px-4 py-16 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
+        <div className="grid gap-8 md:gap-12 md:grid-cols-[1.12fr_0.88fr]">
+          <h2 className="max-w-2xl text-3xl font-semibold leading-[0.98] tracking-tight text-white sm:text-4xl md:text-6xl">
             Give the round a boundary.
           </h2>
           <p className="max-w-lg text-base leading-8 text-white/56 md:pt-4">
@@ -474,7 +486,7 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="mt-24 grid gap-8 md:grid-cols-[1.18fr_0.91fr_0.91fr]">
+        <div className="mt-12 grid gap-6 sm:mt-16 md:mt-24 md:grid-cols-[1.18fr_0.91fr_0.91fr]">
           {foundation.map((item, index) => (
             <article key={item.title} className={`glass-card group flex flex-col p-8 ${index === 0 ? "ams-card-featured md:p-10" : ""}`}>
               <div className="relative mb-6 flex h-32 items-center justify-center overflow-hidden rounded border border-white/10 bg-[#09090B]">
@@ -526,11 +538,11 @@ export default function LandingPage() {
       </section>
 
       {workflowSections.map((section, idx) => (
-        <section id={idx === 1 ? "review-context" : undefined} key={section.title} className={`mx-auto max-w-6xl px-5 py-24 md:py-36 animate-fade-in-up ${idx === 0 ? "border-t border-white/5" : ""}`}>
-          <div className={`mb-10 grid gap-8 ${idx % 2 === 0 ? "md:grid-cols-[0.86fr_1.14fr]" : "md:grid-cols-[1.12fr_0.88fr]"}`}>
+        <section id={idx === 1 ? "review-context" : undefined} key={section.title} className={`mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-24 md:py-36 animate-fade-in-up ${idx === 0 ? "border-t border-white/5" : ""}`}>
+          <div className={`mb-8 grid gap-6 ${idx % 2 === 0 ? "md:grid-cols-[0.86fr_1.14fr]" : "md:grid-cols-[1.12fr_0.88fr]"}`}>
             <div>
               <p className="ams-label mb-4">{section.eyebrow}</p>
-              <h2 className="max-w-xl text-3xl font-semibold leading-[1] tracking-tight text-white md:text-5xl">{section.title}</h2>
+              <h2 className="max-w-xl text-2xl font-semibold leading-[1.05] tracking-tight text-white sm:text-3xl md:text-5xl">{section.title}</h2>
             </div>
             <p className="max-w-xl text-sm leading-7 text-white/50 md:pt-10">{section.body}</p>
           </div>
@@ -538,11 +550,11 @@ export default function LandingPage() {
         </section>
       ))}
 
-      <section id="pricing" className="mx-auto max-w-6xl border-t border-white/5 px-5 py-24 md:py-32 animate-fade-in-up">
-        <div className="mb-14 grid gap-8 md:grid-cols-[0.82fr_1.18fr]">
+      <section id="pricing" className="mx-auto max-w-6xl border-t border-white/5 px-4 py-14 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
+        <div className="mb-10 grid gap-6 md:mb-14 md:grid-cols-[0.82fr_1.18fr]">
           <div>
             <p className="ams-label mb-4">Pricing</p>
-            <h2 className="max-w-xl text-3xl font-semibold leading-[1] tracking-tight text-white md:text-5xl">
+            <h2 className="max-w-xl text-2xl font-semibold leading-[1.05] tracking-tight text-white sm:text-3xl md:text-5xl">
               For rounds with consequence.
             </h2>
           </div>
@@ -550,7 +562,7 @@ export default function LandingPage() {
             Plans follow the shape of the evaluation: pilot, event, institution, or custom deployment.
           </p>
         </div>
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
           {pricingPlans.map(([title, body, detail], index) => (
             <SpotlightCard key={title} featured={index === 2}>
               <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
@@ -561,18 +573,24 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="download" className="mx-auto max-w-6xl border-t border-white/5 px-5 py-24 md:py-32 animate-fade-in-up">
+      <section id="download" className="mx-auto max-w-6xl border-t border-white/5 px-4 py-14 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
         <div className="glass-card ams-card-featured grid overflow-hidden md:grid-cols-[1.16fr_0.84fr]">
           <div className="relative overflow-hidden bg-[#050505] p-8 text-white md:p-12">
             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_100%_100%,_rgba(139,92,246,0.08),_transparent_50%)]" />
             <div className="ams-noise pointer-events-none absolute inset-0 opacity-[0.35] mix-blend-overlay" />
             <div className="relative z-10">
-              <p className="ams-label">Download</p>
-              <h2 className="mt-5 max-w-lg text-3xl font-semibold tracking-tight leading-[1] md:text-5xl">
+              <p className="ams-label">
+                <span className="lg:hidden">Desktop availability</span>
+                <span className="hidden lg:inline">Download</span>
+              </p>
+              <h2 className="mt-5 max-w-lg text-2xl font-semibold tracking-tight leading-[1.05] sm:text-3xl md:text-5xl">
                 Put the environment in their hands.
               </h2>
-              <p className="mt-8 max-w-md text-sm leading-7 text-white/50">
+              <p className="mt-8 hidden max-w-md text-sm leading-7 text-white/50 lg:block">
                 Versioned builds for Windows, macOS, and Linux make deployment legible for technical teams.
+              </p>
+              <p className="mt-8 max-w-md text-sm leading-7 text-white/50 lg:hidden">
+                AMS Access is available for desktop environments: Windows, macOS, and Linux.
               </p>
               <a className="ams-cta-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/controlled-round">
                 Configure a Round
@@ -589,7 +607,8 @@ export default function LandingPage() {
                     <p className="text-sm font-semibold text-white">{platform}</p>
                     <p className="mt-1 text-xs text-white/40">{title}</p>
                   </div>
-                  <Download className="h-4 w-4 text-white/40" />
+                  <Monitor className="h-4 w-4 text-purple-200/70 lg:hidden" />
+                  <Download className="hidden h-4 w-4 text-white/40 lg:block" />
                 </div>
                 <p className="mt-4 text-xs leading-5 text-white/50">{body}</p>
               </div>
@@ -602,11 +621,11 @@ export default function LandingPage() {
       </section>
 
       <section id="changelog" className="border-y border-white/10 animate-fade-in-up">
-        <div className="mx-auto max-w-6xl px-5 py-24">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-24">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <div>
               <p className="ams-label mb-4">Release Notes</p>
-              <h2 className="max-w-xl text-3xl font-semibold leading-[1] tracking-tight text-white md:text-5xl">Change should be visible.</h2>
+              <h2 className="max-w-xl text-2xl font-semibold leading-[1.05] tracking-tight text-white sm:text-3xl md:text-5xl">Change should be visible.</h2>
             </div>
             <div className="max-w-md">
               <p className="text-sm leading-7 text-white/45">Operational teams need to know what changed before the next round begins.</p>
@@ -615,7 +634,7 @@ export default function LandingPage() {
               </a>
             </div>
           </div>
-          <div className="mt-16 grid gap-6 md:grid-cols-4">
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:mt-14 md:mt-16 md:grid-cols-4">
             {changelog.map(([title, body]) => (
               <SpotlightCard key={title}>
                 <div className="mb-4 h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
@@ -627,14 +646,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 pb-24 pt-24 text-center md:pb-32 md:pt-32 animate-fade-in-up">
-        <h2 className="mx-auto max-w-3xl text-5xl font-semibold tracking-tight leading-[0.94] text-white md:text-7xl">
+      <section className="mx-auto max-w-6xl px-4 pb-20 pt-20 text-center sm:px-5 sm:pb-24 sm:pt-24 md:pb-32 md:pt-32 animate-fade-in-up">
+        <h2 className="mx-auto max-w-3xl text-4xl font-semibold tracking-tight leading-[0.94] text-white sm:text-5xl md:text-7xl">
           Bring the round under control.
         </h2>
-        <div className="mt-10 flex justify-center gap-3">
-          <a className="ams-cta-primary ams-glare relative overflow-hidden group rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/download">
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
+          <a className="ams-cta-primary ams-glare relative hidden overflow-hidden rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white group lg:inline-flex" href="/download">
             <span className="relative z-10">Get AMS Access</span>
           </a>
+          <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-5 py-3 text-left lg:hidden">
+            <Monitor className="h-4 w-4 shrink-0 text-purple-200" />
+            <div>
+              <p className="text-sm font-semibold text-white">Available on desktop</p>
+              <p className="text-[11px] leading-4 text-white/45">Windows, macOS, and Linux</p>
+            </div>
+          </div>
           <a className="ams-cta-secondary rounded-full border border-white/10 px-5 py-3 text-sm font-medium text-white/60 hover:border-white/40 hover:text-white" href="/changelog">
             Release Notes
           </a>
@@ -642,7 +668,7 @@ export default function LandingPage() {
       </section>
 
       <footer id="contact" className="border-t border-white/10">
-        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 text-xs text-white/40 md:grid-cols-[1.2fr_repeat(5,1fr)]">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-xs text-white/40 sm:px-5 sm:py-12 grid-cols-2 md:grid-cols-[1.2fr_repeat(5,1fr)]">
           <div>
             <AMSLogo />
             <p className="mt-5 max-w-xs leading-5">AMS Access. Controlled environments and review context for high-trust evaluations.</p>

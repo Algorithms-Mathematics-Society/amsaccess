@@ -63,6 +63,7 @@
 html {
   min-height: 100%;
   background: rgb(var(--ams-bg));
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -71,6 +72,7 @@ body {
   background: var(--ams-body-bg);
   color: rgb(var(--ams-ink));
   text-rendering: geometricPrecision;
+  overflow-x: hidden;
 }
 
 button,
@@ -580,5 +582,18 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
   button, input, textarea, select, a {
     transition: none;
     transform: none;
+  }
+}
+
+/* ── Mobile nav drawer ──────────────────────────────────────── */
+.mobile-hamburger {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Footer: 2-col on small mobile, full cols on md+ */
+@media (max-width: 767px) {
+  .ams-footer-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

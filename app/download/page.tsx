@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, FileText, ShieldCheck } from "lucide-react";
+import { Download, FileText, Monitor, ShieldCheck } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
 
 const platforms = [
@@ -30,6 +30,15 @@ export default function DownloadPage() {
             <p className="mt-8 max-w-xl text-base leading-8 text-white/60">
               The downloadable desktop app for controlled rounds, written response capture, session policy, and review timeline context.
             </p>
+            <div className="mt-6 flex max-w-md items-start gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-4 lg:hidden">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-purple-400/20 bg-purple-500/10 text-purple-200">
+                <Monitor className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">Available on desktop</p>
+                <p className="mt-1 text-xs leading-5 text-white/45">Windows, macOS, and Linux builds are prepared for desktop deployments.</p>
+              </div>
+            </div>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link className="inline-flex h-11 items-center justify-center rounded-full border border-white/10 px-5 text-sm font-medium text-white/70 transition hover:border-white/40 hover:text-white" href="/changelog">
                 View Changelog
@@ -48,7 +57,8 @@ export default function DownloadPage() {
                     <h2 className="text-2xl font-semibold tracking-tight text-white">{platform.name}</h2>
                     <p className="mt-2 text-sm text-white/45">{platform.installer}</p>
                   </div>
-                  <Download className="h-5 w-5 text-white/35" />
+                  <Monitor className="h-5 w-5 text-purple-200/70 lg:hidden" />
+                  <Download className="hidden h-5 w-5 text-white/35 lg:block" />
                 </div>
                 <div className="mt-10 grid gap-3 border-t border-white/10 pt-5 text-xs">
                   <div className="flex items-center justify-between gap-4">
@@ -65,12 +75,16 @@ export default function DownloadPage() {
                   </div>
                 </div>
                 <button
-                  className="mt-8 inline-flex h-11 w-full cursor-not-allowed items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-5 text-sm font-semibold text-white/35"
+                  className="mt-8 hidden h-11 w-full cursor-not-allowed items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-5 text-sm font-semibold text-white/35 lg:inline-flex"
                   disabled
                   type="button"
                 >
                   Build pending
                 </button>
+                <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3 lg:hidden">
+                  <p className="text-sm font-semibold text-white">Available on desktop</p>
+                  <p className="mt-1 text-xs leading-5 text-white/45">{platform.name} release details are shown here for desktop setup.</p>
+                </div>
               </article>
             ))}
           </div>
