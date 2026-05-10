@@ -189,6 +189,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
     radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.1), transparent 30rem);
   filter: blur(40px);
   animation: amsBreath 8s ease-in-out infinite;
+  will-change: opacity, transform;
 }
 
 .glass-card {
@@ -211,6 +212,19 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
     0 0 34px rgba(139, 92, 246, 0.07),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transform: translateY(-1px);
+}
+
+.spotlight-card {
+  --spotlight-x: 0px;
+  --spotlight-y: 0px;
+}
+
+.spotlight-card-glow {
+  background: radial-gradient(600px circle at var(--spotlight-x) var(--spotlight-y), rgba(139,92,246,0.12), transparent 40%);
+}
+
+.spotlight-card:hover .spotlight-card-glow {
+  opacity: 1;
 }
 
 .ams-card-featured {
@@ -288,6 +302,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 .ams-context-line {
   transform-origin: left;
   animation: amsContextLine 5.6s ease-in-out infinite;
+  will-change: opacity, transform;
 }
 
 .ams-status-pulse {
@@ -312,10 +327,12 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
   opacity: 0.42;
   transform: translateX(-2px);
   animation: amsReviewEvent 7.2s ease-in-out infinite;
+  will-change: opacity, transform;
 }
 
 .ams-session-indicator {
   animation: amsSessionIndicator 6.4s ease-in-out infinite;
+  will-change: background-color, border-color;
 }
 
 .light .glass-card {
@@ -332,6 +349,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 .animate-fade-in-up {
   opacity: 0;
   transform: translateY(20px);
+  will-change: opacity, transform;
 }
 
 .animate-fade-in-up-trigger {
@@ -440,6 +458,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 .animate-scale-y {
   transform-origin: bottom;
   animation: scaleYInfinite 2.6s ease-in-out infinite;
+  will-change: transform;
 }
 
 @keyframes pulseRing {
@@ -449,6 +468,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 
 .animate-pulse-ring {
   animation: pulseRing 3.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  will-change: opacity, transform;
 }
 
 @keyframes amsBreath {

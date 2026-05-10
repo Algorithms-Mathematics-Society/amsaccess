@@ -1,5 +1,3 @@
-"use client";
-
 import {
   ArrowRight,
   Check,
@@ -11,10 +9,11 @@ import {
   ShieldCheck
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useState } from "react";
+import Link from "next/link";
 import { AMSLogo } from "@/components/AMSLogo";
 import { ScrollObserver } from "@/components/ScrollObserver";
 import { MobileNav } from "@/components/MobileNav";
+import { SpotlightCard } from "@/components/SpotlightCard";
 
 const navItems = [
   ["Product", "/#showcase"],
@@ -128,6 +127,30 @@ function MiniDots() {
   );
 }
 
+function MarketingLink({
+  href,
+  className,
+  children
+}: {
+  href: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  if (href.startsWith("#")) {
+    return (
+      <a className={className} href={href}>
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link className={className} href={href}>
+      {children}
+    </Link>
+  );
+}
+
 function HeroConsole() {
   return (
     <div className="glass-card ams-hero-console mx-auto mt-11 max-w-6xl overflow-hidden rounded-[0.65rem] md:mt-10">
@@ -238,34 +261,6 @@ function HeroConsole() {
         </aside>
       </div>
     </div>
-  );
-}
-
-function SpotlightCard({ children, featured }: { children: React.ReactNode, featured?: boolean }) {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isHovered, setIsHovered] = useState(false);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
-  return (
-    <article
-      onMouseMove={handleMouseMove}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`glass-card relative overflow-hidden p-5 ${featured ? "ams-card-featured" : ""}`}
-    >
-      <div
-        className="pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-300"
-        style={{
-          opacity: isHovered ? 1 : 0,
-          background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(139,92,246,0.12), transparent 40%)`
-        }}
-      />
-      <div className="relative z-10">{children}</div>
-    </article>
   );
 }
 
@@ -410,19 +405,19 @@ export default function LandingPage() {
           <AMSLogo size="nav" />
           <nav className="hidden items-center gap-8 text-sm font-medium text-white/56 lg:flex">
             {navItems.map(([item, href]) => (
-              <a key={item} className="transition hover:text-white" href={href}>
+              <MarketingLink key={item} className="transition hover:text-white" href={href}>
                 {item}
-              </a>
+              </MarketingLink>
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            <a
+            <Link
               className="ams-cta-primary hidden lg:inline-flex h-9 items-center rounded-full border border-white/25 bg-white px-4 text-sm font-semibold text-[#202020] shadow-[0_4px_14px_rgba(255,255,255,0.1)] hover:bg-[#8B5CF6] hover:text-white"
               href="/pricing"
             >
               Compare Plans
-            </a>
-            <MobileNav usePlainAnchor={true} />
+            </Link>
+            <MobileNav />
           </div>
         </div>
       </header>
@@ -440,15 +435,15 @@ export default function LandingPage() {
             A desktop assessment shell for fullscreen written rounds, activity evidence, and reviewer-ready timelines.
           </p>
           <div className="mt-9 flex flex-wrap justify-center gap-4 md:mt-6 md:gap-3">
-            <a className="ams-cta-primary ams-glare relative hidden h-[3.25rem] items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white group lg:inline-flex" href="/pricing">
+            <Link className="ams-cta-primary ams-glare relative hidden h-[3.25rem] items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white group lg:inline-flex" href="/pricing">
               <span className="relative z-10 flex items-center gap-2">
                 Compare Plans
                 <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
               </span>
-            </a>
-            <a className="inline-flex min-h-[3.25rem] items-center justify-center rounded-full border border-white/70 bg-white px-8 text-center text-[#17171A] shadow-[0_14px_34px_rgba(255,255,255,0.12)] transition hover:bg-purple-100 lg:hidden" href="/pricing">
+            </Link>
+            <Link className="inline-flex min-h-[3.25rem] items-center justify-center rounded-full border border-white/70 bg-white px-8 text-center text-[#17171A] shadow-[0_14px_34px_rgba(255,255,255,0.12)] transition hover:bg-purple-100 lg:hidden" href="/pricing">
               <span className="text-sm font-semibold">Compare Plans</span>
-            </a>
+            </Link>
             <a className="ams-cta-secondary inline-flex h-[3.25rem] items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white" href="#showcase">
               See Product
             </a>
@@ -637,15 +632,15 @@ export default function LandingPage() {
           <p className="max-w-xl text-sm leading-7 text-white/50">
             Compare the plan around your evaluation window, review load, and deployment path.
           </p>
-          <a className="ams-cta-primary inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/pricing">
+          <Link className="ams-cta-primary inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/pricing">
             Compare Plans
             <ArrowRight className="h-4 w-4" />
-          </a>
+          </Link>
         </div>
-        <a className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-purple-200/75 transition hover:text-white" href="/docs">
+        <Link className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-purple-200/75 transition hover:text-white" href="/docs">
           Read deployment docs
           <ArrowRight className="h-4 w-4" />
-        </a>
+        </Link>
       </section>
 
       <section id="download" className="mx-auto max-w-6xl border-t border-white/5 px-4 py-14 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
@@ -667,10 +662,10 @@ export default function LandingPage() {
               <p className="mt-8 max-w-md text-sm leading-7 text-white/50 lg:hidden">
                 AMS Access is available for desktop environments: Windows, macOS, and Linux.
               </p>
-              <a className="ams-cta-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/docs">
+              <Link className="ams-cta-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/docs">
                 Read Deployment Docs
                 <ArrowRight className="h-4 w-4" />
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -691,10 +686,10 @@ export default function LandingPage() {
             <div id="docs" className="rounded border border-white/10 bg-[#09090B] p-4 text-xs leading-5 text-white/45">
               Includes release notes, deployment context, and documentation paths for review operations.
             </div>
-            <a className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-purple-200/75 transition hover:text-white" href="/changelog">
+            <Link className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-purple-200/75 transition hover:text-white" href="/changelog">
               View changelog
               <ArrowRight className="h-4 w-4" />
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -708,9 +703,9 @@ export default function LandingPage() {
             </div>
             <div className="max-w-md">
               <p className="text-sm leading-7 text-white/45">Operational teams need to know what changed before the next round begins.</p>
-              <a className="ams-cta-secondary mt-6 inline-flex h-10 items-center justify-center rounded-full border border-white/10 px-4 text-xs font-medium text-white/65 hover:border-white/40 hover:text-white" href="/changelog">
+              <Link className="ams-cta-secondary mt-6 inline-flex h-10 items-center justify-center rounded-full border border-white/10 px-4 text-xs font-medium text-white/65 hover:border-white/40 hover:text-white" href="/changelog">
                 View Changelog
-              </a>
+              </Link>
             </div>
           </div>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:mt-14 md:mt-16 md:grid-cols-4">
@@ -730,12 +725,12 @@ export default function LandingPage() {
           Bring the round under control.
         </h2>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <a className="ams-cta-primary ams-glare relative inline-flex overflow-hidden rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white group" href="/pricing">
+          <Link className="ams-cta-primary ams-glare relative inline-flex overflow-hidden rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white group" href="/pricing">
             <span className="relative z-10">Compare Plans</span>
-          </a>
-          <a className="ams-cta-secondary rounded-full border border-white/10 px-5 py-3 text-sm font-medium text-white/60 hover:border-white/40 hover:text-white" href="/contact">
+          </Link>
+          <Link className="ams-cta-secondary rounded-full border border-white/10 px-5 py-3 text-sm font-medium text-white/60 hover:border-white/40 hover:text-white" href="/contact">
             Contact Sales
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -750,9 +745,9 @@ export default function LandingPage() {
               <p className="mb-4 text-white/70">{group}</p>
               <div className="grid gap-2">
                 {items.map(([item, href]) => (
-                  <a key={item} className="transition hover:text-white" href={href}>
+                  <MarketingLink key={item} className="transition hover:text-white" href={href}>
                     {item}
-                  </a>
+                  </MarketingLink>
                 ))}
               </div>
             </div>
