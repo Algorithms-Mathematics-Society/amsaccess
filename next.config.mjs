@@ -47,6 +47,11 @@ const publicRoutes = [
 ];
 
 const nextConfig = {
+  // Inline above-the-fold CSS into the HTML document, eliminating the
+  // round-trip that Lighthouse flagged as the 313 ms critical CSS chain.
+  experimental: {
+    optimizeCss: true
+  },
   async headers() {
     return [
       {

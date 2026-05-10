@@ -1,0 +1,9 @@
+# Target modern browsers only.
+# Eliminates polyfills for Array.at, flat, flatMap, Object.fromEntries,
+# Object.hasOwn, String trimStart/trimEnd — all Baseline features.
+last 2 Chrome versions
+last 2 Firefox versions
+last 2 Safari versions
+last 2 Edge versions
+not IE 11
+not dead

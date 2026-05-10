@@ -18,6 +18,8 @@ export function AMSLogo({ compact = false, size = "default" }: AMSLogoProps) {
           height={40}
           alt=""
           aria-hidden="true"
+          priority
+          fetchPriority="high"
           className={compact ? `${logoSize} max-w-none` : logoSize}
         />
       </div>

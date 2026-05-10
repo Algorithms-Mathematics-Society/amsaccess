@@ -9,22 +9,24 @@ type SpotlightCardProps = {
 
 export function SpotlightCard({ children, featured }: SpotlightCardProps) {
   const frameRef = useRef<number | null>(null);
-  const pointRef = useRef({ x: 0, y: 0 });
+  // Store raw pointer coords; rect is computed inside RAF to avoid forced reflow.
+  const clientRef = useRef({ x: 0, y: 0 });
+  const elementRef = useRef<HTMLElement | null>(null);
 
   const handlePointerMove = (event: React.PointerEvent<HTMLElement>) => {
-    const element = event.currentTarget;
-    const rect = element.getBoundingClientRect();
-    pointRef.current = {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top
-    };
+    clientRef.current = { x: event.clientX, y: event.clientY };
+    elementRef.current = event.currentTarget;
 
     if (frameRef.current !== null) return;
 
     frameRef.current = requestAnimationFrame(() => {
-      const { x, y } = pointRef.current;
-      element.style.setProperty("--spotlight-x", `${x}px`);
-      element.style.setProperty("--spotlight-y", `${y}px`);
+      const el = elementRef.current;
+      if (!el) return;
+      // getBoundingClientRect read + CSS var write both happen inside RAF —
+      // no interleaved layout thrash with the event handler.
+      const rect = el.getBoundingClientRect();
+      el.style.setProperty("--spotlight-x", `${clientRef.current.x - rect.left}px`);
+      el.style.setProperty("--spotlight-y", `${clientRef.current.y - rect.top}px`);
       frameRef.current = null;
     });
   };
