@@ -11,19 +11,25 @@ import {
   ShieldCheck
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { AMSLogo } from "@/components/AMSLogo";
 import { ScrollObserver } from "@/components/ScrollObserver";
 import { MobileNav } from "@/components/MobileNav";
 
 const navItems = [
   ["Product", "/#showcase"],
-  ["Download", "/download"],
   ["Pricing", "/pricing"],
+  ["Download", "/download"],
   ["Docs", "/docs"],
   ["Changelog", "/changelog"],
   ["Contact", "/contact"]
 ];
+
+const heroProof = [
+  "Fullscreen sessions",
+  "Activity evidence",
+  "Reviewer-ready timeline"
+] as const;
 
 const metrics: Array<{ value: string; label: string; Icon: LucideIcon }> = [
   { value: "Windows", label: "desktop installer", Icon: Monitor },
@@ -46,6 +52,13 @@ const foundation = [
     body: "Written output and event history stay together, giving reviewers the shape of the session as it happened."
   }
 ];
+
+const useCases = [
+  ["Hiring", "Run technical and written rounds where reviewers need more than a final answer."],
+  ["University", "Give remote evaluations a consistent desktop surface and a reviewable session record."],
+  ["Olympiad", "Keep high-trust written windows structured without turning review into surveillance."],
+  ["Scholarship", "Preserve the work, the session context, and the evidence behind consequential decisions."]
+] as const;
 
 const workflowSections = [
   {
@@ -76,11 +89,11 @@ const changelog = [
 ];
 
 const pricingPlans = [
-  ["Starter", "For pilots and small high-trust rounds.", "Controlled sessions, basic review context, versioned releases."],
-  ["Event", "For hiring, olympiad, and scholarship windows.", "Higher volume, reviewer workflows, export support."],
-  ["Institution", "For recurring evaluations across teams or programs.", "Multiple admins, centralized review, operational reporting."],
-  ["Enterprise", "For custom deployment and procurement needs.", "Custom limits, support paths, and deployment planning."]
-];
+  ["Starter", "Pilot", "For pilots and small high-trust rounds.", "Controlled sessions, basic review context, versioned releases."],
+  ["Event", "Hiring and contest windows", "For hiring, olympiad, and scholarship windows.", "Higher volume, reviewer workflows, export support."],
+  ["Institution", "Recurring programs", "For recurring evaluations across teams or programs.", "Multiple admins, centralized review, operational reporting."],
+  ["Enterprise", "Custom deployment", "For procurement, integrations, and managed rollout needs.", "Custom limits, support paths, and deployment planning."]
+] as const;
 
 const downloadPlatforms = [
   ["Windows", "Installer package", "Version notes and checksum-ready release flow."],
@@ -411,9 +424,9 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <a
               className="ams-cta-primary hidden lg:inline-flex h-9 items-center rounded-full border border-white/25 bg-white px-4 text-sm font-semibold text-[#202020] shadow-[0_4px_14px_rgba(255,255,255,0.1)] hover:bg-[#8B5CF6] hover:text-white"
-              href="/download"
+              href="/pricing"
             >
-              Get AMS Access
+              Compare Plans
             </a>
             <MobileNav usePlainAnchor={true} />
           </div>
@@ -433,60 +446,50 @@ export default function LandingPage() {
             <span className="block">of their own.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-lg text-base leading-7 text-slate-200/90 md:text-[1.05rem] md:leading-8">
-            Controlled environments for written evaluations where the work, the session, and the review record all matter.
+            A desktop assessment shell for fullscreen written rounds, activity evidence, and reviewer-ready timelines.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <a className="ams-cta-primary ams-glare relative hidden h-[3.25rem] items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white group lg:inline-flex" href="/download">
+            <a className="ams-cta-primary ams-glare relative hidden h-[3.25rem] items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white group lg:inline-flex" href="/pricing">
               <span className="relative z-10 flex items-center gap-2">
-                Get AMS Access
-                <Download className="h-4 w-4" strokeWidth={2.5} />
+                Compare Plans
+                <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
               </span>
             </a>
-            <div className="inline-flex min-h-[3.25rem] items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-5 text-left shadow-sm backdrop-blur-md lg:hidden">
-              <Monitor className="h-4 w-4 shrink-0 text-purple-200" />
-              <div>
-                <p className="text-sm font-semibold text-white">Available on desktop</p>
-                <p className="text-[11px] leading-4 text-white/45">Windows, macOS, and Linux</p>
-              </div>
-            </div>
-            <a className="ams-cta-secondary inline-flex h-[3.25rem] items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white" href="/pricing">
-              See Plans
+            <a className="inline-flex min-h-[3.25rem] items-center justify-center rounded-full border border-white/70 bg-white px-8 text-center text-[#17171A] shadow-[0_14px_34px_rgba(255,255,255,0.12)] transition hover:bg-purple-100 lg:hidden" href="/pricing">
+              <span className="text-sm font-semibold">Compare Plans</span>
             </a>
+            <a className="ams-cta-secondary inline-flex h-[3.25rem] items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white" href="#showcase">
+              See Product
+            </a>
+          </div>
+          <div className="mx-auto mt-5 flex max-w-2xl flex-wrap justify-center gap-2">
+            {heroProof.map((item) => (
+              <span key={item} className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-[11px] font-medium text-white/60 backdrop-blur-md">
+                {item}
+              </span>
+            ))}
           </div>
           <HeroConsole />
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl border-y border-white/10 px-4 py-16 sm:px-5 sm:py-28 md:py-40 animate-fade-in-up">
-        <div className="grid gap-8 md:gap-14 md:grid-cols-[0.74fr_1.26fr]">
-          <div>
-            <p className="ams-label mb-6">Worldview</p>
-            <h2 className="max-w-lg text-3xl font-semibold leading-[0.98] tracking-tight text-white sm:text-4xl md:text-6xl">
-              Submissions are not enough.
-            </h2>
-          </div>
-          <div className="max-w-2xl text-xl leading-9 text-white/58 md:pt-14">
-            <p>
-              A serious evaluation is more than an answer file. It is the environment the candidate worked inside, the interruptions around the work, and the evidence a reviewer can trust later.
-            </p>
-            <p className="mt-6">
-              AMS Access exists because high-trust rounds deserve review context, not just a final submission.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section id="showcase" className="mx-auto max-w-6xl px-4 py-16 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
-        <div className="grid gap-8 md:gap-12 md:grid-cols-[1.12fr_0.88fr]">
+      <section id="showcase" className="mx-auto max-w-6xl border-t border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
+        <div className="mb-10 grid gap-8 md:mb-14 md:grid-cols-[1.12fr_0.88fr]">
           <h2 className="max-w-2xl text-3xl font-semibold leading-[0.98] tracking-tight text-white sm:text-4xl md:text-6xl">
             Give the round a boundary.
           </h2>
-          <p className="max-w-lg text-base leading-8 text-white/56 md:pt-4">
-            Not an LMS. Not a contest portal. Not a form with stricter language. A product surface for evaluations where process matters.
-          </p>
+          <div className="max-w-lg md:pt-4">
+            <p className="text-base leading-8 text-white/56">
+              Not an LMS. Not a contest portal. Not a form with stricter language. A product surface for evaluations where process matters.
+            </p>
+            <a className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-purple-200/80 transition hover:text-white" href="#review-context">
+              See review context
+              <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
         </div>
 
-        <div className="mt-12 grid gap-6 sm:mt-16 md:mt-24 md:grid-cols-[1.18fr_0.91fr_0.91fr]">
+        <div className="grid gap-6 md:grid-cols-[1.18fr_0.91fr_0.91fr]">
           {foundation.map((item, index) => (
             <article key={item.title} className={`glass-card group flex flex-col p-8 ${index === 0 ? "ams-card-featured md:p-10" : ""}`}>
               <div className="relative mb-6 flex h-32 items-center justify-center overflow-hidden rounded border border-white/10 bg-[#09090B]">
@@ -537,6 +540,56 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl border-y border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-28 animate-fade-in-up">
+        <div className="grid gap-8 md:gap-14 md:grid-cols-[0.74fr_1.26fr]">
+          <div>
+            <p className="ams-label mb-6">Worldview</p>
+            <h2 className="max-w-lg text-3xl font-semibold leading-[0.98] tracking-tight text-white sm:text-4xl md:text-6xl">
+              Submissions are not enough.
+            </h2>
+          </div>
+          <div className="max-w-2xl text-xl leading-9 text-white/58 md:pt-14">
+            <p>
+              A serious evaluation is more than an answer file. It is the environment the candidate worked inside, the interruptions around the work, and the evidence a reviewer can trust later.
+            </p>
+            <p className="mt-6">
+              AMS Access exists because high-trust rounds deserve review context, not just a final submission.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-20 md:py-28 animate-fade-in-up">
+        <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <div>
+            <p className="ams-label mb-4">Built for</p>
+            <h2 className="max-w-2xl text-2xl font-semibold leading-[1.05] tracking-tight text-white sm:text-3xl md:text-5xl">
+              The rounds where context changes the decision.
+            </h2>
+          </div>
+          <p className="max-w-md text-sm leading-7 text-white/50">
+            Each format carries pressure: fairness, auditability, reviewer time, and deployment clarity.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {useCases.map(([title, body]) => (
+            <article key={title} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <p className="text-sm font-semibold text-white">{title}</p>
+              <p className="mt-4 text-xs leading-6 text-white/50">{body}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-8 rounded-2xl border border-purple-300/[0.15] bg-purple-500/[0.055] p-5 md:flex md:items-center md:justify-between md:gap-6">
+          <p className="text-sm leading-7 text-purple-100/75">
+            Start with the plan shape: pilot, event, institution, or custom deployment. The product path stays operational, not performative.
+          </p>
+          <a className="mt-4 inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-white transition hover:text-purple-100 md:mt-0" href="#pricing">
+            Compare plans
+            <ArrowRight className="h-4 w-4" />
+          </a>
+        </div>
+      </section>
+
       {workflowSections.map((section, idx) => (
         <section id={idx === 1 ? "review-context" : undefined} key={section.title} className={`mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-24 md:py-36 animate-fade-in-up ${idx === 0 ? "border-t border-white/5" : ""}`}>
           <div className={`mb-8 grid gap-6 ${idx % 2 === 0 ? "md:grid-cols-[0.86fr_1.14fr]" : "md:grid-cols-[1.12fr_0.88fr]"}`}>
@@ -547,8 +600,30 @@ export default function LandingPage() {
             <p className="max-w-xl text-sm leading-7 text-white/50 md:pt-10">{section.body}</p>
           </div>
           <WorkflowVisual kind={section.visual} />
+          <a
+            className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-purple-200/75 transition hover:text-white"
+            href={idx === 0 ? "#review-context" : "#pricing"}
+          >
+            {idx === 0 ? "See review context" : "View pricing"}
+            <ArrowRight className="h-4 w-4" />
+          </a>
         </section>
       ))}
+
+      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-5 md:py-14 animate-fade-in-up">
+        <div className="rounded-2xl border border-white/10 bg-[#09090B] p-6 md:flex md:items-center md:justify-between md:gap-8">
+          <div>
+            <p className="ams-label mb-3">Positioning</p>
+            <p className="max-w-2xl text-lg leading-8 text-white/[0.78]">
+              Not surveillance. Not a browser plugin. A desktop shell for serious written rounds.
+            </p>
+          </div>
+          <a className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-white transition hover:text-purple-100 md:mt-0" href="#pricing">
+            Compare plans
+            <ArrowRight className="h-4 w-4" />
+          </a>
+        </div>
+      </section>
 
       <section id="pricing" className="mx-auto max-w-6xl border-t border-white/5 px-4 py-14 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
         <div className="mb-10 grid gap-6 md:mb-14 md:grid-cols-[0.82fr_1.18fr]">
@@ -563,14 +638,30 @@ export default function LandingPage() {
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-          {pricingPlans.map(([title, body, detail], index) => (
+          {pricingPlans.map(([title, bestFor, body, detail], index) => (
             <SpotlightCard key={title} featured={index === 2}>
+              <p className="mb-4 inline-flex rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-purple-100/70">
+                {bestFor}
+              </p>
               <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
               <p className="mt-4 text-sm leading-6 text-white/60">{body}</p>
               <p className="mt-8 border-t border-white/10 pt-4 text-xs leading-5 text-white/40">{detail}</p>
             </SpotlightCard>
           ))}
         </div>
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+          <p className="max-w-xl text-sm leading-7 text-white/50">
+            Compare the plan around your evaluation window, review load, and deployment path.
+          </p>
+          <a className="ams-cta-primary inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/pricing">
+            Compare Plans
+            <ArrowRight className="h-4 w-4" />
+          </a>
+        </div>
+        <a className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-purple-200/75 transition hover:text-white" href="/docs">
+          Read deployment docs
+          <ArrowRight className="h-4 w-4" />
+        </a>
       </section>
 
       <section id="download" className="mx-auto max-w-6xl border-t border-white/5 px-4 py-14 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
@@ -592,8 +683,8 @@ export default function LandingPage() {
               <p className="mt-8 max-w-md text-sm leading-7 text-white/50 lg:hidden">
                 AMS Access is available for desktop environments: Windows, macOS, and Linux.
               </p>
-              <a className="ams-cta-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/controlled-round">
-                Configure a Round
+              <a className="ams-cta-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/docs">
+                Read Deployment Docs
                 <ArrowRight className="h-4 w-4" />
               </a>
             </div>
@@ -616,6 +707,10 @@ export default function LandingPage() {
             <div id="docs" className="rounded border border-white/10 bg-[#09090B] p-4 text-xs leading-5 text-white/45">
               Includes release notes, deployment context, and documentation paths for review operations.
             </div>
+            <a className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-purple-200/75 transition hover:text-white" href="/changelog">
+              View changelog
+              <ArrowRight className="h-4 w-4" />
+            </a>
           </div>
         </div>
       </section>
@@ -651,18 +746,11 @@ export default function LandingPage() {
           Bring the round under control.
         </h2>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <a className="ams-cta-primary ams-glare relative hidden overflow-hidden rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white group lg:inline-flex" href="/download">
-            <span className="relative z-10">Get AMS Access</span>
+          <a className="ams-cta-primary ams-glare relative inline-flex overflow-hidden rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white group" href="/pricing">
+            <span className="relative z-10">Compare Plans</span>
           </a>
-          <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-5 py-3 text-left lg:hidden">
-            <Monitor className="h-4 w-4 shrink-0 text-purple-200" />
-            <div>
-              <p className="text-sm font-semibold text-white">Available on desktop</p>
-              <p className="text-[11px] leading-4 text-white/45">Windows, macOS, and Linux</p>
-            </div>
-          </div>
-          <a className="ams-cta-secondary rounded-full border border-white/10 px-5 py-3 text-sm font-medium text-white/60 hover:border-white/40 hover:text-white" href="/changelog">
-            Release Notes
+          <a className="ams-cta-secondary rounded-full border border-white/10 px-5 py-3 text-sm font-medium text-white/60 hover:border-white/40 hover:text-white" href="/contact">
+            Contact Sales
           </a>
         </div>
       </section>
