@@ -1,7 +1,13 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowRight, Monitor } from "lucide-react";
 import { AMSLogo } from "@/components/AMSLogo";
-import { MobileNav } from "@/components/MobileNav";
+
+// Defer client island from the initial SSR bundle.
+const MobileNav = dynamic(
+  () => import("@/components/MobileNav").then(m => ({ default: m.MobileNav })),
+  { ssr: false }
+);
 
 export function MarketingHeader() {
   return (

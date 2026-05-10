@@ -10,10 +10,32 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { AMSLogo } from "@/components/AMSLogo";
-import { ScrollObserver } from "@/components/ScrollObserver";
-import { MobileNav } from "@/components/MobileNav";
-import { SpotlightCard } from "@/components/SpotlightCard";
+
+// Deferred client islands — excluded from the initial JS bundle.
+const ScrollObserver = dynamic(
+  () => import("@/components/ScrollObserver").then(m => ({ default: m.ScrollObserver })),
+  { ssr: false }
+);
+
+const MobileNav = dynamic(
+  () => import("@/components/MobileNav").then(m => ({ default: m.MobileNav })),
+  { ssr: false }
+);
+
+const SpotlightCard = dynamic(
+  () => import("@/components/SpotlightCard").then(m => ({ default: m.SpotlightCard })),
+  {
+    ssr: false,
+    loading: () => <article className="glass-card relative overflow-hidden p-5" aria-hidden="true" />
+  }
+);
+
+const LazyMount = dynamic(
+  () => import("@/components/LazyMount").then(m => ({ default: m.LazyMount })),
+  { ssr: false }
+);
 
 const navItems = [
   ["Product", "/#showcase"],
@@ -616,18 +638,20 @@ export default function LandingPage() {
             Plans follow the shape of the evaluation: pilot, event, institution, or custom deployment.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-          {pricingPlans.map(([title, bestFor, body, detail], index) => (
-            <SpotlightCard key={title} featured={index === 2}>
-              <p className="mb-4 inline-flex rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-purple-100/70">
-                {bestFor}
-              </p>
-              <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
-              <p className="mt-4 text-sm leading-6 text-white/60">{body}</p>
-              <p className="mt-8 border-t border-white/10 pt-4 text-xs leading-5 text-white/40">{detail}</p>
-            </SpotlightCard>
-          ))}
-        </div>
+        <LazyMount rootMargin="300px">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+            {pricingPlans.map(([title, bestFor, body, detail], index) => (
+              <SpotlightCard key={title} featured={index === 2}>
+                <p className="mb-4 inline-flex rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-purple-100/70">
+                  {bestFor}
+                </p>
+                <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
+                <p className="mt-4 text-sm leading-6 text-white/60">{body}</p>
+                <p className="mt-8 border-t border-white/10 pt-4 text-xs leading-5 text-white/40">{detail}</p>
+              </SpotlightCard>
+            ))}
+          </div>
+        </LazyMount>
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-5">
           <p className="max-w-xl text-sm leading-7 text-white/50">
             Compare the plan around your evaluation window, review load, and deployment path.
@@ -708,15 +732,17 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:mt-14 md:mt-16 md:grid-cols-4">
-            {changelog.map(([title, body]) => (
-              <SpotlightCard key={title}>
-                <div className="mb-4 h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
-                <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
-                <p className="mt-3 text-xs leading-5 text-white/50">{body}</p>
-              </SpotlightCard>
-            ))}
-          </div>
+          <LazyMount rootMargin="200px">
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:mt-14 md:mt-16 md:grid-cols-4">
+              {changelog.map(([title, body]) => (
+                <SpotlightCard key={title}>
+                  <div className="mb-4 h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
+                  <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
+                  <p className="mt-3 text-xs leading-5 text-white/50">{body}</p>
+                </SpotlightCard>
+              ))}
+            </div>
+          </LazyMount>
         </div>
       </section>
 
