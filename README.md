@@ -40,25 +40,40 @@ Integrity events are review signals only. They do not prove misconduct and shoul
 | `/admin/assessments/new` | Create an assessment |
 | `/admin/assessments/[id]/edit` | Edit an assessment and assign questions |
 
-Admin routes are protected by `middleware.ts`. A signed-in Supabase user can access `/admin/*` only when they have an active row in `public.admin_users`.
+Admin routes are protected by `src/middleware.ts`. A signed-in Supabase user can access `/admin/*` only when they have an active row in `public.admin_users`.
 
 ## Project Structure
 
 ```text
-app/
-  page.tsx                         Public landing page
-  access-admin-only/page.tsx       Admin login
-  admin/                           Admin dashboard, CMS, and review pages
+src/app/
+  (marketing)/                     Public product, pricing, docs, and contact pages
+  (admin)/                         Admin login, dashboards, CMS, and review pages
+  (org)/                           Organization setup, login, dashboard, and contests
+  api/                             Route handlers grouped by public/admin/org/auth areas
 
-components/
+src/components/
   EventTimeline.tsx                Integrity event display
   MarkdownPreview.tsx              Prompt rendering
 
-lib/
+src/domain/
   cms.ts                           CMS constants and helpers
   risk.ts                          Event weights and risk tone helpers
-  supabaseClient.ts                Browser Supabase client
   types.ts                         Shared TypeScript data types
+
+src/lib/
+  client/                          Browser API and Supabase clients
+  server/                          Server env, auth, logging, rate limiting, and HTTP helpers
+
+src/integrations/payments/
+  provider.ts                      Provider-neutral future payment integration shell
+
+docs/
+  product/                         Product, brand, pricing, copy, and website notes
+  engineering/                     Production-readiness and system design notes
+
+scripts/
+  update_page.py
+  update_pages.py
 
 supabase/migrations/
   202605060001_initial_schema.sql
@@ -66,6 +81,8 @@ supabase/migrations/
   202605060003_admin_auth.sql
   202605060004_admin_users.sql
   202605060005_cms_mvp.sql
+  202605080006_organizations.sql
+  202605110001_system_hardening_indexes.sql
 ```
 
 ## Requirements
