@@ -1,16 +1,12 @@
 # AMS Access
 
-AMS Access is a Next.js and Supabase platform for running timed written assessment rounds. It gives candidates a focused fullscreen workspace with autosaved answers and gives admins a review console with candidate submissions, integrity events, risk scores, reusable questions, rubrics, and assessment management.
+AMS Access is a Next.js and Supabase platform for managing serious written assessment rounds. The web app provides a marketing site plus admin tools for session review, candidate submissions, integrity events, risk scores, reusable questions, rubrics, and assessment management.
 
 The product is built for reasoning-heavy exams where the written derivation matters as much as the final answer.  .
 
 ## What It Does
 
-- Runs public candidate assessment sessions from the active assessment.
-- Collects candidate name, email, browser metadata, and session state.
-- Opens the assessment in fullscreen before questions are shown.
-- Autosaves answers every 10 seconds and keeps a local browser backup between network saves.
-- Records integrity events such as fullscreen exits, tab visibility changes, focus loss, blocked shortcuts, clipboard attempts, idle time, network changes, print attempts, and answer spikes.
+- Presents the public AMS Access product site.
 - Calculates a risk score from integrity events for review prioritization.
 - Provides an admin dashboard for sessions, submissions, event counts, risk tone, and review status.
 - Provides a CMS-style question bank with reusable questions, versions, tags, rubrics, expected outputs, and uploaded assets.
@@ -33,8 +29,7 @@ Integrity events are review signals only. They do not prove misconduct and shoul
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Public landing page and candidate start form |
-| `/assessment/[sessionId]` | Candidate assessment workspace |
+| `/` | Public landing page |
 | `/access-admin-only` | Admin sign-in page |
 | `/admin` | Admin session dashboard |
 | `/admin/session/[sessionId]` | Candidate submission review page |
@@ -51,21 +46,13 @@ Admin routes are protected by `middleware.ts`. A signed-in Supabase user can acc
 
 ```text
 app/
-  page.tsx                         Public landing and candidate session creation
-  assessment/[sessionId]/page.tsx  Candidate assessment workspace
+  page.tsx                         Public landing page
   access-admin-only/page.tsx       Admin login
   admin/                           Admin dashboard, CMS, and review pages
 
 components/
   EventTimeline.tsx                Integrity event display
   MarkdownPreview.tsx              Prompt rendering
-  QuestionCard.tsx                 Candidate answer UI
-  Timer.tsx                        Assessment timer
-  ThemeToggle.tsx                  Candidate theme control
-
-hooks/
-  useFullscreenGuard.ts            Fullscreen entry and state
-  useProctoring.ts                 Browser integrity event logging
 
 lib/
   cms.ts                           CMS constants and helpers
@@ -191,15 +178,7 @@ npm run lint
 
 ## Candidate Flow
 
-1. Candidate opens `/`.
-2. Candidate enters their name and email.
-3. The app creates a `sessions` row for the latest active assessment.
-4. The app records initial environment metadata as a proctor event.
-5. Candidate is redirected to `/assessment/[sessionId]`.
-6. Candidate enters fullscreen to reveal the questions.
-7. Answers are saved to localStorage immediately and upserted to Supabase every 10 seconds.
-8. Timer expiration or manual confirmation submits the session.
-9. Submission updates the session to `SUBMITTED` and clears the local backup.
+Candidate assessment delivery happens in the AMS Access desktop app. The website no longer hosts the browser assessment workspace.
 
 ## Admin Flow
 
@@ -241,11 +220,9 @@ Assessments include:
 - active/archive state
 - ordered question assignments
 
-The public start form selects the latest active assessment whose date window is currently eligible.
-
 ## Integrity Signals
 
-The app logs events through `hooks/useProctoring.ts`, including:
+Integrity events are recorded by the assessment runtime and reviewed in the admin console, including:
 
 - fullscreen enter and exit
 - tab hidden and visible
@@ -273,8 +250,8 @@ These signals can be noisy. Reviewers should read the event timeline beside the 
 ## Security Model
 
 - Candidates do not use Supabase Auth.
-- Candidate sessions are anonymous and identified by the session UUID in the assessment URL.
-- Public users can read eligible live assessment content and write session answers/events through URL-scoped, in-progress session policies.
+- Candidate sessions are reviewed in admin by session UUID.
+- Public web routes do not host the candidate assessment workspace.
 - Admin users must authenticate with Supabase Auth and must have an active `public.admin_users` row.
 - Admin CMS, review, and storage operations use `public.is_admin()` in RLS policies.
 - The `question-assets` storage bucket is public for reads so candidates and reviewers can load prompt assets.
@@ -302,7 +279,7 @@ Before deploying:
 3. Create at least one Supabase Auth user.
 4. Add that user to `public.admin_users`.
 5. Create or publish a live assessment with assigned published questions.
-6. Smoke test `/`, `/assessment/[sessionId]`, `/access-admin-only`, and `/admin`.
+6. Smoke test `/`, `/access-admin-only`, and `/admin`.
 
 ## Troubleshooting
 
@@ -331,7 +308,7 @@ Confirm the assessment has:
 - a start/end window that includes the current time, or null dates
 - at least one assigned published question
 
-### Candidate sees no questions
+### Desktop app sees no questions
 
 Confirm the assessment has rows in `assessment_questions` and the assigned questions have `status = 'PUBLISHED'`.
 

@@ -25,12 +25,6 @@ const navItems = [
   ["Contact", "/contact"]
 ];
 
-const heroProof = [
-  "Fullscreen sessions",
-  "Activity evidence",
-  "Reviewer-ready timeline"
-] as const;
-
 const metrics: Array<{ value: string; label: string; Icon: LucideIcon }> = [
   { value: "Windows", label: "desktop installer", Icon: Monitor },
   { value: "macOS", label: "desktop package", Icon: Monitor },
@@ -136,7 +130,7 @@ function MiniDots() {
 
 function HeroConsole() {
   return (
-    <div className="glass-card ams-hero-console mx-auto mt-8 max-w-6xl overflow-hidden rounded-[0.65rem] md:mt-10">
+    <div className="glass-card ams-hero-console mx-auto mt-11 max-w-6xl overflow-hidden rounded-[0.65rem] md:mt-10">
       <div className="flex items-center justify-between border-b border-white/10 bg-[#09090B] px-4 py-3">
         <MiniDots />
         <div className="ams-label">Controlled Round</div>
@@ -433,22 +427,19 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section id="product" className="raycast-hero ams-hero-grid relative flex min-h-screen items-center justify-center overflow-hidden px-4 pb-20 pt-28 animate-fade-in-up sm:px-5 sm:pt-32 md:pb-24 md:pt-[8.5rem]" style={{ backgroundImage: "linear-gradient(to right, #ffffff05 1px, transparent 1px), linear-gradient(to bottom, #ffffff05 1px, transparent 1px)", backgroundSize: "40px 40px" }}>
+      <section id="product" className="raycast-hero ams-hero-grid relative flex min-h-screen items-center justify-center overflow-hidden px-4 pb-24 pt-32 animate-fade-in-up sm:px-5 sm:pt-32 md:pb-28 md:pt-[10rem] lg:pt-[11rem]" style={{ backgroundImage: "linear-gradient(to right, #ffffff05 1px, transparent 1px), linear-gradient(to bottom, #ffffff05 1px, transparent 1px)", backgroundSize: "40px 40px" }}>
         <div className="raycast-hero-bg" />
         <div className="absolute left-1/2 top-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-20 blur-3xl" />
         <div className="relative z-10 mx-auto max-w-6xl text-center">
-          <div className="mx-auto mb-7 inline-flex items-center rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-purple-200 backdrop-blur-md">
-            Controlled evaluation software
-          </div>
-          <h1 className="mx-auto max-w-6xl bg-gradient-to-b from-white via-[#F4F4F5] to-[#A1A1AA] bg-clip-text text-[2.2rem] font-semibold leading-[0.92] tracking-tight text-transparent sm:text-[2.85rem] md:text-[4.15rem] lg:text-[5.65rem]">
+          <h1 className="mx-auto max-w-5xl bg-gradient-to-b from-white via-[#F4F4F5] to-[#A1A1AA] bg-clip-text text-[2.2rem] font-semibold leading-[0.92] tracking-tight text-transparent sm:text-[2.85rem] md:text-[3.75rem] lg:text-[4.85rem]">
             <span className="block">Serious evaluations</span>
             <span className="block">need a room</span>
             <span className="block">of their own.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-lg text-base leading-7 text-slate-200/90 md:text-[1.05rem] md:leading-8">
+          <p className="mx-auto mt-8 max-w-lg text-base leading-8 text-slate-200/90 md:mt-6 md:text-[1.05rem] md:leading-8">
             A desktop assessment shell for fullscreen written rounds, activity evidence, and reviewer-ready timelines.
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <div className="mt-9 flex flex-wrap justify-center gap-4 md:mt-6 md:gap-3">
             <a className="ams-cta-primary ams-glare relative hidden h-[3.25rem] items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white group lg:inline-flex" href="/pricing">
               <span className="relative z-10 flex items-center gap-2">
                 Compare Plans
@@ -461,13 +452,6 @@ export default function LandingPage() {
             <a className="ams-cta-secondary inline-flex h-[3.25rem] items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white" href="#showcase">
               See Product
             </a>
-          </div>
-          <div className="mx-auto mt-5 flex max-w-2xl flex-wrap justify-center gap-2">
-            {heroProof.map((item) => (
-              <span key={item} className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-[11px] font-medium text-white/60 backdrop-blur-md">
-                {item}
-              </span>
-            ))}
           </div>
           <HeroConsole />
         </div>

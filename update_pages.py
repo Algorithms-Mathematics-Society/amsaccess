@@ -2,8 +2,7 @@ import os
 
 files = [
     'app/admin/page.tsx',
-    'app/admin/session/[sessionId]/page.tsx',
-    'app/assessment/[sessionId]/page.tsx'
+    'app/admin/session/[sessionId]/page.tsx'
 ]
 
 replacements = {
