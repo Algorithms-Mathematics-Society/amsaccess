@@ -1,5 +1,8 @@
 # System Design Checks
 
+Canonical production-readiness notes are now maintained in `SYSTEM_DESIGN_CHECKS.md`.
+This uppercase file is kept only for compatibility with older links.
+
 ## 1. Scale Target
 
 Target capacity: approximately 100,000 users.

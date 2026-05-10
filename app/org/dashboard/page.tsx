@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Building2, CalendarDays, Plus, LogOut, Trophy, Users } from "lucide-react";
+import { apiFetch } from "@/lib/apiClient";
 import { supabase } from "@/lib/supabaseClient";
 
 type Org = { id: string; name: string; slug: string };
@@ -16,6 +17,11 @@ type Contest = {
   status: string;
   _invite_count?: number;
   _question_count?: number;
+};
+
+type DashboardResponse = {
+  org: Org;
+  contests: Contest[];
 };
 
 function statusColor(status: string) {
@@ -36,40 +42,19 @@ export default function OrgDashboardPage() {
     setLoading(true);
     setError(null);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/org/login"); return; }
-
-    const { data: orgData, error: orgError } = await supabase
-      .from("organizations")
-      .select("id, name, slug")
-      .limit(1)
-      .maybeSingle();
-
-    if (orgError) { setError(orgError.message); setLoading(false); return; }
-    if (!orgData) { router.push("/org/setup"); return; }
-
-    setOrg(orgData);
-
-    const { data: contestData, error: contestError } = await supabase
-      .from("contests")
-      .select("id, title, description, start_at, end_at, status")
-      .eq("org_id", orgData.id)
-      .order("created_at", { ascending: false });
-
-    if (contestError) { setError(contestError.message); setLoading(false); return; }
-
-    const enriched = await Promise.all(
-      (contestData ?? []).map(async (c) => {
-        const [{ count: ic }, { count: qc }] = await Promise.all([
-          supabase.from("contest_invites").select("*", { count: "exact", head: true }).eq("contest_id", c.id),
-          supabase.from("contest_questions").select("*", { count: "exact", head: true }).eq("contest_id", c.id),
-        ]);
-        return { ...c, _invite_count: ic ?? 0, _question_count: qc ?? 0 };
-      })
-    );
-
-    setContests(enriched);
-    setLoading(false);
+    try {
+      const data = await apiFetch<DashboardResponse>("/api/org/dashboard");
+      setOrg(data.org);
+      setContests(data.contests);
+    } catch (loadError) {
+      if (loadError instanceof Error && loadError.message.includes("Organization setup")) {
+        router.push("/org/setup");
+        return;
+      }
+      setError(loadError instanceof Error ? loadError.message : "Unable to load dashboard.");
+    } finally {
+      setLoading(false);
+    }
   }, [router]);
 
   useEffect(() => { void load(); }, [load]);

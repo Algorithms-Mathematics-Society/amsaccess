@@ -5,19 +5,34 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AMSLogo } from "@/components/AMSLogo";
-import { calculateRiskScore, riskTone } from "@/lib/risk";
+import { apiFetch } from "@/lib/apiClient";
+import { riskTone } from "@/lib/risk";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
-import type { ProctorEvent, Session } from "@/lib/types";
+import type { Session } from "@/lib/types";
 import { TableSkeleton } from "@/components/Skeleton";
 
 type Row = Session & {
-  events: ProctorEvent[];
+  eventSummary: {
+    events: number;
+    fullscreenExits: number;
+    tabSwitches: number;
+  };
+};
+
+type AdminSessionsResponse = {
+  sessions: Row[];
+  page: number;
+  pageSize: number;
+  total: number;
 };
 
 export default function AdminPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<Row[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(25);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +41,7 @@ export default function AdminPage() {
     router.push("/access-admin-only");
   }
 
-  const loadSessions = useCallback(async () => {
+  const loadSessions = useCallback(async (nextPage = page, nextQuery = searchQuery) => {
     setIsLoading(true);
     setError(null);
 
@@ -36,25 +51,23 @@ export default function AdminPage() {
       return;
     }
 
-    const [{ data: sessionData, error: sessionError }, { data: eventData, error: eventError }] = await Promise.all([
-      supabase.from("sessions").select("*").order("started_at", { ascending: false }),
-      supabase.from("proctor_events").select("*").order("created_at", { ascending: true })
-    ]);
+    try {
+      const params = new URLSearchParams({
+        page: String(nextPage),
+        pageSize: String(pageSize)
+      });
+      if (nextQuery.trim()) params.set("q", nextQuery.trim());
 
-    if (sessionError || eventError) {
-      setError(sessionError?.message ?? eventError?.message ?? "Unable to load admin dashboard.");
+      const data = await apiFetch<AdminSessionsResponse>(`/api/admin/sessions?${params}`);
+      setSessions(data.sessions);
+      setTotal(data.total);
+      setPage(data.page);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load admin dashboard.");
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    setSessions(
-      (sessionData as Session[]).map((session) => ({
-        ...session,
-        events: (eventData as ProctorEvent[]).filter((event) => event.session_id === session.id)
-      }))
-    );
-    setIsLoading(false);
-  }, []);
+  }, [page, pageSize, searchQuery]);
 
   useEffect(() => {
     void loadSessions();
@@ -62,11 +75,11 @@ export default function AdminPage() {
 
   const totals = useMemo(
     () => ({
-      sessions: sessions.length,
+      sessions: total,
       submitted: sessions.filter((session) => session.status === "SUBMITTED").length,
-      events: sessions.reduce((total, session) => total + session.events.length, 0)
+      events: sessions.reduce((sum, session) => sum + session.eventSummary.events, 0)
     }),
-    [sessions]
+    [sessions, total]
   );
 
   const filteredSessions = useMemo(() => {
@@ -165,7 +178,7 @@ export default function AdminPage() {
             ) : null}
           </div>
           <p className="text-sm text-white/50">
-            Showing {filteredSessions.length} of {sessions.length} sessions
+            Showing {filteredSessions.length} of {total} sessions
           </p>
         </section>
 
@@ -190,9 +203,9 @@ export default function AdminPage() {
                   <TableSkeleton cols={9} rows={5} />
                 ) : filteredSessions.length ? (
                   filteredSessions.map((session) => {
-                    const fullscreenExits = session.events.filter((event) => event.event_type === "FULLSCREEN_EXIT").length;
-                    const tabSwitches = session.events.filter((event) => event.event_type === "TAB_HIDDEN").length;
-                    const riskScore = session.risk_score || calculateRiskScore(session.events);
+                    const fullscreenExits = session.eventSummary.fullscreenExits;
+                    const tabSwitches = session.eventSummary.tabSwitches;
+                    const riskScore = session.risk_score || 0;
 
                     return (
                       <tr key={session.id} className="border-b border-white/10 last:border-0">
@@ -204,7 +217,7 @@ export default function AdminPage() {
                         <td className="px-4 py-4 text-white/60">
                           {session.submitted_at ? new Date(session.submitted_at).toLocaleString() : "—"}
                         </td>
-                        <td className="px-4 py-4 text-white">{session.events.length}</td>
+                        <td className="px-4 py-4 text-white">{session.eventSummary.events}</td>
                         <td className="px-4 py-4 text-white">{fullscreenExits}</td>
                         <td className="px-4 py-4 text-white">{tabSwitches}</td>
                         <td className="px-4 py-4">
@@ -236,6 +249,23 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            className="inline-flex h-9 items-center rounded border border-white/10 bg-white/[0.04] px-3 text-xs text-white/70 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={page <= 1 || isLoading}
+            onClick={() => void loadSessions(page - 1)}
+          >
+            Previous
+          </button>
+          <span className="text-xs text-white/45">Page {page}</span>
+          <button
+            className="inline-flex h-9 items-center rounded border border-white/10 bg-white/[0.04] px-3 text-xs text-white/70 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={page * pageSize >= total || isLoading}
+            onClick={() => void loadSessions(page + 1)}
+          >
+            Next
+          </button>
+        </div>
       </div>
     </main>
   );

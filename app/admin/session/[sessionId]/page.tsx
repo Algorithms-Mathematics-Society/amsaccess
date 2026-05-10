@@ -9,6 +9,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AMSLogo } from "@/components/AMSLogo";
 import { EventTimeline } from "@/components/EventTimeline";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
+import { apiFetch } from "@/lib/apiClient";
 import { safeRubric } from "@/lib/cms";
 import { calculateRiskScore, riskColor, riskTone } from "@/lib/risk";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
@@ -17,6 +18,13 @@ import { PageSkeleton } from "@/components/Skeleton";
 
 type AnswerWithQuestion = Answer & {
   question?: Question;
+};
+
+type SessionDetailResponse = {
+  session: Session;
+  answers: AnswerWithQuestion[];
+  events: ProctorEvent[];
+  review: Partial<Review>;
 };
 
 export default function AdminSessionPage() {
@@ -42,55 +50,18 @@ export default function AdminSessionPage() {
       }
 
       setIsLoading(true);
-      const { data: sessionData, error: sessionError } = await supabase
-        .from("sessions")
-        .select("*")
-        .eq("id", sessionId)
-        .single();
-
-      if (sessionError) {
-        setError(sessionError.message);
+      try {
+        const data = await apiFetch<SessionDetailResponse>(`/api/admin/sessions/${sessionId}`);
+        setSession(data.session);
+        setAnswers(data.answers);
+        setEvents(data.events);
+        setReview(data.review);
+        setRubricScores((data.review.rubric_scores ?? {}) as Record<string, number | null>);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Unable to load session.");
+      } finally {
         setIsLoading(false);
-        return;
       }
-
-      const [{ data: answerData, error: answerError }, { data: eventData, error: eventError }, { data: reviewData }] =
-        await Promise.all([
-          supabase.from("answers").select("*").eq("session_id", sessionId),
-          supabase.from("proctor_events").select("*").eq("session_id", sessionId).order("created_at", { ascending: true }),
-          supabase.from("reviews").select("*").eq("session_id", sessionId).maybeSingle()
-        ]);
-
-      if (answerError || eventError) {
-        setError(answerError?.message ?? eventError?.message ?? "Unable to load session.");
-        setIsLoading(false);
-        return;
-      }
-
-      const answers = (answerData ?? []) as Answer[];
-      const questionIds = Array.from(new Set(answers.map((answer) => answer.question_id)));
-      const [{ data: questionData }, { data: assetData }] = questionIds.length
-        ? await Promise.all([
-            supabase.from("questions").select("*").in("id", questionIds),
-            supabase.from("question_assets").select("*").in("question_id", questionIds)
-          ])
-        : [{ data: [] }, { data: [] }];
-      const assets = (assetData ?? []) as Array<{ question_id: string } & Record<string, unknown>>;
-      const questions = ((questionData ?? []) as Question[]).map((question) => ({
-        ...question,
-        assets: assets.filter((asset) => asset.question_id === question.id)
-      }));
-      setSession(sessionData);
-      setAnswers(
-        answers.map((answer) => ({
-          ...answer,
-          question: questions.find((question) => question.id === answer.question_id)
-        }))
-      );
-      setEvents((eventData ?? []) as ProctorEvent[]);
-      setReview((reviewData as Review | null) ?? {});
-      setRubricScores(((reviewData as Review | null)?.rubric_scores ?? {}) as Record<string, number | null>);
-      setIsLoading(false);
     }
 
     void loadSession();
@@ -113,25 +84,22 @@ export default function AdminSessionPage() {
     setError(null);
     setMessage(null);
 
-    const { error: saveError } = await supabase.from("reviews").upsert(
-      {
-        session_id: sessionId,
+    try {
+      await apiFetch<{ saved: boolean }>(`/api/admin/sessions/${sessionId}`, {
+        method: "POST",
+        body: JSON.stringify({
         score: review.score ?? null,
         comments: review.comments ?? null,
         decision: review.decision ?? null,
         rubric_scores: rubricScores
-      },
-      { onConflict: "session_id" }
-    );
-
-    setIsSaving(false);
-
-    if (saveError) {
-      setError(saveError.message);
-      return;
+        })
+      });
+      setMessage("Review saved.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to save review.");
+    } finally {
+      setIsSaving(false);
     }
-
-    setMessage("Review saved.");
   }
 
   async function signOut() {

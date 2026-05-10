@@ -11,9 +11,29 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#039;");
 }
 
+function escapeAttribute(value: string) {
+  return escapeHtml(value).replace(/`/g, "&#096;");
+}
+
+function isSafeImageUrl(value: string) {
+  if (!value || /[\s"'<>]/.test(value)) return false;
+  if (value.startsWith("/")) return true;
+  if (value.startsWith("data:image/")) return true;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 function inlineMarkdown(value: string) {
   return value
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="my-3 max-h-72 rounded border border-white/10" />')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt: string, url: string) => {
+      if (!isSafeImageUrl(url)) return "";
+      return `<img src="${escapeAttribute(url)}" alt="${escapeAttribute(alt)}" class="my-3 max-h-72 rounded border border-white/10" />`;
+    })
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
     .replace(/`([^`]+)`/g, '<code class="rounded bg-white/10 px-1 py-0.5">$1</code>');

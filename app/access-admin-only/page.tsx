@@ -3,7 +3,8 @@
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, Eye, EyeOff, ShieldCheck } from "lucide-react";
-import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { apiFetch } from "@/lib/apiClient";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function AdminLoginPage() {
   const router       = useRouter();
@@ -32,41 +33,16 @@ export default function AdminLoginPage() {
     setIsLoading(true);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      const result = await apiFetch<{ redirectTo: string }>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          scope: "admin",
+          email: email.trim(),
+          password
+        })
       });
 
-      if (authError) {
-        setError(authError.message || "Invalid credentials. Access denied.");
-        return;
-      }
-
-      const {
-        data: { user },
-        error: userError
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        await supabase.auth.signOut();
-        setError(userError?.message || "Unable to verify your admin account.");
-        return;
-      }
-
-      const { data: adminUser, error: adminError } = await supabase
-        .from("admin_users")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (adminError || !adminUser) {
-        await supabase.auth.signOut();
-        setError(adminError?.message || "Your account does not have admin privileges.");
-        return;
-      }
-
-      router.push("/admin");
+      router.push(result.redirectTo);
       router.refresh();
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Unable to sign in. Check your connection and try again.");

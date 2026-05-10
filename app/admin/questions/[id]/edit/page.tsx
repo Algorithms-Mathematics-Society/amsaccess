@@ -4,8 +4,9 @@ import { ImagePlus, Plus, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { apiFetch } from "@/lib/apiClient";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
-import { DIFFICULTIES, formatCsv, parseCsv, QUESTION_TYPES, safeRubric, sanitizeStorageName } from "@/lib/cms";
+import { DIFFICULTIES, formatCsv, parseCsv, QUESTION_TYPES, safeRubric } from "@/lib/cms";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import type { Question, QuestionAsset, RubricCriterion } from "@/lib/types";
 
@@ -192,59 +193,46 @@ export default function EditQuestionPage() {
     setError(null);
     setIsUploading(true);
 
-    const filename = sanitizeStorageName(file.name);
-    const storagePath = `${questionId}/${Date.now()}-${filename}`;
-    const { error: uploadError } = await supabase.storage.from("question-assets").upload(storagePath, file, {
-      upsert: false,
-      contentType: file.type
-    });
-
-    if (uploadError) {
-      setError(uploadError.message);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const result = await apiFetch<{ asset: QuestionAsset; publicUrl: string }>(`/api/admin/questions/${questionId}/assets`, {
+        method: "POST",
+        body: formData
+      });
+      setAssets((current) => [result.asset, ...current]);
+      setStatement((current) => `${current.trim()}\n\n![${result.asset.alt_text ?? result.asset.filename}](${result.publicUrl})\n`);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Unable to upload image.");
+    } finally {
       setIsUploading(false);
-      return;
+      event.target.value = "";
     }
-
-    const { data, error: insertError } = await supabase
-      .from("question_assets")
-      .insert({
-        question_id: questionId,
-        storage_path: storagePath,
-        filename: file.name,
-        content_type: file.type,
-        size_bytes: file.size,
-        alt_text: file.name,
-        caption: ""
-      })
-      .select("*")
-      .single();
-
-    setIsUploading(false);
-
-    if (insertError) {
-      setError(insertError.message);
-      return;
-    }
-
-    const asset = data as QuestionAsset;
-    const publicUrl = supabase.storage.from("question-assets").getPublicUrl(asset.storage_path).data.publicUrl;
-    setAssets((current) => [asset, ...current]);
-    setStatement((current) => `${current.trim()}\n\n![${asset.alt_text ?? asset.filename}](${publicUrl})\n`);
   }
 
   async function updateAsset(asset: QuestionAsset, patch: Partial<QuestionAsset>) {
     const next = { ...asset, ...patch };
     setAssets((current) => current.map((item) => item.id === asset.id ? next : item));
-    await supabase.from("question_assets").update({
-      caption: next.caption,
-      alt_text: next.alt_text
-    }).eq("id", asset.id);
+    try {
+      await apiFetch<{ saved: boolean }>(`/api/admin/questions/${questionId}/assets/${asset.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          caption: next.caption,
+          alt_text: next.alt_text
+        })
+      });
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Unable to update image metadata.");
+    }
   }
 
   async function deleteAsset(asset: QuestionAsset) {
-    await supabase.storage.from("question-assets").remove([asset.storage_path]);
-    await supabase.from("question_assets").delete().eq("id", asset.id);
-    setAssets((current) => current.filter((item) => item.id !== asset.id));
+    try {
+      await apiFetch<{ deleted: boolean }>(`/api/admin/questions/${questionId}/assets/${asset.id}`, { method: "DELETE" });
+      setAssets((current) => current.filter((item) => item.id !== asset.id));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete image.");
+    }
   }
 
   if (isLoading) {

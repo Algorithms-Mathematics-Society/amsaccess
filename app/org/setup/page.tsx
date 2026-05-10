@@ -3,7 +3,7 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
+import { apiFetch } from "@/lib/apiClient";
 
 function toSlug(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -28,19 +28,12 @@ export default function OrgSetupPage() {
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/org/login"); return; }
+      const result = await apiFetch<{ redirectTo: string }>("/api/org/setup", {
+        method: "POST",
+        body: JSON.stringify({ name, slug })
+      });
 
-      const { error: insertError } = await supabase
-        .from("organizations")
-        .insert({ name: name.trim(), slug: slug.trim(), owner_id: user.id });
-
-      if (insertError) {
-        setError(insertError.message);
-        return;
-      }
-
-      router.push("/org/dashboard");
+      router.push(result.redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create organization.");
     } finally {

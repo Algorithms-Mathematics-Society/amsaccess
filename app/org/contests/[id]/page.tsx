@@ -7,7 +7,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
   X,
 } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
+import { apiFetch } from "@/lib/apiClient";
 
 // ─── Types ───────────────────────────────────────────────────
 type Contest = {
@@ -27,6 +27,12 @@ type Invite = {
 
 type Tab = "questions" | "invites" | "settings";
 type CodeTab = "html" | "css" | "js";
+
+type ContestDetailResponse = {
+  contest: Contest;
+  questions: Question[];
+  invites: Invite[];
+};
 
 // ─── Helpers ─────────────────────────────────────────────────
 function statusColor(s: string) {
@@ -49,21 +55,17 @@ export default function ContestDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: contestData, error: cErr } = await supabase
-      .from("contests")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (cErr) { setError(cErr.message); setLoading(false); return; }
-    setContest(contestData);
-
-    const [{ data: qData }, { data: iData }] = await Promise.all([
-      supabase.from("contest_questions").select("*").eq("contest_id", id).order("order_index"),
-      supabase.from("contest_invites").select("*").eq("contest_id", id).order("created_at"),
-    ]);
-    setQuestions(qData ?? []);
-    setInvites(iData ?? []);
-    setLoading(false);
+    setError(null);
+    try {
+      const data = await apiFetch<ContestDetailResponse>(`/api/org/contests/${id}`);
+      setContest(data.contest);
+      setQuestions(data.questions);
+      setInvites(data.invites);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load contest.");
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
   useEffect(() => { void load(); }, [load]);
@@ -193,9 +195,12 @@ function QuestionsTab({ contestId, questions, onRefresh }: {
 
   async function deleteQuestion(qId: string) {
     setDeleting(qId);
-    await supabase.from("contest_questions").delete().eq("id", qId);
-    setDeleting(null);
-    onRefresh();
+    try {
+      await apiFetch<{ deleted: boolean }>(`/api/org/contests/${contestId}/questions/${qId}`, { method: "DELETE" });
+      onRefresh();
+    } finally {
+      setDeleting(null);
+    }
   }
 
   return (
@@ -325,18 +330,19 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
     setSaving(true);
     try {
       if (existing) {
-        const { error: e } = await supabase
-          .from("contest_questions")
-          .update({ title: title.trim(), description, html_starter: html, css_starter: css, js_starter: js, points, updated_at: new Date().toISOString() })
-          .eq("id", existing.id);
-        if (e) { setError(e.message); return; }
+        await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions/${existing.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points })
+        });
       } else {
-        const { error: e } = await supabase
-          .from("contest_questions")
-          .insert({ contest_id: contestId, title: title.trim(), description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex });
-        if (e) { setError(e.message); return; }
+        await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions`, {
+          method: "POST",
+          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex })
+        });
       }
       onSaved();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to save question.");
     } finally {
       setSaving(false);
     }
@@ -508,16 +514,16 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const rows = emails.map((email) => ({ contest_id: contestId, email, invited_by: user.id, status: "pending" }));
-      const { error: e } = await supabase.from("contest_invites").upsert(rows, { onConflict: "contest_id,email" });
-      if (e) { setError(e.message); return; }
+      const result = await apiFetch<{ invited: number }>(`/api/org/contests/${contestId}/invites`, {
+        method: "POST",
+        body: JSON.stringify({ emails })
+      });
 
       setEmailInput("");
-      setSuccess(`Invited ${emails.length} candidate${emails.length !== 1 ? "s" : ""}.`);
+      setSuccess(`Invited ${result.invited} candidate${result.invited !== 1 ? "s" : ""}.`);
       onRefresh();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to save invites.");
     } finally {
       setSaving(false);
     }
@@ -525,9 +531,12 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 
   async function removeInvite(inviteId: string) {
     setRemoving(inviteId);
-    await supabase.from("contest_invites").delete().eq("id", inviteId);
-    setRemoving(null);
-    onRefresh();
+    try {
+      await apiFetch<{ deleted: boolean }>(`/api/org/contests/${contestId}/invites/${inviteId}`, { method: "DELETE" });
+      onRefresh();
+    } finally {
+      setRemoving(null);
+    }
   }
 
   return (
@@ -655,21 +664,37 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
     setSuccess(false);
     if (new Date(endAt) <= new Date(startAt)) { setError("End time must be after start time."); return; }
     setSaving(true);
-    const { error: e } = await supabase
-      .from("contests")
-      .update({ title: title.trim(), description: description.trim() || null, start_at: new Date(startAt).toISOString(), end_at: new Date(endAt).toISOString(), status, updated_at: new Date().toISOString() })
-      .eq("id", contest.id);
-    setSaving(false);
-    if (e) { setError(e.message); return; }
-    setSuccess(true);
-    onSaved();
+    try {
+      await apiFetch<{ saved: boolean }>(`/api/org/contests/${contest.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title,
+          description,
+          start_at: new Date(startAt).toISOString(),
+          end_at: new Date(endAt).toISOString(),
+          status
+        })
+      });
+      setSuccess(true);
+      onSaved();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to save contest.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function deleteContest() {
     if (!confirm("Delete this contest and all its questions/invites? This cannot be undone.")) return;
     setDeleting(true);
-    await supabase.from("contests").delete().eq("id", contest.id);
-    onDeleted();
+    try {
+      await apiFetch<{ deleted: boolean }>(`/api/org/contests/${contest.id}`, { method: "DELETE" });
+      onDeleted();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete contest.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (

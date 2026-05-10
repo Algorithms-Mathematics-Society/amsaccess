@@ -2,6 +2,21 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+const PRIVATE_CACHE_CONTROL = "no-store, no-cache, must-revalidate, proxy-revalidate";
+
+function setSecurityHeaders(response: NextResponse) {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+  return response;
+}
+
+function noStore(response: NextResponse) {
+  response.headers.set("Cache-Control", PRIVATE_CACHE_CONTROL);
+  return setSecurityHeaders(response);
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = request.headers.get("host") ?? "";
@@ -11,11 +26,15 @@ export async function middleware(request: NextRequest) {
   if (hostname.startsWith("org.") && !pathname.startsWith("/org")) {
     const url = request.nextUrl.clone();
     url.pathname = `/org${pathname === "/" ? "/login" : pathname}`;
-    return NextResponse.rewrite(url);
+    return noStore(NextResponse.rewrite(url));
   }
 
   // ── Build Supabase server client ─────────────────────────
-  const response = NextResponse.next();
+  const response = noStore(NextResponse.next());
+
+  if (pathname === "/access-admin-only" || pathname === "/org/login" || pathname === "/org/setup") {
+    return response;
+  }
 
   function makeClient() {
     return createServerClient(
@@ -40,7 +59,7 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.redirect(new URL("/access-admin-only", request.url));
+      return noStore(NextResponse.redirect(new URL("/access-admin-only", request.url)));
     }
 
     const { data: adminUser, error: adminError } = await supabase
@@ -52,24 +71,19 @@ export async function middleware(request: NextRequest) {
 
     if (adminError || !adminUser) {
       await supabase.auth.signOut();
-      return NextResponse.redirect(new URL("/access-admin-only?error=not_admin", request.url));
+      return noStore(NextResponse.redirect(new URL("/access-admin-only?error=not_admin", request.url)));
     }
 
     return response;
   }
 
   // ── Org routes ───────────────────────────────────────────
-  // /org/login and /org/setup are public
-  if (pathname === "/org/login" || pathname === "/org/setup") {
-    return response;
-  }
-
   if (pathname.startsWith("/org")) {
     const supabase = makeClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.redirect(new URL("/org/login", request.url));
+      return noStore(NextResponse.redirect(new URL("/org/login", request.url)));
     }
 
     // For /org/setup we already returned above; all other /org/* need an org
@@ -81,7 +95,7 @@ export async function middleware(request: NextRequest) {
         .maybeSingle();
 
       if (!org) {
-        return NextResponse.redirect(new URL("/org/setup", request.url));
+        return noStore(NextResponse.redirect(new URL("/org/setup", request.url)));
       }
     }
 
@@ -92,5 +106,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/org/:path*"],
+  matcher: ["/access-admin-only", "/admin/:path*", "/org/:path*"],
 };

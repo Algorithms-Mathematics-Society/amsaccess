@@ -4,7 +4,7 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
+import { apiFetch } from "@/lib/apiClient";
 
 export default function NewContestPage() {
   const router = useRouter();
@@ -27,33 +27,18 @@ export default function NewContestPage() {
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/org/login"); return; }
-
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("id")
-        .limit(1)
-        .maybeSingle();
-
-      if (!org) { router.push("/org/setup"); return; }
-
-      const { data: contest, error: insertError } = await supabase
-        .from("contests")
-        .insert({
-          org_id: org.id,
+      const contest = await apiFetch<{ id: string; redirectTo: string }>("/api/org/contests", {
+        method: "POST",
+        body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || null,
           start_at: new Date(startAt).toISOString(),
           end_at: new Date(endAt).toISOString(),
-          status,
-          created_by: user.id,
+          status
         })
-        .select("id")
-        .single();
+      });
 
-      if (insertError) { setError(insertError.message); return; }
-      router.push(`/org/contests/${contest.id}`);
+      router.push(contest.redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create contest.");
     } finally {

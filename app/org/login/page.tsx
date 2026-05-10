@@ -3,7 +3,8 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, Eye, EyeOff, Building2 } from "lucide-react";
-import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import { apiFetch } from "@/lib/apiClient";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function OrgLoginPage() {
   const router = useRouter();
@@ -24,29 +25,16 @@ export default function OrgLoginPage() {
 
     setLoading(true);
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      const result = await apiFetch<{ redirectTo: string }>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          scope: "org",
+          email: email.trim(),
+          password
+        })
       });
 
-      if (authError) {
-        setError(authError.message || "Invalid credentials.");
-        return;
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError("Unable to verify account."); return; }
-
-      const { data: orgs } = await supabase
-        .from("organizations")
-        .select("id")
-        .limit(1);
-
-      if (!orgs || orgs.length === 0) {
-        router.push("/org/setup");
-      } else {
-        router.push("/org/dashboard");
-      }
+      router.push(result.redirectTo);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed.");
