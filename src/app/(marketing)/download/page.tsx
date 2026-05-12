@@ -1,14 +1,42 @@
+"use client";
+
+import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { Download, FileText, Monitor, ShieldCheck } from "lucide-react";
+import { ArrowRight, FileText, Monitor, ShieldCheck } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
 
 const platforms = [
-  { name: "Windows", installer: "MSI installer", version: "Version pending", status: "Checksum pending" },
-  { name: "macOS", installer: "Universal package", version: "Version pending", status: "Signature pending" },
-  { name: "Linux", installer: "AppImage package", version: "Version pending", status: "Checksum pending" }
+  { name: "Windows", installer: "MSI installer", status: "Beta access" },
+  { name: "macOS", installer: "Universal package", status: "Beta access" },
+  { name: "Linux", installer: "AppImage package", status: "Beta access" }
 ];
 
 export default function DownloadPage() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "joined">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleWaitlist(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("sending");
+    setError(null);
+
+    const response = await fetch("/api/waitlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+
+    if (!response.ok) {
+      setStatus("idle");
+      setError("Unable to join right now. Please try again.");
+      return;
+    }
+
+    setEmail("");
+    setStatus("joined");
+  }
+
   return (
     <main className="min-h-screen overflow-hidden bg-black text-white">
       <MarketingHeader />
@@ -47,6 +75,22 @@ export default function DownloadPage() {
                 Read Docs
               </Link>
             </div>
+            <form id="beta-waitlist" onSubmit={handleWaitlist} className="mt-8 flex max-w-xl flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3 sm:flex-row">
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="work@email.com"
+                className="min-h-11 flex-1 rounded-full border border-white/10 bg-[#09090B] px-5 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-purple-300/40"
+              />
+              <button disabled={status === "sending"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black transition hover:bg-violet-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60" type="submit">
+                {status === "sending" ? "Joining..." : "Join Beta Waitlist"}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </form>
+            {status === "joined" ? <p className="mt-3 text-sm text-emerald-300">You are on the beta waitlist. We will follow up by email.</p> : null}
+            {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
           </div>
 
           <div className="mt-20 grid gap-5 md:grid-cols-3">
@@ -57,33 +101,28 @@ export default function DownloadPage() {
                     <h2 className="text-2xl font-semibold tracking-tight text-white">{platform.name}</h2>
                     <p className="mt-2 text-sm text-white/45">{platform.installer}</p>
                   </div>
-                  <Monitor className="h-5 w-5 text-purple-200/70 lg:hidden" />
-                  <Download className="hidden h-5 w-5 text-white/35 lg:block" />
+                  <Monitor className="h-5 w-5 text-purple-200/70" />
                 </div>
                 <div className="mt-10 grid gap-3 border-t border-white/10 pt-5 text-xs">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-white/35">Version</span>
-                    <span className="text-white/65">{platform.version}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-white/35">Integrity</span>
+                    <span className="text-white/35">Access</span>
                     <span className="text-white/65">{platform.status}</span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
+                    <span className="text-white/35">Installer</span>
+                    <span className="text-white/65">{platform.installer}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
                     <span className="text-white/35">Channel</span>
-                    <span className="text-purple-200">Release queue</span>
+                    <span className="text-purple-200">Waitlist</span>
                   </div>
                 </div>
-                <button
-                  className="mt-8 hidden h-11 w-full cursor-not-allowed items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-5 text-sm font-semibold text-white/35 lg:inline-flex"
-                  disabled
-                  type="button"
-                >
-                  Build pending
-                </button>
+                <a className="mt-8 hidden h-11 w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-5 text-sm font-semibold text-white/70 transition hover:border-purple-300/25 hover:bg-white/[0.07] hover:text-white lg:inline-flex" href="#beta-waitlist">
+                  Join Beta Waitlist
+                </a>
                 <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3 lg:hidden">
                   <p className="text-sm font-semibold text-white">Available on desktop</p>
-                  <p className="mt-1 text-xs leading-5 text-white/45">{platform.name} release details are shown here for desktop setup.</p>
+                  <p className="mt-1 text-xs leading-5 text-white/45">{platform.name} access is coordinated through the beta waitlist.</p>
                 </div>
               </article>
             ))}
@@ -95,7 +134,7 @@ export default function DownloadPage() {
                 <ShieldCheck className="h-5 w-5 text-purple-200" />
                 <h2 className="text-lg font-semibold tracking-tight text-white">System requirements</h2>
               </div>
-              <div className="mt-6 grid gap-3 text-sm leading-6 text-white/50 md:grid-cols-3">
+              <div className="mt-6 grid gap-3 text-sm leading-6 text-white/65 md:grid-cols-3 md:text-white/50">
                 <p>Windows 10 or newer.</p>
                 <p>macOS 12 or newer.</p>
                 <p>Modern Linux desktop environment.</p>
@@ -106,8 +145,8 @@ export default function DownloadPage() {
                 <FileText className="h-5 w-5 text-purple-200" />
                 <h2 className="text-lg font-semibold tracking-tight text-white">Release notes</h2>
               </div>
-              <p className="mt-5 text-sm leading-6 text-white/50">
-                Builds will publish with version notes, checksum or signing status, and deployment context.
+              <p className="mt-5 text-sm leading-6 text-white/65 md:text-white/50">
+                Builds publish with release notes, integrity details, and deployment context when beta access is opened.
               </p>
               <Link className="mt-6 inline-flex text-sm font-medium text-white transition hover:text-purple-200" href="/changelog">
                 View release history

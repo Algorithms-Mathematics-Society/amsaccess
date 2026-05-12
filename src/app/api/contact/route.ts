@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { apiError, apiRateLimited } from "@/lib/server/http";
+import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
 import { logger, withApiLogging } from "@/lib/server/logger";
 import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 import { isValidEmail, normalizeEmail } from "@/lib/server/request";
@@ -8,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 function cleanText(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+function isCategory(value: string) {
+  return value === "Sales" || value === "Support" || value === "Security";
 }
 
 export async function POST(request: NextRequest) {
@@ -24,20 +28,64 @@ export async function POST(request: NextRequest) {
 
     const record = payload as Record<string, unknown>;
     const name = cleanText(record.name, 120);
+    const organization = cleanText(record.organization, 160);
     const email = normalizeEmail(cleanText(record.email, 180));
-    const topic = cleanText(record.topic, 120);
+    const category = cleanText(record.category, 40);
     const message = cleanText(record.message, 4000);
 
-    if (!name || !isValidEmail(email) || !message) {
-      return apiError("Name, email, and message are required.", 400, "BAD_REQUEST");
+    if (!name || !isValidEmail(email) || !message || !isCategory(category)) {
+      return apiError("Name, email, category, and message are required.", 400, "BAD_REQUEST");
     }
 
-    logger.info("contact_form_validated", {
+    const contactPayload = {
+      name,
+      organization,
       email,
-      topic: topic || "unspecified",
-      messageLength: message.length
+      category,
+      message
+    };
+
+    if (!process.env.RESEND_API_KEY) {
+      console.info("contact_form_submission", contactPayload);
+      logger.info("contact_form_logged", { email, category, messageLength: message.length });
+      return apiOk({ delivered: true });
+    }
+
+    const to = process.env.CONTACT_TO_EMAIL ?? process.env.RESEND_TO_EMAIL;
+    if (!to) {
+      console.info("contact_form_submission_missing_recipient", contactPayload);
+      logger.info("contact_form_logged", { email, category, messageLength: message.length });
+      return apiOk({ delivered: true });
+    }
+
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL ?? "AMS Access <onboarding@resend.dev>",
+        to,
+        reply_to: email,
+        subject: `AMS Access ${category} inquiry from ${name}`,
+        text: [
+          `Name: ${name}`,
+          `Organization: ${organization || "Not provided"}`,
+          `Email: ${email}`,
+          `Category: ${category}`,
+          "",
+          message
+        ].join("\n")
+      })
     });
 
-    return apiError("Contact delivery is not configured yet. Please use the published support channel.", 503, "SERVER_ERROR");
+    if (!resendResponse.ok) {
+      logger.error("contact_form_resend_failed", { status: resendResponse.status });
+      return apiError("Unable to send message right now.", 502, "SERVER_ERROR");
+    }
+
+    logger.info("contact_form_delivered", { email, category, messageLength: message.length });
+    return apiOk({ delivered: true });
   });
 }

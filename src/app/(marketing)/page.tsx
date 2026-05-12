@@ -12,6 +12,7 @@ import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { AMSLogo } from "@/components/AMSLogo";
+import { ProductConfigTabs } from "./ProductConfigTabs";
 
 // Deferred client islands — excluded from the initial JS bundle.
 const ScrollObserver = dynamic(
@@ -38,7 +39,7 @@ const LazyMount = dynamic(
 );
 
 const navItems = [
-  ["Product", "/#showcase"],
+  ["Product", "/#product"],
   ["Pricing", "/pricing"],
   ["Download", "/download"],
   ["Docs", "/docs"],
@@ -119,7 +120,7 @@ const downloadPlatforms = [
 const footerGroups = [
   {
     group: "Product",
-    items: [["Showcase", "/#showcase"], ["Controlled round", "/controlled-round"], ["Review context", "/#review-context"], ["Product overview", "/product"]]
+    items: [["Showcase", "/#product"], ["Controlled round", "/controlled-round"], ["Review context", "/#review-context"], ["Product overview", "/product"]]
   },
   {
     group: "Download",
@@ -194,14 +195,14 @@ function HeroConsole() {
           {["Windows","macOS","Linux"].map((p) => (
             <div key={p} className="rounded border border-white/10 bg-white/[0.03] p-3 text-center">
               <p className="text-sm font-medium text-white">{p}</p>
-              <p className="mt-0.5 text-[10px] text-white/40">desktop</p>
+              <p className="mt-0.5 text-[10px] text-white/65 md:text-white/40">desktop</p>
             </div>
           ))}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           {[["Fullscreen","Controlled"],["Timeline","Recording"],["Responses","Saved"],["Review","Ready"]].map(([l,v]) => (
             <div key={l} className="ams-session-indicator rounded border border-white/10 bg-[#09090B] px-3 py-2 flex items-center justify-between text-xs">
-              <span className="text-white/40">{l}</span>
+              <span className="text-white/65 md:text-white/40">{l}</span>
               <span className="text-[#8B5CF6]">{v}</span>
             </div>
           ))}
@@ -247,7 +248,7 @@ function HeroConsole() {
             {metrics.slice(0, 3).map(({ value, label }) => (
               <div key={label} className="rounded border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-xl font-medium text-white">{value}</p>
-                <p className="mt-1 text-[11px] leading-4 text-white/40">{label}</p>
+                <p className="mt-1 text-[11px] leading-4 text-white/65 md:text-white/40">{label}</p>
               </div>
             ))}
           </div>
@@ -258,13 +259,13 @@ function HeroConsole() {
           {[["Fullscreen","Controlled"],["Responses","Saved"],["Timeline","Recording"],["Review","Ready"]].map(([label, value], index) => (
             <div key={label} className="ams-session-indicator mb-3 rounded border border-white/10 bg-[#09090B] px-3 py-3" style={{ "--ams-indicator-delay": `${index * 0.7}s` } as React.CSSProperties}>
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-white/40">{label}</span>
+                <span className="text-white/65 md:text-white/40">{label}</span>
                 <span className="text-[#8B5CF6]">{value}</span>
               </div>
             </div>
           ))}
           <div className="mt-6 rounded border border-white/10 bg-[#09090B] p-4">
-            <div className="mb-3 flex items-center justify-between text-xs text-white/50">
+            <div className="mb-3 flex items-center justify-between text-xs text-white/65 md:text-white/50">
               <span>Round posture</span><span>Controlled</span>
             </div>
             <div className="h-1.5 rounded-full bg-white/10">
@@ -318,7 +319,7 @@ function WorkflowVisual({ kind }: { kind: string }) {
     return (
       <div className="glass-card grid min-h-[260px] grid-cols-2 overflow-hidden rounded">
         <div className="border-r border-white/10 bg-transparent p-5">
-          <p className="mb-4 text-xs text-white/50">Review packet</p>
+          <p className="mb-4 text-xs text-white/65 md:text-white/50">Review packet</p>
           {["Written response", "Activity timeline", "Session status", "Reviewer note", "Submit time"].map((item) => (
             <div key={item} className="mb-2 flex items-center justify-between rounded border border-white/10 bg-white/[0.025] px-3 py-2 text-xs">
               <span className="text-white/60">{item}</span>
@@ -327,12 +328,12 @@ function WorkflowVisual({ kind }: { kind: string }) {
           ))}
         </div>
         <div className="bg-[#09090B]/50 p-5">
-          <p className="mb-4 text-xs text-white/50">Reviewer workflow</p>
+          <p className="mb-4 text-xs text-white/65 md:text-white/50">Reviewer workflow</p>
           {["Ready", "Needs review", "In review", "Cleared"].map((item, index) => (
             <div key={item} className="mb-3 rounded border border-white/10 bg-[#09090B] p-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-white/60">{item}</span>
-                <span className="text-white/40">{index + 4}</span>
+                <span className="text-white/65 md:text-white/40">{index + 4}</span>
               </div>
             </div>
           ))}
@@ -343,15 +344,15 @@ function WorkflowVisual({ kind }: { kind: string }) {
 
   if (kind === "code") {
     return (
-      <div className="glass-card overflow-hidden rounded bg-transparent p-5">
+      <div className="glass-card overflow-x-auto overflow-y-hidden rounded bg-transparent p-5 md:overflow-hidden">
         <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
-          <div className="flex items-center gap-2 text-xs text-white/50">
+          <div className="flex items-center gap-2 text-xs text-white/65 md:text-white/50">
             <Code2 className="h-4 w-4" />
             session-timeline.log
           </div>
           <div className="text-xs text-white/30">Review</div>
         </div>
-        <div className="grid gap-2 font-mono text-[11px] leading-5 md:grid-cols-2">
+        <div className="grid min-w-max gap-2 overflow-x-auto font-mono text-[11px] leading-5 md:min-w-0 md:grid-cols-2 md:overflow-visible">
           <div className="ams-log-update rounded bg-red-500/10 p-3 text-red-100/70">
             <p>- fullscreen_exit at 10:24:18</p>
             <p>- tab_hidden at 10:24:20</p>
@@ -373,10 +374,10 @@ function WorkflowVisual({ kind }: { kind: string }) {
     return (
       <div className="glass-card grid min-h-[280px] gap-5 rounded bg-transparent p-5 md:grid-cols-[0.8fr_1.2fr]">
         <div className="rounded border border-white/10 bg-[#09090B] p-4">
-          <p className="mb-5 text-xs text-white/50">Product coverage</p>
+          <p className="mb-5 text-xs text-white/65 md:text-white/50">Product coverage</p>
           {metrics.map(({ value, label }) => (
             <div key={label} className="mb-4 flex items-end justify-between border-b border-white/10 pb-3">
-              <span className="text-xs text-white/40">{label}</span>
+              <span className="text-xs text-white/65 md:text-white/40">{label}</span>
               <span className="text-xl text-white">{value}</span>
             </div>
           ))}
@@ -395,27 +396,7 @@ function WorkflowVisual({ kind }: { kind: string }) {
     );
   }
 
-  return (
-    <div className="glass-card flex min-h-[260px] flex-col overflow-hidden bg-[#09090B]">
-      <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.02] px-4 py-3">
-        <div className="h-2.5 w-2.5 rounded-full border border-[#E0443E] bg-[#FF5F56]" />
-        <div className="h-2.5 w-2.5 rounded-full border border-[#DEA123] bg-[#FFBD2E]" />
-        <div className="h-2.5 w-2.5 rounded-full border border-[#1AAB29] bg-[#27C93F]" />
-        <span className="ml-2 font-mono text-xs tracking-tight text-[#A1A1AA]">ams.session.config</span>
-      </div>
-      <div className="flex-1 bg-[#09090B]/50 p-6 font-mono text-[11px] leading-relaxed text-[#A1A1AA]">
-        <p>{"{"}</p>
-        <p className="ml-4"><span className="text-[#38BDF8]">&quot;desktopSession&quot;</span>: <span className="text-[#FDE047]">true</span>,</p>
-        <p className="ml-4"><span className="text-[#38BDF8]">&quot;fullscreenMode&quot;</span>: <span className="text-[#FDE047]">&quot;controlled&quot;</span>,</p>
-        <p className="ml-4"><span className="text-[#38BDF8]">&quot;evidence&quot;</span>: {"{"}</p>
-        <p className="ml-8"><span className="text-[#38BDF8]">&quot;timeline&quot;</span>: <span className="text-[#FDE047]">true</span>,</p>
-        <p className="ml-8"><span className="text-[#38BDF8]">&quot;reviewReady&quot;</span>: <span className="text-[#FDE047]">true</span></p>
-        <p className="ml-4">{"},"}</p>
-        <p className="ml-4"><span className="text-[#38BDF8]">&quot;downloadable&quot;</span>: <span className="text-purple-400">true</span></p>
-        <p>{"}"}</p>
-      </div>
-    </div>
-  );
+  return <ProductConfigTabs />;
 }
 
 export default function LandingPage() {
@@ -434,7 +415,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-3">
             <Link
-              className="ams-cta-primary hidden lg:inline-flex h-9 items-center rounded-full border border-white/25 bg-white px-4 text-sm font-semibold text-[#202020] shadow-[0_4px_14px_rgba(255,255,255,0.1)] hover:bg-[#8B5CF6] hover:text-white"
+              className="ams-cta-primary hidden lg:inline-flex h-9 items-center rounded-full border border-white/25 bg-white px-4 text-sm font-semibold text-[#202020] shadow-[0_4px_14px_rgba(255,255,255,0.1)] hover:bg-violet-500 hover:text-white"
               href="/pricing"
             >
               Compare Plans
@@ -444,7 +425,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section id="product" className="raycast-hero ams-hero-grid relative flex min-h-screen items-center justify-center overflow-hidden px-4 pb-24 pt-32 animate-fade-in-up sm:px-5 sm:pt-32 md:pb-28 md:pt-[10rem] lg:pt-[11rem]">
+      <section className="raycast-hero ams-hero-grid relative flex min-h-screen items-center justify-center overflow-hidden px-4 pb-24 pt-32 animate-fade-in-up sm:px-5 sm:pt-32 md:pb-28 md:pt-[10rem] lg:pt-[11rem]">
         <div className="raycast-hero-bg" />
         <div className="absolute left-1/2 top-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-20 blur-3xl" />
         <div className="relative z-10 mx-auto max-w-6xl text-center">
@@ -456,17 +437,17 @@ export default function LandingPage() {
           <p className="mx-auto mt-8 max-w-lg text-base leading-8 text-slate-200/90 md:mt-6 md:text-[1.05rem] md:leading-8">
             A desktop assessment shell for fullscreen written rounds, activity evidence, and reviewer-ready timelines.
           </p>
-          <div className="mt-9 flex flex-wrap justify-center gap-4 md:mt-6 md:gap-3">
-            <Link className="ams-cta-primary ams-glare relative hidden h-[3.25rem] items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-[#8B5CF6] hover:text-white group lg:inline-flex" href="/pricing">
+          <div className="mt-9 flex flex-col justify-center gap-3 md:mt-6 md:flex-row md:gap-4">
+            <Link className="ams-cta-primary ams-glare relative hidden h-[3.25rem] w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-violet-500 hover:text-white group md:w-auto lg:inline-flex" href="/pricing">
               <span className="relative z-10 flex items-center gap-2">
                 Compare Plans
                 <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
               </span>
             </Link>
-            <Link className="inline-flex min-h-[3.25rem] items-center justify-center rounded-full border border-white/70 bg-white px-8 text-center text-[#17171A] shadow-[0_14px_34px_rgba(255,255,255,0.12)] transition hover:bg-purple-100 lg:hidden" href="/pricing">
+            <Link className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-full border border-white/70 bg-white px-8 text-center text-[#17171A] shadow-[0_14px_34px_rgba(255,255,255,0.12)] transition hover:bg-purple-100 md:w-auto lg:hidden" href="/pricing">
               <span className="text-sm font-semibold">Compare Plans</span>
             </Link>
-            <a className="ams-cta-secondary inline-flex h-[3.25rem] items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white" href="#showcase">
+            <a className="ams-cta-secondary inline-flex h-[3.25rem] w-full items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white md:w-auto" href="#product">
               See Product
             </a>
           </div>
@@ -474,7 +455,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="showcase" className="cv-auto mx-auto max-w-6xl border-t border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
+      <section id="product" className="cv-auto mx-auto max-w-6xl border-t border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
         <div className="mb-10 grid gap-8 md:mb-14 md:grid-cols-[1.12fr_0.88fr]">
           <h2 className="max-w-2xl text-3xl font-semibold leading-[0.98] tracking-tight text-white sm:text-4xl md:text-6xl">
             Give the round a boundary.
@@ -568,7 +549,7 @@ export default function LandingPage() {
               The rounds where context changes the decision.
             </h2>
           </div>
-          <p className="max-w-md text-sm leading-7 text-white/50">
+          <p className="max-w-md text-sm leading-7 text-white/65 md:text-white/50">
             Each format carries pressure: fairness, auditability, reviewer time, and deployment clarity.
           </p>
         </div>
@@ -576,7 +557,7 @@ export default function LandingPage() {
           {useCases.map(([title, body]) => (
             <article key={title} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <p className="text-sm font-semibold text-white">{title}</p>
-              <p className="mt-4 text-xs leading-6 text-white/50">{body}</p>
+              <p className="mt-4 text-xs leading-6 text-white/65 md:text-white/50">{body}</p>
             </article>
           ))}
         </div>
@@ -598,7 +579,7 @@ export default function LandingPage() {
               <p className="ams-label mb-4">{section.eyebrow}</p>
               <h2 className="max-w-xl text-2xl font-semibold leading-[1.05] tracking-tight text-white sm:text-3xl md:text-5xl">{section.title}</h2>
             </div>
-            <p className="max-w-xl text-sm leading-7 text-white/50 md:pt-10">{section.body}</p>
+            <p className="max-w-xl text-sm leading-7 text-white/65 md:pt-10 md:text-white/50">{section.body}</p>
           </div>
           <WorkflowVisual kind={section.visual} />
           <a
@@ -634,7 +615,7 @@ export default function LandingPage() {
               For rounds with consequence.
             </h2>
           </div>
-          <p className="max-w-xl text-sm leading-7 text-white/50 md:pt-10">
+          <p className="max-w-xl text-sm leading-7 text-white/65 md:pt-10 md:text-white/50">
             Plans follow the shape of the evaluation: pilot, event, institution, or custom deployment.
           </p>
         </div>
@@ -647,16 +628,16 @@ export default function LandingPage() {
                 </p>
                 <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
                 <p className="mt-4 text-sm leading-6 text-white/60">{body}</p>
-                <p className="mt-8 border-t border-white/10 pt-4 text-xs leading-5 text-white/40">{detail}</p>
+                <p className="mt-8 border-t border-white/10 pt-4 text-xs leading-5 text-white/65 md:text-white/40">{detail}</p>
               </SpotlightCard>
             ))}
           </div>
         </LazyMount>
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-5">
-          <p className="max-w-xl text-sm leading-7 text-white/50">
+          <p className="max-w-xl text-sm leading-7 text-white/65 md:text-white/50">
             Compare the plan around your evaluation window, review load, and deployment path.
           </p>
-          <Link className="ams-cta-primary inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/pricing">
+          <Link className="ams-cta-primary inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-violet-500 hover:text-white" href="/pricing">
             Compare Plans
             <ArrowRight className="h-4 w-4" />
           </Link>
@@ -680,13 +661,13 @@ export default function LandingPage() {
               <h2 className="mt-5 max-w-lg text-2xl font-semibold tracking-tight leading-[1.05] sm:text-3xl md:text-5xl">
                 Put the environment in their hands.
               </h2>
-              <p className="mt-8 hidden max-w-md text-sm leading-7 text-white/50 lg:block">
+              <p className="mt-8 hidden max-w-md text-sm leading-7 text-white/65 md:text-white/50 lg:block">
                 Versioned builds for Windows, macOS, and Linux make deployment legible for technical teams.
               </p>
-              <p className="mt-8 max-w-md text-sm leading-7 text-white/50 lg:hidden">
+              <p className="mt-8 max-w-md text-sm leading-7 text-white/65 md:text-white/50 lg:hidden">
                 AMS Access is available for desktop environments: Windows, macOS, and Linux.
               </p>
-              <Link className="ams-cta-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white" href="/docs">
+              <Link className="ams-cta-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-violet-500 hover:text-white" href="/docs">
                 Read Deployment Docs
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -699,12 +680,12 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-white">{platform}</p>
-                    <p className="mt-1 text-xs text-white/40">{title}</p>
+                    <p className="mt-1 text-xs text-white/65 md:text-white/40">{title}</p>
                   </div>
                   <Monitor className="h-4 w-4 text-purple-200/70 lg:hidden" />
                   <Download className="hidden h-4 w-4 text-white/40 lg:block" />
                 </div>
-                <p className="mt-4 text-xs leading-5 text-white/50">{body}</p>
+                <p className="mt-4 text-xs leading-5 text-white/65 md:text-white/50">{body}</p>
               </div>
             ))}
             <div id="docs" className="rounded border border-white/10 bg-[#09090B] p-4 text-xs leading-5 text-white/45">
@@ -738,7 +719,7 @@ export default function LandingPage() {
                 <SpotlightCard key={title}>
                   <div className="mb-4 h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
                   <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
-                  <p className="mt-3 text-xs leading-5 text-white/50">{body}</p>
+                  <p className="mt-3 text-xs leading-5 text-white/65 md:text-white/50">{body}</p>
                 </SpotlightCard>
               ))}
             </div>
@@ -751,7 +732,7 @@ export default function LandingPage() {
           Bring the round under control.
         </h2>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <Link className="ams-cta-primary ams-glare relative inline-flex overflow-hidden rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-[#8B5CF6] hover:text-white group" href="/pricing">
+          <Link className="ams-cta-primary ams-glare relative inline-flex overflow-hidden rounded-full bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-violet-500 hover:text-white group" href="/pricing">
             <span className="relative z-10">Compare Plans</span>
           </Link>
           <Link className="ams-cta-secondary rounded-full border border-white/10 px-5 py-3 text-sm font-medium text-white/60 hover:border-white/40 hover:text-white" href="/contact">
@@ -761,7 +742,7 @@ export default function LandingPage() {
       </section>
 
       <footer id="contact" className="cv-auto border-t border-white/10">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-xs text-white/40 sm:px-5 sm:py-12 grid-cols-2 md:grid-cols-[1.2fr_repeat(5,1fr)]">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-xs text-white/65 sm:px-5 sm:py-12 md:text-white/40 grid-cols-2 md:grid-cols-[1.2fr_repeat(5,1fr)]">
           <div>
             <AMSLogo />
             <p className="mt-5 max-w-xs leading-5">AMS Access. Controlled environments and review context for high-trust evaluations.</p>
