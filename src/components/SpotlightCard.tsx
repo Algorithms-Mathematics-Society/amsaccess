@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 type SpotlightCardProps = {
   children: React.ReactNode;
@@ -13,7 +13,18 @@ export function SpotlightCard({ children, featured }: SpotlightCardProps) {
   const clientRef = useRef({ x: 0, y: 0 });
   const elementRef = useRef<HTMLElement | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+    };
+  }, []);
+
   const handlePointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
     clientRef.current = { x: event.clientX, y: event.clientY };
     elementRef.current = event.currentTarget;
 

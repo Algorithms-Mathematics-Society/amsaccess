@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 export const NO_STORE = "no-store, no-cache, must-revalidate, proxy-revalidate";
 export const PUBLIC_STATIC_CACHE = "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800";
+export const PUBLIC_READ_CACHE = "public, max-age=0, s-maxage=60, stale-while-revalidate=120";
 
 export type ApiErrorCode =
   | "BAD_REQUEST"
@@ -20,6 +21,12 @@ export function noStoreHeaders(init?: HeadersInit) {
 export function publicCacheHeaders(init?: HeadersInit) {
   const headers = new Headers(init);
   headers.set("Cache-Control", PUBLIC_STATIC_CACHE);
+  return headers;
+}
+
+export function publicReadCacheHeaders(init?: HeadersInit) {
+  const headers = new Headers(init);
+  headers.set("Cache-Control", PUBLIC_READ_CACHE);
   return headers;
 }
 

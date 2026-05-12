@@ -498,18 +498,18 @@ export default function LandingPage() {
                   <div className="flex h-full w-full flex-col justify-end p-4 font-mono text-[10px] leading-relaxed text-[#A1A1AA]">
                     <p className="text-[#D4D4D8] transition-opacity duration-300 group-hover:opacity-100 opacity-50">{`> initializing desktop shell...`}</p>
                     <p className="mt-1 text-[#D4D4D8] transition-opacity duration-300 delay-100 group-hover:opacity-100 opacity-50">{`> preparing fullscreen session... `}<span className="text-emerald-400 group-hover:animate-pulse">[OK]</span></p>
-                    <p className="mt-1 text-purple-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.5)] transition-opacity duration-300 delay-200 group-hover:opacity-100 opacity-50">{`> ams access ready `}<span className="animate-pulse text-white">_</span></p>
+                    <p className="mt-1 text-purple-400 transition-opacity duration-300 delay-200 group-hover:opacity-100 opacity-50">{`> ams access ready `}<span className="animate-pulse text-white">_</span></p>
                   </div>
                 )}
                 {index === 1 && (
                   <div className="flex w-full items-center gap-3 px-4">
-                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-500/50 bg-purple-500/20 drop-shadow-[0_0_8px_rgba(139,92,246,0.5)] transition-transform duration-500 group-hover:scale-110">
+                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-500/50 bg-purple-500/20 shadow-[0_0_8px_rgba(139,92,246,0.5)] transition-transform duration-500 group-hover:scale-110">
                       <div className="absolute inset-0 animate-pulse-ring rounded-full border-2 border-purple-400" />
                       <ShieldCheck className="h-5 w-5 text-purple-200" />
                     </div>
                     <div className="flex flex-col gap-1">
                       <div className="h-2 w-16 rounded bg-white/40 transition-all duration-300 group-hover:bg-white/60 group-hover:w-20" />
-                      <div className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.3)] opacity-70 transition-opacity duration-300 group-hover:opacity-100">
+                      <div className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.3)] opacity-70 transition-opacity duration-300 group-hover:opacity-100">
                         Evidence captured
                       </div>
                     </div>
@@ -519,16 +519,16 @@ export default function LandingPage() {
                   <div className="flex h-full w-full flex-col justify-between p-4 transition-transform duration-500 group-hover:-translate-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-[#A1A1AA] transition-colors group-hover:text-white">Timeline</span>
-                      <div className="flex gap-1 drop-shadow-[0_0_4px_rgba(52,211,153,0.4)]">
+                      <div className="flex gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-[#34D399]" />
                         <span className="h-1.5 w-1.5 rounded-full bg-[#34D399] delay-75 transition-transform group-hover:scale-150" />
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 drop-shadow-[0_0_4px_rgba(239,68,68,0.4)] delay-150 transition-transform group-hover:scale-150" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.4)] delay-150 transition-transform group-hover:scale-150" />
                         <span className="h-1.5 w-1.5 rounded-full bg-[#34D399]" />
                       </div>
                     </div>
                     <div className="flex h-10 w-full items-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                       {[4, 7, 3, 8, 5, 6, 4, 9, 6, 7].map((h, i) => (
-                        <div key={i} className="flex-1 animate-scale-y rounded-t-sm bg-purple-400/80 drop-shadow-[0_0_6px_rgba(139,92,246,0.4)]" style={{ height: `${h * 10}%`, animationDelay: `${i * 0.15}s` }} />
+                        <div key={i} className="flex-1 animate-scale-y rounded-t-sm bg-purple-400/80 shadow-[0_0_6px_rgba(139,92,246,0.4)]" style={{ height: `${h * 10}%`, animationDelay: `${i * 0.15}s` }} />
                       ))}
                     </div>
                   </div>
@@ -638,7 +638,7 @@ export default function LandingPage() {
             Plans follow the shape of the evaluation: pilot, event, institution, or custom deployment.
           </p>
         </div>
-        <LazyMount rootMargin="300px">
+        <LazyMount rootMargin="300px" minHeight={320}>
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
             {pricingPlans.map(([title, bestFor, body, detail], index) => (
               <SpotlightCard key={title} featured={index === 2}>
@@ -671,7 +671,7 @@ export default function LandingPage() {
         <div className="glass-card ams-card-featured grid overflow-hidden md:grid-cols-[1.16fr_0.84fr]">
           <div className="relative overflow-hidden bg-[#050505] p-8 text-white md:p-12">
             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_100%_100%,_rgba(139,92,246,0.08),_transparent_50%)]" />
-            <div className="ams-noise pointer-events-none absolute inset-0 opacity-[0.35] mix-blend-overlay" />
+            <div className="ams-noise pointer-events-none absolute inset-0 opacity-[0.35]" />
             <div className="relative z-10">
               <p className="ams-label">
                 <span className="lg:hidden">Desktop availability</span>
@@ -732,7 +732,7 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
-          <LazyMount rootMargin="200px">
+          <LazyMount rootMargin="200px" minHeight={170}>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:mt-14 md:mt-16 md:grid-cols-4">
               {changelog.map(([title, body]) => (
                 <SpotlightCard key={title}>

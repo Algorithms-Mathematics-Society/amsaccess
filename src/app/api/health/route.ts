@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEnvStatus } from "@/lib/server/env";
-import { noStoreHeaders } from "@/lib/server/http";
+import { noStoreHeaders, publicReadCacheHeaders } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export async function GET() {
     },
     {
       status: env.ok ? 200 : 503,
-      headers: noStoreHeaders()
+      headers: env.ok ? publicReadCacheHeaders() : noStoreHeaders()
     }
   );
 }

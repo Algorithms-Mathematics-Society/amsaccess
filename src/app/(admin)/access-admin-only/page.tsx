@@ -4,7 +4,7 @@ import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
-import { isSupabaseConfigured } from "@/lib/client/supabaseClient";
+import { isSupabaseConfigured } from "@/lib/client/supabaseConfig";
 
 export default function AdminLoginPage() {
   const router       = useRouter();

@@ -6,13 +6,14 @@ interface LazyMountProps {
   children: ReactNode;
   /** How far before the element enters the viewport to start rendering. Default: "200px" */
   rootMargin?: string;
+  minHeight?: number;
 }
 
 /**
  * Defers rendering children until the mount point scrolls near the viewport.
  * Keeps below-fold client islands out of the initial hydration pass.
  */
-export function LazyMount({ children, rootMargin = "200px" }: LazyMountProps) {
+export function LazyMount({ children, rootMargin = "200px", minHeight }: LazyMountProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -34,5 +35,9 @@ export function LazyMount({ children, rootMargin = "200px" }: LazyMountProps) {
     return () => io.disconnect();
   }, [rootMargin]);
 
-  return <div ref={ref}>{visible ? children : null}</div>;
+  return (
+    <div ref={ref} style={!visible && minHeight ? { minHeight } : undefined}>
+      {visible ? children : null}
+    </div>
+  );
 }
