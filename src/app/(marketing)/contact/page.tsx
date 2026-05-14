@@ -2,34 +2,86 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
 
 const categories = [
   {
     title: "Sales",
     value: "Sales",
-    body: "Discuss plan fit, event scale, and procurement requirements.",
-    href: "mailto:sales@amsaccess.com?subject=AMS%20Access%20sales%20conversation"
+    body: "Discuss plan fit, event scale, and procurement requirements."
   },
   {
     title: "Support",
     value: "Support",
-    body: "Coordinate deployment and operational questions for assessment teams.",
-    href: "mailto:support@amsaccess.com?subject=AMS%20Access%20support"
+    body: "Coordinate deployment and operational questions for assessment teams."
   },
   {
     title: "Security",
     value: "Security",
-    body: "Review product behavior and evidence handling with technical stakeholders.",
-    href: "mailto:security@amsaccess.com?subject=AMS%20Access%20security%20review"
+    body: "Review product behavior and evidence handling with technical stakeholders."
   }
 ] as const;
 
+const roundVolumes = ["Not sure yet", "< 100", "100-1,000", "1,000+"] as const;
+
 type Category = (typeof categories)[number]["value"];
+type RoundVolume = (typeof roundVolumes)[number];
+
+type ContactSelectProps<T extends string> = {
+  label: string;
+  value: T;
+  options: readonly T[];
+  onChange: (value: T) => void;
+};
+
+function ContactSelect<T extends string>({ label, value, options, onChange }: ContactSelectProps<T>) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="grid gap-2 text-xs font-medium text-white/60">
+      {label}
+      <div className="relative">
+        <button
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          className="ams-contact-select"
+        >
+          <span>{value}</span>
+          <span className="ams-contact-select-chevron" aria-hidden="true" />
+        </button>
+        {open ? (
+          <div className="ams-contact-select-menu" role="listbox" aria-label={label}>
+            {options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                role="option"
+                aria-selected={option === value}
+                className="ams-contact-select-option"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+              >
+                <span>{option}</span>
+                {option === value ? <span className="h-1.5 w-1.5 rounded-full bg-purple-200" aria-hidden="true" /> : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export default function ContactPage() {
   const [category, setCategory] = useState<Category>("Sales");
+  const [expectedRoundVolume, setExpectedRoundVolume] = useState<RoundVolume>("Not sure yet");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +99,7 @@ export default function ContactPage() {
         name: formData.get("name"),
         organization: formData.get("organization"),
         email: formData.get("email"),
+        expectedRoundVolume,
         message: formData.get("message"),
         category
       })
@@ -60,6 +113,7 @@ export default function ContactPage() {
 
     form.reset();
     setCategory("Sales");
+    setExpectedRoundVolume("Not sure yet");
     setStatus("sent");
   }
 
@@ -81,7 +135,7 @@ export default function ContactPage() {
               Contact
             </div>
             <h1 className="max-w-3xl bg-gradient-to-b from-white to-[#D4D4D8] bg-clip-text text-4xl font-semibold leading-[1.05] tracking-tight text-transparent sm:text-5xl md:text-7xl">
-              Talk to Access by AMS.
+              Discuss deployment.
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/70 sm:text-lg md:text-xl">
               Contact the team for access, pricing, deployment planning, support paths, and institution evaluation needs.
@@ -98,51 +152,66 @@ export default function ContactPage() {
 
             <div className="mt-10 grid gap-4">
               {categories.map((item) => (
-                <a key={item.title} className="group rounded border border-white/10 bg-[#09090B]/80 p-5 transition hover:border-purple-300/25 hover:bg-white/[0.035]" href={item.href}>
+                <button
+                  key={item.title}
+                  type="button"
+                  aria-pressed={category === item.value}
+                  onClick={() => setCategory(item.value)}
+                  className={`group rounded border p-5 text-left transition ${
+                    category === item.value
+                      ? "border-purple-300/30 bg-white/[0.055] shadow-[0_0_24px_rgba(139,92,246,0.055)]"
+                      : "border-white/10 bg-[#09090B]/80 hover:border-purple-300/25 hover:bg-white/[0.035]"
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h2 className="text-sm font-semibold tracking-tight text-white">{item.title}</h2>
                       <p className="mt-3 text-sm leading-6 text-white/65 md:text-white/50">{item.body}</p>
                     </div>
-                    <Mail className="h-4 w-4 shrink-0 text-purple-200/70 transition group-hover:text-purple-100" />
+                    <ArrowRight className={`h-4 w-4 shrink-0 transition ${category === item.value ? "text-purple-100" : "text-purple-200/70 group-hover:text-purple-100"}`} />
                   </div>
-                </a>
+                </button>
               ))}
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="glass-card grid content-start gap-4 p-5">
+          <form onSubmit={handleSubmit} className="ams-contact-form grid content-start gap-4 p-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-xs font-medium text-white/60">
                 Name
-                <input required name="name" className="rounded border border-white/10 bg-[#09090B] px-4 py-3 text-sm text-white outline-none transition focus:border-purple-300/40" />
+                <input required name="name" className="ams-contact-field" />
               </label>
               <label className="grid gap-2 text-xs font-medium text-white/60">
                 Organization
-                <input name="organization" className="rounded border border-white/10 bg-[#09090B] px-4 py-3 text-sm text-white outline-none transition focus:border-purple-300/40" />
+                <input name="organization" className="ams-contact-field" />
               </label>
             </div>
             <label className="grid gap-2 text-xs font-medium text-white/60">
               Email
-              <input required type="email" name="email" className="rounded border border-white/10 bg-[#09090B] px-4 py-3 text-sm text-white outline-none transition focus:border-purple-300/40" />
+              <input required type="email" name="email" className="ams-contact-field" />
             </label>
-            <label className="grid gap-2 text-xs font-medium text-white/60">
-              Category
-              <select value={category} onChange={(event) => setCategory(event.target.value as Category)} className="rounded border border-white/10 bg-[#09090B] px-4 py-3 text-sm text-white outline-none transition focus:border-purple-300/40">
-                {categories.map((item) => (
-                  <option key={item.value} value={item.value}>{item.title}</option>
-                ))}
-              </select>
-            </label>
+            <ContactSelect label="Category" value={category} options={categories.map((item) => item.value)} onChange={setCategory} />
+            <ContactSelect label="Expected Round Volume" value={expectedRoundVolume} options={roundVolumes} onChange={setExpectedRoundVolume} />
             <label className="grid gap-2 text-xs font-medium text-white/60">
               Message
-              <textarea required name="message" rows={7} className="resize-y rounded border border-white/10 bg-[#09090B] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-purple-300/40" />
+              <textarea required name="message" rows={7} className="ams-contact-field resize-y leading-6" />
             </label>
             {error ? <p className="text-sm text-red-300">{error}</p> : null}
             {status === "sent" ? <p className="text-sm text-emerald-300">Message received. The team will follow up by email.</p> : null}
             <button disabled={status === "sending"} className="inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-semibold text-black transition hover:bg-violet-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60" type="submit">
               {status === "sending" ? "Sending..." : "Send message"}
             </button>
+            <p className="text-xs leading-5 text-white/40">
+              Deployment and security specialists typically respond within 24-48 hours.
+            </p>
+            <div className="rounded-[8px] border border-white/10 bg-black/20 p-4 text-xs leading-5 text-white/50">
+              <p className="font-medium text-white/70">Prefer email?</p>
+              <div className="mt-2 grid gap-1">
+                <a className="transition hover:text-white" href="mailto:sales@amsaccess.com">Sales: sales@amsaccess.com</a>
+                <a className="transition hover:text-white" href="mailto:support@amsaccess.com">Support: support@amsaccess.com</a>
+                <a className="transition hover:text-white" href="mailto:security@amsaccess.com">Security: security@amsaccess.com</a>
+              </div>
+            </div>
           </form>
         </div>
       </section>

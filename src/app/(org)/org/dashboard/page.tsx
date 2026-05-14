@@ -72,7 +72,7 @@ export default function OrgDashboardPage() {
   };
 
   return (
-    <div className="flex min-h-screen" style={{ background: "#000000", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="flex min-h-screen" style={{ background: "#000000", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
       {/* Sidebar */}
       <aside
         className="flex w-56 flex-shrink-0 flex-col"

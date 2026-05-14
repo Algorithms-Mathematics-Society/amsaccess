@@ -1,8 +1,8 @@
 # Pricing
 
-## Starter
+## Pilot
 
-For small evaluations and pilots.
+For validation rounds and small cohorts.
 
 Includes:
 

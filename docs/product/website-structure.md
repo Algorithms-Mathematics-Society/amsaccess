@@ -61,7 +61,7 @@ CTA:
 
 ### Pricing
 
-- Starter
+- Pilot
 - Event
 - Institution
 - Enterprise

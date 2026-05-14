@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { AMSLogo } from "@/components/AMSLogo";
+import { CommandMenu } from "@/components/CommandMenu";
 import { PlatformLogo } from "@/components/PlatformLogo";
 import { ProductConfigTabs } from "./ProductConfigTabs";
 
@@ -106,7 +107,7 @@ const changelog = [
 ];
 
 const pricingPlans = [
-  ["Starter", "Pilot", "For pilots and small high-trust rounds.", "Controlled sessions, basic review context, versioned releases."],
+  ["Pilot", "Validation rounds", "For pilots and small high-trust rounds.", "Controlled sessions, basic review context, versioned releases."],
   ["Event", "Hiring and contest windows", "For hiring, olympiad, and scholarship windows.", "Higher volume, reviewer workflows, export support."],
   ["Institution", "Recurring programs", "For recurring evaluations across teams or programs.", "Multiple admins, centralized review, operational reporting."],
   ["Enterprise", "Custom deployment", "For procurement, integrations, and managed rollout needs.", "Custom limits, support paths, and deployment planning."]
@@ -187,14 +188,14 @@ function HeroConsole() {
       {/* Mobile: simplified single-column view */}
       <div className="block md:hidden bg-[#09090B]/50 p-5">
         <p className="ams-label mb-3">Session Context</p>
-        <div className="space-y-2 rounded border border-white/10 bg-white/[0.025] p-4">
+        <div className="ams-embedded-screen space-y-2 rounded p-4">
           <div className="ams-context-line h-2 w-full rounded bg-white/20" />
           <div className="h-2 w-10/12 rounded bg-white/10" />
           <div className="h-2 w-4/5 rounded bg-white/10" />
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2">
           {(["Windows", "macOS", "Linux"] as const).map((p) => (
-            <div key={p} className="rounded border border-white/10 bg-white/[0.03] p-3 text-center">
+            <div key={p} className="ams-embedded-screen rounded p-3 text-center">
               <PlatformLogo platform={p} className="mx-auto mb-1.5 h-4 w-4 text-white/75" />
               <p className="text-sm font-medium text-white">{p}</p>
               <p className="mt-0.5 text-[10px] text-white/65 md:text-white/40">desktop</p>
@@ -233,11 +234,11 @@ function HeroConsole() {
             </div>
             <span className="ams-status-pulse rounded-full border border-purple-500/25 bg-purple-500/10 px-3 py-1 text-xs text-purple-200">Ready</span>
           </div>
-          <div className="space-y-3 rounded border border-white/10 bg-white/[0.025] p-5">
+          <div className="ams-embedded-screen space-y-3 rounded p-5">
             <div className="ams-context-line h-2 w-full rounded bg-white/20" />
             <div className="h-2 w-11/12 rounded bg-white/10" />
             <div className="h-2 w-4/5 rounded bg-white/10" />
-            <div className="mt-8 h-32 rounded border border-white/10 bg-[#09090B] p-4">
+            <div className="ams-embedded-screen mt-8 h-32 rounded p-4">
               <div className="ams-context-line h-2 w-28 rounded bg-[#8B5CF6]" />
               <div className="mt-4 space-y-2">
                 <div className="h-2 rounded bg-white/10" />
@@ -248,7 +249,7 @@ function HeroConsole() {
           </div>
           <div className="mt-6 grid grid-cols-3 gap-3">
             {platformMetrics.map(({ value, label }) => (
-              <div key={label} className="rounded border border-white/10 bg-white/[0.03] p-4">
+              <div key={label} className="ams-embedded-screen rounded p-4">
                 <div className="flex items-center gap-2">
                   <PlatformLogo platform={value} className="h-4 w-4 text-white/75" />
                   <p className="text-xl font-medium text-white">{value}</p>
@@ -419,11 +420,12 @@ export default function LandingPage() {
             ))}
           </nav>
           <div className="flex items-center gap-3">
+            <CommandMenu />
             <Link
               className="ams-cta-primary hidden lg:inline-flex h-9 items-center rounded-full border border-white/25 bg-white px-4 text-sm font-semibold text-[#202020] shadow-[0_4px_14px_rgba(255,255,255,0.1)] hover:bg-violet-500 hover:text-white"
-              href="/pricing"
+              href="/download"
             >
-              Compare Plans
+              Download Access
             </Link>
             <MobileNav />
           </div>
@@ -432,7 +434,7 @@ export default function LandingPage() {
 
       <section className="raycast-hero ams-hero-grid relative flex min-h-screen items-center justify-center overflow-hidden px-4 pb-24 pt-32 animate-fade-in-up sm:px-5 sm:pt-32 md:pb-28 md:pt-[10rem] lg:pt-[11rem]">
         <div className="raycast-hero-bg" />
-        <div className="absolute left-1/2 top-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-20 blur-3xl" />
+        <div className="absolute left-1/2 top-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-[0.07] blur-[120px]" />
         <div className="relative z-10 mx-auto max-w-6xl text-center">
           <h1 className="mx-auto max-w-5xl bg-gradient-to-b from-white via-[#F4F4F5] to-[#A1A1AA] bg-clip-text text-[2.2rem] font-semibold leading-[0.92] tracking-tight text-transparent sm:text-[2.85rem] md:text-[3.75rem] lg:text-[4.85rem]">
             <span className="block">Serious evaluations</span>
@@ -443,24 +445,24 @@ export default function LandingPage() {
             A desktop assessment shell for fullscreen written rounds, activity evidence, and reviewer-ready timelines.
           </p>
           <div className="mt-9 flex flex-col justify-center gap-3 md:mt-6 md:flex-row md:gap-4">
-            <Link className="ams-cta-primary ams-glare relative hidden h-[3.25rem] w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-violet-500 hover:text-white group md:w-auto lg:inline-flex" href="/pricing">
+            <Link className="ams-cta-primary ams-glare relative hidden h-[3.25rem] w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-all hover:bg-violet-500 hover:text-white group md:w-auto lg:inline-flex" href="/download">
               <span className="relative z-10 flex items-center gap-2">
-                Compare Plans
+                Download AMS Access
                 <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
               </span>
             </Link>
-            <Link className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-full border border-white/70 bg-white px-8 text-center text-[#17171A] shadow-[0_14px_34px_rgba(255,255,255,0.12)] transition hover:bg-purple-100 md:w-auto lg:hidden" href="/pricing">
-              <span className="text-sm font-semibold">Compare Plans</span>
+            <Link className="inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-full border border-white/70 bg-white px-8 text-center text-[#17171A] shadow-[0_14px_34px_rgba(255,255,255,0.12)] transition hover:bg-purple-100 md:w-auto lg:hidden" href="/download">
+              <span className="text-sm font-semibold">Download AMS Access</span>
             </Link>
-            <a className="ams-cta-secondary inline-flex h-[3.25rem] w-full items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white md:w-auto" href="#product">
-              See Product
-            </a>
+            <Link className="ams-cta-secondary inline-flex h-[3.25rem] w-full items-center justify-center rounded-full border border-white/20 bg-white/5 px-7 text-sm font-medium text-white/80 shadow-sm backdrop-blur-md transition-all hover:border-white/35 hover:bg-white/10 hover:text-white md:w-auto" href="/pricing">
+              View Pricing
+            </Link>
           </div>
           <HeroConsole />
         </div>
       </section>
 
-      <section id="product" className="cv-auto mx-auto max-w-6xl border-t border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
+      <section id="product" className="cv-auto relative isolate mx-auto max-w-6xl border-t border-white/10 px-4 py-16 sm:px-5 sm:py-24 md:py-32 animate-fade-in-up">
         <div className="mb-10 grid gap-8 md:mb-14 md:grid-cols-[1.12fr_0.88fr]">
           <h2 className="max-w-2xl text-3xl font-semibold leading-[0.98] tracking-tight text-white sm:text-4xl md:text-6xl">
             Give the round a boundary.
@@ -476,10 +478,15 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-[1.18fr_0.91fr_0.91fr]">
+        <div className="relative grid gap-6 md:grid-cols-[1.18fr_0.91fr_0.91fr]">
+          <div className="pointer-events-none absolute inset-x-4 top-10 -z-10 h-72 rounded-full bg-violet-500/10 blur-[120px]" />
           {foundation.map((item, index) => (
-            <article key={item.title} className={`glass-card group flex flex-col p-8 ${index === 0 ? "ams-card-featured md:p-10" : ""}`}>
-              <div className="relative mb-6 flex h-32 items-center justify-center overflow-hidden rounded border border-white/10 bg-[#09090B]">
+            <article
+              key={item.title}
+              className={`glass-card ams-foundation-card group flex flex-col p-8 animate-fade-in-up ${index === 0 ? "md:p-10" : ""}`}
+              style={{ animationDelay: `${index * 90}ms` }}
+            >
+              <div className="ams-foundation-mockup relative mb-6 flex h-32 items-center justify-center overflow-hidden rounded">
                 {index === 0 && (
                   <div className="flex h-full w-full flex-col justify-end p-4 font-mono text-[10px] leading-relaxed text-[#A1A1AA]">
                     <p className="text-[#D4D4D8] transition-opacity duration-300 group-hover:opacity-100 opacity-50">{`> initializing desktop shell...`}</p>
@@ -489,8 +496,8 @@ export default function LandingPage() {
                 )}
                 {index === 1 && (
                   <div className="flex w-full items-center gap-3 px-4">
-                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-500/50 bg-purple-500/20 shadow-[0_0_8px_rgba(139,92,246,0.5)] transition-transform duration-500 group-hover:scale-110">
-                      <div className="absolute inset-0 animate-pulse-ring rounded-full border-2 border-purple-400" />
+                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-300/35 bg-purple-500/10 shadow-[0_0_12px_rgba(139,92,246,0.18)] transition-transform duration-500 group-hover:scale-110">
+                      <div className="absolute inset-0 animate-pulse-ring rounded-full border border-purple-300/70" />
                       <ShieldCheck className="h-5 w-5 text-purple-200" />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -514,7 +521,7 @@ export default function LandingPage() {
                     </div>
                     <div className="flex h-10 w-full items-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                       {[4, 7, 3, 8, 5, 6, 4, 9, 6, 7].map((h, i) => (
-                        <div key={i} className="flex-1 animate-scale-y rounded-t-sm bg-purple-400/80 shadow-[0_0_6px_rgba(139,92,246,0.4)]" style={{ height: `${h * 10}%`, animationDelay: `${i * 0.15}s` }} />
+                        <div key={i} className="flex-1 animate-scale-y rounded-t-sm bg-purple-300/70 shadow-[0_0_5px_rgba(139,92,246,0.16)]" style={{ height: `${h * 10}%`, animationDelay: `${i * 0.15}s` }} />
                       ))}
                     </div>
                   </div>
@@ -559,8 +566,12 @@ export default function LandingPage() {
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {useCases.map(([title, body]) => (
-            <article key={title} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          {useCases.map(([title, body], index) => (
+            <article
+              key={title}
+              className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] animate-fade-in-up"
+              style={{ animationDelay: `${index * 70}ms` }}
+            >
               <p className="text-sm font-semibold text-white">{title}</p>
               <p className="mt-4 text-xs leading-6 text-white/65 md:text-white/50">{body}</p>
             </article>
@@ -627,7 +638,12 @@ export default function LandingPage() {
         <LazyMount rootMargin="300px" minHeight={320}>
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
             {pricingPlans.map(([title, bestFor, body, detail], index) => (
-              <SpotlightCard key={title} featured={index === 2}>
+              <SpotlightCard
+                key={title}
+                featured={index === 2}
+                className="animate-fade-in-up"
+                style={{ animationDelay: `${index * 80}ms` }}
+              >
                 <p className="mb-4 inline-flex rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-purple-100/70">
                   {bestFor}
                 </p>
@@ -680,8 +696,12 @@ export default function LandingPage() {
           </div>
 
           <div className="bg-transparent p-6 md:p-8">
-            {downloadPlatforms.map(([platform, title, body]) => (
-              <div key={platform} className="mb-4 rounded border border-white/10 bg-white/[0.025] p-4">
+            {downloadPlatforms.map(([platform, title, body], index) => (
+              <div
+                key={platform}
+                className="mb-4 rounded border border-white/10 bg-white/[0.025] p-4 animate-fade-in-up"
+                style={{ animationDelay: `${index * 80}ms` }}
+              >
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-white">{platform}</p>
@@ -720,8 +740,12 @@ export default function LandingPage() {
           </div>
           <LazyMount rootMargin="200px" minHeight={170}>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:mt-14 md:mt-16 md:grid-cols-4">
-              {changelog.map(([title, body]) => (
-                <SpotlightCard key={title}>
+              {changelog.map(([title, body], index) => (
+                <SpotlightCard
+                  key={title}
+                  className="animate-fade-in-up"
+                  style={{ animationDelay: `${index * 70}ms` }}
+                >
                   <div className="mb-4 h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
                   <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
                   <p className="mt-3 text-xs leading-5 text-white/65 md:text-white/50">{body}</p>
@@ -751,6 +775,10 @@ export default function LandingPage() {
           <div>
             <AMSLogo />
             <p className="mt-5 max-w-xs leading-5">Access by AMS. Controlled environments and review context for high-trust evaluations.</p>
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#09090B] px-3 py-1 text-[10px] font-medium uppercase tracking-widest text-white/50">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+              All systems operational
+            </div>
           </div>
           {footerGroups.map(({ group, items }) => (
             <div key={group}>

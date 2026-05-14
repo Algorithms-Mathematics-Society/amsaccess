@@ -14,6 +14,10 @@ function isCategory(value: string) {
   return value === "Sales" || value === "Support" || value === "Security";
 }
 
+function isExpectedRoundVolume(value: string) {
+  return value === "Not sure yet" || value === "< 100" || value === "100-1,000" || value === "1,000+";
+}
+
 export async function POST(request: NextRequest) {
   return withApiLogging("contact.submit", async () => {
     const limited = checkRequestRateLimit(request, "contact");
@@ -31,9 +35,10 @@ export async function POST(request: NextRequest) {
     const organization = cleanText(record.organization, 160);
     const email = normalizeEmail(cleanText(record.email, 180));
     const category = cleanText(record.category, 40);
+    const expectedRoundVolume = cleanText(record.expectedRoundVolume, 40);
     const message = cleanText(record.message, 4000);
 
-    if (!name || !isValidEmail(email) || !message || !isCategory(category)) {
+    if (!name || !isValidEmail(email) || !message || !isCategory(category) || (expectedRoundVolume && !isExpectedRoundVolume(expectedRoundVolume))) {
       return apiError("Name, email, category, and message are required.", 400, "BAD_REQUEST");
     }
 
@@ -42,6 +47,7 @@ export async function POST(request: NextRequest) {
       organization,
       email,
       category,
+      expectedRoundVolume: expectedRoundVolume || "Not sure yet",
       message
     };
 
@@ -74,6 +80,7 @@ export async function POST(request: NextRequest) {
           `Organization: ${organization || "Not provided"}`,
           `Email: ${email}`,
           `Category: ${category}`,
+          `Expected round volume: ${expectedRoundVolume || "Not sure yet"}`,
           "",
           message
         ].join("\n")

@@ -44,13 +44,13 @@ export function ProductConfigTabs() {
       ) : (
         <div className="min-w-max flex-1 overflow-x-auto bg-[#09090B]/50 p-6 font-mono text-[11px] leading-relaxed text-[#A1A1AA] md:min-w-0 md:overflow-visible">
           <p>{"{"}</p>
-          <p className="ml-4"><span className="text-[#38BDF8]">&quot;desktopSession&quot;</span>: <span className="text-[#FDE047]">true</span>,</p>
-          <p className="ml-4"><span className="text-[#38BDF8]">&quot;fullscreenMode&quot;</span>: <span className="text-[#FDE047]">&quot;controlled&quot;</span>,</p>
-          <p className="ml-4"><span className="text-[#38BDF8]">&quot;evidence&quot;</span>: {"{"}</p>
-          <p className="ml-8"><span className="text-[#38BDF8]">&quot;timeline&quot;</span>: <span className="text-[#FDE047]">true</span>,</p>
-          <p className="ml-8"><span className="text-[#38BDF8]">&quot;reviewReady&quot;</span>: <span className="text-[#FDE047]">true</span></p>
+          <p className="ml-4"><span className="text-white/70">&quot;desktopSession&quot;</span>: <span className="text-[#8B5CF6]">true</span>,</p>
+          <p className="ml-4"><span className="text-white/70">&quot;fullscreenMode&quot;</span>: <span className="text-teal-400/80">&quot;controlled&quot;</span>,</p>
+          <p className="ml-4"><span className="text-purple-200/80">&quot;evidence&quot;</span>: {"{"}</p>
+          <p className="ml-8"><span className="text-white/70">&quot;timeline&quot;</span>: <span className="text-[#8B5CF6]">true</span>,</p>
+          <p className="ml-8"><span className="text-white/70">&quot;reviewReady&quot;</span>: <span className="text-[#8B5CF6]">true</span></p>
           <p className="ml-4">{"},"}</p>
-          <p className="ml-4"><span className="text-[#38BDF8]">&quot;downloadable&quot;</span>: <span className="text-purple-400">true</span></p>
+          <p className="ml-4"><span className="text-white/70">&quot;downloadable&quot;</span>: <span className="text-[#8B5CF6]">true</span></p>
           <p>{"}"}</p>
         </div>
       )}

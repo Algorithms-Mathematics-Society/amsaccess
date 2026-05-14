@@ -92,7 +92,7 @@ export default function ContestDetailPage() {
   const col = statusColor(contest.status);
 
   return (
-    <div className="min-h-screen" style={{ background: "#000000", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="min-h-screen" style={{ background: "#000000", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
       <div
         className="pointer-events-none fixed inset-0 opacity-20"
         style={{

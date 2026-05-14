@@ -47,7 +47,7 @@ export default function NewContestPage() {
   }
 
   return (
-    <div className="min-h-screen px-8 py-8" style={{ background: "#000000", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="min-h-screen px-8 py-8" style={{ background: "#000000", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
       <div
         className="pointer-events-none fixed inset-0 opacity-30"
         style={{

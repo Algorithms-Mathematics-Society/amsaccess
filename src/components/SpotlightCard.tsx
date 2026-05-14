@@ -1,13 +1,16 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
 
 type SpotlightCardProps = {
   children: React.ReactNode;
   featured?: boolean;
+  className?: string;
+  style?: CSSProperties;
 };
 
-export function SpotlightCard({ children, featured }: SpotlightCardProps) {
+export function SpotlightCard({ children, featured, className = "", style }: SpotlightCardProps) {
   const frameRef = useRef<number | null>(null);
   // Store raw pointer coords; rect is computed inside RAF to avoid forced reflow.
   const clientRef = useRef({ x: 0, y: 0 });
@@ -45,7 +48,8 @@ export function SpotlightCard({ children, featured }: SpotlightCardProps) {
   return (
     <article
       onPointerMove={handlePointerMove}
-      className={`spotlight-card glass-card relative overflow-hidden p-5 ${featured ? "ams-card-featured" : ""}`}
+      className={`spotlight-card glass-card relative overflow-hidden p-5 ${featured ? "ams-card-featured" : ""} ${className}`}
+      style={style}
     >
       <div className="spotlight-card-glow pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-300" />
       <div className="relative z-10">{children}</div>
