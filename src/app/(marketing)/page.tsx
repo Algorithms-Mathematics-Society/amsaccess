@@ -5,13 +5,12 @@ import {
   Code2,
   Download,
   FileText,
-  Monitor,
   ShieldCheck
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { AMSLogo } from "@/components/AMSLogo";
+import { PlatformLogo } from "@/components/PlatformLogo";
 import { ProductConfigTabs } from "./ProductConfigTabs";
 
 // Deferred client islands — excluded from the initial JS bundle.
@@ -47,12 +46,14 @@ const navItems = [
   ["Contact", "/contact"]
 ];
 
-const metrics: Array<{ value: string; label: string; Icon: LucideIcon }> = [
-  { value: "Windows", label: "desktop installer", Icon: Monitor },
-  { value: "macOS", label: "desktop package", Icon: Monitor },
-  { value: "Linux", label: "desktop build", Icon: Monitor },
-  { value: "Versioned", label: "release notes", Icon: FileText }
-];
+const metrics = [
+  { value: "Windows", label: "desktop installer" },
+  { value: "macOS", label: "desktop package" },
+  { value: "Linux", label: "desktop build" },
+  { value: "Versioned", label: "release notes" }
+] as const;
+
+const platformMetrics = metrics.slice(0, 3) as Array<(typeof metrics)[0] | (typeof metrics)[1] | (typeof metrics)[2]>;
 
 const foundation = [
   {
@@ -80,7 +81,7 @@ const workflowSections = [
   {
     eyebrow: "Controlled environment",
     title: "Put the evaluation inside a product with edges.",
-    body: "A serious round should not depend on a browser tab, a meeting link, and a policy document. AMS Access gives the session a clear operating surface.",
+    body: "A serious round should not depend on a browser tab, a meeting link, and a policy document. Access by AMS gives the session a clear operating surface.",
     visual: "operations"
   },
   {
@@ -92,7 +93,7 @@ const workflowSections = [
   {
     eyebrow: "Human judgment",
     title: "Keep reviewers close to the work.",
-    body: "AMS Access packages written responses, status, timestamps, and activity history so reviewers can decide with confidence and restraint.",
+    body: "Access by AMS packages written responses, status, timestamps, and activity history so reviewers can decide with confidence and restraint.",
     visual: "handoff"
   }
 ];
@@ -115,7 +116,7 @@ const downloadPlatforms = [
   ["Windows", "Installer package", "Version notes and checksum-ready release flow."],
   ["macOS", "Desktop package", "Release path prepared for managed deployments."],
   ["Linux", "Desktop build", "Artifacts designed for technical operators."]
-];
+] as const;
 
 const footerGroups = [
   {
@@ -192,8 +193,9 @@ function HeroConsole() {
           <div className="h-2 w-4/5 rounded bg-white/10" />
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2">
-          {["Windows","macOS","Linux"].map((p) => (
+          {(["Windows", "macOS", "Linux"] as const).map((p) => (
             <div key={p} className="rounded border border-white/10 bg-white/[0.03] p-3 text-center">
+              <PlatformLogo platform={p} className="mx-auto mb-1.5 h-4 w-4 text-white/75" />
               <p className="text-sm font-medium text-white">{p}</p>
               <p className="mt-0.5 text-[10px] text-white/65 md:text-white/40">desktop</p>
             </div>
@@ -245,9 +247,12 @@ function HeroConsole() {
             </div>
           </div>
           <div className="mt-6 grid grid-cols-3 gap-3">
-            {metrics.slice(0, 3).map(({ value, label }) => (
+            {platformMetrics.map(({ value, label }) => (
               <div key={label} className="rounded border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-xl font-medium text-white">{value}</p>
+                <div className="flex items-center gap-2">
+                  <PlatformLogo platform={value} className="h-4 w-4 text-white/75" />
+                  <p className="text-xl font-medium text-white">{value}</p>
+                </div>
                 <p className="mt-1 text-[11px] leading-4 text-white/65 md:text-white/40">{label}</p>
               </div>
             ))}
@@ -479,7 +484,7 @@ export default function LandingPage() {
                   <div className="flex h-full w-full flex-col justify-end p-4 font-mono text-[10px] leading-relaxed text-[#A1A1AA]">
                     <p className="text-[#D4D4D8] transition-opacity duration-300 group-hover:opacity-100 opacity-50">{`> initializing desktop shell...`}</p>
                     <p className="mt-1 text-[#D4D4D8] transition-opacity duration-300 delay-100 group-hover:opacity-100 opacity-50">{`> preparing fullscreen session... `}<span className="text-emerald-400 group-hover:animate-pulse">[OK]</span></p>
-                    <p className="mt-1 text-purple-400 transition-opacity duration-300 delay-200 group-hover:opacity-100 opacity-50">{`> ams access ready `}<span className="animate-pulse text-white">_</span></p>
+                    <p className="mt-1 text-purple-400 transition-opacity duration-300 delay-200 group-hover:opacity-100 opacity-50">{`> access by ams ready `}<span className="animate-pulse text-white">_</span></p>
                   </div>
                 )}
                 {index === 1 && (
@@ -535,7 +540,7 @@ export default function LandingPage() {
               A serious evaluation is more than an answer file. It is the environment the candidate worked inside, the interruptions around the work, and the evidence a reviewer can trust later.
             </p>
             <p className="mt-6">
-              AMS Access exists because high-trust rounds deserve review context, not just a final submission.
+              Access by AMS exists because high-trust rounds deserve review context, not just a final submission.
             </p>
           </div>
         </div>
@@ -665,7 +670,7 @@ export default function LandingPage() {
                 Versioned builds for Windows, macOS, and Linux make deployment legible for technical teams.
               </p>
               <p className="mt-8 max-w-md text-sm leading-7 text-white/65 md:text-white/50 lg:hidden">
-                AMS Access is available for desktop environments: Windows, macOS, and Linux.
+                Access by AMS is available for desktop environments: Windows, macOS, and Linux.
               </p>
               <Link className="ams-cta-primary mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black hover:bg-violet-500 hover:text-white" href="/docs">
                 Read Deployment Docs
@@ -682,7 +687,7 @@ export default function LandingPage() {
                     <p className="text-sm font-semibold text-white">{platform}</p>
                     <p className="mt-1 text-xs text-white/65 md:text-white/40">{title}</p>
                   </div>
-                  <Monitor className="h-4 w-4 text-purple-200/70 lg:hidden" />
+                  <PlatformLogo platform={platform} className="h-4 w-4 text-white/75 lg:hidden" />
                   <Download className="hidden h-4 w-4 text-white/40 lg:block" />
                 </div>
                 <p className="mt-4 text-xs leading-5 text-white/65 md:text-white/50">{body}</p>
@@ -745,7 +750,7 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-xs text-white/65 sm:px-5 sm:py-12 md:text-white/40 grid-cols-2 md:grid-cols-[1.2fr_repeat(5,1fr)]">
           <div>
             <AMSLogo />
-            <p className="mt-5 max-w-xs leading-5">AMS Access. Controlled environments and review context for high-trust evaluations.</p>
+            <p className="mt-5 max-w-xs leading-5">Access by AMS. Controlled environments and review context for high-trust evaluations.</p>
           </div>
           {footerGroups.map(({ group, items }) => (
             <div key={group}>

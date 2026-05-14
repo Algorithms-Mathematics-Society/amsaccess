@@ -81,7 +81,7 @@ export default function ContactPage() {
               Contact
             </div>
             <h1 className="max-w-3xl bg-gradient-to-b from-white to-[#D4D4D8] bg-clip-text text-4xl font-semibold leading-[1.05] tracking-tight text-transparent sm:text-5xl md:text-7xl">
-              Talk to AMS Access.
+              Talk to Access by AMS.
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/70 sm:text-lg md:text-xl">
               Contact the team for access, pricing, deployment planning, support paths, and institution evaluation needs.

@@ -1,6 +1,6 @@
-# AMS Access
+# Access by AMS
 
-AMS Access is a desktop-first assessment integrity platform built for serious online evaluations.
+Access by AMS is a desktop-first assessment integrity platform built for serious online evaluations.
 
 It combines:
 
@@ -18,7 +18,7 @@ The platform is designed for:
 - scholarship tests
 - high-trust written assessments
 
-AMS Access is NOT:
+Access by AMS is NOT:
 
 - a generic LMS
 - a classroom management tool

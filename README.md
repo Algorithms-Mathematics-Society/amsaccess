@@ -1,12 +1,12 @@
-# AMS Access
+# Access by AMS
 
-AMS Access is a Next.js and Supabase platform for managing serious written assessment rounds. The web app provides a marketing site plus admin tools for session review, candidate submissions, integrity events, risk scores, reusable questions, rubrics, and assessment management.
+Access by AMS is a Next.js and Supabase platform for managing serious written assessment rounds. The web app provides a marketing site plus admin tools for session review, candidate submissions, integrity events, risk scores, reusable questions, rubrics, and assessment management.
 
 The product is built for reasoning-heavy exams where the written derivation matters as much as the final answer.  .
 
 ## What It Does
 
-- Presents the public AMS Access product site.
+- Presents the public Access by AMS product site.
 - Calculates a risk score from integrity events for review prioritization.
 - Provides an admin dashboard for sessions, submissions, event counts, risk tone, and review status.
 - Provides a CMS-style question bank with reusable questions, versions, tags, rubrics, expected outputs, and uploaded assets.
@@ -195,7 +195,7 @@ npm run lint
 
 ## Candidate Flow
 
-Candidate assessment delivery happens in the AMS Access desktop app. The website no longer hosts the browser assessment workspace.
+Candidate assessment delivery happens in the Access by AMS desktop app. The website no longer hosts the browser assessment workspace.
 
 ## Admin Flow
 
@@ -335,4 +335,4 @@ Confirm the `question-assets` bucket exists and the storage policies from `20260
 
 ## Notes
 
-Browser-based integrity logging is inherently limited. Users can switch devices, disable scripts, lose network, or trigger events accidentally. AMS Access records useful context for review, but the final judgment should remain human-led.
+Browser-based integrity logging is inherently limited. Users can switch devices, disable scripts, lose network, or trigger events accidentally. Access by AMS records useful context for review, but the final judgment should remain human-led.

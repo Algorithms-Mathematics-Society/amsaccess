@@ -548,7 +548,7 @@ function InvitesTab({ contestId, invites, onRefresh }: {
           <p className="text-sm font-medium text-white">Invite candidates</p>
         </div>
         <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
-          Enter email addresses — one per line or comma-separated. Candidates will see the contest in their AMS Access app.
+          Enter email addresses — one per line or comma-separated. Candidates will see the contest in their Access by AMS app.
         </p>
 
         {error && (

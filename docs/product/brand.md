@@ -1,6 +1,6 @@
 # Brand
 
-AMS Access should feel like:
+Access by AMS should feel like:
 
 - secure infrastructure
 - elite operational tooling

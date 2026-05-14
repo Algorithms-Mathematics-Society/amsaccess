@@ -1,6 +1,6 @@
-# AMS Access - UI/UX & Flow Audit Report
+# Access by AMS - UI/UX & Flow Audit Report
 
-Based on a comprehensive review of the `AMS Access` repository and a simulated browser walkthrough of the application, I have analyzed the website flow, psychological impact, repetitiveness, and "interest kills" (friction points). Below are the flagged issues and recommended solutions.
+Based on a comprehensive review of the `Access by AMS` repository and a simulated browser walkthrough of the application, I have analyzed the website flow, psychological impact, repetitiveness, and "interest kills" (friction points). Below are the flagged issues and recommended solutions.
 
 ## 1. Landing Page (`app/(marketing)/page.tsx`)
 

@@ -101,7 +101,7 @@ export default function AdminLoginPage() {
                 Admin access
               </h1>
               <p className="mt-1 text-xs" style={{ color: "#71717A" }}>
-                AMS Access · Internal only
+                Access by AMS · Internal only
               </p>
             </div>
           </div>

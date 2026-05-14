@@ -10,7 +10,7 @@ export function AMSLogo({ compact = false, size = "default" }: AMSLogoProps) {
   const compactSize = size === "nav" ? "h-8 w-11" : "h-10 w-14";
 
   return (
-    <div className="flex items-center" aria-label="AMS Access">
+    <div className="flex items-center" aria-label="Access by AMS">
       <div className={`${compact ? compactSize : logoSize} overflow-hidden`}>
         <Image
           src="/AMS_ACCESS.svg"

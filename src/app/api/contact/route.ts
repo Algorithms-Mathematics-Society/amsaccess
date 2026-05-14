@@ -65,10 +65,10 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL ?? "AMS Access <onboarding@resend.dev>",
+        from: process.env.RESEND_FROM_EMAIL ?? "Access by AMS <onboarding@resend.dev>",
         to,
         reply_to: email,
-        subject: `AMS Access ${category} inquiry from ${name}`,
+        subject: `Access by AMS ${category} inquiry from ${name}`,
         text: [
           `Name: ${name}`,
           `Organization: ${organization || "Not provided"}`,

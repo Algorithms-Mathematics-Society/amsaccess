@@ -1,7 +1,8 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowRight, Monitor } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { AMSLogo } from "@/components/AMSLogo";
+import { PlatformLogo } from "@/components/PlatformLogo";
 
 // Defer client island from the initial SSR bundle.
 const MobileNav = dynamic(
@@ -13,7 +14,7 @@ export function MarketingHeader() {
   return (
     <header className="fixed inset-x-0 top-4 z-40 px-4 sm:top-6">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-white/10 bg-[#09090B]/80 px-4 shadow-glass backdrop-blur-2xl sm:px-6">
-        <Link href="/" aria-label="AMS Access home">
+        <Link href="/" aria-label="Access by AMS home">
           <AMSLogo size="nav" />
         </Link>
         <nav className="hidden items-center gap-8 text-sm font-medium text-white/56 lg:flex">
@@ -29,7 +30,7 @@ export function MarketingHeader() {
             className="hidden lg:inline-flex h-9 items-center rounded-full border border-white/25 bg-white px-4 text-sm font-semibold text-[#202020] shadow-[0_4px_14px_rgba(255,255,255,0.1)] transition hover:bg-[#8B5CF6] hover:text-white"
             href="/download"
           >
-            Get AMS Access
+            Get Access by AMS
           </Link>
           <MobileNav />
         </div>
@@ -56,7 +57,7 @@ export function MarketingEndpointPage({
   body,
   items,
   primaryHref = "/download",
-  primaryLabel = "Get AMS Access"
+  primaryLabel = "Get Access by AMS"
 }: MarketingEndpointPageProps) {
   const primaryIsDownload = primaryHref === "/download";
 
@@ -91,7 +92,11 @@ export function MarketingEndpointPage({
               </Link>
               {primaryIsDownload && (
                 <div className="inline-flex min-h-11 items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-5 text-left lg:hidden">
-                  <Monitor className="h-4 w-4 shrink-0 text-purple-200" />
+                  <div className="flex shrink-0 items-center gap-1.5 text-white/70">
+                    <PlatformLogo platform="Windows" className="h-4 w-4" />
+                    <PlatformLogo platform="macOS" className="h-4 w-4" />
+                    <PlatformLogo platform="Linux" className="h-4 w-4" />
+                  </div>
                   <div>
                     <p className="text-sm font-semibold text-white">Available on desktop</p>
                     <p className="text-[11px] leading-4 text-white/45">Windows, macOS, and Linux</p>

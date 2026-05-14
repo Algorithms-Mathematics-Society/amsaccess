@@ -39,7 +39,7 @@ export default function DocsPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link className="hidden h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black transition hover:bg-violet-500 hover:text-white lg:inline-flex" href="/download">
-                Get AMS Access
+                Get Access by AMS
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link className="inline-flex h-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] px-5 text-sm font-medium text-white/75 shadow-glass backdrop-blur-md transition hover:border-white/25 hover:bg-white/[0.07] hover:text-white" href="/">

@@ -2,14 +2,15 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, FileText, Monitor, ShieldCheck } from "lucide-react";
+import { ArrowRight, FileText, ShieldCheck } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
+import { PlatformLogo } from "@/components/PlatformLogo";
 
 const platforms = [
   { name: "Windows", installer: "MSI installer", status: "Beta access" },
   { name: "macOS", installer: "Universal package", status: "Beta access" },
   { name: "Linux", installer: "AppImage package", status: "Beta access" }
-];
+] as const;
 
 export default function DownloadPage() {
   const [email, setEmail] = useState("");
@@ -53,18 +54,25 @@ export default function DownloadPage() {
           <div className="max-w-3xl">
             <p className="ams-label mb-6">Download</p>
             <h1 className="bg-gradient-to-b from-white via-[#F4F4F5] to-[#A1A1AA] bg-clip-text text-5xl font-semibold leading-[0.96] tracking-tight text-transparent md:text-7xl">
-              Download AMS Access
+              Download Access by AMS
             </h1>
             <p className="mt-8 max-w-xl text-base leading-8 text-white/60">
               The downloadable desktop app for controlled rounds, written response capture, session policy, and review timeline context.
             </p>
             <div className="mt-6 flex max-w-md items-start gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-4 lg:hidden">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-purple-400/20 bg-purple-500/10 text-purple-200">
-                <Monitor className="h-4 w-4" />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white">
+                <PlatformLogo platform="Windows" className="h-4 w-4" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-white">Available on desktop</p>
-                <p className="mt-1 text-xs leading-5 text-white/45">Windows, macOS, and Linux builds are prepared for desktop deployments.</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs leading-5 text-white/45">
+                  {platforms.map((platform) => (
+                    <span key={platform.name} className="inline-flex items-center gap-1.5">
+                      <PlatformLogo platform={platform.name} className="h-3.5 w-3.5 text-white/60" />
+                      {platform.name}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -101,7 +109,7 @@ export default function DownloadPage() {
                     <h2 className="text-2xl font-semibold tracking-tight text-white">{platform.name}</h2>
                     <p className="mt-2 text-sm text-white/45">{platform.installer}</p>
                   </div>
-                  <Monitor className="h-5 w-5 text-purple-200/70" />
+                  <PlatformLogo platform={platform.name} className="h-5 w-5 text-white/75" />
                 </div>
                 <div className="mt-10 grid gap-3 border-t border-white/10 pt-5 text-xs">
                   <div className="flex items-center justify-between gap-4">

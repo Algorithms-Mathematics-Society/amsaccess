@@ -58,7 +58,7 @@ export default function ChangelogPage() {
               Track desktop app releases, session policy changes, review timeline updates, and deployment-facing improvements.
             </p>
             <Link className="mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black transition hover:bg-violet-500 hover:text-white" href="/download">
-              Get AMS Access
+              Get Access by AMS
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

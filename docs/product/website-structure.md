@@ -19,7 +19,7 @@ Headline:
 Desktop control for serious online rounds.
 
 Subline:
-AMS Access is a downloadable assessment integrity app for fullscreen sessions, activity logs, written responses, and reviewer-ready evidence.
+Access by AMS is a downloadable assessment integrity app for fullscreen sessions, activity logs, written responses, and reviewer-ready evidence.
 
 CTA:
 

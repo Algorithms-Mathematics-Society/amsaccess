@@ -75,7 +75,7 @@ export default function OrgLoginPage() {
             </div>
             <div>
               <h1 className="text-lg font-semibold tracking-tight text-white">Organization Portal</h1>
-              <p className="mt-1 text-xs" style={{ color: "#71717A" }}>AMS Access · org.amsaccess.com</p>
+              <p className="mt-1 text-xs" style={{ color: "#71717A" }}>Access by AMS · org.amsaccess.com</p>
             </div>
           </div>
 

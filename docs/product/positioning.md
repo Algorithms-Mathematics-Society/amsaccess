@@ -1,6 +1,6 @@
 # Positioning
 
-AMS Access should be positioned as:
+Access by AMS should be positioned as:
 
 "Assessment infrastructure for serious online rounds."
 
