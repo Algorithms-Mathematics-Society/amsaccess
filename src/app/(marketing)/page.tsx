@@ -2,7 +2,6 @@ import {
   ArrowRight,
   Check,
   Circle,
-  Code2,
   Download,
   FileText,
   ShieldCheck
@@ -12,6 +11,7 @@ import dynamic from "next/dynamic";
 import { AMSLogo } from "@/components/AMSLogo";
 import { CommandMenu } from "@/components/CommandMenu";
 import { PlatformLogo } from "@/components/PlatformLogo";
+import { TimelineScrubberDemo } from "@/components/TimelineScrubberDemo";
 import { ProductConfigTabs } from "./ProductConfigTabs";
 
 // Deferred client islands — excluded from the initial JS bundle.
@@ -177,6 +177,26 @@ function MarketingLink({
 }
 
 function HeroConsole() {
+  const mobileLogs = [
+    ["> session shell initialized", "[OK]", "text-emerald-300/80"],
+    ["> fullscreen boundary armed", "[OK]", "text-emerald-300/80"],
+    ["> reviewer timeline recording", "LIVE", "text-purple-200/80"]
+  ] as const;
+
+  const sessionLogs = [
+    ["> initializing controlled session", "[OK]", "text-emerald-300/80"],
+    ["> loading written response workspace", "[OK]", "text-emerald-300/80"],
+    ["> fullscreen policy active", "LOCKED", "text-purple-200/80"],
+    ["> evidence stream attached", "LIVE", "text-purple-200/80"]
+  ] as const;
+
+  const timelineLogs = [
+    ["10:24:18", "session_started"],
+    ["10:24:33", "fullscreen_enter"],
+    ["10:31:04", "answer_autosaved"],
+    ["10:47:10", "timeline_checkpoint"]
+  ] as const;
+
   return (
     <div className="glass-card ams-hero-console mx-auto mt-11 max-w-6xl overflow-hidden rounded-[0.65rem] md:mt-10">
       <div className="flex items-center justify-between border-b border-white/10 bg-[#09090B] px-4 py-3">
@@ -188,10 +208,13 @@ function HeroConsole() {
       {/* Mobile: simplified single-column view */}
       <div className="block md:hidden bg-[#09090B]/50 p-5">
         <p className="ams-label mb-3">Session Context</p>
-        <div className="ams-embedded-screen space-y-2 rounded p-4">
-          <div className="ams-context-line h-2 w-full rounded bg-white/20" />
-          <div className="h-2 w-10/12 rounded bg-white/10" />
-          <div className="h-2 w-4/5 rounded bg-white/10" />
+        <div className="ams-embedded-screen space-y-2 rounded p-4 font-mono text-[10px] leading-5">
+          {mobileLogs.map(([message, status, statusClass], index) => (
+            <p key={message} className="text-white/42">
+              <span className="typing-effect" style={{ animationDelay: `${index * 0.38}s` }}>{message}</span>
+              <span className={`ml-2 ${statusClass}`}>{status}</span>
+            </p>
+          ))}
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2">
           {(["Windows", "macOS", "Linux"] as const).map((p) => (
@@ -234,16 +257,32 @@ function HeroConsole() {
             </div>
             <span className="ams-status-pulse rounded-full border border-purple-500/25 bg-purple-500/10 px-3 py-1 text-xs text-purple-200">Ready</span>
           </div>
-          <div className="ams-embedded-screen space-y-3 rounded p-5">
-            <div className="ams-context-line h-2 w-full rounded bg-white/20" />
-            <div className="h-2 w-11/12 rounded bg-white/10" />
-            <div className="h-2 w-4/5 rounded bg-white/10" />
+          <div className="ams-embedded-screen rounded p-5">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">session-runtime.log</span>
+              <span className="ams-status-pulse rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] text-emerald-200/75">streaming</span>
+            </div>
+            <div className="mt-4 space-y-2 font-mono text-[11px] leading-5">
+              {sessionLogs.map(([message, status, statusClass], index) => (
+                <p key={message} className="text-white/42">
+                  <span className="typing-effect" style={{ animationDelay: `${index * 0.34}s` }}>{message}</span>
+                  <span className={`ml-3 ${statusClass}`}>{status}</span>
+                </p>
+              ))}
+            </div>
             <div className="ams-embedded-screen mt-8 h-32 rounded p-4">
-              <div className="ams-context-line h-2 w-28 rounded bg-[#8B5CF6]" />
-              <div className="mt-4 space-y-2">
-                <div className="h-2 rounded bg-white/10" />
-                <div className="h-2 w-10/12 rounded bg-white/10" />
-                <div className="h-2 w-8/12 rounded bg-white/10" />
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">timeline</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]" />
+              </div>
+              <div className="mt-4 grid gap-2 font-mono text-[10px] leading-4">
+                {timelineLogs.map(([time, event], index) => (
+                  <div key={event} className="ams-review-event flex items-center justify-between gap-4 rounded border border-white/[0.04] bg-white/[0.018] px-2 py-1.5" style={{ animationDelay: `${index * 0.72}s` }}>
+                    <span className="text-white/32">{time}</span>
+                    <span className="text-white/55">{event}</span>
+                    <span className="h-1 w-1 rounded-full bg-[#8B5CF6]" />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -349,31 +388,7 @@ function WorkflowVisual({ kind }: { kind: string }) {
   }
 
   if (kind === "code") {
-    return (
-      <div className="glass-card overflow-x-auto overflow-y-hidden rounded bg-transparent p-5 md:overflow-hidden">
-        <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
-          <div className="flex items-center gap-2 text-xs text-white/65 md:text-white/50">
-            <Code2 className="h-4 w-4" />
-            session-timeline.log
-          </div>
-          <div className="text-xs text-white/30">Review</div>
-        </div>
-        <div className="grid min-w-max gap-2 overflow-x-auto font-mono text-[11px] leading-5 md:min-w-0 md:grid-cols-2 md:overflow-visible">
-          <div className="ams-log-update rounded bg-red-500/10 p-3 text-red-100/70">
-            <p>- fullscreen_exit at 10:24:18</p>
-            <p>- tab_hidden at 10:24:20</p>
-            <p>- paste at 10:31:04</p>
-            <p>- focus_blur at 10:36:51</p>
-          </div>
-          <div className="ams-log-update rounded bg-emerald-400/10 p-3 text-emerald-100/70" style={{ animationDelay: "1.2s" }}>
-            <p>+ answer_autosaved at 10:24:28</p>
-            <p>+ fullscreen_enter at 10:24:33</p>
-            <p>+ final_answer_saved at 10:47:10</p>
-            <p>+ submitted at 10:58:44</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <TimelineScrubberDemo />;
   }
 
   if (kind === "progress") {
@@ -589,22 +604,27 @@ export default function LandingPage() {
       </section>
 
       {workflowSections.map((section, idx) => (
-        <section id={idx === 1 ? "review-context" : undefined} key={section.title} className={`cv-auto mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-24 md:py-36 animate-fade-in-up ${idx === 0 ? "border-t border-white/5" : ""}`}>
-          <div className={`mb-8 grid gap-6 ${idx % 2 === 0 ? "md:grid-cols-[0.86fr_1.14fr]" : "md:grid-cols-[1.12fr_0.88fr]"}`}>
-            <div>
-              <p className="ams-label mb-4">{section.eyebrow}</p>
+        <section id={idx === 1 ? "review-context" : undefined} key={section.title} className={`cv-auto mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-24 md:min-h-[86vh] md:py-24 animate-fade-in-up ${idx === 0 ? "border-t border-white/5" : ""}`}>
+          <div className="grid gap-8 md:grid-cols-[0.82fr_1.18fr] md:items-start">
+            <div className="md:min-h-[58vh] md:pt-20">
+              <div className="mb-6 inline-flex items-center gap-3">
+                <p className="ams-label">{section.eyebrow}</p>
+                <span className="font-mono text-[10px] text-white/25">0{idx + 1}/03</span>
+              </div>
               <h2 className="max-w-xl text-2xl font-semibold leading-[1.05] tracking-tight text-white sm:text-3xl md:text-5xl">{section.title}</h2>
+              <p className="mt-6 max-w-xl text-sm leading-7 text-white/65 md:text-white/50">{section.body}</p>
+              <a
+                className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-purple-200/75 transition hover:text-white"
+                href={idx === 0 ? "#review-context" : "#pricing"}
+              >
+                {idx === 0 ? "See review context" : "View pricing"}
+                <ArrowRight className="h-4 w-4" />
+              </a>
             </div>
-            <p className="max-w-xl text-sm leading-7 text-white/65 md:pt-10 md:text-white/50">{section.body}</p>
+            <div className="md:sticky md:top-28">
+              <WorkflowVisual kind={section.visual} />
+            </div>
           </div>
-          <WorkflowVisual kind={section.visual} />
-          <a
-            className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-purple-200/75 transition hover:text-white"
-            href={idx === 0 ? "#review-context" : "#pricing"}
-          >
-            {idx === 0 ? "See review context" : "View pricing"}
-            <ArrowRight className="h-4 w-4" />
-          </a>
         </section>
       ))}
 

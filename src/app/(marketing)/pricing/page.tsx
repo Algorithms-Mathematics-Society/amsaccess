@@ -1,45 +1,10 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { ArrowRight, Monitor } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
 import { PlatformLogo } from "@/components/PlatformLogo";
-
-const plans = [
-  {
-    name: "Pilot",
-    for: "For teams validating controlled rounds with a small cohort.",
-    capabilities: ["Fullscreen controlled sessions", "Written response workflows", "Reviewer timeline controls"],
-    cta: "Request access",
-    href: "/contact"
-  },
-  {
-    name: "Event",
-    for: "For hiring windows, olympiads, scholarship rounds, and one-time evaluations.",
-    capabilities: ["Operational visibility", "Session timelines", "Reviewer evidence collection"],
-    cta: "Request access",
-    href: "/contact"
-  },
-  {
-    name: "Institution",
-    for: "For universities and organizations running recurring high-trust evaluations.",
-    capabilities: ["Operational visibility", "Session timelines", "Autoscaling judge fleet"],
-    cta: "Contact us",
-    href: "/contact"
-  },
-  {
-    name: "Enterprise",
-    for: "For custom deployment, procurement, and integration requirements.",
-    capabilities: ["Autoscaling judge fleet", "Operational visibility", "Deployment planning"],
-    cta: "Contact us",
-    href: "/contact"
-  }
-];
-
-const planStyles = [
-  "border-white/10",
-  "border-purple-300/15",
-  "border-purple-300/25 bg-[radial-gradient(circle_at_50%_0%,rgba(139,92,246,0.11),transparent_18rem)]",
-  "border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.012))]"
-];
+import { PricingVolumeModeler } from "@/components/PricingVolumeModeler";
+import { comparisonGroups, plans } from "./pricingData";
 
 const platforms = ["Windows", "macOS", "Linux"] as const;
 
@@ -55,38 +20,29 @@ export default function PricingPage() {
         }}
       >
         <div className="raycast-hero-bg" />
-        <div className="absolute left-1/2 top-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-20 blur-3xl" />
+        <div className="absolute left-1/2 top-1/2 -z-10 h-[420px] w-[880px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-[0.07] blur-[120px]" />
         <div className="relative z-10 mx-auto max-w-6xl">
           <div className="max-w-3xl">
             <p className="mb-6 text-xs font-semibold uppercase tracking-[0.24em] text-white/55">Pricing</p>
             <h1 className="bg-gradient-to-b from-white via-[#F4F4F5] to-[#A1A1AA] bg-clip-text text-5xl font-semibold leading-[0.96] tracking-tight text-transparent md:text-7xl">
-              Plans for high-trust evaluation.
+              Pricing for evaluation infrastructure.
             </h1>
             <p className="mt-8 max-w-xl text-base leading-8 text-white/60">
-              Choose by operating model: pilot, event, institution, or custom deployment. Exact pricing is handled through access requests and procurement conversations.
+              Choose by operating model first, then validate the limits underneath: session isolation, judge capacity, reviewer evidence, deployment, and support.
             </p>
           </div>
 
-          <div className="mt-20 grid gap-5 md:grid-cols-4">
-            {plans.map((plan, index) => (
-              <article key={plan.name} className={`glass-card ams-pricing-card flex flex-col p-6 ${planStyles[index]} ${index === 2 ? "ams-card-featured" : ""}`}>
-                <h2 className="text-2xl font-semibold tracking-tight text-white">{plan.name}</h2>
-                <p className="mt-5 min-h-24 text-sm leading-6 text-white/55">{plan.for}</p>
-                <div className="mt-8 border-t border-white/10 pt-5">
-                  <p className="ams-label mb-4">Capability</p>
-                  <ul className="grid gap-3 text-sm leading-6 text-white/55">
-                    {plan.capabilities.map((capability) => (
-                      <li key={capability}>{capability}</li>
-                    ))}
-                  </ul>
-                </div>
-                <Link className="mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black transition hover:bg-violet-500 hover:text-white" href={plan.href}>
-                  {plan.cta}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </article>
-            ))}
+          <div className="mt-10 max-w-3xl rounded-[8px] border border-white/10 bg-white/[0.026] px-5 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur">
+            <p className="ams-label">Pricing philosophy</p>
+            <p className="mt-3 text-xl font-semibold tracking-tight text-white md:text-2xl">
+              We charge for evaluated sessions, not reviewer seats.
+            </p>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/56">
+              Invite the reviewers, admins, security teams, and program operators you need without slowing the round down. Pricing is tied to the candidate compute, controlled session context, and evidence storage that Access actually runs.
+            </p>
           </div>
+
+          <PricingVolumeModeler />
 
           <div className="mt-6 rounded-[8px] border border-white/10 bg-white/[0.035] px-5 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -111,6 +67,110 @@ export default function PricingPage() {
               </div>
             </div>
           </div>
+
+          <section className="mt-16">
+            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="ams-label">SLAs & trust</p>
+                <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-4xl">
+                  Operational guarantees for live rounds.
+                </h2>
+              </div>
+              <p className="max-w-md text-sm leading-6 text-white/52">
+                Event and institutional deployments are scoped with uptime windows, response commitments, and evidence retention terms before launch.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <article className="ams-trust-card rounded-[8px] border border-white/10 p-5">
+                <p className="ams-label">Uptime guarantee</p>
+                <p className="mt-4 text-3xl font-semibold tracking-tight text-white">99.99%</p>
+                <p className="mt-3 text-sm leading-6 text-white/54">
+                  Targeted uptime during contracted event windows, with launch monitoring and escalation paths for high-stakes rounds.
+                </p>
+              </article>
+
+              <article className="ams-trust-card rounded-[8px] border border-white/10 p-5">
+                <p className="ams-label">Support SLA</p>
+                <p className="mt-4 text-3xl font-semibold tracking-tight text-white">1 hour</p>
+                <p className="mt-3 text-sm leading-6 text-white/54">
+                  Priority response for Event, Institution, and Enterprise tiers during active evaluation windows.
+                </p>
+              </article>
+
+              <article className="ams-trust-card rounded-[8px] border border-white/10 p-5">
+                <p className="ams-label">Evidence retention</p>
+                <p className="mt-4 text-3xl font-semibold tracking-tight text-white">Policy-bound</p>
+                <p className="mt-3 text-sm leading-6 text-white/54">
+                  Session evidence is retained only for the agreed review period, then securely wiped according to deployment policy.
+                </p>
+              </article>
+            </div>
+
+            <div className="mt-4 rounded-[8px] border border-white/10 bg-black/35 px-5 py-4 text-sm leading-6 text-white/48">
+              Compliance documentation, data processing terms, and custom retention schedules are available for institutional procurement reviews.
+            </div>
+          </section>
+
+          <section className="relative mt-24">
+            <div className="absolute left-1/2 top-24 -z-10 h-72 w-[64rem] -translate-x-1/2 rounded-full bg-violet-500/10 blur-[120px]" />
+            <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-2xl">
+                <p className="ams-label">Technical comparison</p>
+                <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-5xl">
+                  Limits, isolation, and operating model.
+                </h2>
+              </div>
+              <p className="max-w-md text-sm leading-6 text-white/52">
+                Built for teams that need to price infrastructure by control surface, review depth, and deployment ownership rather than a simple seat count.
+              </p>
+            </div>
+
+            <div className="ams-pricing-matrix overflow-hidden rounded-[8px] border border-white/10 bg-[#050506]/85 shadow-[0_28px_90px_rgba(0,0,0,0.48)]">
+              <div className="overflow-x-auto">
+                <table className="min-w-[980px] w-full border-collapse text-left">
+                  <thead>
+                    <tr>
+                      <th className="w-[24%] px-5 py-5 text-[0.64rem] font-semibold uppercase tracking-[0.22em] text-white/38">Capability</th>
+                      {plans.map((plan) => (
+                        <th key={plan.name} className="px-5 py-5 text-sm font-semibold text-white">
+                          {plan.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparisonGroups.map((group) => (
+                      <Fragment key={group.category}>
+                        <tr key={`${group.category}-heading`}>
+                          <td colSpan={5} className="border-t border-white/10 bg-white/[0.025] px-5 py-3">
+                            <span className="text-[0.64rem] font-semibold uppercase tracking-[0.22em] text-purple-200/55">{group.category}</span>
+                          </td>
+                        </tr>
+                        {group.rows.map(([feature, pilot, event, institution, enterprise]) => (
+                          <tr key={`${group.category}-${feature}`} className="ams-pricing-matrix-row">
+                            <th className="border-t border-white/[0.07] px-5 py-4 text-sm font-medium text-white/72">{feature}</th>
+                            <td className="border-t border-white/[0.07] px-5 py-4 text-sm leading-6 text-white/52">{pilot}</td>
+                            <td className="border-t border-white/[0.07] px-5 py-4 text-sm leading-6 text-white/60">{event}</td>
+                            <td className="border-t border-white/[0.07] px-5 py-4 text-sm leading-6 text-white/68">{institution}</td>
+                            <td className="border-t border-white/[0.07] px-5 py-4 text-sm leading-6 text-white/68">{enterprise}</td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 rounded-[8px] border border-white/10 bg-white/[0.025] px-5 py-4 text-sm leading-6 text-white/52 md:flex-row md:items-center md:justify-between">
+              <span>Need isolation, retention, or deployment terms outside these limits?</span>
+              <Link className="inline-flex items-center gap-2 font-semibold text-purple-200/80 transition hover:text-white" href="/contact">
+                Discuss deployment
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </section>
         </div>
       </section>
     </main>
