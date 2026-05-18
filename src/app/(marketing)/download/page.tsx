@@ -2,22 +2,8 @@ import Link from "next/link";
 import { ArrowDownToLine, ArrowRight, ExternalLink, FileText, ShieldCheck } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
 import { PlatformLogo } from "@/components/PlatformLogo";
-import type { LatestRelease, ReleaseAsset } from "@/app/api/releases/latest/route";
-
-async function fetchLatestRelease(): Promise<LatestRelease | null> {
-  try {
-    const base =
-      process.env.NEXT_PUBLIC_APP_URL ??
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-    const res = await fetch(`${base}/api/releases/latest`, {
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
+import { fetchLatestRelease } from "@/lib/releases";
+import type { LatestRelease, ReleaseAsset } from "@/lib/releases";
 
 function fmtBytes(bytes: number) {
   if (bytes > 1_000_000) return `${(bytes / 1_000_000).toFixed(0)} MB`;
