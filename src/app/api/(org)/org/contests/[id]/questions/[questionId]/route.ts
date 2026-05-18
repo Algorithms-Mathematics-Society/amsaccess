@@ -36,6 +36,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const points = cleanPoints(record.points);
     if (!title || points === null) return apiError("Question title and points are required.", 400, "BAD_REQUEST");
 
+    const questionType = cleanText(record.question_type, 20);
+    const timeLimitMs = Number(record.time_limit_ms);
+    const memoryLimitMb = Number(record.memory_limit_mb);
+    const validQuestionTypes = new Set(["code", "output_only"]);
+
     const { error } = await auth.supabase
       .from("contest_questions")
       .update({
@@ -45,6 +50,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         css_starter: cleanText(record.css_starter, 80_000),
         js_starter: cleanText(record.js_starter, 80_000),
         points,
+        ...(validQuestionTypes.has(questionType) ? { question_type: questionType } : {}),
+        ...(Number.isFinite(timeLimitMs) && timeLimitMs >= 100 ? { time_limit_ms: Math.floor(timeLimitMs) } : {}),
+        ...(Number.isFinite(memoryLimitMb) && memoryLimitMb >= 16 ? { memory_limit_mb: Math.floor(memoryLimitMb) } : {}),
         updated_at: new Date().toISOString()
       })
       .eq("id", params.questionId)

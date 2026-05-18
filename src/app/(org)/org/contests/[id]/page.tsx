@@ -13,12 +13,14 @@ import { apiFetch } from "@/lib/client/apiClient";
 type Contest = {
   id: string; title: string; description: string | null;
   start_at: string; end_at: string; status: string; org_id: string;
+  scoring_type: string; allowed_languages: string[];
 };
 
 type Question = {
   id: string; contest_id: string; title: string; description: string;
   html_starter: string; css_starter: string; js_starter: string;
   points: number; order_index: number;
+  question_type: string; time_limit_ms: number; memory_limit_mb: number;
 };
 
 type Invite = {
@@ -322,6 +324,11 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   const [js, setJs]                   = useState(existing?.js_starter ?? "");
   const [points, setPoints]           = useState(existing?.points ?? 10);
   const [codeTab, setCodeTab]         = useState<CodeTab>("html");
+  const [questionType, setQuestionType] = useState<"code" | "output_only">(
+    (existing?.question_type as "code" | "output_only") ?? "code"
+  );
+  const [timeLimit, setTimeLimit]     = useState(existing?.time_limit_ms ?? 2000);
+  const [memoryLimit, setMemoryLimit] = useState(existing?.memory_limit_mb ?? 256);
   const [error, setError]             = useState<string | null>(null);
 
   async function handleSave() {
@@ -332,12 +339,12 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       if (existing) {
         await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions/${existing.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points })
+          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
       } else {
         await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions`, {
           method: "POST",
-          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex })
+          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
       }
       onSaved();
@@ -395,10 +402,58 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         />
       </div>
 
+      {/* Question type */}
+      <div className="mb-4">
+        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Question type</label>
+        <div className="flex gap-3">
+          {([["code", "Code submission"], ["output_only", "Output only"]] as const).map(([val, label]) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setQuestionType(val)}
+              className="rounded-lg px-4 py-2 text-sm font-medium transition"
+              style={
+                questionType === val
+                  ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
+                  : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Time / memory limits */}
+      {questionType === "code" && (
+        <div className="mb-4 flex gap-3">
+          <div className="flex-1">
+            <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Time limit (ms)</label>
+            <input
+              type="number"
+              min={100}
+              value={timeLimit}
+              onChange={(e) => setTimeLimit(Number(e.target.value))}
+              className="glass-input text-sm text-white"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Memory limit (MB)</label>
+            <input
+              type="number"
+              min={16}
+              value={memoryLimit}
+              onChange={(e) => setMemoryLimit(Number(e.target.value))}
+              className="glass-input text-sm text-white"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Code editor tabs */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <label className="text-xs font-medium" style={{ color: "#A1A1AA" }}>Starter code</label>
+          <label className="text-xs font-medium" style={{ color: "#A1A1AA" }}>Question display (HTML / CSS / JS)</label>
           <div className="flex rounded-lg p-0.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
             {(["html", "css", "js"] as CodeTab[]).map((lang) => (
               <button
@@ -419,13 +474,13 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         </div>
 
         {codeTab === "html" && (
-          <CodeArea lang="html" value={html} onChange={setHtml} placeholder={`<div class="navbar">\n  <!-- Your HTML here -->\n</div>`} />
+          <CodeArea lang="html" value={html} onChange={setHtml} placeholder={`<div class="problem-statement">\n  <!-- Problem statement HTML here -->\n  <!-- Can include graphs, diagrams, input fields -->\n</div>`} />
         )}
         {codeTab === "css" && (
-          <CodeArea lang="css" value={css} onChange={setCss} placeholder={`.navbar {\n  /* Your styles here */\n}`} />
+          <CodeArea lang="css" value={css} onChange={setCss} placeholder={`.problem-statement {\n  /* Style the question display */\n}`} />
         )}
         {codeTab === "js" && (
-          <CodeArea lang="js" value={js} onChange={setJs} placeholder={`// Your JavaScript here\nconst navbar = document.querySelector('.navbar');\n`} />
+          <CodeArea lang="js" value={js} onChange={setJs} placeholder={`// Interactive question logic (graphs, validators, etc.)\n// For output-only: set up input field and capture answer\n`} />
         )}
       </div>
 
@@ -649,15 +704,17 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 function SettingsTab({ contest, onSaved, onDeleted }: {
   contest: Contest; onSaved: () => void; onDeleted: () => void;
 }) {
-  const [title, setTitle]       = useState(contest.title);
-  const [description, setDesc]  = useState(contest.description ?? "");
-  const [startAt, setStartAt]   = useState(contest.start_at.slice(0, 16));
-  const [endAt, setEndAt]       = useState(contest.end_at.slice(0, 16));
-  const [status, setStatus]     = useState(contest.status);
-  const [saving, setSaving]     = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const [success, setSuccess]   = useState(false);
+  const [title, setTitle]           = useState(contest.title);
+  const [description, setDesc]      = useState(contest.description ?? "");
+  const [startAt, setStartAt]       = useState(contest.start_at.slice(0, 16));
+  const [endAt, setEndAt]           = useState(contest.end_at.slice(0, 16));
+  const [status, setStatus]         = useState(contest.status);
+  const [scoringType, setScoringType] = useState(contest.scoring_type ?? "ICPC");
+  const [allowedLangs, setAllowedLangs] = useState<string[]>(contest.allowed_languages ?? ["C++17", "Python3", "Java17"]);
+  const [saving, setSaving]         = useState(false);
+  const [deleting, setDeleting]     = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [success, setSuccess]       = useState(false);
 
   async function save() {
     setError(null);
@@ -672,7 +729,9 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
           description,
           start_at: new Date(startAt).toISOString(),
           end_at: new Date(endAt).toISOString(),
-          status
+          status,
+          scoring_type: scoringType,
+          allowed_languages: allowedLangs,
         })
       });
       setSuccess(true);
@@ -734,6 +793,51 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
               {s}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Scoring type</label>
+        <div className="flex gap-2">
+          {(["IOI", "ICPC", "CF"] as const).map((s) => (
+            <button
+              key={s} type="button" onClick={() => setScoringType(s)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium transition"
+              style={scoringType === s
+                ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)", color: "#c4b5fd" }
+                : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Allowed languages</label>
+        <div className="flex flex-wrap gap-2">
+          {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
+            const active = allowedLangs.includes(lang);
+            return (
+              <button
+                key={lang}
+                type="button"
+                onClick={() =>
+                  setAllowedLangs(
+                    active ? allowedLangs.filter((l) => l !== lang) : [...allowedLangs, lang]
+                  )
+                }
+                className="rounded-md px-3 py-1 text-xs font-medium transition"
+                style={
+                  active
+                    ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)", color: "#c4b5fd" }
+                    : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
+                }
+              >
+                {lang}
+              </button>
+            );
+          })}
         </div>
       </div>
 

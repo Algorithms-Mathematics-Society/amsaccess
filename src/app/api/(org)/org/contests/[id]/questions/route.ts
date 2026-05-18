@@ -38,6 +38,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (!title || points === null) return apiError("Question title and points are required.", 400, "BAD_REQUEST");
 
+    const questionType = cleanText(record.question_type, 20);
+    const timeLimitMs = Number(record.time_limit_ms);
+    const memoryLimitMb = Number(record.memory_limit_mb);
+    const validQuestionTypes = new Set(["code", "output_only"]);
+
     const { error } = await auth.supabase
       .from("contest_questions")
       .insert({
@@ -48,7 +53,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         css_starter: cleanText(record.css_starter, 80_000),
         js_starter: cleanText(record.js_starter, 80_000),
         points,
-        order_index: Number.isFinite(orderIndex) && orderIndex > 0 ? Math.floor(orderIndex) : 1
+        order_index: Number.isFinite(orderIndex) && orderIndex > 0 ? Math.floor(orderIndex) : 1,
+        question_type: validQuestionTypes.has(questionType) ? questionType : "code",
+        time_limit_ms: Number.isFinite(timeLimitMs) && timeLimitMs >= 100 ? Math.floor(timeLimitMs) : 2000,
+        memory_limit_mb: Number.isFinite(memoryLimitMb) && memoryLimitMb >= 16 ? Math.floor(memoryLimitMb) : 256,
       });
 
     if (error) return apiError("Unable to save question.", 500, "SERVER_ERROR");

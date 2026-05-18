@@ -33,6 +33,10 @@ export async function POST(request: NextRequest) {
     const startAt = new Date(cleanText(record.start_at, 80));
     const endAt = new Date(cleanText(record.end_at, 80));
     const status = cleanText(record.status, 20);
+    const scoringType = cleanText(record.scoring_type, 10);
+    const allowedLanguages = Array.isArray(record.allowed_languages)
+      ? (record.allowed_languages as unknown[]).map((l) => cleanText(l, 20)).filter(Boolean)
+      : ["C++17", "Python3", "Java17"];
 
     if (!title || Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
       return apiError("Valid title, start time, and end time are required.", 400, "BAD_REQUEST");
@@ -41,6 +45,9 @@ export async function POST(request: NextRequest) {
     if (status !== "DRAFT" && status !== "SCHEDULED") {
       return apiError("Invalid contest status.", 400, "BAD_REQUEST");
     }
+
+    const validScoringTypes = new Set(["IOI", "ICPC", "CF"]);
+    const resolvedScoringType = validScoringTypes.has(scoringType) ? scoringType : "ICPC";
 
     const { data, error } = await auth.supabase
       .from("contests")
@@ -51,6 +58,8 @@ export async function POST(request: NextRequest) {
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString(),
         status,
+        scoring_type: resolvedScoringType,
+        allowed_languages: allowedLanguages,
         created_by: auth.user.id
       })
       .select("id")

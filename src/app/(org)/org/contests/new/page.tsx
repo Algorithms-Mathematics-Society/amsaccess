@@ -13,6 +13,8 @@ export default function NewContestPage() {
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
   const [status, setStatus] = useState<"DRAFT" | "SCHEDULED">("DRAFT");
+  const [scoringType, setScoringType] = useState<"IOI" | "ICPC" | "CF">("ICPC");
+  const [allowedLanguages, setAllowedLanguages] = useState<string[]>(["C++17", "Python3", "Java17"]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +36,9 @@ export default function NewContestPage() {
           description: description.trim() || null,
           start_at: new Date(startAt).toISOString(),
           end_at: new Date(endAt).toISOString(),
-          status
+          status,
+          scoring_type: scoringType,
+          allowed_languages: allowedLanguages,
         })
       });
 
@@ -131,6 +135,53 @@ export default function NewContestPage() {
               />
             </Field>
           </div>
+
+          <Field label="Scoring type">
+            <div className="flex gap-3">
+              {(["IOI", "ICPC", "CF"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setScoringType(s)}
+                  className="rounded-lg px-4 py-2 text-sm font-medium transition"
+                  style={
+                    scoringType === s
+                      ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
+                      : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
+                  }
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Allowed languages">
+            <div className="flex flex-wrap gap-2">
+              {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
+                const active = allowedLanguages.includes(lang);
+                return (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() =>
+                      setAllowedLanguages(
+                        active ? allowedLanguages.filter((l) => l !== lang) : [...allowedLanguages, lang]
+                      )
+                    }
+                    className="rounded-md px-3 py-1 text-xs font-medium transition"
+                    style={
+                      active
+                        ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
+                        : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
+                    }
+                  >
+                    {lang}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
 
           <Field label="Status">
             <div className="flex gap-3">

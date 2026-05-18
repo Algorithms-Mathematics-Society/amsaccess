@@ -72,10 +72,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const startAt = new Date(cleanText(record.start_at, 80));
     const endAt = new Date(cleanText(record.end_at, 80));
     const status = cleanText(record.status, 20);
+    const scoringType = cleanText(record.scoring_type, 10);
+    const allowedLanguages = Array.isArray(record.allowed_languages)
+      ? (record.allowed_languages as unknown[]).map((l) => cleanText(l, 20)).filter(Boolean)
+      : null;
 
     if (!title || Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt || !CONTEST_STATUSES.has(status)) {
       return apiError("Valid contest settings are required.", 400, "BAD_REQUEST");
     }
+
+    const validScoringTypes = new Set(["IOI", "ICPC", "CF"]);
 
     const { error } = await auth.supabase
       .from("contests")
@@ -85,6 +91,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString(),
         status,
+        ...(validScoringTypes.has(scoringType) ? { scoring_type: scoringType } : {}),
+        ...(allowedLanguages ? { allowed_languages: allowedLanguages } : {}),
         updated_at: new Date().toISOString()
       })
       .eq("id", params.id);
