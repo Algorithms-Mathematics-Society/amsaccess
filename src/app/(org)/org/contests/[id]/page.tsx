@@ -5,9 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
-  X,
+  X, Sparkles, Monitor,
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
+import CPProblemStudio from "@/components/CPProblemStudio";
 
 // ─── Types ───────────────────────────────────────────────────
 type Contest = {
@@ -103,7 +104,7 @@ export default function ContestDetailPage() {
         }}
       />
 
-      <div className="relative mx-auto max-w-4xl px-6 py-8">
+      <div id="contest-page-container" className="relative mx-auto max-w-4xl px-6 py-8 transition-all duration-300">
         {/* Back */}
         <Link
           href="/org/dashboard"
@@ -318,7 +319,38 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   setSaving: (v: boolean) => void;
 }) {
   const [title, setTitle]             = useState(existing?.title ?? "");
-  const [description, setDescription] = useState(existing?.description ?? "");
+  const [description, setDescription] = useState(existing?.description ?? `Given an array of $N$ integers, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.
+
+### Problem Visualization
+![Maximum Subarray Explanation Matrix](https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80)
+
+### Interactive Array Simulator
+<code>
+<div class="p-4 bg-zinc-950/80 border border-purple-500/20 rounded-xl space-y-3 shadow-inner">
+  <div class="flex justify-between items-center">
+    <span class="text-xs font-semibold text-zinc-300">Simulated Array Size (N):</span>
+    <span id="n-val" class="text-xs font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">45</span>
+  </div>
+  <input 
+    type="range" 
+    min="5" 
+    max="100" 
+    value="45" 
+    style="width: 100%; height: 4px; background: #3f3f46; border-radius: 9999px; outline: none; cursor: pointer; accent-color: #a855f7;"
+    oninput="document.getElementById('n-val').innerText = this.value; const arr = Array.from({length: 5}, () => Math.floor(Math.random() * 20) - 10); document.getElementById('arr-val').innerText = '[' + arr.join(', ') + ', ...]';" 
+  />
+  <div class="bg-black/40 p-2.5 rounded-lg border border-white/5 font-mono text-[10px] text-zinc-400">
+    <span class="text-zinc-500">Sample Segment:</span> <span id="arr-val">[-3, 4, -1, 2, ...]</span>
+  </div>
+</div>
+</code>
+
+### Input Format
+- The first line contains a single integer $N$ ($1 \\le N \\le 10^5$), representing the size of the array.
+- The second line contains $N$ space-separated integers $A_1, A_2, \\dots, A_N$ ($-10^9 \\le A_i \\le 10^9$).
+
+### Output Format
+- Output a single integer representing the maximum contiguous subarray sum.`);
   const [html, setHtml]               = useState(existing?.html_starter ?? "");
   const [css, setCss]                 = useState(existing?.css_starter ?? "");
   const [js, setJs]                   = useState(existing?.js_starter ?? "");
@@ -330,6 +362,22 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   const [timeLimit, setTimeLimit]     = useState(existing?.time_limit_ms ?? 2000);
   const [memoryLimit, setMemoryLimit] = useState(existing?.memory_limit_mb ?? 256);
   const [error, setError]             = useState<string | null>(null);
+
+  useEffect(() => {
+    if (questionType === "code") {
+      const wrapper = document.getElementById("contest-page-container");
+      if (wrapper) {
+        wrapper.classList.remove("max-w-4xl");
+        wrapper.classList.add("max-w-[98vw]", "lg:max-w-[95vw]");
+      }
+      return () => {
+        if (wrapper) {
+          wrapper.classList.remove("max-w-[98vw]", "lg:max-w-[95vw]");
+          wrapper.classList.add("max-w-4xl");
+        }
+      };
+    }
+  }, [questionType]);
 
   async function handleSave() {
     setError(null);
@@ -450,39 +498,77 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         </div>
       )}
 
-      {/* Code editor tabs */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <label className="text-xs font-medium" style={{ color: "#A1A1AA" }}>Question display (HTML / CSS / JS)</label>
-          <div className="flex rounded-lg p-0.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            {(["html", "css", "js"] as CodeTab[]).map((lang) => (
-              <button
-                key={lang}
-                type="button"
-                onClick={() => setCodeTab(lang)}
-                className="rounded px-3 py-1 text-xs font-mono font-medium transition"
-                style={
-                  codeTab === lang
-                    ? { background: "rgba(139,92,246,0.2)", color: "#c4b5fd" }
-                    : { color: "#71717A" }
-                }
-              >
-                {lang.toUpperCase()}
-              </button>
-            ))}
+      {/* Code Editor Tabs segment */}
+      {questionType === "code" ? (
+        <>
+          {/* Desktop full specs view */}
+          <div className="hidden md:block">
+            <CPProblemStudio
+              contestId={contestId}
+              questionId={existing?.id}
+              title={title}
+              setTitle={setTitle}
+              points={points}
+              setPoints={setPoints}
+              description={description}
+              setDescription={setDescription}
+              timeLimit={timeLimit}
+              setTimeLimit={setTimeLimit}
+              memoryLimit={memoryLimit}
+              setMemoryLimit={setMemoryLimit}
+            />
           </div>
-        </div>
 
-        {codeTab === "html" && (
-          <CodeArea lang="html" value={html} onChange={setHtml} placeholder={`<div class="problem-statement">\n  <!-- Problem statement HTML here -->\n  <!-- Can include graphs, diagrams, input fields -->\n</div>`} />
-        )}
-        {codeTab === "css" && (
-          <CodeArea lang="css" value={css} onChange={setCss} placeholder={`.problem-statement {\n  /* Style the question display */\n}`} />
-        )}
-        {codeTab === "js" && (
-          <CodeArea lang="js" value={js} onChange={setJs} placeholder={`// Interactive question logic (graphs, validators, etc.)\n// For output-only: set up input field and capture answer\n`} />
-        )}
-      </div>
+          {/* Mobile warning fallback */}
+          <div className="block md:hidden my-6 rounded-2xl border border-purple-500/20 bg-purple-950/20 p-8 text-center shadow-2xl relative overflow-hidden backdrop-blur-sm">
+            <div className="absolute inset-0 bg-gradient-to-b from-purple-500/[0.03] to-transparent pointer-events-none" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-lg shadow-purple-500/5 animate-pulse">
+              <Monitor className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-semibold text-white tracking-tight">Desktop Workspace Required</h3>
+            <p className="mt-2 text-xs text-zinc-400 leading-relaxed max-w-sm mx-auto">
+              Configuring advanced competitive programming specifications (such as C++ validators, test generators, custom checkers and expected solutions) requires a desktop-class viewport.
+            </p>
+            <p className="mt-4 text-[10px] font-bold text-purple-400 uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 inline-block px-3 py-1 rounded-full">
+              Please open this page on a desktop device
+            </p>
+          </div>
+        </>
+      ) : (
+        /* Code editor tabs for visual layout / output_only starter codes */
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <label className="text-xs font-medium" style={{ color: "#A1A1AA" }}>Question display (HTML / CSS / JS)</label>
+            <div className="flex rounded-lg p-0.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {(["html", "css", "js"] as CodeTab[]).map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => setCodeTab(lang)}
+                  className="rounded px-3 py-1 text-xs font-mono font-medium transition"
+                  style={
+                    codeTab === lang
+                      ? { background: "rgba(139,92,246,0.2)", color: "#c4b5fd" }
+                      : { color: "#71717A" }
+                  }
+                >
+                  {lang.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {codeTab === "html" && (
+            <CodeArea lang="html" value={html} onChange={setHtml} placeholder={`<div class="problem-statement">\n  <!-- Problem statement HTML here -->\n  <!-- Can include graphs, diagrams, input fields -->\n</div>`} />
+          )}
+          {codeTab === "css" && (
+            <CodeArea lang="css" value={css} onChange={setCss} placeholder={`.problem-statement {\n  /* Style the question display */\n}`} />
+          )}
+          {codeTab === "js" && (
+            <CodeArea lang="js" value={js} onChange={setJs} placeholder={`// Interactive question logic (graphs, validators, etc.)\n// For output-only: set up input field and capture answer\n`} />
+          )}
+        </div>
+      )}
 
       <div className="mt-4 flex gap-3">
         <button
