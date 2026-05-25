@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
 import { withApiLogging } from "@/lib/server/logger";
 import { checkRequestRateLimit } from "@/lib/server/rateLimit";
-import { isValidEmail, normalizeEmail } from "@/lib/server/request";
-import { requireOrgUser } from "@/lib/server/supabase";
+import { normalizeEmail, isValidEmail } from "@/lib/server/request";
+import { callGoApi, requireOrgUser } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +13,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     if (limited.limited) return apiRateLimited(limited.retryAfter);
 
     const auth = await requireOrgUser();
-    if (auth.error === "UNAUTHORIZED") return apiError("Sign in required.", 401, "UNAUTHORIZED");
-    if (auth.error) return apiError("Organization access required.", auth.error === "ORG_REQUIRED" ? 404 : 500, auth.error === "ORG_REQUIRED" ? "NOT_FOUND" : "SERVER_ERROR");
+    if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");
 
     let payload: unknown;
     try {
@@ -23,24 +22,62 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return apiError("Invalid request body.", 400, "BAD_REQUEST");
     }
 
-    const emails = Array.isArray((payload as Record<string, unknown>).emails)
-      ? ((payload as Record<string, unknown>).emails as unknown[])
-          .map((email) => normalizeEmail(String(email)))
-          .filter((email, index, list) => isValidEmail(email) && list.indexOf(email) === index)
-          .slice(0, 500)
-      : [];
+    const record = payload as Record<string, unknown>;
+    const rawEmails = Array.isArray(record.emails) ? record.emails : [];
+    const emails = rawEmails
+      .map((value) => (typeof value === "string" ? normalizeEmail(value) : ""))
+      .filter((value): value is string => Boolean(value) && isValidEmail(value));
 
-    if (!emails.length) return apiError("Enter at least one valid email.", 400, "BAD_REQUEST");
+    if (emails.length === 0) {
+      return apiError("At least one valid email is required.", 400, "BAD_REQUEST");
+    }
 
-    const rows = emails.map((email) => ({
-      contest_id: params.id,
-      email,
-      invited_by: auth.user.id,
-      status: "pending"
-    }));
+    const subjectTemplate = typeof record.subject === "string" ? record.subject.trim().slice(0, 180) : "";
+    const bodyTemplate = typeof record.body === "string" ? record.body.trim().slice(0, 8000) : "";
 
-    const { error } = await auth.supabase.from("contest_invites").upsert(rows, { onConflict: "contest_id,email" });
-    if (error) return apiError("Unable to save invites.", 500, "SERVER_ERROR");
-    return apiOk({ invited: emails.length });
+    const res = await callGoApi("POST", `/org/contests/${params.id}/invites`, { emails }, auth.uid);
+    if (res.status !== 200) {
+      return apiError(
+        typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to save invites.",
+        res.status,
+        res.status === 400 ? "BAD_REQUEST" : res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
+      );
+    }
+
+    let emailsSent = 0;
+    if (subjectTemplate && bodyTemplate && process.env.RESEND_API_KEY) {
+      const from = process.env.RESEND_FROM_EMAIL ?? "Access by AMS <onboarding@resend.dev>";
+      await Promise.all(
+        emails.map(async (email) => {
+          const subject = renderInviteTemplate(subjectTemplate, { email });
+          const text = renderInviteTemplate(bodyTemplate, { email });
+          const resendRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from,
+              to: email,
+              subject,
+              text,
+            }),
+          });
+          if (resendRes.ok) emailsSent += 1;
+        }),
+      );
+    }
+
+    const data = res.data as { inserted: number };
+    return apiOk({ invited: data.inserted, emailsSent });
   });
+}
+
+function renderInviteTemplate(template: string, values: { email: string }) {
+  return template
+    .replaceAll("{{email}}", values.email)
+    .replaceAll("{{download_url}}", "https://amsaccess.com/download")
+    .replaceAll("{{download_link}}", "https://amsaccess.com/download")
+    .replaceAll("{{contest_id}}", "");
 }

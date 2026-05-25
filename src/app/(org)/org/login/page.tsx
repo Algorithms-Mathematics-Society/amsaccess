@@ -4,7 +4,6 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, Eye, EyeOff, Building2 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
-import { isSupabaseConfigured } from "@/lib/client/supabaseConfig";
 
 export default function OrgLoginPage() {
   const router = useRouter();
@@ -17,11 +16,6 @@ export default function OrgLoginPage() {
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
     setError(null);
-
-    if (!isSupabaseConfigured) {
-      setError("Supabase not configured. Check .env.local.");
-      return;
-    }
 
     setLoading(true);
     try {

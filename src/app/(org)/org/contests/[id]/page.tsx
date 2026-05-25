@@ -638,6 +638,8 @@ function InvitesTab({ contestId, invites, onRefresh }: {
   contestId: string; invites: Invite[]; onRefresh: () => void;
 }) {
   const [emailInput, setEmailInput] = useState("");
+  const [subject, setSubject] = useState("AMS Access contest invite");
+  const [template, setTemplate] = useState("You have been invited to an AMS Access contest.\n\nInstall the desktop app from {{download_url}} and sign in with {{email}}.\n");
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -647,21 +649,25 @@ function InvitesTab({ contestId, invites, onRefresh }: {
     setError(null);
     setSuccess(null);
     const emails = emailInput
-      .split(/[,\n\s]+/)
-      .map((e) => e.trim().toLowerCase())
+      .split(/\n+/)
+      .flatMap((line) => line.split(","))
+      .map((e) => {
+        const parts = e.trim().split(/[<\s]+/).filter(Boolean);
+        return parts[parts.length - 1]?.replace(">", "").toLowerCase() ?? "";
+      })
       .filter((e) => e.includes("@"));
 
     if (emails.length === 0) { setError("Enter at least one valid email."); return; }
 
     setSaving(true);
     try {
-      const result = await apiFetch<{ invited: number }>(`/api/org/contests/${contestId}/invites`, {
+      const result = await apiFetch<{ invited: number; emailsSent: number }>(`/api/org/contests/${contestId}/invites`, {
         method: "POST",
-        body: JSON.stringify({ emails })
+        body: JSON.stringify({ emails, subject, body: template })
       });
 
       setEmailInput("");
-      setSuccess(`Invited ${result.invited} candidate${result.invited !== 1 ? "s" : ""}.`);
+      setSuccess(`Invited ${result.invited} candidate${result.invited !== 1 ? "s" : ""}${result.emailsSent ? ` and sent ${result.emailsSent} email${result.emailsSent !== 1 ? "s" : ""}` : ""}.`);
       onRefresh();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save invites.");
@@ -689,7 +695,7 @@ function InvitesTab({ contestId, invites, onRefresh }: {
           <p className="text-sm font-medium text-white">Invite candidates</p>
         </div>
         <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
-          Enter email addresses — one per line or comma-separated. Candidates will see the contest in their Access by AMS app.
+          Enter email addresses or `Name &lt;email&gt;` lines. Use the template below to send the desktop download link in one batch.
         </p>
 
         {error && (
@@ -703,9 +709,23 @@ function InvitesTab({ contestId, invites, onRefresh }: {
           rows={4}
           value={emailInput}
           onChange={(e) => setEmailInput(e.target.value)}
-          placeholder={"alice@college.edu\nbob@university.edu\ncharlie@institute.ac.in"}
+          placeholder={"Alice Doe <alice@college.edu>\nbob@university.edu\nCharlie, charlie@institute.ac.in"}
           className="glass-input mb-3 resize-none text-sm text-white"
           style={{ fontFamily: "monospace" }}
+        />
+        <input
+          type="text"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="Email subject"
+          className="glass-input mb-3 text-sm text-white"
+        />
+        <textarea
+          rows={6}
+          value={template}
+          onChange={(e) => setTemplate(e.target.value)}
+          placeholder={"Use {{email}} and {{download_url}} in the message body."}
+          className="glass-input mb-3 resize-y text-sm text-white"
         />
         <button
           onClick={() => void addInvites()}

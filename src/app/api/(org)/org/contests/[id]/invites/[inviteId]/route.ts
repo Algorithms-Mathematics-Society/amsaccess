@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
 import { withApiLogging } from "@/lib/server/logger";
 import { checkRequestRateLimit } from "@/lib/server/rateLimit";
-import { requireOrgUser } from "@/lib/server/supabase";
+import { callGoApi, requireOrgUser } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -12,16 +12,17 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     if (limited.limited) return apiRateLimited(limited.retryAfter);
 
     const auth = await requireOrgUser();
-    if (auth.error === "UNAUTHORIZED") return apiError("Sign in required.", 401, "UNAUTHORIZED");
-    if (auth.error) return apiError("Organization access required.", auth.error === "ORG_REQUIRED" ? 404 : 500, auth.error === "ORG_REQUIRED" ? "NOT_FOUND" : "SERVER_ERROR");
+    if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");
 
-    const { error } = await auth.supabase
-      .from("contest_invites")
-      .delete()
-      .eq("id", params.inviteId)
-      .eq("contest_id", params.id);
+    const res = await callGoApi("DELETE", `/org/contests/${params.id}/invites/${params.inviteId}`, null, auth.uid);
+    if (res.status !== 204) {
+      return apiError(
+        typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to delete invite.",
+        res.status,
+        res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
+      );
+    }
 
-    if (error) return apiError("Unable to remove invite.", 500, "SERVER_ERROR");
     return apiOk({ deleted: true });
   });
 }

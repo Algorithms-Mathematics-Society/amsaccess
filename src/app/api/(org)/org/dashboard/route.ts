@@ -2,18 +2,9 @@ import type { NextRequest } from "next/server";
 import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
 import { withApiLogging } from "@/lib/server/logger";
 import { checkRequestRateLimit } from "@/lib/server/rateLimit";
-import { requireOrgUser } from "@/lib/server/supabase";
+import { callGoApi, requireOrgUser } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
-
-type ContestRow = {
-  id: string;
-  title: string;
-  description: string | null;
-  start_at: string;
-  end_at: string;
-  status: string;
-};
 
 export async function GET(request: NextRequest) {
   return withApiLogging("org.dashboard", async () => {
@@ -21,43 +12,44 @@ export async function GET(request: NextRequest) {
     if (limited.limited) return apiRateLimited(limited.retryAfter);
 
     const auth = await requireOrgUser();
-    if (auth.error === "UNAUTHORIZED") return apiError("Sign in required.", 401, "UNAUTHORIZED");
-    if (auth.error === "ORG_REQUIRED") return apiError("Organization setup required.", 404, "NOT_FOUND");
-    if (auth.error) return apiError("Unable to load organization.", 500, "SERVER_ERROR");
+    if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");
 
-    const { data: contestData, error: contestError } = await auth.supabase
-      .from("contests")
-      .select("id, title, description, start_at, end_at, status")
-      .eq("org_id", auth.org.id)
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    if (contestError) return apiError("Unable to load contests.", 500, "SERVER_ERROR");
-
-    const contests = (contestData ?? []) as ContestRow[];
-    const ids = contests.map((contest) => contest.id);
-    const inviteCounts = new Map<string, number>();
-    const questionCounts = new Map<string, number>();
-
-    if (ids.length) {
-      const [{ data: invites, error: inviteError }, { data: questions, error: questionError }] = await Promise.all([
-        auth.supabase.from("contest_invites").select("contest_id").in("contest_id", ids).limit(10_000),
-        auth.supabase.from("contest_questions").select("contest_id").in("contest_id", ids).limit(10_000)
-      ]);
-
-      if (inviteError || questionError) return apiError("Unable to load contest summaries.", 500, "SERVER_ERROR");
-
-      (invites ?? []).forEach((row) => inviteCounts.set(row.contest_id, (inviteCounts.get(row.contest_id) ?? 0) + 1));
-      (questions ?? []).forEach((row) => questionCounts.set(row.contest_id, (questionCounts.get(row.contest_id) ?? 0) + 1));
+    const res = await callGoApi("GET", "/org/dashboard", null, auth.uid);
+    if (res.status !== 200) {
+      return apiError(
+        typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to load dashboard.",
+        res.status,
+        res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
+      );
     }
 
+    const payload = res.data as {
+      org_id: string;
+      org_name: string;
+      org_slug: string;
+      contests: Array<{
+        id: string;
+        title: string;
+        status: string;
+        start_at: string;
+        end_at: string;
+        question_count: number;
+        invite_count: number;
+      }>;
+    };
+
     return apiOk({
-      org: auth.org,
-      contests: contests.map((contest) => ({
+      org: {
+        id: payload.org_id,
+        name: payload.org_name,
+        slug: payload.org_slug,
+      },
+      contests: payload.contests.map((contest) => ({
         ...contest,
-        _invite_count: inviteCounts.get(contest.id) ?? 0,
-        _question_count: questionCounts.get(contest.id) ?? 0
-      }))
+        description: null,
+        _invite_count: contest.invite_count,
+        _question_count: contest.question_count,
+      })),
     });
   });
 }

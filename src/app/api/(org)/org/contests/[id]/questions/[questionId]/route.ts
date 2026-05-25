@@ -2,18 +2,9 @@ import type { NextRequest } from "next/server";
 import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
 import { withApiLogging } from "@/lib/server/logger";
 import { checkRequestRateLimit } from "@/lib/server/rateLimit";
-import { requireOrgUser } from "@/lib/server/supabase";
+import { callGoApi, requireOrgUser } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
-
-function cleanText(value: unknown, maxLength: number) {
-  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
-}
-
-function cleanPoints(value: unknown) {
-  const points = Number(value);
-  return Number.isFinite(points) && points > 0 && points <= 1000 ? Math.floor(points) : null;
-}
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string; questionId: string } }) {
   return withApiLogging("org.contest_questions.update", async () => {
@@ -21,8 +12,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (limited.limited) return apiRateLimited(limited.retryAfter);
 
     const auth = await requireOrgUser();
-    if (auth.error === "UNAUTHORIZED") return apiError("Sign in required.", 401, "UNAUTHORIZED");
-    if (auth.error) return apiError("Organization access required.", auth.error === "ORG_REQUIRED" ? 404 : 500, auth.error === "ORG_REQUIRED" ? "NOT_FOUND" : "SERVER_ERROR");
+    if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");
 
     let payload: unknown;
     try {
@@ -31,34 +21,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return apiError("Invalid request body.", 400, "BAD_REQUEST");
     }
 
-    const record = payload as Record<string, unknown>;
-    const title = cleanText(record.title, 180);
-    const points = cleanPoints(record.points);
-    if (!title || points === null) return apiError("Question title and points are required.", 400, "BAD_REQUEST");
+    const res = await callGoApi("PUT", `/org/contests/${params.id}/questions/${params.questionId}`, payload as Record<string, unknown>, auth.uid);
+    if (res.status !== 200) {
+      return apiError(
+        typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to update question.",
+        res.status,
+        res.status === 400 ? "BAD_REQUEST" : res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
+      );
+    }
 
-    const questionType = cleanText(record.question_type, 20);
-    const timeLimitMs = Number(record.time_limit_ms);
-    const memoryLimitMb = Number(record.memory_limit_mb);
-    const validQuestionTypes = new Set(["code", "output_only"]);
-
-    const { error } = await auth.supabase
-      .from("contest_questions")
-      .update({
-        title,
-        description: cleanText(record.description, 12_000),
-        html_starter: cleanText(record.html_starter, 80_000),
-        css_starter: cleanText(record.css_starter, 80_000),
-        js_starter: cleanText(record.js_starter, 80_000),
-        points,
-        ...(validQuestionTypes.has(questionType) ? { question_type: questionType } : {}),
-        ...(Number.isFinite(timeLimitMs) && timeLimitMs >= 100 ? { time_limit_ms: Math.floor(timeLimitMs) } : {}),
-        ...(Number.isFinite(memoryLimitMb) && memoryLimitMb >= 16 ? { memory_limit_mb: Math.floor(memoryLimitMb) } : {}),
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", params.questionId)
-      .eq("contest_id", params.id);
-
-    if (error) return apiError("Unable to update question.", 500, "SERVER_ERROR");
     return apiOk({ saved: true });
   });
 }
@@ -69,16 +40,17 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     if (limited.limited) return apiRateLimited(limited.retryAfter);
 
     const auth = await requireOrgUser();
-    if (auth.error === "UNAUTHORIZED") return apiError("Sign in required.", 401, "UNAUTHORIZED");
-    if (auth.error) return apiError("Organization access required.", auth.error === "ORG_REQUIRED" ? 404 : 500, auth.error === "ORG_REQUIRED" ? "NOT_FOUND" : "SERVER_ERROR");
+    if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");
 
-    const { error } = await auth.supabase
-      .from("contest_questions")
-      .delete()
-      .eq("id", params.questionId)
-      .eq("contest_id", params.id);
+    const res = await callGoApi("DELETE", `/org/contests/${params.id}/questions/${params.questionId}`, null, auth.uid);
+    if (res.status !== 204) {
+      return apiError(
+        typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to delete question.",
+        res.status,
+        res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
+      );
+    }
 
-    if (error) return apiError("Unable to delete question.", 500, "SERVER_ERROR");
     return apiOk({ deleted: true });
   });
 }
