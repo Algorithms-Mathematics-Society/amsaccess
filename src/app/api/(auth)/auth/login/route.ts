@@ -1,11 +1,15 @@
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
 import { withApiLogging } from "@/lib/server/logger";
 import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 import { isValidEmail, normalizeEmail } from "@/lib/server/request";
-import { createRouteSupabaseClient } from "@/lib/server/supabase";
+import { createSessionCookie } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
+
+const FIREBASE_WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY ?? "";
 
 type LoginScope = "admin" | "org";
 
@@ -37,46 +41,42 @@ export async function POST(request: NextRequest) {
     const hourlyLimit = checkRequestRateLimit(request, "authHourly", [scope, email]);
     if (hourlyLimit.limited) return apiRateLimited(hourlyLimit.retryAfter);
 
-    const supabase = createRouteSupabaseClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) return apiError("Invalid credentials.", 401, "UNAUTHORIZED");
-
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      await supabase.auth.signOut();
-      return apiError("Unable to verify your account.", 401, "UNAUTHORIZED");
+    if (!FIREBASE_WEB_API_KEY) {
+      return apiError("Auth service not configured.", 500, "SERVER_ERROR");
     }
 
-    if (scope === "admin") {
-      const { data: adminUser, error: adminError } = await supabase
-        .from("admin_users")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (adminError || !adminUser) {
-        await supabase.auth.signOut();
-        return apiError("Your account does not have admin privileges.", 403, "FORBIDDEN");
+    const firebaseRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_WEB_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
       }
+    );
 
-      return apiOk({ redirectTo: "/admin" });
+    if (!firebaseRes.ok) {
+      return apiError("Invalid credentials.", 401, "UNAUTHORIZED");
     }
 
-    const { data: orgs, error: orgError } = await supabase
-      .from("organizations")
-      .select("id")
-      .limit(1);
+    const firebaseData = (await firebaseRes.json()) as { idToken: string };
 
-    if (orgError) {
-      await supabase.auth.signOut();
-      return apiError("Unable to verify organization access.", 403, "FORBIDDEN");
+    let sessionCookieValue: string;
+    try {
+      sessionCookieValue = await createSessionCookie(firebaseData.idToken);
+    } catch {
+      return apiError("Unable to create session.", 500, "SERVER_ERROR");
     }
 
-    return apiOk({ redirectTo: orgs && orgs.length > 0 ? "/org/dashboard" : "/org/setup" });
+    const cookieStore = await cookies();
+    cookieStore.set("ams_session", sessionCookieValue, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 5 * 24 * 60 * 60,
+      path: "/",
+    });
+
+    const redirectTo = scope === "admin" ? "/admin" : "/org/dashboard";
+    return apiOk({ redirectTo });
   });
 }
