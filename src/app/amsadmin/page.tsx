@@ -42,7 +42,7 @@ export default function AmsAdminPage() {
 
   const preview = useMemo(() => {
     if (!selected) return "";
-    return selected.invite_body_template
+    return (selected.invite_body_template ?? "")
       .replaceAll("{{email}}", "candidate@example.com")
       .replaceAll("{{download_url}}", "https://amsaccess.com/download");
   }, [selected]);
@@ -98,7 +98,7 @@ export default function AmsAdminPage() {
             <p className="mb-2 text-xs uppercase text-white/60">Add Organization</p>
             <input className="glass-input mb-2 w-full" placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} />
             <input className="glass-input mb-2 w-full" placeholder="Slug" value={newSlug} onChange={(e) => setNewSlug(e.target.value)} />
-            <input className="glass-input mb-2 w-full" placeholder="Owner Firebase UID" value={newOwner} onChange={(e) => setNewOwner(e.target.value)} />
+            <input className="glass-input mb-2 w-full" placeholder="Owner UID (Firebase Console → Users)" value={newOwner} onChange={(e) => setNewOwner(e.target.value)} />
             <button className="rounded bg-white px-3 py-1 text-sm text-black" onClick={() => void createOrg()}>Create</button>
           </div>
           {orgs.map((o) => (
