@@ -23,6 +23,7 @@ export default function AmsAdminPage() {
   const [status, setStatus] = useState<string>("");
   const [newName, setNewName] = useState("");
   const [newSlug, setNewSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
   const [newOwnerPassword, setNewOwnerPassword] = useState("");
 
@@ -41,6 +42,34 @@ export default function AmsAdminPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  const existingSlugSet = useMemo(() => new Set(orgs.map((o) => o.slug.toLowerCase())), [orgs]);
+
+  function slugify(input: string): string {
+    return input
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60);
+  }
+
+  function uniqueSlug(base: string): string {
+    const seed = slugify(base) || "org";
+    if (!existingSlugSet.has(seed)) return seed;
+    let i = 2;
+    while (existingSlugSet.has(`${seed}-${i}`)) i += 1;
+    return `${seed}-${i}`;
+  }
+
+  const normalizedNewSlug = useMemo(() => slugify(newSlug), [newSlug]);
+  const suggestedSlug = useMemo(() => uniqueSlug(newSlug || newName), [newSlug, newName, existingSlugSet]);
+  const slugTaken = normalizedNewSlug !== "" && existingSlugSet.has(normalizedNewSlug);
+
+  useEffect(() => {
+    if (slugTouched) return;
+    setNewSlug(slugify(newName));
+  }, [newName, slugTouched]);
 
   const preview = useMemo(() => {
     if (!selected) return "";
@@ -70,20 +99,22 @@ export default function AmsAdminPage() {
   }
 
   async function createOrg() {
+    const finalSlug = uniqueSlug(newSlug || newName);
     const res = await fetch("/api/amsadmin/orgs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: newName,
-        slug: newSlug,
+        slug: finalSlug,
         owner_email: newOwnerEmail,
         owner_password: newOwnerPassword,
       }),
     });
     if (res.ok) {
-      setStatus("Organization created.");
+      setStatus(`Organization created with slug: ${finalSlug}`);
       setNewName("");
       setNewSlug("");
+      setSlugTouched(false);
       setNewOwnerEmail("");
       setNewOwnerPassword("");
       await load();
@@ -103,7 +134,12 @@ export default function AmsAdminPage() {
           <div className="mb-3 rounded border border-white/10 p-2">
             <p className="mb-2 text-xs uppercase text-white/60">Add Organization</p>
             <input className="glass-input mb-2 w-full" placeholder="Org Name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-            <input className="glass-input mb-2 w-full" placeholder="Slug (e.g. mit-icpc)" value={newSlug} onChange={(e) => setNewSlug(e.target.value)} />
+            <input className="glass-input mb-1 w-full" placeholder="Slug (e.g. mit-icpc)" value={newSlug} onChange={(e) => { setSlugTouched(true); setNewSlug(slugify(e.target.value)); }} />
+            {slugTaken ? (
+              <p className="mb-2 text-xs text-amber-300">Slug already exists. Will auto-use: <span className="font-semibold">{suggestedSlug}</span></p>
+            ) : (
+              <p className="mb-2 text-xs text-white/60">Final slug: <span className="font-semibold">{suggestedSlug}</span></p>
+            )}
             <input className="glass-input mb-2 w-full" placeholder="Owner Email" type="email" value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} />
             <input className="glass-input mb-2 w-full" placeholder="Owner Password" type="password" value={newOwnerPassword} onChange={(e) => setNewOwnerPassword(e.target.value)} />
             <button className="rounded bg-white px-3 py-1 text-sm text-black" onClick={() => void createOrg()}>Create</button>
