@@ -772,7 +772,7 @@ int main() {
                   </h4>
                   <ul className="text-[11px] text-zinc-400 space-y-1 list-disc list-inside leading-relaxed">
                     <li>Always invoke <code className="font-mono text-zinc-200">inf.readEof()</code> to block trailing dirty data.</li>
-                    <li>Use variables inside <code className="font-mono text-zinc-200">readInt(min, max, "name")</code> so incorrect cases show readable errors on logs.</li>
+                    <li>Use variables inside <code className="font-mono text-zinc-200">readInt(min, max, &quot;name&quot;)</code> so incorrect cases show readable errors on logs.</li>
                     <li>Always use validator checks for all integers, strings, spaces, and linebreaks (eoln).</li>
                   </ul>
                 </div>
@@ -785,7 +785,7 @@ int main() {
                 <div>
                   <h3 className="text-lg font-semibold text-white">Output Checker</h3>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Verifies whether the participant's output corresponds to the standard correct model (jury answers).
+                    Verifies whether the participant&apos;s output corresponds to the standard correct model (jury answers).
                   </p>
                 </div>
 
@@ -857,7 +857,7 @@ int main() {
                           <span className="text-zinc-500">Compilation:</span> <span className="text-green-400 font-bold">Default pre-compiled binary available</span>
                         </div>
                         <div>
-                          <span className="text-zinc-500">Includes:</span> <span className="text-zinc-400">#include "testlib.h"</span>
+                          <span className="text-zinc-500">Includes:</span> <span className="text-zinc-400">#include &quot;testlib.h&quot;</span>
                         </div>
                         <div>
                           <span className="text-zinc-500">Verdict logic:</span>{" "}
@@ -1406,7 +1406,7 @@ int main() {
                         <Play className="mx-auto h-8 w-8 text-zinc-600 mb-3 animate-pulse" />
                         <h4 className="text-sm font-semibold text-white">Testing Suite Idle</h4>
                         <p className="mt-1.5 text-xs text-zinc-500 max-w-xs mx-auto leading-relaxed">
-                          Click "Run Testing Suite" above to compile your manual solver and execute all test inputs against the C++ validator and checker scripts.
+                          Click &quot;Run Testing Suite&quot; above to compile your manual solver and execute all test inputs against the C++ validator and checker scripts.
                         </p>
                       </div>
                     )}
@@ -1543,7 +1543,7 @@ int main() {
                                     {isCompFailed && (
                                       <div className="rounded-lg bg-red-500/5 border border-red-500/10 p-3.5 font-mono text-[10px] text-red-400">
                                         <span className="font-bold uppercase tracking-wider text-[9px] block mb-1">Sandbox Compile Error:</span>
-                                        Input Validator / Output Checker is in a 'dirty' or 'error' state. Please recompile the C++ testlib script templates to enable complete automated verification.
+                                        Input Validator / Output Checker is in a &apos;dirty&apos; or &apos;error&apos; state. Please recompile the C++ testlib script templates to enable complete automated verification.
                                       </div>
                                     )}
                                   </div>
