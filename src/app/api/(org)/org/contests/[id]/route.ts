@@ -23,7 +23,22 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    return apiOk(res.data);
+    const raw = res.data as Record<string, unknown>;
+    return apiOk({
+      contest: {
+        id: String(raw.id ?? ""),
+        org_id: String(raw.org_id ?? ""),
+        title: String(raw.title ?? ""),
+        description: raw.description == null ? null : String(raw.description),
+        start_at: String(raw.start_at ?? ""),
+        end_at: String(raw.end_at ?? ""),
+        status: String(raw.status ?? "DRAFT"),
+        scoring_type: String(raw.scoring_type ?? "ICPC"),
+        allowed_languages: Array.isArray(raw.allowed_languages) ? raw.allowed_languages : [],
+      },
+      questions: Array.isArray(raw.questions) ? raw.questions : [],
+      invites: Array.isArray(raw.invites) ? raw.invites : [],
+    });
   });
 }
 
