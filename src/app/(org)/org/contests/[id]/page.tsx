@@ -362,6 +362,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   const [timeLimit, setTimeLimit]     = useState(existing?.time_limit_ms ?? 2000);
   const [memoryLimit, setMemoryLimit] = useState(existing?.memory_limit_mb ?? 256);
   const [error, setError]             = useState<string | null>(null);
+  const [success, setSuccess]         = useState<string | null>(null);
 
   useEffect(() => {
     if (questionType === "code") {
@@ -381,6 +382,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
 
   async function handleSave() {
     setError(null);
+    setSuccess(null);
     if (!title.trim()) { setError("Title is required."); return; }
     setSaving(true);
     try {
@@ -395,6 +397,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
           body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
       }
+      setSuccess(existing ? "Question updated successfully." : "Question created successfully.");
       onSaved();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save question.");
@@ -412,6 +415,9 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
 
       {error && (
         <div className="mb-4 rounded px-3 py-2 text-sm" style={{ background: "rgba(239,68,68,0.08)", color: "#fca5a5" }}>{error}</div>
+      )}
+      {success && (
+        <div className="mb-4 rounded px-3 py-2 text-sm" style={{ background: "rgba(34,197,94,0.12)", color: "#86efac" }}>{success}</div>
       )}
 
       {/* Title + points */}
@@ -438,17 +444,19 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         </div>
       </div>
 
-      {/* Description */}
-      <div className="mb-4">
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Problem description</label>
-        <textarea
-          rows={4}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe the problem. You can use HTML formatting…"
-          className="glass-input resize-y text-sm text-white"
-        />
-      </div>
+      {/* Description (only for output-only questions; code questions use Problem Studio statement editor) */}
+      {questionType === "output_only" && (
+        <div className="mb-4">
+          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Problem description</label>
+          <textarea
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe the problem. You can use HTML formatting…"
+            className="glass-input resize-y text-sm text-white"
+          />
+        </div>
+      )}
 
       {/* Question type */}
       <div className="mb-4">

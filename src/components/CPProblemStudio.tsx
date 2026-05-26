@@ -354,6 +354,8 @@ int main() {
   const [prejudgeJob, setPrejudgeJob] = useState<PrejudgeJob | null>(null);
   const [prejudgeMessage, setPrejudgeMessage] = useState<string | null>(null);
   const [prejudgeTests, setPrejudgeTests] = useState<PrejudgeTestRow[]>([]);
+  const [isSavingTests, setIsSavingTests] = useState(false);
+  const [testsSavedToCloud, setTestsSavedToCloud] = useState(false);
 
   // --- Tests States ---
   const [testcases, setTestcases] = useState<Testcase[]>([]);
@@ -362,6 +364,9 @@ int main() {
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAdvancedGenerators, setShowAdvancedGenerators] = useState(false);
+  const hasAnyTests = testcases.length > 0;
+  const hasIncompleteTests = testcases.some((t) => !t.inputPath || !t.outputPath);
+  const canRunValidation = !!questionId && hasAnyTests && !hasIncompleteTests && testsSavedToCloud && !isSavingTests && !isRunningTests;
 
   const handleRunGenerator = () => {
     setIsGenerating(true);
@@ -375,6 +380,7 @@ int main() {
       return;
     }
     setTestcases((prev) => prev.map((t) => (t.id === tcId ? { ...t, uploadState: "uploading" } : t)));
+    setTestsSavedToCloud(false);
     try {
       const presign = await apiFetch<{ upload_url: string; object_path: string }>(
         `/api/org/contests/${contestId}/questions/${questionId}/assets/presign`,
@@ -424,6 +430,8 @@ int main() {
       setPrejudgeMessage("Upload both input and output files for every testcase before saving tests.");
       return;
     }
+    setIsSavingTests(true);
+    setPrejudgeMessage(null);
     const tests = testcases.map((t, idx) => ({
       test_number: idx + 1,
       is_sample: t.isSample,
@@ -432,20 +440,30 @@ int main() {
       subtask_number: t.subtaskNumber ?? null,
       score: t.score ?? 0
     }));
-    await apiFetch<{ ok: boolean; testset_id: string }>(
-      `/api/org/contests/${contestId}/questions/${questionId}/tests/upsert`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          version: 1,
-          checker_type: checkerType === "custom" ? "custom" : "token",
-          time_limit_ms: timeLimit,
-          memory_limit_mb: memoryLimit,
-          tests,
-          subtasks: []
-        })
-      }
-    );
+    try {
+      await apiFetch<{ ok: boolean; testset_id: string }>(
+        `/api/org/contests/${contestId}/questions/${questionId}/tests/upsert`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            version: 1,
+            checker_type: checkerType === "custom" ? "custom" : "token",
+            time_limit_ms: timeLimit,
+            memory_limit_mb: memoryLimit,
+            tests,
+            subtasks: []
+          })
+        }
+      );
+      setTestsSavedToCloud(true);
+      setPrejudgeMessage("Tests saved to cloud successfully.");
+    } catch (error) {
+      setTestsSavedToCloud(false);
+      setPrejudgeMessage(error instanceof Error ? error.message : "Failed to save tests to cloud.");
+      throw error;
+    } finally {
+      setIsSavingTests(false);
+    }
   };
 
   const isTerminalPrejudgeStatus = (status: string) => status === "SUCCEEDED" || status === "FAILED";
@@ -453,6 +471,18 @@ int main() {
   const handleRunTestingSuite = async () => {
     if (!questionId) {
       setPrejudgeMessage("Save the problem first so it has a real ID before running jury validation.");
+      return;
+    }
+    if (!hasAnyTests) {
+      setPrejudgeMessage("Add at least one testcase before running validation.");
+      return;
+    }
+    if (hasIncompleteTests) {
+      setPrejudgeMessage("Every testcase must have both input and output uploaded before validation.");
+      return;
+    }
+    if (!testsSavedToCloud) {
+      setPrejudgeMessage("Save tests to cloud before running validation.");
       return;
     }
 
@@ -475,8 +505,6 @@ int main() {
           model_lang: testingLang === "python" ? "python3" : "cpp17"
         })
       });
-      await upsertTestsToCloud();
-
       const created = await apiFetch<{ job_id: string }>(
         `/api/org/contests/${contestId}/questions/${questionId}/prejudge`,
         { method: "POST" }
@@ -1028,6 +1056,7 @@ int main() {
                               uploadState: "idle"
                             }
                           ]);
+                          setTestsSavedToCloud(false);
                         }}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-transparent px-3 py-1 text-xs text-zinc-300 transition"
                       >
@@ -1107,6 +1136,7 @@ int main() {
                                         item.id === t.id ? { ...item, isSample: checked } : item
                                       )
                                     );
+                                    setTestsSavedToCloud(false);
                                   }}
                                   className="rounded border-zinc-700 bg-zinc-800 text-purple-600 focus:ring-0"
                                 />
@@ -1150,7 +1180,10 @@ int main() {
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <button
-                                  onClick={() => setTestcases((prev) => prev.filter((item) => item.id !== t.id))}
+                                  onClick={() => {
+                                    setTestcases((prev) => prev.filter((item) => item.id !== t.id));
+                                    setTestsSavedToCloud(false);
+                                  }}
                                   className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-red-500/10 transition"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
@@ -1162,14 +1195,22 @@ int main() {
                         </table>
                       </div>
                     )}
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px]">
+                        {!questionId && <span className="text-yellow-300">Save question first to enable test uploads.</span>}
+                        {questionId && !hasAnyTests && <span className="text-zinc-400">Add tests, upload in/out, then save to cloud.</span>}
+                        {questionId && hasAnyTests && hasIncompleteTests && <span className="text-yellow-300">Some tests are incomplete (missing input/output file).</span>}
+                        {questionId && hasAnyTests && !hasIncompleteTests && !testsSavedToCloud && <span className="text-yellow-300">Tests changed. Save tests to cloud.</span>}
+                        {questionId && hasAnyTests && !hasIncompleteTests && testsSavedToCloud && <span className="text-green-400">Tests synced to cloud.</span>}
+                      </div>
                       <button
                         type="button"
                         onClick={() => void upsertTestsToCloud()}
-                        className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 px-4 py-2 text-xs font-semibold text-white"
+                        disabled={!questionId || !hasAnyTests || hasIncompleteTests || isSavingTests}
+                        className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 px-4 py-2 text-xs font-semibold text-white"
                       >
-                        <Database className="h-3.5 w-3.5" />
-                        Save Tests to Cloud
+                        {isSavingTests ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
+                        {isSavingTests ? "Saving Tests..." : "Save Tests to Cloud"}
                       </button>
                     </div>
                   </div>
@@ -1191,7 +1232,7 @@ int main() {
                     <button
                       type="button"
                       onClick={handleRunTestingSuite}
-                      disabled={isRunningTests}
+                      disabled={!canRunValidation}
                       className="inline-flex items-center gap-2 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:opacity-50 px-4 py-2 text-xs font-semibold text-white transition shadow-lg shadow-purple-500/10"
                     >
                       {isRunningTests ? (
