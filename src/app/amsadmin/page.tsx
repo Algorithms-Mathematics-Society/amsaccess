@@ -23,7 +23,8 @@ export default function AmsAdminPage() {
   const [status, setStatus] = useState<string>("");
   const [newName, setNewName] = useState("");
   const [newSlug, setNewSlug] = useState("");
-  const [newOwner, setNewOwner] = useState("");
+  const [newOwnerEmail, setNewOwnerEmail] = useState("");
+  const [newOwnerPassword, setNewOwnerPassword] = useState("");
 
   async function load() {
     const res = await fetch("/api/amsadmin/orgs", { cache: "no-store" });
@@ -74,17 +75,20 @@ export default function AmsAdminPage() {
       body: JSON.stringify({
         name: newName,
         slug: newSlug,
-        owner_firebase_uid: newOwner,
+        owner_email: newOwnerEmail,
+        owner_password: newOwnerPassword,
       }),
     });
     if (res.ok) {
       setStatus("Organization created.");
       setNewName("");
       setNewSlug("");
-      setNewOwner("");
+      setNewOwnerEmail("");
+      setNewOwnerPassword("");
       await load();
     } else {
-      setStatus("Create org failed.");
+      const data = await res.json() as { error?: { message?: string } };
+      setStatus(data?.error?.message ?? "Create org failed.");
     }
   }
 
@@ -96,9 +100,10 @@ export default function AmsAdminPage() {
         <div className="glass-card p-3">
           <div className="mb-3 rounded border border-white/10 p-2">
             <p className="mb-2 text-xs uppercase text-white/60">Add Organization</p>
-            <input className="glass-input mb-2 w-full" placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-            <input className="glass-input mb-2 w-full" placeholder="Slug" value={newSlug} onChange={(e) => setNewSlug(e.target.value)} />
-            <input className="glass-input mb-2 w-full" placeholder="Owner UID (Firebase Console → Users)" value={newOwner} onChange={(e) => setNewOwner(e.target.value)} />
+            <input className="glass-input mb-2 w-full" placeholder="Org Name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <input className="glass-input mb-2 w-full" placeholder="Slug (e.g. mit-icpc)" value={newSlug} onChange={(e) => setNewSlug(e.target.value)} />
+            <input className="glass-input mb-2 w-full" placeholder="Owner Email" type="email" value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} />
+            <input className="glass-input mb-2 w-full" placeholder="Owner Password" type="password" value={newOwnerPassword} onChange={(e) => setNewOwnerPassword(e.target.value)} />
             <button className="rounded bg-white px-3 py-1 text-sm text-black" onClick={() => void createOrg()}>Create</button>
           </div>
           {orgs.map((o) => (
