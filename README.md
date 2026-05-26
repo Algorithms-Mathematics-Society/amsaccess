@@ -4,7 +4,7 @@ Access by AMS is a Next.js and Supabase platform for managing serious written as
 
 The product is built for reasoning-heavy exams where the written derivation matters as much as the final answer.  .
 
-## What It Does
+## What it does
 
 - Presents the public Access by AMS product site.
 - Calculates a risk score from integrity events for review prioritization.
