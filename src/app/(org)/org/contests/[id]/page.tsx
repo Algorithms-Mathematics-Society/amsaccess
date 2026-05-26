@@ -29,7 +29,6 @@ type Invite = {
 };
 
 type Tab = "questions" | "invites" | "settings";
-type CodeTab = "html" | "css" | "js";
 
 type ContestDetailResponse = {
   contest: Contest;
@@ -355,30 +354,24 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   const [css, setCss]                 = useState(existing?.css_starter ?? "");
   const [js, setJs]                   = useState(existing?.js_starter ?? "");
   const [points, setPoints]           = useState(existing?.points ?? 10);
-  const [codeTab, setCodeTab]         = useState<CodeTab>("html");
-  const [questionType, setQuestionType] = useState<"code" | "output_only">(
-    (existing?.question_type as "code" | "output_only") ?? "code"
-  );
   const [timeLimit, setTimeLimit]     = useState(existing?.time_limit_ms ?? 2000);
   const [memoryLimit, setMemoryLimit] = useState(existing?.memory_limit_mb ?? 256);
   const [error, setError]             = useState<string | null>(null);
   const [success, setSuccess]         = useState<string | null>(null);
 
   useEffect(() => {
-    if (questionType === "code") {
-      const wrapper = document.getElementById("contest-page-container");
-      if (wrapper) {
-        wrapper.classList.remove("max-w-4xl");
-        wrapper.classList.add("max-w-[98vw]", "lg:max-w-[95vw]");
-      }
-      return () => {
-        if (wrapper) {
-          wrapper.classList.remove("max-w-[98vw]", "lg:max-w-[95vw]");
-          wrapper.classList.add("max-w-4xl");
-        }
-      };
+    const wrapper = document.getElementById("contest-page-container");
+    if (wrapper) {
+      wrapper.classList.remove("max-w-4xl");
+      wrapper.classList.add("max-w-[98vw]", "lg:max-w-[95vw]");
     }
-  }, [questionType]);
+    return () => {
+      if (wrapper) {
+        wrapper.classList.remove("max-w-[98vw]", "lg:max-w-[95vw]");
+        wrapper.classList.add("max-w-4xl");
+      }
+    }
+  }, []);
 
   async function handleSave() {
     setError(null);
@@ -389,12 +382,12 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       if (existing) {
         await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions/${existing.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
+          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, question_type: "code", time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
       } else {
         await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions`, {
           method: "POST",
-          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
+          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex, question_type: "code", time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
       }
       setSuccess(existing ? "Question updated successfully." : "Question created successfully.");
@@ -444,70 +437,41 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         </div>
       </div>
 
-      {/* Description (only for output-only questions; code questions use Problem Studio statement editor) */}
-      {questionType === "output_only" && (
-        <div className="mb-4">
-          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Problem description</label>
-          <textarea
-            rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe the problem. You can use HTML formatting…"
-            className="glass-input resize-y text-sm text-white"
-          />
-        </div>
-      )}
-
       {/* Question type */}
       <div className="mb-4">
         <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Question type</label>
-        <div className="flex gap-3">
-          {([["code", "Code submission"], ["output_only", "Output only"]] as const).map(([val, label]) => (
-            <button
-              key={val}
-              type="button"
-              onClick={() => setQuestionType(val)}
-              className="rounded-lg px-4 py-2 text-sm font-medium transition"
-              style={
-                questionType === val
-                  ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
-                  : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
-              }
-            >
-              {label}
-            </button>
-          ))}
+        <div className="rounded-lg px-4 py-2 text-sm font-medium inline-flex"
+          style={{ background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }}>
+          Code submission
         </div>
       </div>
 
       {/* Time / memory limits */}
-      {questionType === "code" && (
-        <div className="mb-4 flex gap-3">
-          <div className="flex-1">
-            <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Time limit (ms)</label>
-            <input
-              type="number"
-              min={100}
-              value={timeLimit}
-              onChange={(e) => setTimeLimit(Number(e.target.value))}
-              className="glass-input text-sm text-white"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Memory limit (MB)</label>
-            <input
-              type="number"
-              min={16}
-              value={memoryLimit}
-              onChange={(e) => setMemoryLimit(Number(e.target.value))}
-              className="glass-input text-sm text-white"
-            />
-          </div>
+      <div className="mb-4 flex gap-3">
+        <div className="flex-1">
+          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Time limit (ms)</label>
+          <input
+            type="number"
+            min={100}
+            value={timeLimit}
+            onChange={(e) => setTimeLimit(Number(e.target.value))}
+            className="glass-input text-sm text-white"
+          />
         </div>
-      )}
+        <div className="flex-1">
+          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Memory limit (MB)</label>
+          <input
+            type="number"
+            min={16}
+            value={memoryLimit}
+            onChange={(e) => setMemoryLimit(Number(e.target.value))}
+            className="glass-input text-sm text-white"
+          />
+        </div>
+      </div>
 
-      {/* Code Editor Tabs segment */}
-      {questionType === "code" ? (
+      {/* Problem Studio */}
+      <>
         <>
           {/* Desktop full specs view */}
           <div className="hidden md:block">
@@ -542,41 +506,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
             </p>
           </div>
         </>
-      ) : (
-        /* Code editor tabs for visual layout / output_only starter codes */
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <label className="text-xs font-medium" style={{ color: "#A1A1AA" }}>Question display (HTML / CSS / JS)</label>
-            <div className="flex rounded-lg p-0.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {(["html", "css", "js"] as CodeTab[]).map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => setCodeTab(lang)}
-                  className="rounded px-3 py-1 text-xs font-mono font-medium transition"
-                  style={
-                    codeTab === lang
-                      ? { background: "rgba(139,92,246,0.2)", color: "#c4b5fd" }
-                      : { color: "#71717A" }
-                  }
-                >
-                  {lang.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {codeTab === "html" && (
-            <CodeArea lang="html" value={html} onChange={setHtml} placeholder={`<div class="problem-statement">\n  <!-- Problem statement HTML here -->\n  <!-- Can include graphs, diagrams, input fields -->\n</div>`} />
-          )}
-          {codeTab === "css" && (
-            <CodeArea lang="css" value={css} onChange={setCss} placeholder={`.problem-statement {\n  /* Style the question display */\n}`} />
-          )}
-          {codeTab === "js" && (
-            <CodeArea lang="js" value={js} onChange={setJs} placeholder={`// Interactive question logic (graphs, validators, etc.)\n// For output-only: set up input field and capture answer\n`} />
-          )}
-        </div>
-      )}
+      </>
 
       <div className="mt-4 flex gap-3">
         <button
@@ -600,44 +530,6 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         </button>
       </div>
     </div>
-  );
-}
-
-function CodeArea({ lang, value, onChange, placeholder }: { lang: string; value: string; onChange: (v: string) => void; placeholder: string }) {
-  return (
-    <textarea
-      rows={12}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      spellCheck={false}
-      className="w-full rounded-xl border p-4 text-sm text-white outline-none transition"
-      style={{
-        fontFamily: "'IBM Plex Mono', 'Fira Code', 'Cascadia Code', monospace",
-        fontSize: "13px",
-        lineHeight: 1.7,
-        background: "rgba(0,0,0,0.4)",
-        borderColor: "rgba(255,255,255,0.1)",
-        resize: "vertical",
-        tabSize: 2,
-        caretColor: "#a855f7",
-      }}
-      onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(139,92,246,0.5)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(139,92,246,0.08)"; }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.boxShadow = "none"; }}
-      onKeyDown={(e) => {
-        if (e.key === "Tab") {
-          e.preventDefault();
-          const ta = e.currentTarget;
-          const start = ta.selectionStart;
-          const end = ta.selectionEnd;
-          const next = ta.value.substring(0, start) + "  " + ta.value.substring(end);
-          onChange(next);
-          requestAnimationFrame(() => {
-            ta.selectionStart = ta.selectionEnd = start + 2;
-          });
-        }
-      }}
-    />
   );
 }
 
