@@ -32,7 +32,8 @@ export default function AmsAdminPage() {
       window.location.href = "/amsadmin/login";
       return;
     }
-    const data = (await res.json()) as OrgRow[];
+    const raw = await res.json() as OrgRow[] | { orgs?: OrgRow[]; data?: OrgRow[] };
+    const data: OrgRow[] = Array.isArray(raw) ? raw : ((raw as { orgs?: OrgRow[] }).orgs ?? (raw as { data?: OrgRow[] }).data ?? []);
     setOrgs(data);
     if (!selected && data.length > 0) setSelected(data[0]);
   }
