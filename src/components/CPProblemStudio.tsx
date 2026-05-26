@@ -67,7 +67,12 @@ interface Testcase {
   isSample: boolean;
   inputPreview: string;
   outputPreview: string;
+  inputPath?: string;
+  outputPath?: string;
+  subtaskNumber?: number;
+  score?: number;
   status: "valid" | "failed" | "pending";
+  uploadState?: "idle" | "uploading" | "uploaded" | "error";
 }
 
 interface SolutionFile {
@@ -337,7 +342,9 @@ int main() {
       inputSize: "53 B",
       inputPreview: "9\n-2 1 -3 4 -1 2 1 -5 4",
       outputPreview: "6",
-      status: "valid"
+      status: "valid",
+      score: 0,
+      uploadState: "idle"
     },
     {
       id: "2",
@@ -346,7 +353,9 @@ int main() {
       inputSize: "12 B",
       inputPreview: "4\n5 4 -1 78",
       outputPreview: "86",
-      status: "valid"
+      status: "valid",
+      score: 0,
+      uploadState: "idle"
     },
     {
       id: "3",
@@ -356,7 +365,9 @@ int main() {
       inputSize: "45 B",
       inputPreview: "10\n-3 12 56 -98 4 12 -4 89 -10 5",
       outputPreview: "159",
-      status: "valid"
+      status: "valid",
+      score: 0,
+      uploadState: "idle"
     },
     {
       id: "4",
@@ -366,7 +377,9 @@ int main() {
       inputSize: "8.4 KB",
       inputPreview: "1000\n562981 -294821 ...",
       outputPreview: "148902847",
-      status: "valid"
+      status: "valid",
+      score: 0,
+      uploadState: "idle"
     }
   ]);
   const [generatorScript, setGeneratorScript] = useState<string>(
@@ -441,10 +454,91 @@ int main() {
           inputSize: "820 KB",
           inputPreview: "100000\n984123847 84920834 ...",
           outputPreview: "98412384700000",
-          status: "valid"
+          status: "valid",
+          score: 0,
+          uploadState: "idle"
         }
       ]);
     }, 1200);
+  };
+
+  const uploadTestAsset = async (tcId: string, file: File, kind: "manual_test_input" | "manual_test_output") => {
+    if (!questionId) {
+      setPrejudgeMessage("Save problem first to get question ID before uploading testcase assets.");
+      return;
+    }
+    setTestcases((prev) => prev.map((t) => (t.id === tcId ? { ...t, uploadState: "uploading" } : t)));
+    try {
+      const presign = await apiFetch<{ upload_url: string; object_path: string }>(
+        `/api/org/contests/${contestId}/questions/${questionId}/assets/presign`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            asset_kind: kind,
+            filename: file.name,
+            content_type: file.type || "text/plain",
+            size_bytes: file.size
+          })
+        }
+      );
+      const put = await fetch(presign.upload_url, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "text/plain" },
+        body: file
+      });
+      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+      const content = await file.text();
+      setTestcases((prev) =>
+        prev.map((t) =>
+          t.id === tcId
+            ? {
+                ...t,
+                ...(kind === "manual_test_input" ? { inputPath: presign.object_path, inputPreview: content.slice(0, 2000) } : { outputPath: presign.object_path, outputPreview: content.slice(0, 2000) }),
+                inputSize: `${Math.max(1, Math.round(file.size / 1024))} KB`,
+                status: "valid",
+                uploadState: "uploaded"
+              }
+            : t
+        )
+      );
+    } catch (error) {
+      setTestcases((prev) => prev.map((t) => (t.id === tcId ? { ...t, uploadState: "error", status: "failed" } : t)));
+      setPrejudgeMessage(error instanceof Error ? error.message : "Failed to upload testcase file.");
+    }
+  };
+
+  const upsertTestsToCloud = async () => {
+    if (!questionId) {
+      setPrejudgeMessage("Save problem first to get question ID before persisting tests.");
+      return;
+    }
+    const missingPaths = testcases.some((t) => !t.inputPath || !t.outputPath);
+    if (missingPaths) {
+      setPrejudgeMessage("Upload both input and output files for every testcase before saving tests.");
+      return;
+    }
+    const tests = testcases.map((t, idx) => ({
+      test_number: idx + 1,
+      is_sample: t.isSample,
+      input_path: t.inputPath as string,
+      output_path: t.outputPath as string,
+      subtask_number: t.subtaskNumber ?? null,
+      score: t.score ?? 0
+    }));
+    await apiFetch<{ ok: boolean; testset_id: string }>(
+      `/api/org/contests/${contestId}/questions/${questionId}/tests/upsert`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          version: 1,
+          checker_type: checkerType === "custom" ? "custom" : "token",
+          time_limit_ms: timeLimit,
+          memory_limit_mb: memoryLimit,
+          tests,
+          subtasks: []
+        })
+      }
+    );
   };
 
   // Verify all solutions simulation
@@ -511,6 +605,7 @@ int main() {
           model_lang: testingLang === "python" ? "python3" : "cpp17"
         })
       });
+      await upsertTestsToCloud();
 
       const created = await apiFetch<{ job_id: string }>(
         `/api/org/contests/${contestId}/questions/${questionId}/prejudge`,
@@ -1039,7 +1134,27 @@ int main() {
                       <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                         Active Generated & Manual Tests ({testcases.length})
                       </label>
-                      <button className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-transparent px-3 py-1 text-xs text-zinc-300 transition">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newId = String(Date.now());
+                          setTestcases((prev) => [
+                            ...prev,
+                            {
+                              id: newId,
+                              type: "manual",
+                              isSample: false,
+                              inputSize: "--",
+                              inputPreview: "",
+                              outputPreview: "",
+                              status: "pending",
+                              score: 0,
+                              uploadState: "idle"
+                            }
+                          ]);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-transparent px-3 py-1 text-xs text-zinc-300 transition"
+                      >
                         <Plus className="h-3.5 w-3.5" />
                         Add Manual Test
                       </button>
@@ -1055,6 +1170,7 @@ int main() {
                             <th className="px-4 py-3">Size</th>
                             <th className="px-4 py-3">Sample</th>
                             <th className="px-4 py-3">Status</th>
+                            <th className="px-4 py-3">Cloud Files</th>
                             <th className="px-4 py-3 text-right">Actions</th>
                           </tr>
                         </thead>
@@ -1093,8 +1209,39 @@ int main() {
                               <td className="px-4 py-3">
                                 <span className="flex items-center gap-1.5 text-green-400">
                                   <Check className="h-3 w-3" />
-                                  valid
+                                  {t.status}
                                 </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex gap-2">
+                                  <label className="cursor-pointer rounded border border-white/10 px-2 py-1 text-[10px] text-zinc-300 hover:border-purple-500/40">
+                                    In
+                                    <input
+                                      type="file"
+                                      accept=".txt,.in,*/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) void uploadTestAsset(t.id, f, "manual_test_input");
+                                      }}
+                                    />
+                                  </label>
+                                  <label className="cursor-pointer rounded border border-white/10 px-2 py-1 text-[10px] text-zinc-300 hover:border-purple-500/40">
+                                    Out
+                                    <input
+                                      type="file"
+                                      accept=".txt,.out,*/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) void uploadTestAsset(t.id, f, "manual_test_output");
+                                      }}
+                                    />
+                                  </label>
+                                  <span className="text-[10px] text-zinc-500">
+                                    {t.inputPath && t.outputPath ? "synced" : (t.uploadState ?? "idle")}
+                                  </span>
+                                </div>
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <button
@@ -1108,6 +1255,16 @@ int main() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => void upsertTestsToCloud()}
+                        className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 px-4 py-2 text-xs font-semibold text-white"
+                      >
+                        <Database className="h-3.5 w-3.5" />
+                        Save Tests to Cloud
+                      </button>
                     </div>
                   </div>
                 </div>
