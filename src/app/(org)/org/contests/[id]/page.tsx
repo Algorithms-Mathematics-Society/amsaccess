@@ -300,7 +300,7 @@ function QuestionsTab({ contestId, questions, onRefresh }: {
           >
             <Code2 className="mb-3 h-8 w-8" style={{ color: "#3F3F46" }} />
             <p className="text-sm font-medium text-white">No questions yet</p>
-            <p className="mt-1 text-xs" style={{ color: "#52525B" }}>Add HTML/CSS/JS coding challenges</p>
+            <p className="mt-1 text-xs" style={{ color: "#52525B" }}>Add competitive programming problems</p>
           </div>
         )}
       </div>

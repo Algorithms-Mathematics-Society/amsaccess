@@ -460,7 +460,7 @@ int main() {
         setPrejudgeJob(job);
         const rawTests = Array.isArray(job.result_json?.tests) ? (job.result_json?.tests as unknown[]) : [];
         const parsed = rawTests
-          .map((row) => {
+          .map((row): PrejudgeTestRow | null => {
             if (!row || typeof row !== "object") return null;
             const r = row as Record<string, unknown>;
             return {
@@ -470,7 +470,7 @@ int main() {
               memory_kb: Number(r.memory_kb ?? 0),
               is_sample: Boolean(r.is_sample ?? false),
               message: typeof r.message === "string" ? r.message : undefined
-            } satisfies PrejudgeTestRow;
+            };
           })
           .filter((v): v is PrejudgeTestRow => !!v && v.test_number > 0);
         setPrejudgeTests(parsed);
