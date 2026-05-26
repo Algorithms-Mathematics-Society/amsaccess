@@ -110,6 +110,8 @@ export default function CPProblemStudio({
   const [outputFileName, setOutputFileName] = useState("output.txt");
   const [inputFormatText, setInputFormatText] = useState("A single integer $N$ followed by $N$ space-separated values.");
   const [outputFormatText, setOutputFormatText] = useState("A single integer denoting the maximum subarray sum.");
+  const [sampleInputText, setSampleInputText] = useState("9\n-2 1 -3 4 -1 2 1 -5 4");
+  const [sampleOutputText, setSampleOutputText] = useState("6");
   const [noteText, setNoteText] = useState("For the input array `[-2, 1, -3, 4, -1, 2, 1, -5, 4]`, the contiguous subarray is `[4, -1, 2, 1]` with sum `6`.");
 
   // --- Validator States ---
@@ -137,11 +139,29 @@ int main(int argc, char* argv[]) {
 }`);
   const [validatorStatus, setValidatorStatus] = useState<"compiled" | "dirty" | "error">("compiled");
 
+  const formatLatexLite = (formula: string): string => {
+    return formula
+      .replace(/\\leq?/g, "≤")
+      .replace(/\\geq?/g, "≥")
+      .replace(/\\neq/g, "≠")
+      .replace(/\\times/g, "×")
+      .replace(/\\cdot/g, "·")
+      .replace(/\\dots/g, "…")
+      .replace(/\\ldots/g, "…")
+      .replace(/\\infty/g, "∞")
+      .replace(/\\sqrt\{([^}]*)\}/g, "√($1)")
+      .replace(/\^\{([^}]*)\}/g, "^($1)")
+      .replace(/_\{([^}]*)\}/g, "_($1)")
+      .replace(/\\_/g, "_")
+      .replace(/\\\\/g, "\n")
+      .trim();
+  };
+
   // --- Custom Markdown, LaTeX Math, Image and Interactive Code Parser ---
   const parseInlineFormatting = (line: string): React.ReactNode[] => {
     if (!line) return [];
-    // Split by Markdown bold (**text**), LaTeX ($formula$), and Markdown image (![alt](url))
-    const parts = line.split(/(\!\[.*?\]\(.*?\))|(\*\*.*?\*\*)|(\$.*?\$)/g);
+    // Split by Markdown bold (**text**), LaTeX ($...$/$$...$$), and Markdown image (![alt](url))
+    const parts = line.split(/(\!\[.*?\]\(.*?\))|(\*\*.*?\*\*)|(\$\$[\s\S]*?\$\$)|(\$[^$\n]+\$)/g);
 
     return parts.map((part, pIdx) => {
       if (!part) return null;
@@ -168,9 +188,19 @@ int main(int argc, char* argv[]) {
         return <strong key={pIdx} className="font-bold text-white">{boldText}</strong>;
       }
 
-      // 3. LaTeX Math Match: $formula$
+      // 3. Display math: $$formula$$
+      if (part.startsWith("$$") && part.endsWith("$$")) {
+        const formula = formatLatexLite(part.substring(2, part.length - 2));
+        return (
+          <div key={pIdx} className="my-2 overflow-x-auto rounded border border-purple-500/20 bg-purple-500/5 px-2 py-1 font-mono text-[11px] text-purple-200 whitespace-pre-wrap">
+            {formula}
+          </div>
+        );
+      }
+
+      // 4. Inline math: $formula$
       if (part.startsWith("$") && part.endsWith("$")) {
-        const formula = part.substring(1, part.length - 1);
+        const formula = formatLatexLite(part.substring(1, part.length - 1));
         return (
           <span key={pIdx} className="mx-0.5 inline-block font-mono text-[11px] font-semibold text-purple-300 bg-purple-500/10 px-1 py-0.5 rounded border border-purple-500/10">
             {formula}
@@ -178,7 +208,7 @@ int main(int argc, char* argv[]) {
         );
       }
 
-      // 4. Regular text chunk
+      // 5. Regular text chunk
       return <span key={pIdx}>{part}</span>;
     });
   };
@@ -605,6 +635,28 @@ int main() {
                         className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs font-mono text-white focus:border-purple-500/50 focus:outline-none"
                       />
                     </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-400 uppercase tracking-wider">
+                        Sample Input
+                      </label>
+                      <textarea
+                        rows={4}
+                        value={sampleInputText}
+                        onChange={(e) => setSampleInputText(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs font-mono text-white focus:border-purple-500/50 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-400 uppercase tracking-wider">
+                        Sample Output
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={sampleOutputText}
+                        onChange={(e) => setSampleOutputText(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs font-mono text-white focus:border-purple-500/50 focus:outline-none"
+                      />
+                    </div>
                   </div>
  
                   {/* Right: Statement Live Preview */}
@@ -638,17 +690,17 @@ int main() {
                         <div className="text-zinc-300">{renderStatementHtml(outputFormatText)}</div>
                       </div>
 
-                      {/* Hardcoded Sample tests grid */}
+                      {/* Editable sample tests grid */}
                       <div>
                         <h4 className="font-bold text-white mb-2 uppercase tracking-wider text-[10px]">Sample Tests</h4>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="rounded-xl bg-black/50 border border-white/5 p-3.5 font-mono text-zinc-400">
                             <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">Standard Input</span>
-                            <pre className="text-zinc-200">9{"\n"}-2 1 -3 4 -1 2 1 -5 4</pre>
+                            <pre className="text-zinc-200 whitespace-pre-wrap">{sampleInputText}</pre>
                           </div>
                           <div className="rounded-xl bg-black/50 border border-white/5 p-3.5 font-mono text-zinc-400">
                             <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">Standard Output</span>
-                            <pre className="text-zinc-200">6</pre>
+                            <pre className="text-zinc-200 whitespace-pre-wrap">{sampleOutputText}</pre>
                           </div>
                         </div>
                       </div>
