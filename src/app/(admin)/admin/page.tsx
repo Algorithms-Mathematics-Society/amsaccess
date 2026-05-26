@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { AMSLogo } from "@/components/AMSLogo";
 import { apiFetch } from "@/lib/client/apiClient";
 import { riskTone } from "@/domain/risk";
-import { isSupabaseConfigured, supabase } from "@/lib/client/supabaseClient";
 import type { Session } from "@/domain/types";
 import { TableSkeleton } from "@/components/Skeleton";
 
@@ -37,19 +36,13 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function signOut() {
-    await supabase.auth.signOut();
+    document.cookie = "ams_session=; Max-Age=0; path=/";
     router.push("/access-admin-only");
   }
 
   const loadSessions = useCallback(async (nextPage = page, nextQuery = searchQuery) => {
     setIsLoading(true);
     setError(null);
-
-    if (!isSupabaseConfigured) {
-      setError("Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const params = new URLSearchParams({

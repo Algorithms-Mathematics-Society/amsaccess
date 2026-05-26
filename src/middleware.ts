@@ -29,6 +29,16 @@ export async function middleware(request: NextRequest) {
 
   const response = noStore(NextResponse.next());
 
+  if (pathname.startsWith("/amsadmin")) {
+    if (pathname === "/amsadmin/login") return response;
+    const adminCookie = request.cookies.get("ams_admin_session")?.value;
+    const expected = `${process.env.AMSADMIN_USER ?? ""}:${process.env.AMSADMIN_PASSWORD ?? ""}`;
+    if (!adminCookie || adminCookie !== expected) {
+      return noStore(NextResponse.redirect(new URL("/amsadmin/login", request.url)));
+    }
+    return response;
+  }
+
   if (pathname === "/access-admin-only" || pathname === "/org/login" || pathname === "/org/setup") {
     return response;
   }
@@ -53,5 +63,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/access-admin-only", "/admin/:path*", "/org/:path*"],
+  matcher: ["/access-admin-only", "/admin/:path*", "/org/:path*", "/amsadmin/:path*"],
 };

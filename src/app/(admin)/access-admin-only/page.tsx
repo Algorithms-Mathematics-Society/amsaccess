@@ -4,7 +4,6 @@ import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
-import { isSupabaseConfigured } from "@/lib/client/supabaseConfig";
 
 export default function AdminLoginPage() {
   const router       = useRouter();
@@ -24,11 +23,6 @@ export default function AdminLoginPage() {
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-
-    if (!isSupabaseConfigured) {
-      setError("Supabase is not configured. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local.");
-      return;
-    }
 
     setIsLoading(true);
 

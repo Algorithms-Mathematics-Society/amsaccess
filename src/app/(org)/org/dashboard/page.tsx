@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Building2, CalendarDays, Plus, LogOut, Trophy, Users } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
-import { supabase } from "@/lib/client/supabaseClient";
 
 type Org = { id: string; name: string; slug: string };
 type Contest = {
@@ -60,7 +59,7 @@ export default function OrgDashboardPage() {
   useEffect(() => { void load(); }, [load]);
 
   async function signOut() {
-    await supabase.auth.signOut();
+    document.cookie = "ams_session=; Max-Age=0; path=/";
     router.push("/org/login");
   }
 

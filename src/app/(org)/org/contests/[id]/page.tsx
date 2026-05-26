@@ -640,10 +640,33 @@ function InvitesTab({ contestId, invites, onRefresh }: {
   const [emailInput, setEmailInput] = useState("");
   const [subject, setSubject] = useState("AMS Access contest invite");
   const [template, setTemplate] = useState("You have been invited to an AMS Access contest.\n\nInstall the desktop app from {{download_url}} and sign in with {{email}}.\n");
+  const [allowBulkInvites, setAllowBulkInvites] = useState(true);
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const settings = await apiFetch<{
+          allow_bulk_invites: boolean;
+          invite_subject_template: string;
+          invite_body_template: string;
+        }>("/api/org/settings");
+        if (!mounted) return;
+        setAllowBulkInvites(settings.allow_bulk_invites);
+        if (settings.invite_subject_template) setSubject(settings.invite_subject_template);
+        if (settings.invite_body_template) setTemplate(settings.invite_body_template);
+      } catch {
+        // keep local defaults
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function addInvites() {
     setError(null);
@@ -729,15 +752,27 @@ function InvitesTab({ contestId, invites, onRefresh }: {
         />
         <button
           onClick={() => void addInvites()}
-          disabled={saving}
+          disabled={saving || !allowBulkInvites}
           className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50"
           style={{ background: "rgb(139,92,246)" }}
           onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(124,58,237)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(139,92,246)"; }}
         >
           <Mail className="h-4 w-4" />
-          {saving ? "Saving…" : "Send invites"}
+          {!allowBulkInvites ? "Bulk invites disabled by AMS admin" : saving ? "Saving…" : "Send invites"}
         </button>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="rounded border border-white/10 p-3">
+            <p className="mb-2 text-xs uppercase tracking-widest" style={{ color: "#64748b" }}>Template Preview</p>
+            <p className="text-sm font-medium text-white">{subject.replaceAll("{{email}}", "candidate@example.com")}</p>
+            <pre className="mt-2 whitespace-pre-wrap text-xs text-white/80">
+              {template.replaceAll("{{email}}", "candidate@example.com").replaceAll("{{download_url}}", "https://amsaccess.com/download")}
+            </pre>
+          </div>
+          <div className="rounded border border-white/10 p-3 text-xs" style={{ color: "#94a3b8" }}>
+            Allowed placeholders: <code>{"{{email}}"}</code>, <code>{"{{download_url}}"}</code>
+          </div>
+        </div>
       </div>
 
       {/* Invites list */}

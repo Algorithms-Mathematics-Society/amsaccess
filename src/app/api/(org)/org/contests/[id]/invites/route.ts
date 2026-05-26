@@ -32,8 +32,20 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return apiError("At least one valid email is required.", 400, "BAD_REQUEST");
     }
 
-    const subjectTemplate = typeof record.subject === "string" ? record.subject.trim().slice(0, 180) : "";
-    const bodyTemplate = typeof record.body === "string" ? record.body.trim().slice(0, 8000) : "";
+    const settingsRes = await callGoApi("GET", "/org/settings", null, auth.uid);
+    const settings = (settingsRes.data ?? {}) as Record<string, unknown>;
+    const allowBulk = Boolean(settings.allow_bulk_invites ?? true);
+    if (!allowBulk) return apiError("Bulk invite emails are disabled for your organization.", 403, "FORBIDDEN");
+    const subjectTemplate = typeof record.subject === "string" && record.subject.trim() !== ""
+      ? record.subject.trim().slice(0, 180)
+      : typeof settings.invite_subject_template === "string"
+      ? settings.invite_subject_template.slice(0, 180)
+      : "";
+    const bodyTemplate = typeof record.body === "string" && record.body.trim() !== ""
+      ? record.body.trim().slice(0, 8000)
+      : typeof settings.invite_body_template === "string"
+      ? settings.invite_body_template.slice(0, 8000)
+      : "";
 
     const res = await callGoApi("POST", `/org/contests/${params.id}/invites`, { emails }, auth.uid);
     if (res.status !== 200) {
@@ -46,7 +58,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     let emailsSent = 0;
     if (subjectTemplate && bodyTemplate && process.env.RESEND_API_KEY) {
-      const from = process.env.RESEND_FROM_EMAIL ?? "Access by AMS <onboarding@resend.dev>";
+      const fromName = typeof settings.email_from_name === "string" && settings.email_from_name.trim() !== ""
+        ? settings.email_from_name.trim()
+        : "Access by AMS";
+      const from = process.env.RESEND_FROM_EMAIL ?? `${fromName} <onboarding@resend.dev>`;
       await Promise.all(
         emails.map(async (email) => {
           const subject = renderInviteTemplate(subjectTemplate, { email });

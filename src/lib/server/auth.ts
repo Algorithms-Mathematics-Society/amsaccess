@@ -27,20 +27,20 @@ export async function getSessionUid(): Promise<string | null> {
   }
 }
 
-export type AuthOk = { uid: string; error: null };
+export type AuthOk = { uid: string; error: null; status: 200 };
 export type AuthErr = { uid: null; error: string; status: number };
 export type AuthResult = AuthOk | AuthErr;
 
 export async function requireAdmin(): Promise<AuthResult> {
   const uid = await getSessionUid();
   if (!uid) return { uid: null, error: "Sign in required.", status: 401 };
-  return { uid, error: null };
+  return { uid, error: null, status: 200 };
 }
 
 export async function requireOrgUser(): Promise<AuthResult> {
   const uid = await getSessionUid();
   if (!uid) return { uid: null, error: "Sign in required.", status: 401 };
-  return { uid, error: null };
+  return { uid, error: null, status: 200 };
 }
 
 export async function createSessionCookie(idToken: string): Promise<string> {
@@ -65,9 +65,9 @@ export async function callGoApi(
   method: string,
   path: string,
   body: FormData | Record<string, unknown> | null,
-  firebaseUid: string,
+  firebaseUid: string | null,
 ): Promise<GoApiResult> {
-  const headers = internalHeaders(firebaseUid);
+  const headers = internalHeaders(firebaseUid ?? "");
   if (body !== null && !(body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
@@ -106,7 +106,7 @@ export async function proxyToGoApi(
   method: string,
   path: string,
   body: FormData | Record<string, unknown> | null,
-  firebaseUid: string,
+  firebaseUid: string | null,
 ): Promise<NextResponse> {
   const res = await callGoApi(method, path, body, firebaseUid);
   if (res.status === 204) {

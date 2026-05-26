@@ -12,7 +12,6 @@ import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { apiFetch } from "@/lib/client/apiClient";
 import { safeRubric } from "@/domain/cms";
 import { calculateRiskScore, riskColor, riskTone } from "@/domain/risk";
-import { isSupabaseConfigured, supabase } from "@/lib/client/supabaseClient";
 import type { Answer, ProctorEvent, Question, Review, Session } from "@/domain/types";
 import { PageSkeleton } from "@/components/Skeleton";
 
@@ -43,12 +42,6 @@ export default function AdminSessionPage() {
 
   useEffect(() => {
     async function loadSession() {
-      if (!isSupabaseConfigured) {
-        setError("Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
-        setIsLoading(false);
-        return;
-      }
-
       setIsLoading(true);
       try {
         const data = await apiFetch<SessionDetailResponse>(`/api/admin/sessions/${sessionId}`);
@@ -103,7 +96,7 @@ export default function AdminSessionPage() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    document.cookie = "ams_session=; Max-Age=0; path=/";
     router.push("/access-admin-only");
   }
 
@@ -211,7 +204,7 @@ export default function AdminSessionPage() {
                         <div className="mb-4 grid gap-3 sm:grid-cols-2">
                           {answer.question.assets.map((assetLike, index) => {
                             const asset = assetLike as { storage_path?: string; filename?: string; alt_text?: string; caption?: string };
-                            const publicUrl = asset.storage_path ? supabase.storage.from("question-assets").getPublicUrl(asset.storage_path).data.publicUrl : "";
+                            const publicUrl = asset.storage_path ? `https://storage.googleapis.com/${asset.storage_path}` : "";
                             return (
                               <figure key={`${asset.storage_path ?? index}`} className="rounded border border-white/10 bg-black/20 p-3">
                                 {publicUrl ? <img src={publicUrl} alt={asset.alt_text ?? asset.filename ?? ""} className="max-h-64 rounded" /> : null}
