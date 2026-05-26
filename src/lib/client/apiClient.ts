@@ -1,7 +1,7 @@
 type ApiSuccess<T> = { ok: true; data: T };
 type ApiFailure = { ok: false; error: { code: string; message: string } };
 
-const DEFAULT_API_TIMEOUT_MS = 5000;
+const DEFAULT_API_TIMEOUT_MS = 20000;
 
 function timeoutSignal(timeoutMs: number, upstream?: AbortSignal) {
   const controller = new AbortController();

@@ -529,6 +529,9 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
           Cancel
         </button>
       </div>
+      <p className="mt-2 text-xs" style={{ color: "#71717A" }}>
+        {saving ? "Saving question... please wait." : "Save question first, then upload tests and run validation."}
+      </p>
     </div>
   );
 }
