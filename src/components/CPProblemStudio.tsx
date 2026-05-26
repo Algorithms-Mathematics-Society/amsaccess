@@ -94,6 +94,15 @@ type PrejudgeJob = {
   result_json?: Record<string, unknown> | null;
 };
 
+type PrejudgeTestRow = {
+  test_number: number;
+  verdict: string;
+  runtime_ms: number;
+  memory_kb: number;
+  is_sample: boolean;
+  message?: string;
+};
+
 export default function CPProblemStudio({
   contestId,
   questionId,
@@ -332,6 +341,7 @@ int main() {
   const [selectedTestCaseForDetails, setSelectedTestCaseForDetails] = useState<string | null>(null);
   const [prejudgeJob, setPrejudgeJob] = useState<PrejudgeJob | null>(null);
   const [prejudgeMessage, setPrejudgeMessage] = useState<string | null>(null);
+  const [prejudgeTests, setPrejudgeTests] = useState<PrejudgeTestRow[]>([]);
 
   // --- Tests States ---
   const [testcases, setTestcases] = useState<Testcase[]>([
@@ -618,6 +628,22 @@ int main() {
         attempts += 1;
         const job = await apiFetch<PrejudgeJob>(`/api/org/prejudge-jobs/${created.job_id}`);
         setPrejudgeJob(job);
+        const rawTests = Array.isArray(job.result_json?.tests) ? (job.result_json?.tests as unknown[]) : [];
+        const parsed = rawTests
+          .map((row) => {
+            if (!row || typeof row !== "object") return null;
+            const r = row as Record<string, unknown>;
+            return {
+              test_number: Number(r.test_number ?? 0),
+              verdict: String(r.verdict ?? "UNKNOWN"),
+              runtime_ms: Number(r.runtime_ms ?? 0),
+              memory_kb: Number(r.memory_kb ?? 0),
+              is_sample: Boolean(r.is_sample ?? false),
+              message: typeof r.message === "string" ? r.message : undefined
+            } satisfies PrejudgeTestRow;
+          })
+          .filter((v): v is PrejudgeTestRow => !!v && v.test_number > 0);
+        setPrejudgeTests(parsed);
         if (isTerminalPrejudgeStatus(job.status)) break;
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
@@ -1614,13 +1640,30 @@ int main() {
                           </h4>
                         </div>
                         <div className="divide-y divide-white/5 max-h-[420px] overflow-y-auto">
-                          {testcases.map((tc, index) => {
+                          {(prejudgeTests.length > 0 ? prejudgeTests.map((p) => {
+                            const tc = testcases[p.test_number - 1];
+                            return { tc, index: p.test_number - 1, p };
+                          }) : testcases.map((tc, index) => ({ tc, index, p: null as PrejudgeTestRow | null }))).map(({ tc, index, p }) => {
                             let verdict = "PENDING";
                             let verdictColor = "text-zinc-300";
                             let verdictBg = "bg-zinc-500/10 border-zinc-500/20";
-                            const timeUsed = "--";
-                            const memoryUsed = "--";
-                            if (prejudgeJob?.status === "RUNNING") {
+                            let timeUsed = "--";
+                            let memoryUsed = "--";
+                            if (p) {
+                              verdict = p.verdict;
+                              timeUsed = `${p.runtime_ms} ms`;
+                              memoryUsed = `${(p.memory_kb / 1024).toFixed(2)} MB`;
+                              if (p.verdict === "AC" || p.verdict === "OK") {
+                                verdictColor = "text-green-400";
+                                verdictBg = "bg-green-500/10 border-green-500/20";
+                              } else if (p.verdict === "RUNNING" || p.verdict === "QUEUED") {
+                                verdictColor = "text-purple-300";
+                                verdictBg = "bg-purple-500/10 border-purple-500/20";
+                              } else {
+                                verdictColor = "text-red-400";
+                                verdictBg = "bg-red-500/10 border-red-500/20";
+                              }
+                            } else if (prejudgeJob?.status === "RUNNING") {
                               verdict = "RUN";
                               verdictColor = "text-purple-300";
                               verdictBg = "bg-purple-500/10 border-purple-500/20";
@@ -1647,14 +1690,16 @@ int main() {
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${verdictBg} ${verdictColor}`}>
                                       {verdict}
                                     </span>
-                                    {tc.isSample && (
+                                    {(p?.is_sample || tc?.isSample) && (
                                       <span className="text-[9px] font-medium text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
                                         Sample
                                       </span>
                                     )}
-                                    <span className="text-[11px] text-zinc-400 font-mono hidden md:inline">
-                                      Size: {tc.inputSize}
-                                    </span>
+                                    {tc ? (
+                                      <span className="text-[11px] text-zinc-400 font-mono hidden md:inline">
+                                        Size: {tc.inputSize}
+                                      </span>
+                                    ) : null}
                                   </div>
 
                                   <div className="flex items-center gap-6 text-[11px]">
@@ -1675,13 +1720,13 @@ int main() {
                                       <div className="space-y-1">
                                         <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Input stream (inf)</span>
                                         <pre className="rounded-lg bg-zinc-950/80 border border-white/5 p-2.5 font-mono text-[10px] text-zinc-300 max-h-28 overflow-y-auto">
-                                          {tc.inputPreview || "9\n-2 1 -3 4 -1 2 1 -5 4"}
+                                          {tc?.inputPreview || "Input preview unavailable"}
                                         </pre>
                                       </div>
                                       <div className="space-y-1">
                                         <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Expected output (ans)</span>
                                         <pre className="rounded-lg bg-zinc-950/80 border border-white/5 p-2.5 font-mono text-[10px] text-zinc-300 max-h-28 overflow-y-auto">
-                                          {tc.outputPreview || "6"}
+                                          {tc?.outputPreview || "Expected output preview unavailable"}
                                         </pre>
                                       </div>
                                     </div>
@@ -1691,7 +1736,7 @@ int main() {
                                         <div className="space-y-1">
                                           <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Prejudge Summary</span>
                                           <pre className="rounded-lg bg-zinc-950/80 border border-white/5 p-2.5 font-mono text-[10px] text-zinc-300 max-h-28 overflow-y-auto">
-                                            {prejudgeJob.summary ?? "No summary emitted by worker."}
+                                            {p?.message ?? prejudgeJob.summary ?? "No summary emitted by worker."}
                                           </pre>
                                         </div>
                                         <div className="space-y-1">
