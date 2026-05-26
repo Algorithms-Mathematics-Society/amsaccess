@@ -88,8 +88,9 @@ export default function AmsAdminPage() {
       setNewOwnerPassword("");
       await load();
     } else {
-      const data = await res.json() as { error?: { message?: string } };
-      setStatus(data?.error?.message ?? "Create org failed.");
+      const data = await res.json() as { error?: string | { message?: string } };
+      const errMsg = typeof data?.error === "string" ? data.error : data?.error?.message;
+      setStatus(errMsg ?? "Create org failed.");
     }
   }
 

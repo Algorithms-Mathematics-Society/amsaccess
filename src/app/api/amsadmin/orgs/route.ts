@@ -43,16 +43,28 @@ export async function POST(request: NextRequest) {
   }
 
   let newUserUid: string;
+  let userWasPreExisting = false;
   try {
     const user = await getFirebaseAdmin().createUser({ email: ownerEmail, password: ownerPassword });
     newUserUid = user.uid;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Failed to create Firebase user.";
-    return apiError(msg, 400, "BAD_REQUEST");
+    const code = (e as { code?: string })?.code;
+    if (code === "auth/email-already-exists") {
+      try {
+        const existing = await getFirebaseAdmin().getUserByEmail(ownerEmail);
+        newUserUid = existing.uid;
+        userWasPreExisting = true;
+      } catch {
+        return apiError("Firebase user already exists but could not be retrieved.", 400, "BAD_REQUEST");
+      }
+    } else {
+      const msg = e instanceof Error ? e.message : "Failed to create Firebase user.";
+      return apiError(msg, 400, "BAD_REQUEST");
+    }
   }
 
   const res = await callGoApi("POST", "/admin/orgs", { name, slug, owner_firebase_uid: newUserUid }, svcUid);
-  if (res.status >= 400) {
+  if (res.status >= 400 && !userWasPreExisting) {
     await getFirebaseAdmin().deleteUser(newUserUid).catch(() => null);
   }
   return Response.json(res.data, { status: res.status });
