@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { apiFetch } from "@/lib/client/apiClient";
 import {
   Save,
   X,
@@ -79,6 +80,14 @@ interface SolutionFile {
   totalCount?: number;
   status: "success" | "failed" | "idle" | "running";
 }
+
+type PrejudgeJob = {
+  id: string;
+  status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+  summary?: string | null;
+  error_message?: string | null;
+  result_json?: Record<string, unknown> | null;
+};
 
 export default function CPProblemStudio({
   contestId,
@@ -316,14 +325,8 @@ int main() {
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [hasRunTestingSuite, setHasRunTestingSuite] = useState(false);
   const [selectedTestCaseForDetails, setSelectedTestCaseForDetails] = useState<string | null>(null);
-
-  const handleRunTestingSuite = () => {
-    setIsRunningTests(true);
-    setTimeout(() => {
-      setIsRunningTests(false);
-      setHasRunTestingSuite(true);
-    }, 1800);
-  };
+  const [prejudgeJob, setPrejudgeJob] = useState<PrejudgeJob | null>(null);
+  const [prejudgeMessage, setPrejudgeMessage] = useState<string | null>(null);
 
   // --- Tests States ---
   const [testcases, setTestcases] = useState<Testcase[]>([
@@ -479,6 +482,55 @@ int main() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     }, 1000);
+  };
+
+  const isTerminalPrejudgeStatus = (status: string) => status === "SUCCEEDED" || status === "FAILED";
+
+  const handleRunTestingSuite = async () => {
+    if (!questionId) {
+      setPrejudgeMessage("Save the problem first so it has a real ID before running jury validation.");
+      return;
+    }
+
+    setPrejudgeMessage(null);
+    setPrejudgeJob(null);
+    setHasRunTestingSuite(false);
+    setIsRunningTests(true);
+
+    try {
+      // Keep judge configuration synced before triggering a real prejudge run.
+      await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
+        method: "PUT",
+        body: JSON.stringify({
+          checker_type: checkerType === "custom" ? "custom" : "token",
+          checker_code: checkerType === "custom" ? customCheckerCode : null,
+          validator_code: validatorCode,
+          generator_code: generatorScript,
+          statement_md: description,
+          model_solution: testingCode,
+          model_lang: testingLang === "python" ? "python3" : "cpp17"
+        })
+      });
+
+      const created = await apiFetch<{ job_id: string }>(
+        `/api/org/contests/${contestId}/questions/${questionId}/prejudge`,
+        { method: "POST" }
+      );
+      setHasRunTestingSuite(true);
+
+      let attempts = 0;
+      while (attempts < 60) {
+        attempts += 1;
+        const job = await apiFetch<PrejudgeJob>(`/api/org/prejudge-jobs/${created.job_id}`);
+        setPrejudgeJob(job);
+        if (isTerminalPrejudgeStatus(job.status)) break;
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    } catch (error) {
+      setPrejudgeMessage(error instanceof Error ? error.message : "Failed to run jury validation.");
+    } finally {
+      setIsRunningTests(false);
+    }
   };
 
   // Standard testlib checkers description dictionary
@@ -1340,65 +1392,50 @@ int main() {
                           <div>
                             <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Verdict Summary</span>
                             <h4 className="text-xl font-bold text-white mt-1">
-                              {validatorStatus === "error" || checkerCompilationStatus === "error" ? (
-                                <span className="text-red-400">COMPILATION FAILED</span>
-                              ) : (
-                                <>
-                                  {testcases.length - 1} / {testcases.length} PASSED
-                                  <span className="text-xs font-normal text-zinc-400 ml-2">
-                                    ({Math.floor(((testcases.length - 1) / testcases.length) * 100)}%)
-                                  </span>
-                                </>
-                              )}
+                              {prejudgeJob?.status === "SUCCEEDED" && <span className="text-green-400">VALIDATION SUCCEEDED</span>}
+                              {prejudgeJob?.status === "FAILED" && <span className="text-red-400">VALIDATION FAILED</span>}
+                              {prejudgeJob?.status === "RUNNING" && <span className="text-purple-300">VALIDATION RUNNING</span>}
+                              {prejudgeJob?.status === "QUEUED" && <span className="text-zinc-300">VALIDATION QUEUED</span>}
+                              {!prejudgeJob && <span className="text-zinc-300">JOB CREATED</span>}
                             </h4>
+                            {prejudgeJob?.summary ? <p className="mt-1 text-xs text-zinc-400">{prejudgeJob.summary}</p> : null}
+                            {prejudgeJob?.error_message ? <p className="mt-1 text-xs text-red-400">{prejudgeJob.error_message}</p> : null}
                           </div>
                           <div className={`rounded-xl border px-3 py-1.5 text-xs font-bold ${
-                            validatorStatus === "error" || checkerCompilationStatus === "error"
+                            prejudgeJob?.status === "FAILED"
                               ? "bg-red-500/10 border-red-500/20 text-red-400"
-                              : "bg-green-500/10 border-green-500/20 text-green-400"
+                              : prejudgeJob?.status === "SUCCEEDED"
+                                ? "bg-green-500/10 border-green-500/20 text-green-400"
+                                : "bg-purple-500/10 border-purple-500/20 text-purple-300"
                           }`}>
-                            {validatorStatus === "error" || checkerCompilationStatus === "error"
-                              ? "CRITICAL WARNING"
-                              : "TEST SUITE COMPLETED"}
+                            {prejudgeJob?.status ?? "RUNNING"}
                           </div>
                         </div>
 
                         {/* Progress Bar */}
                         <div className="space-y-1.5">
                           <div className="flex justify-between text-[10px] text-zinc-400">
-                            <span>Test suite run progress</span>
+                            <span>Prejudge job progress</span>
                             <span>
-                              {validatorStatus === "error" || checkerCompilationStatus === "error" ? "0%" : `${Math.floor(((testcases.length - 1) / testcases.length) * 100)}%`}
+                              {prejudgeJob?.status === "SUCCEEDED" || prejudgeJob?.status === "FAILED"
+                                ? "100%"
+                                : prejudgeJob?.status === "RUNNING"
+                                  ? "60%"
+                                  : "20%"}
                             </span>
                           </div>
                           <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
                             <div
-                              className={`h-full transition-all duration-1000 ${
-                                validatorStatus === "error" || checkerCompilationStatus === "error" ? "bg-red-500 w-0" : "bg-purple-500 w-[93%]"
-                              }`}
+                              className="h-full transition-all duration-1000 bg-purple-500"
                               style={{
-                                width: validatorStatus === "error" || checkerCompilationStatus === "error" ? "0%" : `${((testcases.length - 1) / testcases.length) * 100}%`
+                                width: prejudgeJob?.status === "SUCCEEDED" || prejudgeJob?.status === "FAILED"
+                                  ? "100%"
+                                  : prejudgeJob?.status === "RUNNING"
+                                    ? "60%"
+                                    : "20%"
                               }}
                             />
                           </div>
-                        </div>
-
-                        {/* Script verification tags */}
-                        <div className="flex gap-4 pt-1 text-[11px]">
-                          <span className="flex items-center gap-1.5">
-                            <span className={`h-2 w-2 rounded-full ${validatorStatus === "compiled" ? "bg-green-400" : "bg-red-400"}`} />
-                            <span className="text-zinc-400">Validator Script:</span>
-                            <span className="font-semibold text-zinc-200">
-                              {validatorStatus === "compiled" ? "ACTIVE (testlib.h)" : "ERROR / DIRTY"}
-                            </span>
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <span className={`h-2 w-2 rounded-full ${checkerCompilationStatus === "compiled" ? "bg-green-400" : "bg-red-400"}`} />
-                            <span className="text-zinc-400">Jury Checker:</span>
-                            <span className="font-semibold text-zinc-200">
-                              {checkerCompilationStatus === "compiled" ? "ACTIVE (testlib.h)" : "ERROR / DIRTY"}
-                            </span>
-                          </span>
                         </div>
                       </div>
                     ) : (
@@ -1421,26 +1458,23 @@ int main() {
                         </div>
                         <div className="divide-y divide-white/5 max-h-[420px] overflow-y-auto">
                           {testcases.map((tc, index) => {
-                            const isFailedCase = index === testcases.length - 1 && index !== 0; // let's mock one WA failure to show off checker diagnostics
-                            const isCompFailed = validatorStatus === "error" || checkerCompilationStatus === "error";
-
-                            let verdict = "OK";
-                            let verdictColor = "text-green-400";
-                            let verdictBg = "bg-green-500/10 border-green-500/20";
-                            let timeUsed = `${Math.floor(Math.random() * 30) + 10} ms`;
-                            let memoryUsed = `${(Math.random() * 3 + 1.2).toFixed(2)} MB`;
-
-                            if (isCompFailed) {
+                            let verdict = "PENDING";
+                            let verdictColor = "text-zinc-300";
+                            let verdictBg = "bg-zinc-500/10 border-zinc-500/20";
+                            const timeUsed = "--";
+                            const memoryUsed = "--";
+                            if (prejudgeJob?.status === "RUNNING") {
+                              verdict = "RUN";
+                              verdictColor = "text-purple-300";
+                              verdictBg = "bg-purple-500/10 border-purple-500/20";
+                            } else if (prejudgeJob?.status === "SUCCEEDED") {
+                              verdict = "OK";
+                              verdictColor = "text-green-400";
+                              verdictBg = "bg-green-500/10 border-green-500/20";
+                            } else if (prejudgeJob?.status === "FAILED") {
                               verdict = "FAIL";
                               verdictColor = "text-red-400";
                               verdictBg = "bg-red-500/10 border-red-500/20";
-                              timeUsed = "--";
-                              memoryUsed = "--";
-                            } else if (isFailedCase) {
-                              verdict = "WA";
-                              verdictColor = "text-red-400";
-                              verdictBg = "bg-red-500/10 border-red-500/20";
-                              timeUsed = `${Math.floor(Math.random() * 40) + 20} ms`;
                             }
 
                             const isSelected = selectedTestCaseForDetails === tc.id;
@@ -1472,21 +1506,7 @@ int main() {
                                       <span>Memory: <span className="text-zinc-300 font-medium">{memoryUsed}</span></span>
                                     </div>
                                     <span className="text-zinc-500 text-[10px] flex items-center gap-1">
-                                      {isCompFailed ? (
-                                        <span className="text-red-400 font-semibold">✖ Scripts Broken</span>
-                                      ) : isFailedCase ? (
-                                        <>
-                                          <span className="text-green-400">✔ Validated</span>
-                                          <span className="text-zinc-600">|</span>
-                                          <span className="text-red-400 font-semibold">✖ Wrong Answer</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <span className="text-green-400">✔ Validated</span>
-                                          <span className="text-zinc-600">|</span>
-                                          <span className="text-green-400 font-semibold">✔ Match</span>
-                                        </>
-                                      )}
+                                      <span className={verdictColor + " font-semibold"}>{verdict}</span>
                                     </span>
                                   </div>
                                 </div>
@@ -1509,41 +1529,20 @@ int main() {
                                       </div>
                                     </div>
 
-                                    {!isCompFailed && (
+                                    {prejudgeJob && (
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-1">
-                                          <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Participant stdout (ouf)</span>
+                                          <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Prejudge Summary</span>
                                           <pre className="rounded-lg bg-zinc-950/80 border border-white/5 p-2.5 font-mono text-[10px] text-zinc-300 max-h-28 overflow-y-auto">
-                                            {isFailedCase ? "-1" : tc.outputPreview || "6"}
+                                            {prejudgeJob.summary ?? "No summary emitted by worker."}
                                           </pre>
                                         </div>
                                         <div className="space-y-1">
-                                          <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Jury Checker standard log (xml_verdict)</span>
-                                          <div className={`rounded-lg border p-3 font-mono text-[10px] leading-relaxed ${
-                                            isFailedCase
-                                              ? "bg-red-500/5 border-red-500/10 text-red-300"
-                                              : "bg-green-500/5 border-green-500/10 text-green-300"
-                                          }`}>
-                                            {isFailedCase ? (
-                                              <>
-                                                <div className="font-bold uppercase tracking-wider text-[9px] text-red-400 mb-1">FAIL: _wa verdict thrown</div>
-                                                line 1: expected integer 6, found -1 (mismatch at token index 0)
-                                              </>
-                                            ) : (
-                                              <>
-                                                <div className="font-bold uppercase tracking-wider text-[9px] text-green-400 mb-1">OK: correct verdict matches jury</div>
-                                                line 1: candidate output matches expected output - exit code 0
-                                              </>
-                                            )}
-                                          </div>
+                                          <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Worker Result Payload</span>
+                                          <pre className="rounded-lg border p-3 font-mono text-[10px] leading-relaxed bg-zinc-950/80 border-white/5 text-zinc-300 max-h-28 overflow-y-auto">
+                                            {JSON.stringify(prejudgeJob.result_json ?? {}, null, 2)}
+                                          </pre>
                                         </div>
-                                      </div>
-                                    )}
-
-                                    {isCompFailed && (
-                                      <div className="rounded-lg bg-red-500/5 border border-red-500/10 p-3.5 font-mono text-[10px] text-red-400">
-                                        <span className="font-bold uppercase tracking-wider text-[9px] block mb-1">Sandbox Compile Error:</span>
-                                        Input Validator / Output Checker is in a &apos;dirty&apos; or &apos;error&apos; state. Please recompile the C++ testlib script templates to enable complete automated verification.
                                       </div>
                                     )}
                                   </div>
@@ -1554,6 +1553,11 @@ int main() {
                         </div>
                       </div>
                     )}
+                    {prejudgeMessage ? (
+                      <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-300">
+                        {prejudgeMessage}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
