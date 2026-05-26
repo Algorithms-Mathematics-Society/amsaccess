@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 const GO_API_URL = process.env.GO_API_URL ?? "http://localhost:8080";
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
-function getFirebaseAdmin() {
+export function getFirebaseAdmin() {
   if (!getApps().length) {
     const adminJson = process.env.FIREBASE_ADMIN_SDK_JSON;
     if (!adminJson) throw new Error("FIREBASE_ADMIN_SDK_JSON not set");
