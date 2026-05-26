@@ -63,7 +63,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const res = await callGoApi("POST", "/admin/orgs", { name, slug, owner_firebase_uid: newUserUid }, svcUid);
+  const res = await callGoApi("POST", "/admin/orgs", {
+    name,
+    slug,
+    owner_firebase_uid: newUserUid,
+    owner_email: ownerEmail,
+  }, svcUid);
   if (res.status >= 400 && !userWasPreExisting) {
     await getFirebaseAdmin().deleteUser(newUserUid).catch(() => null);
   }
