@@ -87,6 +87,22 @@ type PrejudgeTestRow = {
   message?: string;
 };
 
+type PersistedTestset = {
+  testset_id: string;
+  version: number;
+  checker_type: string;
+  time_limit_ms: number;
+  memory_limit_mb: number;
+  tests: Array<{
+    test_number: number;
+    is_sample: boolean;
+    input_path: string;
+    output_path: string;
+    subtask_number: number | null;
+    score: number;
+  }>;
+};
+
 export default function CPProblemStudio({
   contestId,
   questionId,
@@ -359,6 +375,7 @@ int main() {
   const [stopPollingRequested, setStopPollingRequested] = useState(false);
   const [isSavingTests, setIsSavingTests] = useState(false);
   const [testsSavedToCloud, setTestsSavedToCloud] = useState(false);
+  const [isHydratingTests, setIsHydratingTests] = useState(false);
 
   // --- Tests States ---
   const [testcases, setTestcases] = useState<Testcase[]>([]);
@@ -370,6 +387,52 @@ int main() {
   const hasAnyTests = testcases.length > 0;
   const hasIncompleteTests = testcases.some((t) => !t.inputPath || !t.outputPath);
   const canRunValidation = !!questionId && hasAnyTests && !hasIncompleteTests && testsSavedToCloud && !isSavingTests && !isRunningTests;
+
+  useEffect(() => {
+    let active = true;
+    const hydrateTests = async () => {
+      if (!questionId) {
+        setTestcases([]);
+        setTestsSavedToCloud(false);
+        return;
+      }
+      setIsHydratingTests(true);
+      try {
+        const data = await apiFetch<PersistedTestset>(`/api/org/contests/${contestId}/questions/${questionId}/tests`);
+        if (!active) return;
+        const mapped: Testcase[] = (data.tests ?? []).map((t) => ({
+          id: `persisted-${t.test_number}`,
+          type: "manual",
+          inputSize: "--",
+          isSample: !!t.is_sample,
+          inputPreview: "",
+          outputPreview: "",
+          inputPath: t.input_path,
+          outputPath: t.output_path,
+          subtaskNumber: t.subtask_number ?? undefined,
+          score: t.score ?? 0,
+          status: "valid",
+          uploadState: "uploaded"
+        }));
+        setTestcases(mapped);
+        setTestsSavedToCloud(mapped.length > 0);
+      } catch (error) {
+        if (!active) return;
+        setTestcases([]);
+        setTestsSavedToCloud(false);
+        const msg = error instanceof Error ? error.message : "";
+        if (!msg.toLowerCase().includes("not found")) {
+          setPrejudgeMessage(msg || "Failed to load saved tests.");
+        }
+      } finally {
+        if (active) setIsHydratingTests(false);
+      }
+    };
+    void hydrateTests();
+    return () => {
+      active = false;
+    };
+  }, [contestId, questionId]);
 
   const handleRunGenerator = () => {
     setIsGenerating(true);
@@ -1104,7 +1167,11 @@ int main() {
                       </button>
                     </div>
 
-                    {testcases.length === 0 ? (
+                    {isHydratingTests ? (
+                      <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 p-10 text-center">
+                        <p className="text-sm font-semibold text-white">Loading saved tests…</p>
+                      </div>
+                    ) : testcases.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 p-10 text-center">
                         <p className="text-sm font-semibold text-white">No tests added yet</p>
                         <p className="mt-2 text-xs text-zinc-400">Add a manual test, upload input/output files, then save tests to cloud.</p>

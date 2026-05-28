@@ -41,6 +41,8 @@ type JudgeCapacity = {
   region: string;
   target_size: number;
   is_stable: boolean;
+  ready?: boolean;
+  phase?: "starting" | "ready" | "stopping" | "stopped" | "unknown";
   current_actions?: Record<string, number>;
 };
 
@@ -94,6 +96,13 @@ export default function ContestDetailPage() {
   }, []);
 
   useEffect(() => { void loadJudge(); }, [loadJudge]);
+  useEffect(() => {
+    if (!judge) return;
+    if (judge.phase === "starting" || judge.phase === "stopping") {
+      const t = setTimeout(() => { void loadJudge(); }, 2500);
+      return () => clearTimeout(t);
+    }
+  }, [judge, loadJudge]);
 
   async function controlJudge(action: "start" | "stop") {
     setJudgeBusy(true);
@@ -128,6 +137,17 @@ export default function ContestDetailPage() {
   }
 
   const col = statusColor(contest.status);
+  const judgePhase = judge?.phase ?? "unknown";
+  const judgeLabel = judgePhase === "ready"
+    ? "Ready"
+    : judgePhase === "starting"
+    ? "Starting"
+    : judgePhase === "stopping"
+    ? "Stopping"
+    : judgePhase === "stopped"
+    ? "Stopped"
+    : "Unknown";
+  const judgeDotClass = judgePhase === "ready" ? "bg-green-500" : judgePhase === "starting" ? "bg-amber-400" : judgePhase === "stopping" ? "bg-orange-400" : "bg-zinc-500";
 
   return (
     <div className="min-h-screen" style={{ background: "#000000", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
@@ -171,8 +191,8 @@ export default function ContestDetailPage() {
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs border" style={{ borderColor: "rgba(255,255,255,0.15)", color: "#d4d4d8" }}>
-              <span className={`h-2 w-2 rounded-full ${judge?.target_size && judge.target_size > 0 ? "bg-green-500" : "bg-zinc-500"}`} />
-              {judge ? `Judge: ${judge.target_size > 0 ? "Running" : "Stopped"} (${judge.target_size})` : "Judge: Unknown"}
+              <span className={`h-2 w-2 rounded-full ${judgeDotClass}`} />
+              {judge ? `Judge: ${judgeLabel} (${judge.target_size})` : "Judge: Unknown"}
             </div>
             <div className="flex items-center gap-2">
               <button
