@@ -43,6 +43,8 @@ type JudgeCapacity = {
   is_stable: boolean;
   ready?: boolean;
   phase?: "starting" | "ready" | "stopping" | "stopped" | "unknown";
+  total_instances?: number;
+  running_instances?: number;
   current_actions?: Record<string, number>;
 };
 
@@ -192,7 +194,9 @@ export default function ContestDetailPage() {
           <div className="flex flex-col items-end gap-2">
             <div className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs border" style={{ borderColor: "rgba(255,255,255,0.15)", color: "#d4d4d8" }}>
               <span className={`h-2 w-2 rounded-full ${judgeDotClass}`} />
-              {judge ? `Judge: ${judgeLabel} (${judge.target_size})` : "Judge: Unknown"}
+              {judge
+                ? `Judge: ${judgeLabel} (${judge.running_instances ?? 0}/${judge.total_instances ?? 0} up, target ${judge.target_size})`
+                : "Judge: Unknown"}
             </div>
             <div className="flex items-center gap-2">
               <button
