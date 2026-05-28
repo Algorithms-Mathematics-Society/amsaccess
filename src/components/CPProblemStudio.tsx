@@ -354,6 +354,9 @@ int main() {
   const [prejudgeJob, setPrejudgeJob] = useState<PrejudgeJob | null>(null);
   const [prejudgeMessage, setPrejudgeMessage] = useState<string | null>(null);
   const [prejudgeTests, setPrejudgeTests] = useState<PrejudgeTestRow[]>([]);
+  const [lastPrejudgeJobId, setLastPrejudgeJobId] = useState<string | null>(null);
+  const [isRefreshingJob, setIsRefreshingJob] = useState(false);
+  const [stopPollingRequested, setStopPollingRequested] = useState(false);
   const [isSavingTests, setIsSavingTests] = useState(false);
   const [testsSavedToCloud, setTestsSavedToCloud] = useState(false);
 
@@ -467,6 +470,36 @@ int main() {
   };
 
   const isTerminalPrejudgeStatus = (status: string) => status === "SUCCEEDED" || status === "FAILED";
+  const isLikelyQueueStall = prejudgeJob?.status === "QUEUED" && prejudgeTests.length === 0;
+
+  const refreshPrejudgeStatus = async () => {
+    if (!lastPrejudgeJobId) return;
+    setIsRefreshingJob(true);
+    try {
+      const job = await apiFetch<PrejudgeJob>(`/api/org/prejudge-jobs/${lastPrejudgeJobId}`);
+      setPrejudgeJob(job);
+      const rawTests = Array.isArray(job.result_json?.tests) ? (job.result_json?.tests as unknown[]) : [];
+      const parsed = rawTests
+        .map((row): PrejudgeTestRow | null => {
+          if (!row || typeof row !== "object") return null;
+          const r = row as Record<string, unknown>;
+          return {
+            test_number: Number(r.test_number ?? 0),
+            verdict: String(r.verdict ?? "UNKNOWN"),
+            runtime_ms: Number(r.runtime_ms ?? 0),
+            memory_kb: Number(r.memory_kb ?? 0),
+            is_sample: Boolean(r.is_sample ?? false),
+            message: typeof r.message === "string" ? r.message : undefined
+          };
+        })
+        .filter((v): v is PrejudgeTestRow => !!v && v.test_number > 0);
+      setPrejudgeTests(parsed);
+    } catch (error) {
+      setPrejudgeMessage(error instanceof Error ? error.message : "Failed to refresh validation status.");
+    } finally {
+      setIsRefreshingJob(false);
+    }
+  };
 
   const handleRunTestingSuite = async () => {
     if (!questionId) {
@@ -490,6 +523,7 @@ int main() {
     setPrejudgeJob(null);
     setHasRunTestingSuite(false);
     setIsRunningTests(true);
+    setStopPollingRequested(false);
 
     try {
       // Keep judge configuration synced before triggering a real prejudge run.
@@ -510,9 +544,11 @@ int main() {
         { method: "POST" }
       );
       setHasRunTestingSuite(true);
+      setLastPrejudgeJobId(created.job_id);
 
       let attempts = 0;
       while (attempts < 60) {
+        if (stopPollingRequested) break;
         attempts += 1;
         const job = await apiFetch<PrejudgeJob>(`/api/org/prejudge-jobs/${created.job_id}`);
         setPrejudgeJob(job);
@@ -534,6 +570,9 @@ int main() {
         setPrejudgeTests(parsed);
         if (isTerminalPrejudgeStatus(job.status)) break;
         await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+      if (attempts >= 60) {
+        setPrejudgeMessage("Validation polling timed out. Use Refresh Status or Retry Validation.");
       }
     } catch (error) {
       setPrejudgeMessage(error instanceof Error ? error.message : "Failed to run jury validation.");
@@ -1247,6 +1286,23 @@ int main() {
                         </>
                       )}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void refreshPrejudgeStatus()}
+                      disabled={!lastPrejudgeJobId || isRefreshingJob}
+                      className="inline-flex items-center gap-2 rounded-xl border border-white/10 hover:border-white/20 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-zinc-200"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${isRefreshingJob ? "animate-spin" : ""}`} />
+                      Refresh Status
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStopPollingRequested(true)}
+                      disabled={!isRunningTests}
+                      className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 hover:border-red-500/40 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-red-300"
+                    >
+                      Stop Polling
+                    </button>
                   </div>
                 </div>
 
@@ -1335,6 +1391,36 @@ int main() {
                               }}
                             />
                           </div>
+                        </div>
+                        {prejudgeJob?.status === "FAILED" && (
+                          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200">
+                            <p className="font-semibold">Validation failed.</p>
+                            <p className="mt-1">Use <span className="font-semibold">Retry Validation</span> to enqueue again after fixing config/infra issues.</p>
+                          </div>
+                        )}
+                        {isLikelyQueueStall && (
+                          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3 text-xs text-yellow-200">
+                            <p className="font-semibold">Job appears queued without worker progress.</p>
+                            <p className="mt-1">Check Pub/Sub publish/worker logs, then click Retry Validation.</p>
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleRunTestingSuite}
+                            disabled={!canRunValidation}
+                            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-white"
+                          >
+                            Retry Validation
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void refreshPrejudgeStatus()}
+                            disabled={!lastPrejudgeJobId || isRefreshingJob}
+                            className="inline-flex items-center gap-2 rounded-lg border border-white/10 hover:border-white/20 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-zinc-200"
+                          >
+                            Refresh Status
+                          </button>
                         </div>
                       </div>
                     ) : (

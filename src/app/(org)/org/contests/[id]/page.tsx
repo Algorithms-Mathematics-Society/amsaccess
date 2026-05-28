@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
-  X, Sparkles, Monitor,
+  X, Sparkles, Monitor, Play, Square, RefreshCw,
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import CPProblemStudio from "@/components/CPProblemStudio";
@@ -36,6 +36,14 @@ type ContestDetailResponse = {
   invites: Invite[];
 };
 
+type JudgeCapacity = {
+  mig_name: string;
+  region: string;
+  target_size: number;
+  is_stable: boolean;
+  current_actions?: Record<string, number>;
+};
+
 // ─── Helpers ─────────────────────────────────────────────────
 function statusColor(s: string) {
   if (s === "ACTIVE")     return { bg: "rgba(34,197,94,0.1)",    border: "rgba(34,197,94,0.3)",    text: "#22c55e" };
@@ -54,6 +62,9 @@ export default function ContestDetailPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [judge, setJudge] = useState<JudgeCapacity | null>(null);
+  const [judgeBusy, setJudgeBusy] = useState(false);
+  const [judgeError, setJudgeError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,6 +82,31 @@ export default function ContestDetailPage() {
   }, [id]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const loadJudge = useCallback(async () => {
+    try {
+      const data = await apiFetch<JudgeCapacity>("/api/org/judge-capacity");
+      setJudge(data);
+      setJudgeError(null);
+    } catch (e) {
+      setJudgeError(e instanceof Error ? e.message : "Unable to fetch judge status.");
+    }
+  }, []);
+
+  useEffect(() => { void loadJudge(); }, [loadJudge]);
+
+  async function controlJudge(action: "start" | "stop") {
+    setJudgeBusy(true);
+    setJudgeError(null);
+    try {
+      const data = await apiFetch<JudgeCapacity>(`/api/org/judge-capacity/${action}`, { method: "POST" });
+      setJudge(data);
+    } catch (e) {
+      setJudgeError(e instanceof Error ? e.message : `Unable to ${action} judge capacity.`);
+    } finally {
+      setJudgeBusy(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -132,6 +168,42 @@ export default function ContestDetailPage() {
             <p className="mt-1 text-xs" style={{ color: "#52525B" }}>
               {new Date(contest.start_at).toLocaleString()} → {new Date(contest.end_at).toLocaleString()}
             </p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <div className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs border" style={{ borderColor: "rgba(255,255,255,0.15)", color: "#d4d4d8" }}>
+              <span className={`h-2 w-2 rounded-full ${judge?.target_size && judge.target_size > 0 ? "bg-green-500" : "bg-zinc-500"}`} />
+              {judge ? `Judge: ${judge.target_size > 0 ? "Running" : "Stopped"} (${judge.target_size})` : "Judge: Unknown"}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void controlJudge("start")}
+                disabled={judgeBusy}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-50"
+                style={{ background: "rgba(34,197,94,0.2)", border: "1px solid rgba(34,197,94,0.4)" }}
+              >
+                <Play className="h-3.5 w-3.5" />
+                Start Compute
+              </button>
+              <button
+                onClick={() => void controlJudge("stop")}
+                disabled={judgeBusy}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-50"
+                style={{ color: "#f87171", border: "1px solid rgba(239,68,68,0.4)" }}
+              >
+                <Square className="h-3.5 w-3.5" />
+                Stop Compute
+              </button>
+              <button
+                onClick={() => void loadJudge()}
+                disabled={judgeBusy}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-50"
+                style={{ color: "#a1a1aa", border: "1px solid rgba(255,255,255,0.2)" }}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${judgeBusy ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
+            </div>
+            {judgeError ? <p className="text-[11px] text-red-400">{judgeError}</p> : null}
           </div>
         </div>
 
