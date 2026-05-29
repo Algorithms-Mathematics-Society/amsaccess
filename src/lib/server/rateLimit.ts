@@ -18,7 +18,7 @@ export const rateLimitPolicies = {
   privateRead: { limit: 120, windowMs: 60_000 },
   adminWrite: { limit: 30, windowMs: 60_000 },
   orgWrite: { limit: 30, windowMs: 60_000 },
-  upload: { limit: 5, windowMs: 10 * 60_000 }
+  upload: { limit: 120, windowMs: 10 * 60_000 }
 } satisfies Record<string, RateLimitPolicy>;
 
 declare global {
