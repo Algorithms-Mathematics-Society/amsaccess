@@ -534,6 +534,10 @@ int main() {
 
   const isTerminalPrejudgeStatus = (status: string) => status === "SUCCEEDED" || status === "FAILED";
   const isLikelyQueueStall = prejudgeJob?.status === "QUEUED" && prejudgeTests.length === 0;
+  const aggregatePassed = typeof prejudgeJob?.result_json?.passed === "number" ? prejudgeJob.result_json.passed : null;
+  const aggregateTotal = typeof prejudgeJob?.result_json?.total === "number" ? prejudgeJob.result_json.total : null;
+  const aggregateMaxRuntimeMs = typeof prejudgeJob?.result_json?.max_runtime_ms === "number" ? prejudgeJob.result_json.max_runtime_ms : null;
+  const aggregateMaxMemoryKb = typeof prejudgeJob?.result_json?.max_memory_kb === "number" ? prejudgeJob.result_json.max_memory_kb : null;
 
   const refreshPrejudgeStatus = async () => {
     if (!lastPrejudgeJobId) return;
@@ -1511,6 +1515,24 @@ int main() {
                             Refresh Status
                           </button>
                         </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Passed</p>
+                            <p className="text-sm font-semibold text-white">{aggregatePassed ?? "--"}</p>
+                          </div>
+                          <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Total</p>
+                            <p className="text-sm font-semibold text-white">{aggregateTotal ?? "--"}</p>
+                          </div>
+                          <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Max Runtime</p>
+                            <p className="text-sm font-semibold text-white">{aggregateMaxRuntimeMs !== null ? `${aggregateMaxRuntimeMs} ms` : "--"}</p>
+                          </div>
+                          <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Max Memory</p>
+                            <p className="text-sm font-semibold text-white">{aggregateMaxMemoryKb !== null ? `${(aggregateMaxMemoryKb / 1024).toFixed(2)} MB` : "--"}</p>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-dashed border-white/10 bg-black/5 p-12 text-center">
@@ -1559,9 +1581,9 @@ int main() {
                               verdictColor = "text-purple-300";
                               verdictBg = "bg-purple-500/10 border-purple-500/20";
                             } else if (prejudgeJob?.status === "SUCCEEDED") {
-                              verdict = "OK";
-                              verdictColor = "text-green-400";
-                              verdictBg = "bg-green-500/10 border-green-500/20";
+                              verdict = "NO_DATA";
+                              verdictColor = "text-yellow-300";
+                              verdictBg = "bg-yellow-500/10 border-yellow-500/20";
                             } else if (prejudgeJob?.status === "FAILED") {
                               verdict = "FAIL";
                               verdictColor = "text-red-400";
@@ -1611,13 +1633,13 @@ int main() {
                                       <div className="space-y-1">
                                         <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Input stream (inf)</span>
                                         <pre className="rounded-lg bg-zinc-950/80 border border-white/5 p-2.5 font-mono text-[10px] text-zinc-300 max-h-28 overflow-y-auto">
-                                          {tc?.inputPreview || "Input preview unavailable"}
+                                          {tc?.inputPreview || "Input preview not fetched in this session."}
                                         </pre>
                                       </div>
                                       <div className="space-y-1">
                                         <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Expected output (ans)</span>
                                         <pre className="rounded-lg bg-zinc-950/80 border border-white/5 p-2.5 font-mono text-[10px] text-zinc-300 max-h-28 overflow-y-auto">
-                                          {tc?.outputPreview || "Expected output preview unavailable"}
+                                          {tc?.outputPreview || "Output preview not fetched in this session."}
                                         </pre>
                                       </div>
                                     </div>
@@ -1631,9 +1653,9 @@ int main() {
                                           </pre>
                                         </div>
                                         <div className="space-y-1">
-                                          <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Worker Result Payload</span>
+                                          <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Job Metrics</span>
                                           <pre className="rounded-lg border p-3 font-mono text-[10px] leading-relaxed bg-zinc-950/80 border-white/5 text-zinc-300 max-h-28 overflow-y-auto">
-                                            {JSON.stringify(prejudgeJob.result_json ?? {}, null, 2)}
+                                            {`passed=${aggregatePassed ?? "--"}\ntotal=${aggregateTotal ?? "--"}\nmax_runtime_ms=${aggregateMaxRuntimeMs ?? "--"}\nmax_memory_kb=${aggregateMaxMemoryKb ?? "--"}`}
                                           </pre>
                                         </div>
                                       </div>
