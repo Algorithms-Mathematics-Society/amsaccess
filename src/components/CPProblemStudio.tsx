@@ -564,6 +564,20 @@ int main() {
     }
   };
 
+  const cancelValidation = async () => {
+    const jobId = lastPrejudgeJobId ?? prejudgeJob?.id;
+    if (!jobId) return;
+    try {
+      await apiFetch<{ ok: boolean }>(`/api/org/prejudge-jobs/${jobId}/cancel`, { method: "POST" });
+      setStopPollingRequested(true);
+      setIsRunningTests(false);
+      setPrejudgeMessage("Validation cancelled. You can run a new validation now.");
+      await refreshPrejudgeStatus();
+    } catch (error) {
+      setPrejudgeMessage(error instanceof Error ? error.message : "Failed to cancel validation.");
+    }
+  };
+
   const handleRunTestingSuite = async () => {
     if (!questionId) {
       setPrejudgeMessage("Save the problem first so it has a real ID before running jury validation.");
@@ -1369,6 +1383,14 @@ int main() {
                       className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 hover:border-red-500/40 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-red-300"
                     >
                       Stop Polling
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void cancelValidation()}
+                      disabled={!lastPrejudgeJobId && !prejudgeJob?.id}
+                      className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 hover:border-red-500/40 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-red-300"
+                    >
+                      Cancel Validation
                     </button>
                   </div>
                 </div>
