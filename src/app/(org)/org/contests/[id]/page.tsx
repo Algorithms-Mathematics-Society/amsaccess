@@ -926,7 +926,9 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
   const [status, setStatus]         = useState(contest.status);
   const [scoringType, setScoringType] = useState(contest.scoring_type ?? "ICPC");
   const [allowedLangs, setAllowedLangs] = useState<string[]>(contest.allowed_languages ?? ["C++17", "Python3", "Java17"]);
-  const [pluginType, setPluginType] = useState<"CP" | "CHESS">((contest.plugin_type ?? "CP") === "CHESS" ? "CHESS" : "CP");
+  const [pluginType, setPluginType] = useState<"CP" | "CHESS">(
+    String(contest.plugin_type ?? "CP").toUpperCase() === "CHESS" ? "CHESS" : "CP"
+  );
   const [pluginConfig, setPluginConfig] = useState<string>(contest.plugin_config ?? "{}");
   const [saving, setSaving]         = useState(false);
   const [deleting, setDeleting]     = useState(false);
