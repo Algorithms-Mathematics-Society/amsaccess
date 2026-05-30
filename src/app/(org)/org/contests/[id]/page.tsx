@@ -450,6 +450,9 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   const [css, setCss]                 = useState(existing?.css_starter ?? "");
   const [js, setJs]                   = useState(existing?.js_starter ?? "");
   const [points, setPoints]           = useState(existing?.points ?? 10);
+  const [questionType, setQuestionType] = useState<"code" | "interactive">(
+    existing?.question_type === "interactive" ? "interactive" : "code"
+  );
   const [timeLimit, setTimeLimit]     = useState(existing?.time_limit_ms ?? 2000);
   const [memoryLimit, setMemoryLimit] = useState(existing?.memory_limit_mb ?? 256);
   const [error, setError]             = useState<string | null>(null);
@@ -486,12 +489,12 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       if (existing) {
         await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions/${existing.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, question_type: "code", time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
+          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
       } else {
         await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions`, {
           method: "POST",
-          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex, question_type: "code", time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
+          body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
       }
       setSuccess(existing ? "Question updated successfully." : "Question created successfully.");
@@ -544,9 +547,31 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       {/* Question type */}
       <div className="mb-4">
         <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Question type</label>
-        <div className="rounded-lg px-4 py-2 text-sm font-medium inline-flex"
-          style={{ background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }}>
-          Code submission
+        <div className="inline-flex gap-2">
+          <button
+            type="button"
+            onClick={() => setQuestionType("code")}
+            className="rounded-lg px-4 py-2 text-sm font-medium"
+            style={{
+              background: questionType === "code" ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.02)",
+              border: questionType === "code" ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.12)",
+              color: questionType === "code" ? "#c4b5fd" : "#A1A1AA",
+            }}
+          >
+            Code submission
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuestionType("interactive")}
+            className="rounded-lg px-4 py-2 text-sm font-medium"
+            style={{
+              background: questionType === "interactive" ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.02)",
+              border: questionType === "interactive" ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.12)",
+              color: questionType === "interactive" ? "#c4b5fd" : "#A1A1AA",
+            }}
+          >
+            Interactive
+          </button>
         </div>
       </div>
 
@@ -590,6 +615,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
               setPoints={setPoints}
               description={description}
               setDescription={setDescription}
+              questionType={questionType}
               timeLimit={timeLimit}
               setTimeLimit={setTimeLimit}
               memoryLimit={memoryLimit}

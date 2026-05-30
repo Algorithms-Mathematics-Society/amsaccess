@@ -35,6 +35,7 @@ import {
 interface CPProblemStudioProps {
   contestId: string;
   questionId?: string;
+  questionType: "code" | "interactive";
   title: string;
   setTitle: (v: string) => void;
   points: number;
@@ -114,6 +115,7 @@ type SaveTestsResponse = {
 export default function CPProblemStudio({
   contestId,
   questionId,
+  questionType,
   title,
   setTitle,
   points,
@@ -320,6 +322,12 @@ int main(int argc, char* argv[]) {
 
   // --- Checker States ---
   const [checkerType, setCheckerType] = useState<"standard" | "custom">("standard");
+  const isInteractiveQuestion = questionType === "interactive";
+  useEffect(() => {
+    if (isInteractiveQuestion) {
+      setCheckerType("custom");
+    }
+  }, [isInteractiveQuestion]);
   const [selectedStandardChecker, setSelectedStandardChecker] = useState("ncmp"); // sequence of integers
   const [customCheckerCode, setCustomCheckerCode] = useState<string>(`#include "testlib.h"
 #include <iostream>
@@ -541,7 +549,7 @@ int main() {
           method: "POST",
           body: JSON.stringify({
             version: testsetVersion > 0 ? testsetVersion + 1 : 0,
-            checker_type: checkerType === "custom" ? "custom" : "token",
+            checker_type: isInteractiveQuestion || checkerType === "custom" ? "custom" : "token",
             time_limit_ms: timeLimit,
             memory_limit_mb: memoryLimit,
             tests,
@@ -652,7 +660,7 @@ int main() {
       await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
         method: "PUT",
         body: JSON.stringify({
-          checker_type: checkerType === "custom" ? "custom" : "token",
+          checker_type: isInteractiveQuestion || checkerType === "custom" ? "custom" : "token",
           checker_code: checkerType === "custom" ? customCheckerCode : null,
           validator_code: validatorCode,
           generator_code: generatorScript,
@@ -740,7 +748,7 @@ int main() {
                 {[
                   { id: "statement", label: "Problem Statement", icon: FileText },
                   { id: "validator", label: "Input Validator", icon: ShieldAlert },
-                  { id: "checker", label: "Output Checker", icon: CheckCircle2 },
+                  { id: "checker", label: isInteractiveQuestion ? "Interactor" : "Output Checker", icon: CheckCircle2 },
                   { id: "tests", label: "Tests", icon: Terminal },
                   { id: "testing", label: "Run Validation", icon: PlaySquare }
                 ].map((t) => {
@@ -993,14 +1001,16 @@ int main() {
             {activeTab === "checker" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-white">Output Checker</h3>
+                  <h3 className="text-lg font-semibold text-white">{isInteractiveQuestion ? "Interactor" : "Output Checker"}</h3>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Verifies whether the participant&apos;s output corresponds to the standard correct model (jury answers).
+                    {isInteractiveQuestion
+                      ? "Provide the interactive judge program (testlib-based). This is used as custom judge logic."
+                      : "Verifies whether the participant&apos;s output corresponds to the standard correct model (jury answers)."}
                   </p>
                 </div>
 
                 {/* Checker type selector */}
-                <div className="flex gap-4">
+                {!isInteractiveQuestion && <div className="flex gap-4">
                   <button
                     onClick={() => setCheckerType("standard")}
                     className={`flex-1 rounded-xl p-4 text-left border transition ${
@@ -1027,10 +1037,10 @@ int main() {
                       Write a custom checker in C++ using <code className="font-mono">testlib.h</code> for non-unique answers.
                     </span>
                   </button>
-                </div>
+                </div>}
 
                 {/* STANDARD CHECKERS */}
-                {checkerType === "standard" ? (
+                {!isInteractiveQuestion && checkerType === "standard" ? (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-medium text-zinc-300">Select Standard Checker</label>
