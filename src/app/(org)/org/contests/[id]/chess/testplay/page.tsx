@@ -35,7 +35,142 @@ type BoardPiece = {
   role: string;
 };
 
-const defaultYaml = `board:\n  width: 8\n  height: 8\npieces:\n  - id: king\n    color: white\n  - id: king\n    color: black\n`;
+const defaultYaml = `name: Standard Chess
+board:
+  width: 8
+  height: 8
+turn:
+  first: white
+pieces:
+  - id: wr1
+    type: rook
+    color: white
+    square: a1
+  - id: wn1
+    type: knight
+    color: white
+    square: b1
+  - id: wb1
+    type: bishop
+    color: white
+    square: c1
+  - id: wq
+    type: queen
+    color: white
+    square: d1
+  - id: wk
+    type: king
+    color: white
+    square: e1
+  - id: wb2
+    type: bishop
+    color: white
+    square: f1
+  - id: wn2
+    type: knight
+    color: white
+    square: g1
+  - id: wr2
+    type: rook
+    color: white
+    square: h1
+  - id: wp1
+    type: pawn
+    color: white
+    square: a2
+  - id: wp2
+    type: pawn
+    color: white
+    square: b2
+  - id: wp3
+    type: pawn
+    color: white
+    square: c2
+  - id: wp4
+    type: pawn
+    color: white
+    square: d2
+  - id: wp5
+    type: pawn
+    color: white
+    square: e2
+  - id: wp6
+    type: pawn
+    color: white
+    square: f2
+  - id: wp7
+    type: pawn
+    color: white
+    square: g2
+  - id: wp8
+    type: pawn
+    color: white
+    square: h2
+  - id: br1
+    type: rook
+    color: black
+    square: a8
+  - id: bn1
+    type: knight
+    color: black
+    square: b8
+  - id: bb1
+    type: bishop
+    color: black
+    square: c8
+  - id: bq
+    type: queen
+    color: black
+    square: d8
+  - id: bk
+    type: king
+    color: black
+    square: e8
+  - id: bb2
+    type: bishop
+    color: black
+    square: f8
+  - id: bn2
+    type: knight
+    color: black
+    square: g8
+  - id: br2
+    type: rook
+    color: black
+    square: h8
+  - id: bp1
+    type: pawn
+    color: black
+    square: a7
+  - id: bp2
+    type: pawn
+    color: black
+    square: b7
+  - id: bp3
+    type: pawn
+    color: black
+    square: c7
+  - id: bp4
+    type: pawn
+    color: black
+    square: d7
+  - id: bp5
+    type: pawn
+    color: black
+    square: e7
+  - id: bp6
+    type: pawn
+    color: black
+    square: f7
+  - id: bp7
+    type: pawn
+    color: black
+    square: g7
+  - id: bp8
+    type: pawn
+    color: black
+    square: h7
+`;
 
 function getYamlBoardSize(yaml: string): { width: number; height: number } {
   const w = Number((yaml.match(/\bwidth:\s*(\d+)/i) ?? ["", "8"])[1]);
