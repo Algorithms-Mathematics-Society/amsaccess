@@ -100,6 +100,8 @@ type PersistedTestset = {
     output_path: string;
     subtask_number: number | null;
     score: number;
+    input_preview?: string;
+    output_preview?: string;
   }>;
 };
 
@@ -412,11 +414,11 @@ int main() {
         if (!active) return;
         const mapped: Testcase[] = (data.tests ?? []).map((t) => ({
           id: `persisted-${t.test_number}`,
-          type: "manual",
+          type: t.output_path.startsWith("__AUTO_FROM_MODEL__") || t.input_path.includes("/generated_test_input/") ? "generated" : "manual",
           inputSize: "--",
           isSample: !!t.is_sample,
-          inputPreview: "",
-          outputPreview: "",
+          inputPreview: t.input_preview ?? "",
+          outputPreview: t.output_preview ?? "",
           inputPath: t.input_path,
           outputPath: t.output_path,
           subtaskNumber: t.subtask_number ?? undefined,
