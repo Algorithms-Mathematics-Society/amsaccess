@@ -403,9 +403,25 @@ int main() {
   const [showAdvancedGenerators, setShowAdvancedGenerators] = useState(false);
   const [generatorSaveStatus, setGeneratorSaveStatus] = useState<"idle" | "saved" | "error">("idle");
   const [generatorSaveMessage, setGeneratorSaveMessage] = useState<string | null>(null);
+  const [configSyncStatus, setConfigSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
+  const [configSyncMessage, setConfigSyncMessage] = useState<string | null>(null);
   const hasAnyTests = testcases.length > 0;
   const hasIncompleteTests = testcases.some((t) => !t.inputPath || !t.outputPath);
   const canRunValidation = !!questionId && hasAnyTests && !hasIncompleteTests && testsSavedToCloud && !isSavingTests && !isRunningTests;
+  const runValidationDisabledReason =
+    !questionId
+      ? "Save question first."
+      : !hasAnyTests
+        ? "Add at least one test."
+        : hasIncompleteTests
+          ? "Upload both input/output for every test."
+          : !testsSavedToCloud
+            ? "Save tests to cloud."
+            : isSavingTests
+              ? "Wait for test save to complete."
+              : isRunningTests
+                ? "Validation already running."
+                : null;
 
   useEffect(() => {
     let active = true;
@@ -463,6 +479,8 @@ int main() {
       return;
     }
     setIsGenerating(true);
+    setConfigSyncStatus("syncing");
+    setConfigSyncMessage("Syncing generator config...");
     setGeneratorSaveStatus("idle");
     setGeneratorSaveMessage(null);
     try {
@@ -474,11 +492,15 @@ int main() {
       });
       setGeneratorSaveStatus("saved");
       setGeneratorSaveMessage("Generator config saved to backend.");
+      setConfigSyncStatus("synced");
+      setConfigSyncMessage("Generator config synced.");
       setPrejudgeMessage("Generator config saved. Upload/save tests separately before running validation.");
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Failed to save generator config.";
       setGeneratorSaveStatus("error");
       setGeneratorSaveMessage(msg);
+      setConfigSyncStatus("error");
+      setConfigSyncMessage(msg);
       setPrejudgeMessage(msg);
     } finally {
       setIsGenerating(false);
@@ -657,6 +679,8 @@ int main() {
 
     try {
       // Keep judge configuration synced before triggering a real prejudge run.
+      setConfigSyncStatus("syncing");
+      setConfigSyncMessage("Syncing checker/validator/model solution...");
       await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
         method: "PUT",
         body: JSON.stringify({
@@ -669,6 +693,8 @@ int main() {
           model_lang: testingLang === "python" ? "python3" : "cpp17"
         })
       });
+      setConfigSyncStatus("synced");
+      setConfigSyncMessage("Config synced. Validation queued.");
       const created = await apiFetch<{ job_id: string }>(
         `/api/org/contests/${contestId}/questions/${questionId}/prejudge`,
         { method: "POST" }
@@ -705,6 +731,8 @@ int main() {
         setPrejudgeMessage("Validation polling timed out. Use Refresh Status or Retry Validation.");
       }
     } catch (error) {
+      setConfigSyncStatus("error");
+      setConfigSyncMessage(error instanceof Error ? error.message : "Config sync failed.");
       setPrejudgeMessage(error instanceof Error ? error.message : "Failed to run jury validation.");
     } finally {
       setIsRunningTests(false);
@@ -1411,6 +1439,20 @@ int main() {
                     <p className="text-xs text-zinc-400 mt-1">
                       upload tests → save tests → run validation → view verdict table
                     </p>
+                    {runValidationDisabledReason ? (
+                      <p className="mt-1 text-xs text-yellow-300">{runValidationDisabledReason}</p>
+                    ) : null}
+                    {configSyncMessage ? (
+                      <p className={`mt-1 text-xs ${
+                        configSyncStatus === "error"
+                          ? "text-red-300"
+                          : configSyncStatus === "synced"
+                            ? "text-green-300"
+                            : "text-zinc-400"
+                      }`}>
+                        {configSyncMessage}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-3">
                     <button
