@@ -103,6 +103,12 @@ type PersistedTestset = {
   }>;
 };
 
+type SaveTestsResponse = {
+  ok: boolean;
+  testset_id: string;
+  version: number;
+};
+
 export default function CPProblemStudio({
   contestId,
   questionId,
@@ -376,6 +382,7 @@ int main() {
   const [isSavingTests, setIsSavingTests] = useState(false);
   const [testsSavedToCloud, setTestsSavedToCloud] = useState(false);
   const [isHydratingTests, setIsHydratingTests] = useState(false);
+  const [testsetVersion, setTestsetVersion] = useState(0);
 
   // --- Tests States ---
   const [testcases, setTestcases] = useState<Testcase[]>([]);
@@ -394,6 +401,7 @@ int main() {
       if (!questionId) {
         setTestcases([]);
         setTestsSavedToCloud(false);
+        setTestsetVersion(0);
         return;
       }
       setIsHydratingTests(true);
@@ -416,10 +424,12 @@ int main() {
         }));
         setTestcases(mapped);
         setTestsSavedToCloud(mapped.length > 0);
+        setTestsetVersion(data.version ?? 0);
       } catch (error) {
         if (!active) return;
         setTestcases([]);
         setTestsSavedToCloud(false);
+        setTestsetVersion(0);
         const msg = error instanceof Error ? error.message : "";
         if (!msg.toLowerCase().includes("not found")) {
           setPrejudgeMessage(msg || "Failed to load saved tests.");
@@ -448,31 +458,22 @@ int main() {
     setTestcases((prev) => prev.map((t) => (t.id === tcId ? { ...t, uploadState: "uploading" } : t)));
     setTestsSavedToCloud(false);
     try {
-      const presign = await apiFetch<{ upload_url: string; object_path: string }>(
-        `/api/org/contests/${contestId}/questions/${questionId}/assets/presign`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            asset_kind: kind,
-            filename: file.name,
-            content_type: file.type || "text/plain",
-            size_bytes: file.size
-          })
-        }
+      const form = new FormData();
+      form.append("asset_kind", kind);
+      form.append("file", file);
+      const upload = await apiFetch<{ ok: boolean; object_path: string }>(
+        `/api/org/contests/${contestId}/questions/${questionId}/assets/upload`,
+        { method: "POST", body: form as unknown as BodyInit }
       );
-      const put = await fetch(presign.upload_url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "text/plain" },
-        body: file
-      });
-      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
       const content = await file.text();
       setTestcases((prev) =>
         prev.map((t) =>
           t.id === tcId
             ? {
                 ...t,
-                ...(kind === "manual_test_input" ? { inputPath: presign.object_path, inputPreview: content.slice(0, 2000) } : { outputPath: presign.object_path, outputPreview: content.slice(0, 2000) }),
+                ...(kind === "manual_test_input"
+                  ? { inputPath: upload.object_path, inputPreview: content.slice(0, 2000) }
+                  : { outputPath: upload.object_path, outputPreview: content.slice(0, 2000) }),
                 inputSize: `${Math.max(1, Math.round(file.size / 1024))} KB`,
                 status: "valid",
                 uploadState: "uploaded"
@@ -507,12 +508,12 @@ int main() {
       score: t.score ?? 0
     }));
     try {
-      await apiFetch<{ ok: boolean; testset_id: string }>(
+      const saved = await apiFetch<SaveTestsResponse>(
         `/api/org/contests/${contestId}/questions/${questionId}/tests/upsert`,
         {
           method: "POST",
           body: JSON.stringify({
-            version: 1,
+            version: testsetVersion > 0 ? testsetVersion + 1 : 0,
             checker_type: checkerType === "custom" ? "custom" : "token",
             time_limit_ms: timeLimit,
             memory_limit_mb: memoryLimit,
@@ -521,8 +522,9 @@ int main() {
           })
         }
       );
+      setTestsetVersion(saved.version ?? testsetVersion + 1);
       setTestsSavedToCloud(true);
-      setPrejudgeMessage("Tests saved to cloud successfully.");
+      setPrejudgeMessage(`Tests saved to cloud (version ${saved.version}).`);
     } catch (error) {
       setTestsSavedToCloud(false);
       setPrejudgeMessage(error instanceof Error ? error.message : "Failed to save tests to cloud.");
@@ -538,6 +540,18 @@ int main() {
   const aggregateTotal = typeof prejudgeJob?.result_json?.total === "number" ? prejudgeJob.result_json.total : null;
   const aggregateMaxRuntimeMs = typeof prejudgeJob?.result_json?.max_runtime_ms === "number" ? prejudgeJob.result_json.max_runtime_ms : null;
   const aggregateMaxMemoryKb = typeof prejudgeJob?.result_json?.max_memory_kb === "number" ? prejudgeJob.result_json.max_memory_kb : null;
+
+  const normalizeVerdict = (raw: string): string => {
+    const v = raw.toUpperCase();
+    if (v === "OK") return "AC";
+    if (v.includes("COMPILE")) return "CE";
+    if (v.includes("RUNTIME")) return "RE";
+    if (v.includes("TIME")) return "TLE";
+    if (v.includes("MEMORY")) return "MLE";
+    if (v.includes("WRONG")) return "WA";
+    if (v.includes("PRESENTATION")) return "PE";
+    return v;
+  };
 
   const refreshPrejudgeStatus = async () => {
     if (!lastPrejudgeJobId) return;
@@ -1563,7 +1577,7 @@ int main() {
                             let timeUsed = "--";
                             let memoryUsed = "--";
                             if (p) {
-                              verdict = p.verdict;
+                              verdict = normalizeVerdict(p.verdict);
                               timeUsed = `${p.runtime_ms} ms`;
                               memoryUsed = `${(p.memory_kb / 1024).toFixed(2)} MB`;
                               if (p.verdict === "AC" || p.verdict === "OK") {
