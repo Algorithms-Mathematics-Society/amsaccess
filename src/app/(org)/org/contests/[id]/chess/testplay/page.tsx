@@ -229,7 +229,67 @@ function parseBoardFromState(state: Record<string, unknown>, yaml: string): { wi
     pieces.push({ square, color, role });
   }
 
-  return { width, height, pieces };
+  if (pieces.length > 0) {
+    return { width, height, pieces };
+  }
+
+  // Runtime may return compact state without explicit piece positions.
+  // Fallback: hydrate board from YAML ruleset pieces for testplay visibility.
+  const yamlPieces = parsePiecesFromYaml(yaml, width, height);
+  return { width, height, pieces: yamlPieces };
+}
+
+function parsePiecesFromYaml(yaml: string, width: number, height: number): BoardPiece[] {
+  const lines = yaml.split("\n");
+  const out: BoardPiece[] = [];
+  let curType = "";
+  let curColor: "white" | "black" = "white";
+  let curSquare = "";
+
+  const flush = () => {
+    const sq = normalizeSquare(curSquare, width, height);
+    if (!sq) return;
+    out.push({
+      square: sq,
+      color: curColor,
+      role: curType || "piece",
+    });
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("- ")) {
+      if (curSquare) flush();
+      curType = "";
+      curColor = "white";
+      curSquare = "";
+      const inlineType = line.match(/type:\s*([a-zA-Z_]+)/);
+      const inlineColor = line.match(/color:\s*(white|black)/i);
+      const inlineSquare = line.match(/square:\s*([a-zA-Z]+\d+)/);
+      if (inlineType) curType = inlineType[1].toLowerCase();
+      if (inlineColor) curColor = inlineColor[1].toLowerCase() === "black" ? "black" : "white";
+      if (inlineSquare) curSquare = inlineSquare[1].toLowerCase();
+      continue;
+    }
+    const mType = line.match(/^type:\s*([a-zA-Z_]+)/);
+    if (mType) {
+      curType = mType[1].toLowerCase();
+      continue;
+    }
+    const mColor = line.match(/^color:\s*(white|black)/i);
+    if (mColor) {
+      curColor = mColor[1].toLowerCase() === "black" ? "black" : "white";
+      continue;
+    }
+    const mSquare = line.match(/^square:\s*([a-zA-Z]+\d+)/);
+    if (mSquare) {
+      curSquare = mSquare[1].toLowerCase();
+      continue;
+    }
+  }
+  if (curSquare) flush();
+  return out;
 }
 
 function pieceGlyph(role: string, color: "white" | "black"): string {
