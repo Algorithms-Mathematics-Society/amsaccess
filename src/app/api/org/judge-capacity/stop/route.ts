@@ -19,10 +19,14 @@ export async function POST() {
       return apiError(`Judge capacity upstream unavailable: ${message}`, 503, "SERVER_ERROR");
     }
     if (res.status !== 200) {
+      const code =
+        typeof res.data === "object" && res.data && "code" in res.data
+          ? String((res.data as { code: unknown }).code)
+          : "SERVER_ERROR";
       return apiError(
         typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to stop judge capacity.",
         res.status,
-        "SERVER_ERROR"
+        code
       );
     }
     return apiOk(res.data as Record<string, unknown>);

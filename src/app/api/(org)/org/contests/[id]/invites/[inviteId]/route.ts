@@ -16,10 +16,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const res = await callGoApi("DELETE", `/org/contests/${params.id}/invites/${params.inviteId}`, null, auth.uid);
     if (res.status !== 204) {
+      const code =
+        typeof res.data === "object" && res.data && "code" in res.data
+          ? String((res.data as { code: unknown }).code)
+          : (res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR");
       return apiError(
         typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to delete invite.",
         res.status,
-        res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
+        code,
       );
     }
 

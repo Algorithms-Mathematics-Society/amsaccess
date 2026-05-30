@@ -49,10 +49,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const res = await callGoApi("POST", `/org/contests/${params.id}/invites`, { emails }, auth.uid);
     if (res.status !== 200) {
+      const code =
+        typeof res.data === "object" && res.data && "code" in res.data
+          ? String((res.data as { code: unknown }).code)
+          : (res.status === 400 ? "BAD_REQUEST" : res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR");
       return apiError(
         typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to save invites.",
         res.status,
-        res.status === 400 ? "BAD_REQUEST" : res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
+        code,
       );
     }
 
