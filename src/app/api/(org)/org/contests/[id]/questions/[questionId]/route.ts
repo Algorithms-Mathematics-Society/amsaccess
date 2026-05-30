@@ -23,10 +23,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     const res = await callGoApi("PUT", `/org/contests/${params.id}/questions/${params.questionId}`, payload as Record<string, unknown>, auth.uid);
     if (res.status !== 200) {
+      const code =
+        typeof res.data === "object" && res.data && "code" in res.data
+          ? String((res.data as { code: unknown }).code)
+          : (res.status === 400 ? "BAD_REQUEST" : res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR");
       return apiError(
         typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to update question.",
         res.status,
-        res.status === 400 ? "BAD_REQUEST" : res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
+        code,
       );
     }
 
@@ -44,10 +48,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const res = await callGoApi("DELETE", `/org/contests/${params.id}/questions/${params.questionId}`, null, auth.uid);
     if (res.status !== 204) {
+      const code =
+        typeof res.data === "object" && res.data && "code" in res.data
+          ? String((res.data as { code: unknown }).code)
+          : (res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR");
       return apiError(
         typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to delete question.",
         res.status,
-        res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
+        code,
       );
     }
 

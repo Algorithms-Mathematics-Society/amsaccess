@@ -16,7 +16,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const res = await callGoApi("POST", `/org/contests/${params.id}/questions/${params.questionId}/prejudge`, {}, auth.uid);
     if (res.status !== 201) {
-      return apiError("Unable to enqueue prejude job.", res.status, "SERVER_ERROR");
+      const message =
+        typeof res.data === "object" && res.data && "error" in res.data
+          ? String((res.data as { error: unknown }).error)
+          : "Unable to enqueue prejudge job.";
+      const code =
+        typeof res.data === "object" && res.data && "code" in res.data
+          ? String((res.data as { code: unknown }).code)
+          : "SERVER_ERROR";
+      return apiError(message, res.status, code);
     }
     return apiOk(res.data as Record<string, unknown>, { status: 201 });
   });

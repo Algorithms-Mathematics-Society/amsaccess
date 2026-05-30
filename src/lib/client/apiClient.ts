@@ -1,5 +1,6 @@
 type ApiSuccess<T> = { ok: true; data: T };
 type ApiFailure = { ok: false; error: { code: string; message: string } };
+export type ApiClientError = Error & { code?: string };
 
 const DEFAULT_API_TIMEOUT_MS = 20000;
 
@@ -49,8 +50,10 @@ export async function apiFetch<T>(input: RequestInfo | URL, init: RequestInit = 
   const payload = (await response.json().catch(() => null)) as ApiSuccess<T> | ApiFailure | null;
 
   if (!response.ok || !payload || !payload.ok) {
+    const code = payload && !payload.ok ? payload.error.code : undefined;
     const message = payload && !payload.ok ? payload.error.message : "Request failed. Please try again.";
-    const error = new Error(message);
+    const error = new Error(message) as ApiClientError;
+    if (code) error.code = code;
     error.name = response.status === 429 ? "RateLimitError" : "ApiError";
     throw error;
   }

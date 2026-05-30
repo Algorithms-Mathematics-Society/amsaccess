@@ -10,7 +10,8 @@ export type ApiErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "RATE_LIMITED"
-  | "SERVER_ERROR";
+  | "SERVER_ERROR"
+  | string;
 
 export function noStoreHeaders(init?: HeadersInit) {
   const headers = new Headers(init);

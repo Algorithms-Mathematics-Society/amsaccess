@@ -23,7 +23,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const res = await callGoApi("PUT", `/org/contests/${params.id}/questions/${params.questionId}/cp-config`, payload as Record<string, unknown>, auth.uid);
     if (res.status !== 200) {
-      return apiError("Unable to save CP config.", res.status, res.status === 400 ? "BAD_REQUEST" : "SERVER_ERROR");
+      const message =
+        typeof res.data === "object" && res.data && "error" in res.data
+          ? String((res.data as { error: unknown }).error)
+          : "Unable to save CP config.";
+      const code =
+        typeof res.data === "object" && res.data && "code" in res.data
+          ? String((res.data as { code: unknown }).code)
+          : (res.status === 400 ? "BAD_REQUEST" : "SERVER_ERROR");
+      return apiError(message, res.status, code);
     }
     return apiOk({ saved: true });
   });

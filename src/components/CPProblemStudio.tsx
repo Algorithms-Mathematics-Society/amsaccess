@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/client/apiClient";
+import type { ApiClientError } from "@/lib/client/apiClient";
 import {
   X,
   Plus,
@@ -385,6 +386,7 @@ int main() {
   const [selectedTestCaseForDetails, setSelectedTestCaseForDetails] = useState<string | null>(null);
   const [prejudgeJob, setPrejudgeJob] = useState<PrejudgeJob | null>(null);
   const [prejudgeMessage, setPrejudgeMessage] = useState<string | null>(null);
+  const [prejudgeErrorCode, setPrejudgeErrorCode] = useState<string | null>(null);
   const [prejudgeTests, setPrejudgeTests] = useState<PrejudgeTestRow[]>([]);
   const [lastPrejudgeJobId, setLastPrejudgeJobId] = useState<string | null>(null);
   const [isRefreshingJob, setIsRefreshingJob] = useState(false);
@@ -483,6 +485,7 @@ int main() {
     setConfigSyncMessage("Syncing generator config...");
     setGeneratorSaveStatus("idle");
     setGeneratorSaveMessage(null);
+    setPrejudgeErrorCode(null);
     try {
       await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
         method: "PUT",
@@ -496,11 +499,13 @@ int main() {
       setConfigSyncMessage("Generator config synced.");
       setPrejudgeMessage("Generator config saved. Upload/save tests separately before running validation.");
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "Failed to save generator config.";
+      const e = error as ApiClientError;
+      const msg = e instanceof Error ? e.message : "Failed to save generator config.";
       setGeneratorSaveStatus("error");
       setGeneratorSaveMessage(msg);
       setConfigSyncStatus("error");
       setConfigSyncMessage(msg);
+      setPrejudgeErrorCode(e?.code ?? null);
       setPrejudgeMessage(msg);
     } finally {
       setIsGenerating(false);
@@ -556,6 +561,7 @@ int main() {
     }
     setIsSavingTests(true);
     setPrejudgeMessage(null);
+    setPrejudgeErrorCode(null);
     const tests = testcases.map((t, idx) => ({
       test_number: idx + 1,
       is_sample: t.isSample,
@@ -583,8 +589,10 @@ int main() {
       setTestsSavedToCloud(true);
       setPrejudgeMessage(`Tests saved to cloud (version ${saved.version}).`);
     } catch (error) {
+      const e = error as ApiClientError;
       setTestsSavedToCloud(false);
-      setPrejudgeMessage(error instanceof Error ? error.message : "Failed to save tests to cloud.");
+      setPrejudgeErrorCode(e?.code ?? null);
+      setPrejudgeMessage(e instanceof Error ? e.message : "Failed to save tests to cloud.");
       throw error;
     } finally {
       setIsSavingTests(false);
@@ -633,7 +641,9 @@ int main() {
         .filter((v): v is PrejudgeTestRow => !!v && v.test_number > 0);
       setPrejudgeTests(parsed);
     } catch (error) {
-      setPrejudgeMessage(error instanceof Error ? error.message : "Failed to refresh validation status.");
+      const e = error as ApiClientError;
+      setPrejudgeErrorCode(e?.code ?? null);
+      setPrejudgeMessage(e instanceof Error ? e.message : "Failed to refresh validation status.");
     } finally {
       setIsRefreshingJob(false);
     }
@@ -649,7 +659,9 @@ int main() {
       setPrejudgeMessage("Validation cancelled. You can run a new validation now.");
       await refreshPrejudgeStatus();
     } catch (error) {
-      setPrejudgeMessage(error instanceof Error ? error.message : "Failed to cancel validation.");
+      const e = error as ApiClientError;
+      setPrejudgeErrorCode(e?.code ?? null);
+      setPrejudgeMessage(e instanceof Error ? e.message : "Failed to cancel validation.");
     }
   };
 
@@ -672,6 +684,7 @@ int main() {
     }
 
     setPrejudgeMessage(null);
+    setPrejudgeErrorCode(null);
     setPrejudgeJob(null);
     setHasRunTestingSuite(false);
     setIsRunningTests(true);
@@ -731,9 +744,11 @@ int main() {
         setPrejudgeMessage("Validation polling timed out. Use Refresh Status or Retry Validation.");
       }
     } catch (error) {
+      const e = error as ApiClientError;
       setConfigSyncStatus("error");
-      setConfigSyncMessage(error instanceof Error ? error.message : "Config sync failed.");
-      setPrejudgeMessage(error instanceof Error ? error.message : "Failed to run jury validation.");
+      setConfigSyncMessage(e instanceof Error ? e.message : "Config sync failed.");
+      setPrejudgeErrorCode(e?.code ?? null);
+      setPrejudgeMessage(e instanceof Error ? e.message : "Failed to run jury validation.");
     } finally {
       setIsRunningTests(false);
     }
@@ -1550,6 +1565,13 @@ int main() {
                             </h4>
                             {prejudgeJob?.summary ? <p className="mt-1 text-xs text-zinc-400">{prejudgeJob.summary}</p> : null}
                             {prejudgeJob?.error_message ? <p className="mt-1 text-xs text-red-400">{prejudgeJob.error_message}</p> : null}
+                            {prejudgeErrorCode ? (
+                              <p className="mt-1 text-[10px]">
+                                <span className="rounded border border-red-500/30 bg-red-500/10 px-2 py-0.5 font-mono text-red-300">
+                                  {prejudgeErrorCode}
+                                </span>
+                              </p>
+                            ) : null}
                           </div>
                           <div className={`rounded-xl border px-3 py-1.5 text-xs font-bold ${
                             prejudgeJob?.status === "FAILED"
@@ -1773,6 +1795,13 @@ int main() {
                     {prejudgeMessage ? (
                       <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-300">
                         {prejudgeMessage}
+                        {prejudgeErrorCode ? (
+                          <div className="mt-2">
+                            <span className="rounded border border-red-500/30 bg-red-500/10 px-2 py-0.5 font-mono text-[10px] text-red-300">
+                              {prejudgeErrorCode}
+                            </span>
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

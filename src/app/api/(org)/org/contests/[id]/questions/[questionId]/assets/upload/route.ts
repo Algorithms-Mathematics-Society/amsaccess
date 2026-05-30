@@ -30,7 +30,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       auth.uid
     );
     if (presignRes.status !== 200 || typeof presignRes.data !== "object" || !presignRes.data) {
-      return apiError("Unable to presign upload.", presignRes.status || 500, "SERVER_ERROR");
+      const message =
+        typeof presignRes.data === "object" && presignRes.data && "error" in presignRes.data
+          ? String((presignRes.data as { error: unknown }).error)
+          : "Unable to presign upload.";
+      const code =
+        typeof presignRes.data === "object" && presignRes.data && "code" in presignRes.data
+          ? String((presignRes.data as { code: unknown }).code)
+          : "SERVER_ERROR";
+      return apiError(message, presignRes.status || 500, code);
     }
 
     const presign = presignRes.data as { upload_url?: string; object_path?: string };
