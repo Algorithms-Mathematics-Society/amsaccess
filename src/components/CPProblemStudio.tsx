@@ -391,6 +391,8 @@ int main() {
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAdvancedGenerators, setShowAdvancedGenerators] = useState(false);
+  const [generatorSaveStatus, setGeneratorSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [generatorSaveMessage, setGeneratorSaveMessage] = useState<string | null>(null);
   const hasAnyTests = testcases.length > 0;
   const hasIncompleteTests = testcases.some((t) => !t.inputPath || !t.outputPath);
   const canRunValidation = !!questionId && hasAnyTests && !hasIncompleteTests && testsSavedToCloud && !isSavingTests && !isRunningTests;
@@ -444,10 +446,33 @@ int main() {
     };
   }, [contestId, questionId]);
 
-  const handleRunGenerator = () => {
+  const handleRunGenerator = async () => {
+    if (!questionId) {
+      setGeneratorSaveStatus("error");
+      setGeneratorSaveMessage("Save question first so generator config can be persisted.");
+      return;
+    }
     setIsGenerating(true);
-    setPrejudgeMessage("Generator commands are saved in problem config. Use uploaded tests for current validation runs.");
-    setIsGenerating(false);
+    setGeneratorSaveStatus("idle");
+    setGeneratorSaveMessage(null);
+    try {
+      await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
+        method: "PUT",
+        body: JSON.stringify({
+          generator_code: generatorScript
+        })
+      });
+      setGeneratorSaveStatus("saved");
+      setGeneratorSaveMessage("Generator config saved to backend.");
+      setPrejudgeMessage("Generator config saved. Upload/save tests separately before running validation.");
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to save generator config.";
+      setGeneratorSaveStatus("error");
+      setGeneratorSaveMessage(msg);
+      setPrejudgeMessage(msg);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const uploadTestAsset = async (tcId: string, file: File, kind: "manual_test_input" | "manual_test_output") => {
@@ -1147,13 +1172,22 @@ int main() {
                         <textarea
                           rows={10}
                           value={generatorScript}
-                          onChange={(e) => setGeneratorScript(e.target.value)}
+                          onChange={(e) => {
+                            setGeneratorScript(e.target.value);
+                            if (generatorSaveStatus !== "idle") {
+                              setGeneratorSaveStatus("idle");
+                              setGeneratorSaveMessage(null);
+                            }
+                          }}
                           className="w-full rounded-xl border border-white/10 bg-black/40 p-3.5 text-xs font-mono text-zinc-300 focus:border-purple-500/50 focus:outline-none leading-relaxed"
                         />
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] text-zinc-500 font-sans leading-relaxed">
-                            Saved with problem config and used during validation runs.
-                          </p>
+                          <div className="text-[10px] font-sans leading-relaxed">
+                            <p className="text-zinc-500">Saved with problem config and used during validation runs.</p>
+                            {generatorSaveMessage ? (
+                              <p className={generatorSaveStatus === "saved" ? "text-green-400" : "text-red-400"}>{generatorSaveMessage}</p>
+                            ) : null}
+                          </div>
                           <button
                             onClick={handleRunGenerator}
                             disabled={isGenerating}
