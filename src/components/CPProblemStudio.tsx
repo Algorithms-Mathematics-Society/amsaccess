@@ -199,6 +199,7 @@ int main(int argc, char* argv[]) {
         const url = part.substring(part.indexOf("](") + 2, part.length - 1);
         return (
           <span key={pIdx} className="my-3 block text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={url}
               alt={alt}
@@ -421,9 +422,16 @@ int main() {
             ? "Save tests to cloud."
             : isSavingTests
               ? "Wait for test save to complete."
-              : isRunningTests
+                : isRunningTests
                 ? "Validation already running."
                 : null;
+  const workflowSteps: Array<{ id: string; label: string; done: boolean; blocked?: boolean }> = [
+    { id: "upload", label: "Upload tests", done: hasAnyTests && !hasIncompleteTests, blocked: !hasAnyTests || hasIncompleteTests },
+    { id: "save", label: "Save tests", done: testsSavedToCloud, blocked: !hasAnyTests || hasIncompleteTests || !testsSavedToCloud },
+    { id: "run", label: "Run validation", done: !!prejudgeJob, blocked: !canRunValidation && !prejudgeJob },
+    { id: "view", label: "View verdict", done: prejudgeJob?.status === "SUCCEEDED" || prejudgeJob?.status === "FAILED", blocked: !prejudgeJob }
+  ];
+  const syncedTestsCount = testcases.filter((t) => t.inputPath && t.outputPath).length;
 
   useEffect(() => {
     let active = true;
@@ -797,6 +805,13 @@ int main() {
                 ].map((t) => {
                 const Icon = t.icon;
                 const isActive = activeTab === t.id;
+                const workflowMap: Record<string, boolean> = {
+                  statement: !!title.trim() && !!description.trim(),
+                  validator: validatorCode.trim().length > 0,
+                  checker: customCheckerCode.trim().length > 0,
+                  tests: hasAnyTests && !hasIncompleteTests,
+                  testing: !!prejudgeJob
+                };
                 return (
                   <button
                     key={t.id}
@@ -809,6 +824,7 @@ int main() {
                   >
                     <Icon className={`h-4 w-4 ${isActive ? "text-purple-400" : "text-zinc-500"}`} />
                     {t.label}
+                    <span className={`ml-auto h-1.5 w-1.5 rounded-full ${workflowMap[t.id] ? "bg-green-400" : "bg-zinc-600"}`} />
                   </button>
                 );
               })}
@@ -1449,14 +1465,32 @@ int main() {
             {activeTab === "testing" && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">Run Validation</h3>
-                    <p className="text-xs text-zinc-400 mt-1">
-                      upload tests → save tests → run validation → view verdict table
-                    </p>
-                    {runValidationDisabledReason ? (
-                      <p className="mt-1 text-xs text-yellow-300">{runValidationDisabledReason}</p>
-                    ) : null}
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Run Validation</h3>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                    {workflowSteps.map((s, idx) => (
+                      <React.Fragment key={s.id}>
+                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 ${
+                          s.done
+                            ? "border-green-500/30 bg-green-500/10 text-green-300"
+                            : s.blocked
+                              ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-200"
+                              : "border-white/10 bg-black/30 text-zinc-300"
+                        }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${s.done ? "bg-green-400" : s.blocked ? "bg-yellow-300" : "bg-zinc-500"}`} />
+                          {s.label}
+                        </span>
+                        {idx < workflowSteps.length - 1 ? <ArrowRight className="h-3 w-3 text-zinc-600" /> : null}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-400">
+                    Synced tests: <span className="font-semibold text-zinc-200">{syncedTestsCount}</span>
+                    {testsetVersion > 0 ? <> · active testset version <span className="font-semibold text-zinc-200">v{testsetVersion}</span></> : null}
+                  </p>
+                  {runValidationDisabledReason ? (
+                    <p className="mt-1 text-xs text-yellow-300">{runValidationDisabledReason}</p>
+                  ) : null}
                     {configSyncMessage ? (
                       <p className={`mt-1 text-xs ${
                         configSyncStatus === "error"

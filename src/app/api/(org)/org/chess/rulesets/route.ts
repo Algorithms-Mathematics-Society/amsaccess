@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   return withApiLogging("org.chess.rulesets.list", async () => {
-    const limited = checkRequestRateLimit(request, "orgRead", ["chess-rulesets-list"]);
+    const limited = checkRequestRateLimit(request, "privateRead", ["chess-rulesets-list"]);
     if (limited.limited) return apiRateLimited(limited.retryAfter);
     const auth = await requireOrgUser();
     if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");

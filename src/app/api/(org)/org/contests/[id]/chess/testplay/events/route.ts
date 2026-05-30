@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   return withApiLogging("org.chess.testplay.events", async () => {
-    const limited = checkRequestRateLimit(request, "orgRead", ["chess-testplay-events", params.id]);
+    const limited = checkRequestRateLimit(request, "privateRead", ["chess-testplay-events", params.id]);
     if (limited.limited) return apiRateLimited(limited.retryAfter);
     const auth = await requireOrgUser();
     if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");

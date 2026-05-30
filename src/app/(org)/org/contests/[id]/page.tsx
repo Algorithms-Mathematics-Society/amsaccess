@@ -285,7 +285,7 @@ export default function ContestDetailPage() {
 }
 
 // ─── Questions tab ───────────────────────────────────────────
-function QuestionsTab({ contestId, questions, onRefresh }: {
+function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
   contestId: string; pluginType: string; questions: Question[]; onRefresh: () => void;
 }) {
   const [adding, setAdding] = useState(false);

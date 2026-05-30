@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/client/apiClient";
 
 type Assessment = {
@@ -29,7 +29,7 @@ export default function EditAssessmentPage() {
   const [selected, setSelected] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const detail = await apiFetch<{ assessment: Assessment; assignments: Assignment[] }>(`/api/admin/assessments/${id}`);
       setAssessment(detail.assessment);
@@ -38,11 +38,11 @@ export default function EditAssessmentPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed.");
     }
-  }
+  }, [id]);
 
   useEffect(() => {
     void load();
-  }, [id]);
+  }, [load]);
 
   async function saveAssessment(e: FormEvent) {
     e.preventDefault();

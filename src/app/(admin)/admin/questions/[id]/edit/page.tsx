@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/client/apiClient";
 
 type Asset = { id: string; filename: string; storage_path: string; public_url?: string; alt_text?: string; caption?: string };
@@ -13,18 +13,18 @@ export default function EditQuestionPage() {
   const [q, setQ] = useState<Question | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const data = await apiFetch<Question>(`/api/admin/questions/${id}`);
       setQ(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed.");
     }
-  }
+  }, [id]);
 
   useEffect(() => {
     void load();
-  }, [id]);
+  }, [load]);
 
   async function save(e: FormEvent) {
     e.preventDefault();

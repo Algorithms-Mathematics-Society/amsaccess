@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type OrgRow = {
   id: string;
@@ -27,7 +27,7 @@ export default function AmsAdminPage() {
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
   const [newOwnerPassword, setNewOwnerPassword] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     const res = await fetch("/api/amsadmin/orgs", { cache: "no-store" });
     if (res.status === 401) {
       window.location.href = "/amsadmin/login";
@@ -37,11 +37,11 @@ export default function AmsAdminPage() {
     const data: OrgRow[] = Array.isArray(raw) ? raw : ((raw as { orgs?: OrgRow[] }).orgs ?? (raw as { data?: OrgRow[] }).data ?? []);
     setOrgs(data);
     if (!selected && data.length > 0) setSelected(data[0]);
-  }
+  }, [selected]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   const existingSlugSet = useMemo(() => new Set(orgs.map((o) => o.slug.toLowerCase())), [orgs]);
 
@@ -54,16 +54,16 @@ export default function AmsAdminPage() {
       .slice(0, 60);
   }
 
-  function uniqueSlug(base: string): string {
+  const uniqueSlug = useCallback((base: string): string => {
     const seed = slugify(base) || "org";
     if (!existingSlugSet.has(seed)) return seed;
     let i = 2;
     while (existingSlugSet.has(`${seed}-${i}`)) i += 1;
     return `${seed}-${i}`;
-  }
+  }, [existingSlugSet]);
 
   const normalizedNewSlug = useMemo(() => slugify(newSlug), [newSlug]);
-  const suggestedSlug = useMemo(() => uniqueSlug(newSlug || newName), [newSlug, newName, existingSlugSet]);
+  const suggestedSlug = useMemo(() => uniqueSlug(newSlug || newName), [newSlug, newName, uniqueSlug]);
   const slugTaken = normalizedNewSlug !== "" && existingSlugSet.has(normalizedNewSlug);
 
   useEffect(() => {
