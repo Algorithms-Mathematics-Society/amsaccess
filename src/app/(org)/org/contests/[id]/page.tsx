@@ -473,6 +473,14 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
     setError(null);
     setSuccess(null);
     if (!title.trim()) { setError("Title is required."); return; }
+    if (!Number.isFinite(timeLimit) || timeLimit < 100) {
+      setError("Time limit must be at least 100 ms.");
+      return;
+    }
+    if (!Number.isFinite(memoryLimit) || memoryLimit < 16) {
+      setError("Memory limit must be at least 16 MB.");
+      return;
+    }
     setSaving(true);
     try {
       if (existing) {
@@ -553,6 +561,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
             onChange={(e) => setTimeLimit(Number(e.target.value))}
             className="glass-input text-sm text-white"
           />
+          <p className="mt-1 text-[11px]" style={{ color: "#71717A" }}>Min: 100 ms</p>
         </div>
         <div className="flex-1">
           <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Memory limit (MB)</label>
@@ -563,6 +572,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
             onChange={(e) => setMemoryLimit(Number(e.target.value))}
             className="glass-input text-sm text-white"
           />
+          <p className="mt-1 text-[11px]" style={{ color: "#71717A" }}>Min: 16 MB</p>
         </div>
       </div>
 
