@@ -15,6 +15,8 @@ export default function NewContestPage() {
   const [status, setStatus] = useState<"DRAFT" | "SCHEDULED">("DRAFT");
   const [scoringType, setScoringType] = useState<"IOI" | "ICPC" | "CF">("ICPC");
   const [allowedLanguages, setAllowedLanguages] = useState<string[]>(["C++17", "Python3", "Java17"]);
+  const [pluginType, setPluginType] = useState<"CP" | "CHESS">("CP");
+  const [pluginConfig, setPluginConfig] = useState<string>('{"mode":"PVE"}');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,6 +26,12 @@ export default function NewContestPage() {
 
     if (new Date(endAt) <= new Date(startAt)) {
       setError("End time must be after start time.");
+      return;
+    }
+    try {
+      JSON.parse(pluginConfig.trim() || "{}");
+    } catch {
+      setError("Plugin config must be valid JSON.");
       return;
     }
 
@@ -39,6 +47,8 @@ export default function NewContestPage() {
           status,
           scoring_type: scoringType,
           allowed_languages: allowedLanguages,
+          plugin_type: pluginType,
+          plugin_config: pluginConfig.trim() || "{}",
         })
       });
 
@@ -154,6 +164,35 @@ export default function NewContestPage() {
                 </button>
               ))}
             </div>
+          </Field>
+
+          <Field label="Contest mode" hint="CP = coding problems, CHESS = dedicated chess contest">
+            <div className="flex gap-3">
+              {(["CP", "CHESS"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setPluginType(mode)}
+                  className="rounded-lg px-4 py-2 text-sm font-medium transition"
+                  style={
+                    pluginType === mode
+                      ? { background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.5)", color: "#6ee7b7" }
+                      : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
+                  }
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Plugin config (JSON)" hint="Used only for CHESS contests">
+            <textarea
+              rows={3}
+              value={pluginConfig}
+              onChange={(e) => setPluginConfig(e.target.value)}
+              className="glass-input resize-none font-mono text-xs text-white"
+            />
           </Field>
 
           <Field label="Allowed languages">

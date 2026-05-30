@@ -35,6 +35,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         status: String(raw.status ?? "DRAFT"),
         scoring_type: String(raw.scoring_type ?? "ICPC"),
         allowed_languages: Array.isArray(raw.allowed_languages) ? raw.allowed_languages : [],
+        plugin_type: raw.plugin_type == null ? "CP" : String(raw.plugin_type),
+        plugin_config: raw.plugin_config == null ? null : String(raw.plugin_config),
       },
       questions: Array.isArray(raw.questions) ? raw.questions : [],
       invites: Array.isArray(raw.invites) ? raw.invites : [],

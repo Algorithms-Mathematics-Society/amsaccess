@@ -15,6 +15,7 @@ type Contest = {
   id: string; title: string; description: string | null;
   start_at: string; end_at: string; status: string; org_id: string;
   scoring_type: string; allowed_languages: string[];
+  plugin_type?: string; plugin_config?: string;
 };
 
 type Question = {
@@ -263,6 +264,7 @@ export default function ContestDetailPage() {
         {tab === "questions" && (
           <QuestionsTab
             contestId={id}
+            pluginType={contest.plugin_type ?? "CP"}
             questions={questions}
             onRefresh={load}
           />
@@ -284,7 +286,7 @@ export default function ContestDetailPage() {
 
 // ─── Questions tab ───────────────────────────────────────────
 function QuestionsTab({ contestId, questions, onRefresh }: {
-  contestId: string; questions: Question[]; onRefresh: () => void;
+  contestId: string; pluginType: string; questions: Question[]; onRefresh: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -307,17 +309,39 @@ function QuestionsTab({ contestId, questions, onRefresh }: {
         <p className="text-sm" style={{ color: "#71717A" }}>
           {questions.length} question{questions.length !== 1 ? "s" : ""}
         </p>
-        <button
-          onClick={() => { setAdding(true); setEditId(null); }}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition"
-          style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)" }}
-        >
-          <Plus className="h-4 w-4" />
-          Add question
-        </button>
+        <div className="flex items-center gap-2">
+          {pluginType === "CHESS" ? (
+            <Link
+              href={`/org/contests/${contestId}/chess/testplay`}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition"
+              style={{ background: "rgba(16,185,129,0.18)", border: "1px solid rgba(16,185,129,0.35)" }}
+            >
+              <Play className="h-4 w-4" />
+              Open Chess Test Play
+            </Link>
+          ) : (
+            <button
+              onClick={() => { setAdding(true); setEditId(null); }}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition"
+              style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)" }}
+            >
+              <Plus className="h-4 w-4" />
+              Add question
+            </button>
+          )}
+        </div>
       </div>
 
-      {adding && (
+      {pluginType === "CHESS" ? (
+        <div className="mb-4 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4">
+          <p className="text-sm font-medium text-emerald-300">This contest is in CHESS mode.</p>
+          <p className="mt-1 text-xs text-zinc-400">
+            CP question editing is disabled for CHESS contests. Use the Chess Test Play workflow for rulesets, validation, and move simulation.
+          </p>
+        </div>
+      ) : null}
+
+      {adding && pluginType !== "CHESS" && (
         <QuestionForm
           contestId={contestId}
           nextIndex={questions.length + 1}
@@ -329,7 +353,7 @@ function QuestionsTab({ contestId, questions, onRefresh }: {
       )}
 
       <div className="space-y-3">
-        {questions.map((q, i) => (
+        {pluginType === "CHESS" ? null : questions.map((q, i) => (
           <div key={q.id}>
             {editId === q.id ? (
               <QuestionForm
@@ -388,7 +412,7 @@ function QuestionsTab({ contestId, questions, onRefresh }: {
           </div>
         ))}
 
-        {questions.length === 0 && !adding && (
+        {questions.length === 0 && !adding && pluginType !== "CHESS" && (
           <div
             className="flex flex-col items-center justify-center rounded-xl py-16 text-center"
             style={{ border: "1px dashed rgba(255,255,255,0.08)" }}
@@ -624,17 +648,31 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
           </div>
 
           {/* Mobile warning fallback */}
-          <div className="block md:hidden my-6 rounded-2xl border border-purple-500/20 bg-purple-950/20 p-8 text-center shadow-2xl relative overflow-hidden backdrop-blur-sm">
+          <div className="block md:hidden my-6 rounded-2xl border border-purple-500/20 bg-purple-950/20 p-6 shadow-2xl relative overflow-hidden backdrop-blur-sm">
             <div className="absolute inset-0 bg-gradient-to-b from-purple-500/[0.03] to-transparent pointer-events-none" />
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-lg shadow-purple-500/5 animate-pulse">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-lg shadow-purple-500/5">
               <Monitor className="h-6 w-6" />
             </div>
-            <h3 className="text-base font-semibold text-white tracking-tight">Desktop Workspace Required</h3>
-            <p className="mt-2 text-xs text-zinc-400 leading-relaxed max-w-sm mx-auto">
-              Configuring advanced competitive programming specifications (such as C++ validators, test generators, custom checkers and expected solutions) requires a desktop-class viewport.
+            <h3 className="text-base font-semibold text-white tracking-tight text-center">Mobile Read-only Summary</h3>
+            <p className="mt-2 text-xs text-zinc-400 leading-relaxed text-center">
+              Edit the full problem setup on desktop. Mobile keeps only quick form controls.
             </p>
+            <div className="mt-4 grid grid-cols-1 gap-2">
+              <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-left">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Question title</p>
+                <p className="mt-1 text-sm font-semibold text-white">{title || "Untitled question"}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-left">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Limits</p>
+                <p className="mt-1 text-sm font-semibold text-white">{timeLimit} ms / {memoryLimit} MB</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-left">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Type</p>
+                <p className="mt-1 text-sm font-semibold text-white">{questionType === "interactive" ? "Interactive" : "Code submission"}</p>
+              </div>
+            </div>
             <p className="mt-4 text-[10px] font-bold text-purple-400 uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 inline-block px-3 py-1 rounded-full">
-              Please open this page on a desktop device
+              Desktop required for editing
             </p>
           </div>
         </>
@@ -887,6 +925,8 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
   const [status, setStatus]         = useState(contest.status);
   const [scoringType, setScoringType] = useState(contest.scoring_type ?? "ICPC");
   const [allowedLangs, setAllowedLangs] = useState<string[]>(contest.allowed_languages ?? ["C++17", "Python3", "Java17"]);
+  const [pluginType, setPluginType] = useState<"CP" | "CHESS">((contest.plugin_type ?? "CP") === "CHESS" ? "CHESS" : "CP");
+  const [pluginConfig, setPluginConfig] = useState<string>(contest.plugin_config ?? "{}");
   const [saving, setSaving]         = useState(false);
   const [deleting, setDeleting]     = useState(false);
   const [error, setError]           = useState<string | null>(null);
@@ -896,6 +936,12 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
     setError(null);
     setSuccess(false);
     if (new Date(endAt) <= new Date(startAt)) { setError("End time must be after start time."); return; }
+    try {
+      JSON.parse(pluginConfig.trim() || "{}");
+    } catch {
+      setError("Plugin config must be valid JSON.");
+      return;
+    }
     setSaving(true);
     try {
       await apiFetch<{ saved: boolean }>(`/api/org/contests/${contest.id}`, {
@@ -908,6 +954,8 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
           status,
           scoring_type: scoringType,
           allowed_languages: allowedLangs,
+          plugin_type: pluginType,
+          plugin_config: pluginConfig.trim() || "{}",
         })
       });
       setSuccess(true);
@@ -1015,6 +1063,33 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
             );
           })}
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Contest mode</label>
+        <div className="flex gap-2">
+          {(["CP", "CHESS"] as const).map((s) => (
+            <button
+              key={s} type="button" onClick={() => setPluginType(s)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium transition"
+              style={pluginType === s
+                ? { background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.4)", color: "#6ee7b7" }
+                : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Plugin config (JSON)</label>
+        <textarea
+          rows={3}
+          value={pluginConfig}
+          onChange={(e) => setPluginConfig(e.target.value)}
+          className="glass-input resize-none font-mono text-xs text-white"
+        />
       </div>
 
       <div className="flex items-center justify-between pt-2">
