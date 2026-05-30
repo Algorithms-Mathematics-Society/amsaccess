@@ -43,6 +43,8 @@ export default function NewContestPage() {
           allowed_languages: pluginType === "CP" ? allowedLanguages : ["C++17"],
           plugin_type: pluginType,
           plugin_config: pluginConfig.trim() || "{}",
+          pluginType,
+          pluginConfig: pluginConfig.trim() || "{}",
         })
       });
 

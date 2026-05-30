@@ -959,6 +959,8 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
           allowed_languages: allowedLangs,
           plugin_type: pluginType,
           plugin_config: pluginConfig.trim() || "{}",
+          pluginType,
+          pluginConfig: pluginConfig.trim() || "{}",
         })
       });
       setSuccess(true);
