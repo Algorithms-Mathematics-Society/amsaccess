@@ -10,9 +10,6 @@ export default function NewContestPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
-  const [status, setStatus] = useState<"DRAFT" | "SCHEDULED">("DRAFT");
   const [scoringType, setScoringType] = useState<"IOI" | "ICPC" | "CF">("ICPC");
   const [allowedLanguages, setAllowedLanguages] = useState<string[]>(["C++17", "Python3", "Java17"]);
   const [pluginType, setPluginType] = useState<"CP" | "CHESS">("CP");
@@ -23,17 +20,14 @@ export default function NewContestPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-
-    if (new Date(endAt) <= new Date(startAt)) {
-      setError("End time must be after start time.");
-      return;
-    }
     try {
       JSON.parse(pluginConfig.trim() || "{}");
     } catch {
       setError("Plugin config must be valid JSON.");
       return;
     }
+    const now = new Date();
+    const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
 
     setLoading(true);
     try {
@@ -42,11 +36,11 @@ export default function NewContestPage() {
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || null,
-          start_at: new Date(startAt).toISOString(),
-          end_at: new Date(endAt).toISOString(),
-          status,
-          scoring_type: scoringType,
-          allowed_languages: allowedLanguages,
+          start_at: now.toISOString(),
+          end_at: inOneHour.toISOString(),
+          status: "DRAFT",
+          scoring_type: pluginType === "CP" ? scoringType : "ICPC",
+          allowed_languages: pluginType === "CP" ? allowedLanguages : ["C++17"],
           plugin_type: pluginType,
           plugin_config: pluginConfig.trim() || "{}",
         })
@@ -123,124 +117,88 @@ export default function NewContestPage() {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Start date & time">
-              <input
-                type="datetime-local"
-                required
-                value={startAt}
-                onChange={(e) => setStartAt(e.target.value)}
-                className="glass-input text-sm text-white"
-                style={{ colorScheme: "dark" }}
-              />
-            </Field>
-            <Field label="End date & time">
-              <input
-                type="datetime-local"
-                required
-                value={endAt}
-                onChange={(e) => setEndAt(e.target.value)}
-                className="glass-input text-sm text-white"
-                style={{ colorScheme: "dark" }}
-              />
-            </Field>
-          </div>
-
-          <Field label="Scoring type">
-            <div className="flex gap-3">
-              {(["IOI", "ICPC", "CF"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setScoringType(s)}
-                  className="rounded-lg px-4 py-2 text-sm font-medium transition"
-                  style={
-                    scoringType === s
-                      ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
-                      : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
-                  }
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </Field>
-
-          <Field label="Contest mode" hint="CP = coding problems, CHESS = dedicated chess contest">
-            <div className="flex gap-3">
+          <Field label="Contest type">
+            <div className="inline-flex rounded-lg border border-white/10 bg-white/[0.02] p-1">
               {(["CP", "CHESS"] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
                   onClick={() => setPluginType(mode)}
-                  className="rounded-lg px-4 py-2 text-sm font-medium transition"
+                  className="rounded-md px-4 py-2 text-sm font-medium transition"
                   style={
                     pluginType === mode
-                      ? { background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.5)", color: "#6ee7b7" }
-                      : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
+                      ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)", color: "#c4b5fd" }
+                      : { background: "transparent", border: "1px solid transparent", color: "#71717A" }
                   }
                 >
-                  {mode}
+                  {mode === "CP" ? "CP Contest" : "Chess Contest"}
                 </button>
               ))}
             </div>
+            <p className="mt-2 text-xs text-zinc-500">
+              Contest timings/status are configured after creation inside contest settings.
+            </p>
           </Field>
 
-          <Field label="Plugin config (JSON)" hint="Used only for CHESS contests">
-            <textarea
-              rows={3}
-              value={pluginConfig}
-              onChange={(e) => setPluginConfig(e.target.value)}
-              className="glass-input resize-none font-mono text-xs text-white"
-            />
-          </Field>
+          {pluginType === "CP" ? (
+            <>
+              <Field label="Scoring type">
+                <div className="flex gap-3">
+                  {(["IOI", "ICPC", "CF"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setScoringType(s)}
+                      className="rounded-lg px-4 py-2 text-sm font-medium transition"
+                      style={
+                        scoringType === s
+                          ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
+                          : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
+                      }
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </Field>
 
-          <Field label="Allowed languages">
-            <div className="flex flex-wrap gap-2">
-              {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
-                const active = allowedLanguages.includes(lang);
-                return (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() =>
-                      setAllowedLanguages(
-                        active ? allowedLanguages.filter((l) => l !== lang) : [...allowedLanguages, lang]
-                      )
-                    }
-                    className="rounded-md px-3 py-1 text-xs font-medium transition"
-                    style={
-                      active
-                        ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
-                        : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
-                    }
-                  >
-                    {lang}
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
-
-          <Field label="Status">
-            <div className="flex gap-3">
-              {(["DRAFT", "SCHEDULED"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatus(s)}
-                  className="rounded-lg px-4 py-2 text-sm font-medium transition"
-                  style={
-                    status === s
-                      ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
-                      : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
-                  }
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </Field>
+              <Field label="Allowed languages">
+                <div className="flex flex-wrap gap-2">
+                  {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
+                    const active = allowedLanguages.includes(lang);
+                    return (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() =>
+                          setAllowedLanguages(
+                            active ? allowedLanguages.filter((l) => l !== lang) : [...allowedLanguages, lang]
+                          )
+                        }
+                        className="rounded-md px-3 py-1 text-xs font-medium transition"
+                        style={
+                          active
+                            ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
+                            : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
+                        }
+                      >
+                        {lang}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+            </>
+          ) : (
+            <Field label="Plugin config (JSON)" hint="Used for CHESS runtime/session behavior">
+              <textarea
+                rows={4}
+                value={pluginConfig}
+                onChange={(e) => setPluginConfig(e.target.value)}
+                className="glass-input resize-none font-mono text-xs text-white"
+              />
+            </Field>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button
