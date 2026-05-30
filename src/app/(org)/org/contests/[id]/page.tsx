@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
@@ -61,6 +61,8 @@ function statusColor(s: string) {
 export default function ContestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const forcedMode = String(searchParams.get("mode") ?? "").toUpperCase() === "CHESS" ? "CHESS" : null;
   const [tab, setTab] = useState<Tab>("questions");
   const [contest, setContest] = useState<Contest | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -70,6 +72,7 @@ export default function ContestDetailPage() {
   const [judge, setJudge] = useState<JudgeCapacity | null>(null);
   const [judgeBusy, setJudgeBusy] = useState(false);
   const [judgeError, setJudgeError] = useState<string | null>(null);
+  const [modeReconciled, setModeReconciled] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -87,6 +90,39 @@ export default function ContestDetailPage() {
   }, [id]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!contest || modeReconciled) return;
+    if (forcedMode !== "CHESS") return;
+    if (String(contest.plugin_type ?? "").toUpperCase() === "CHESS") {
+      setModeReconciled(true);
+      return;
+    }
+    let cancelled = false;
+    const reconcile = async () => {
+      try {
+        await apiFetch<{ saved: boolean }>(`/api/org/contests/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            plugin_type: "CHESS",
+            pluginType: "CHESS",
+            plugin_config: String(contest.plugin_config ?? "{}"),
+            pluginConfig: String(contest.plugin_config ?? "{}"),
+          }),
+        });
+        if (!cancelled) {
+          setModeReconciled(true);
+          await load();
+        }
+      } catch {
+        if (!cancelled) setModeReconciled(true);
+      }
+    };
+    void reconcile();
+    return () => {
+      cancelled = true;
+    };
+  }, [contest, forcedMode, id, load, modeReconciled]);
 
   const loadJudge = useCallback(async () => {
     try {
@@ -139,6 +175,12 @@ export default function ContestDetailPage() {
     );
   }
 
+  const effectivePluginType =
+    forcedMode === "CHESS"
+      ? "CHESS"
+      : String(contest.plugin_type ?? "CP").toUpperCase() === "CHESS"
+      ? "CHESS"
+      : "CP";
   const col = statusColor(contest.status);
   const judgePhase = judge?.phase ?? "unknown";
   const judgeLabel = judgePhase === "ready"
@@ -264,7 +306,7 @@ export default function ContestDetailPage() {
         {tab === "questions" && (
           <QuestionsTab
             contestId={id}
-            pluginType={contest.plugin_type ?? "CP"}
+            pluginType={effectivePluginType}
             questions={questions}
             onRefresh={load}
           />
@@ -277,7 +319,12 @@ export default function ContestDetailPage() {
           />
         )}
         {tab === "settings" && (
-          <SettingsTab contest={contest} onSaved={load} onDeleted={() => router.push("/org/dashboard")} />
+          <SettingsTab
+            contest={contest}
+            forcedMode={forcedMode}
+            onSaved={load}
+            onDeleted={() => router.push("/org/dashboard")}
+          />
         )}
       </div>
     </div>
@@ -916,8 +963,8 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 }
 
 // ─── Settings tab ────────────────────────────────────────────
-function SettingsTab({ contest, onSaved, onDeleted }: {
-  contest: Contest; onSaved: () => void; onDeleted: () => void;
+function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
+  contest: Contest; forcedMode: "CHESS" | null; onSaved: () => void; onDeleted: () => void;
 }) {
   const [title, setTitle]           = useState(contest.title);
   const [description, setDesc]      = useState(contest.description ?? "");
@@ -926,9 +973,10 @@ function SettingsTab({ contest, onSaved, onDeleted }: {
   const [status, setStatus]         = useState(contest.status);
   const [scoringType, setScoringType] = useState(contest.scoring_type ?? "ICPC");
   const [allowedLangs, setAllowedLangs] = useState<string[]>(contest.allowed_languages ?? ["C++17", "Python3", "Java17"]);
-  const [pluginType, setPluginType] = useState<"CP" | "CHESS">(
-    String(contest.plugin_type ?? "CP").toUpperCase() === "CHESS" ? "CHESS" : "CP"
-  );
+  const [pluginType, setPluginType] = useState<"CP" | "CHESS">(() => {
+    if (forcedMode === "CHESS") return "CHESS";
+    return String(contest.plugin_type ?? "CP").toUpperCase() === "CHESS" ? "CHESS" : "CP";
+  });
   const [pluginConfig, setPluginConfig] = useState<string>(contest.plugin_config ?? "{}");
   const [saving, setSaving]         = useState(false);
   const [deleting, setDeleting]     = useState(false);

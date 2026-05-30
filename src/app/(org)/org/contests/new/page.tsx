@@ -48,7 +48,10 @@ export default function NewContestPage() {
         })
       });
 
-      router.push(contest.redirectTo);
+      const target = pluginType === "CHESS"
+        ? `${contest.redirectTo}?mode=CHESS`
+        : contest.redirectTo;
+      router.push(target);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create contest.");
     } finally {
