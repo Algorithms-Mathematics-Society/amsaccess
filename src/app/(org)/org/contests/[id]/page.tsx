@@ -755,6 +755,14 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
 }
 
 // ─── Invites tab ─────────────────────────────────────────────
+type SessionCode = {
+  id: string;
+  contest_id: string;
+  code: string;
+  is_active: boolean;
+  created_at: string;
+};
+
 function InvitesTab({ contestId, invites, onRefresh }: {
   contestId: string; invites: Invite[]; onRefresh: () => void;
 }) {
@@ -763,6 +771,8 @@ function InvitesTab({ contestId, invites, onRefresh }: {
   const [template, setTemplate] = useState("You have been invited to an AMS Access contest.\n\nInstall the desktop app from {{download_url}} and sign in with {{email}}.\n");
   const [allowBulkInvites, setAllowBulkInvites] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sessionCode, setSessionCode] = useState<SessionCode | null>(null);
+  const [codeBusy, setCodeBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -783,11 +793,35 @@ function InvitesTab({ contestId, invites, onRefresh }: {
       } catch {
         // keep local defaults
       }
+      try {
+        const codes = await apiFetch<SessionCode[]>(`/api/org/contests/${contestId}/session-codes`);
+        if (!mounted) return;
+        setSessionCode((codes ?? []).find((c) => c.is_active) ?? null);
+      } catch {
+        // ignore
+      }
     })();
     return () => {
       mounted = false;
     };
   }, []);
+
+  async function generateSessionCode() {
+    setCodeBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const code = await apiFetch<SessionCode>(`/api/org/contests/${contestId}/session-codes`, {
+        method: "POST",
+      });
+      setSessionCode(code);
+      setSuccess("Session code generated. Share this code with students to unlock this contest in proctor.");
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Unable to generate session code.");
+    } finally {
+      setCodeBusy(false);
+    }
+  }
 
   async function addInvites() {
     setError(null);
@@ -834,6 +868,25 @@ function InvitesTab({ contestId, invites, onRefresh }: {
     <div>
       {/* Add invites */}
       <div className="glass-card mb-6 p-5">
+        <div className="mb-4 rounded-lg border border-purple-500/30 bg-purple-500/10 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-purple-300">Contest Session Code</p>
+              <p className="mt-1 font-mono text-lg text-white">{sessionCode?.code ?? "Not generated yet"}</p>
+              <p className="mt-1 text-xs text-zinc-400">
+                Students enter this in Proctor → Session Code to access this contest.
+              </p>
+            </div>
+            <button
+              onClick={() => void generateSessionCode()}
+              disabled={codeBusy}
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-white transition disabled:opacity-50"
+              style={{ background: "rgb(139,92,246)" }}
+            >
+              {codeBusy ? "Generating…" : sessionCode ? "Regenerate Code" : "Generate Code"}
+            </button>
+          </div>
+        </div>
         <div className="mb-3 flex items-center gap-2">
           <UserPlus className="h-4 w-4" style={{ color: "#a855f7" }} />
           <p className="text-sm font-medium text-white">Invite candidates</p>
