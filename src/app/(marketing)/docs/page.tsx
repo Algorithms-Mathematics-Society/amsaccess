@@ -8,7 +8,8 @@ import { MarketingHeader } from "@/components/MarketingEndpointPage";
 const docs = [
   { title: "Deployment", body: "Guidance for installing and rolling out the downloadable desktop app.", href: "#" },
   { title: "Session policy", body: "Reference material for fullscreen requirements, autosave, response types, and timeline settings.", href: "#" },
-  { title: "Review timeline", body: "How written work and activity context are presented for high-trust review.", href: "#" }
+  { title: "Review timeline", body: "How written work and activity context are presented for high-trust review.", href: "#" },
+  { title: "Chess plugin", body: "YAML rulesets, test-play flow, and dedicated CHESS contest operations.", href: "/docs/chess-plugin" }
 ];
 
 export default function DocsPage() {

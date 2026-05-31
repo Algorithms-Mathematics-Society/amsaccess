@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,7 +29,7 @@ type Invite = {
   id: string; email: string; status: string; created_at: string;
 };
 
-type Tab = "questions" | "invites" | "settings";
+type Tab = "questions" | "invites" | "live" | "settings";
 
 type ContestDetailResponse = {
   contest: Contest;
@@ -49,12 +49,63 @@ type JudgeCapacity = {
   current_actions?: Record<string, number>;
 };
 
+type RuntimeStatus = {
+  contest_id: string;
+  runtime_status: "COLD" | "WARMING" | "READY" | "DEGRADED";
+  runtime_ready: boolean;
+  ready_checked_at?: string;
+  failure_reason_code?: string;
+  failure_reason?: string;
+  capacity: JudgeCapacity;
+};
+
+type LiveSubmission = {
+  attempt_id: string;
+  session_id: string;
+  candidate: string;
+  problem_id: string;
+  language: string;
+  status: string;
+  final_verdict?: string | null;
+  runtime_ms?: number | null;
+  memory_kb?: number | null;
+  created_at: string;
+};
+
+type LiveProctorEvent = {
+  id: string;
+  session_id: string;
+  candidate: string;
+  event_type: string;
+  created_at: string;
+};
+
+type LiveInfraEvent = {
+  source: string;
+  entity_id: string;
+  status: string;
+  reason_code?: string;
+  message?: string;
+  created_at: string;
+};
+
 // ─── Helpers ─────────────────────────────────────────────────
 function statusColor(s: string) {
   if (s === "ACTIVE")     return { bg: "rgba(34,197,94,0.1)",    border: "rgba(34,197,94,0.3)",    text: "#22c55e" };
   if (s === "SCHEDULED")  return { bg: "rgba(139,92,246,0.1)",   border: "rgba(139,92,246,0.3)",   text: "#a855f7" };
   if (s === "ENDED")      return { bg: "rgba(100,116,139,0.1)",  border: "rgba(100,116,139,0.3)",  text: "#94a3b8" };
   return { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.3)", text: "#f59e0b" };
+}
+
+function toDateTimeLocalValue(isoLike: string): string {
+  const d = new Date(isoLike);
+  if (Number.isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 }
 
 // ─── Main page ───────────────────────────────────────────────
@@ -276,7 +327,7 @@ export default function ContestDetailPage() {
 
         {/* Tabs */}
         <div className="mb-6 flex gap-1 rounded-xl p-1" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          {([["questions", "Questions", questions.length], ["invites", "Invites", invites.length], ["settings", "Settings", null]] as const).map(
+          {([["questions", "Questions", questions.length], ["invites", "Invites", invites.length], ["live", "Live", null], ["settings", "Settings", null]] as const).map(
             ([key, label, count]) => (
               <button
                 key={key}
@@ -318,6 +369,9 @@ export default function ContestDetailPage() {
             onRefresh={load}
           />
         )}
+        {tab === "live" && (
+          <LiveMonitorTab contestId={id} />
+        )}
         {tab === "settings" && (
           <SettingsTab
             contest={contest}
@@ -325,6 +379,132 @@ export default function ContestDetailPage() {
             onSaved={load}
             onDeleted={() => router.push("/org/dashboard")}
           />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LiveMonitorTab({ contestId }: { contestId: string }) {
+  const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
+  const [subs, setSubs] = useState<LiveSubmission[]>([]);
+  const [proctor, setProctor] = useState<LiveProctorEvent[]>([]);
+  const [infra, setInfra] = useState<LiveInfraEvent[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const loadLive = useCallback(async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const [runtimeData, submissionsData, proctorData, infraData] = await Promise.all([
+        apiFetch<RuntimeStatus>(`/api/org/contests/${contestId}/runtime-status`),
+        apiFetch<{ items: LiveSubmission[] }>(`/api/org/contests/${contestId}/live/submissions`),
+        apiFetch<{ items: LiveProctorEvent[] }>(`/api/org/contests/${contestId}/live/proctor-events`),
+        apiFetch<{ items: LiveInfraEvent[] }>(`/api/org/contests/${contestId}/live/infra-events`),
+      ]);
+      setRuntime(runtimeData);
+      setSubs(submissionsData.items ?? []);
+      setProctor(proctorData.items ?? []);
+      setInfra(infraData.items ?? []);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Unable to load live monitor.");
+    } finally {
+      setBusy(false);
+    }
+  }, [contestId]);
+
+  useEffect(() => {
+    void loadLive();
+    const t = setInterval(() => {
+      void loadLive();
+    }, 5000);
+    return () => clearInterval(t);
+  }, [loadLive]);
+
+  async function runReadinessCheck() {
+    setErr(null);
+    try {
+      await apiFetch(`/api/org/contests/${contestId}/runtime-readiness/check`, { method: "POST" });
+      await loadLive();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Readiness check failed.");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.12em] text-zinc-400">Runtime Status</p>
+          <p className="mt-1 text-lg font-semibold text-white">
+            {runtime?.runtime_status ?? "UNKNOWN"}
+            {runtime?.runtime_ready ? " · READY" : ""}
+          </p>
+          <p className="text-xs text-zinc-500">
+            {runtime ? `instances ${runtime.capacity.running_instances ?? 0}/${runtime.capacity.total_instances ?? 0}, target ${runtime.capacity.target_size}` : "No runtime data"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => void loadLive()} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-zinc-200">
+            {busy ? "Refreshing..." : "Refresh"}
+          </button>
+          <button onClick={() => void runReadinessCheck()} className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-xs text-emerald-300">
+            Run readiness check
+          </button>
+        </div>
+      </div>
+      {err ? <div className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-300">{err}</div> : null}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <LiveTable
+          title="Submissions"
+          items={subs}
+          render={(item) => (
+            <>
+              <span className="font-mono text-[11px] text-zinc-300">{item.candidate}</span>
+              <span className="text-[11px] text-zinc-500">{item.final_verdict ?? item.status}</span>
+            </>
+          )}
+        />
+        <LiveTable
+          title="Proctor Events"
+          items={proctor}
+          render={(item) => (
+            <>
+              <span className="font-mono text-[11px] text-zinc-300">{item.candidate}</span>
+              <span className="text-[11px] text-zinc-500">{item.event_type}</span>
+            </>
+          )}
+        />
+        <LiveTable
+          title="Infra Events"
+          items={infra}
+          render={(item) => (
+            <>
+              <span className="font-mono text-[11px] text-zinc-300">{item.status}</span>
+              <span className="text-[11px] text-zinc-500">{item.reason_code ?? item.source}</span>
+            </>
+          )}
+        />
+      </div>
+    </div>
+  );
+}
+
+function LiveTable<T>({ title, items, render }: { title: string; items: T[]; render: (item: T) => ReactNode }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02]">
+      <div className="border-b border-white/10 px-3 py-2 text-xs font-medium text-zinc-300">{title}</div>
+      <div className="max-h-72 overflow-y-auto">
+        {items.length === 0 ? (
+          <div className="px-3 py-3 text-xs text-zinc-500">No events</div>
+        ) : (
+          items.map((item, idx) => (
+            <div key={idx} className="flex items-center justify-between border-b border-white/5 px-3 py-2 last:border-b-0">
+              {render(item)}
+            </div>
+          ))
         )}
       </div>
     </div>
@@ -542,7 +722,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         wrapper.classList.add("max-w-4xl");
       }
     }
-  }, []);
+  }, [contestId]);
 
   async function handleSave() {
     setError(null);
@@ -804,7 +984,7 @@ function InvitesTab({ contestId, invites, onRefresh }: {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [contestId]);
 
   async function generateSessionCode() {
     setCodeBusy(true);
@@ -1021,8 +1201,8 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
 }) {
   const [title, setTitle]           = useState(contest.title);
   const [description, setDesc]      = useState(contest.description ?? "");
-  const [startAt, setStartAt]       = useState(contest.start_at.slice(0, 16));
-  const [endAt, setEndAt]           = useState(contest.end_at.slice(0, 16));
+  const [startAt, setStartAt]       = useState(toDateTimeLocalValue(contest.start_at));
+  const [endAt, setEndAt]           = useState(toDateTimeLocalValue(contest.end_at));
   const [timezone, setTimezone]     = useState(contest.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   const [status, setStatus]         = useState(contest.status);
   const [scoringType, setScoringType] = useState(contest.scoring_type ?? "ICPC");
@@ -1036,6 +1216,25 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
   const [deleting, setDeleting]     = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [success, setSuccess]       = useState(false);
+
+  useEffect(() => {
+    setTitle(contest.title);
+    setDesc(contest.description ?? "");
+    setStartAt(toDateTimeLocalValue(contest.start_at));
+    setEndAt(toDateTimeLocalValue(contest.end_at));
+    setTimezone(contest.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    setStatus(contest.status);
+    setScoringType(contest.scoring_type ?? "ICPC");
+    setAllowedLangs(contest.allowed_languages ?? ["C++17", "Python3", "Java17"]);
+    setPluginType(
+      forcedMode === "CHESS"
+        ? "CHESS"
+        : String(contest.plugin_type ?? "CP").toUpperCase() === "CHESS"
+        ? "CHESS"
+        : "CP"
+    );
+    setPluginConfig(contest.plugin_config ?? "{}");
+  }, [contest, forcedMode]);
 
   async function save() {
     setError(null);
