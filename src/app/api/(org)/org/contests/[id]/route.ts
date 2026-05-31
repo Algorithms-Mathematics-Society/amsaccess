@@ -32,6 +32,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         description: raw.description == null ? null : String(raw.description),
         start_at: String(raw.start_at ?? ""),
         end_at: String(raw.end_at ?? ""),
+        timezone: raw.timezone == null ? "UTC" : String(raw.timezone),
         status: String(raw.status ?? "DRAFT"),
         scoring_type: String(raw.scoring_type ?? "ICPC"),
         allowed_languages: Array.isArray(raw.allowed_languages) ? raw.allowed_languages : [],

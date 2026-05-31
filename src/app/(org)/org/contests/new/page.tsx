@@ -14,6 +14,7 @@ export default function NewContestPage() {
   const [allowedLanguages, setAllowedLanguages] = useState<string[]>(["C++17", "Python3", "Java17"]);
   const [pluginType, setPluginType] = useState<"CP" | "CHESS">("CP");
   const [pluginConfig, setPluginConfig] = useState<string>('{"mode":"PVE"}');
+  const [timezone] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +39,7 @@ export default function NewContestPage() {
           description: description.trim() || null,
           start_at: now.toISOString(),
           end_at: inOneHour.toISOString(),
+          timezone,
           status: "DRAFT",
           scoring_type: pluginType === "CP" ? scoringType : "ICPC",
           allowed_languages: pluginType === "CP" ? allowedLanguages : ["C++17"],

@@ -13,7 +13,7 @@ import CPProblemStudio from "@/components/CPProblemStudio";
 // ─── Types ───────────────────────────────────────────────────
 type Contest = {
   id: string; title: string; description: string | null;
-  start_at: string; end_at: string; status: string; org_id: string;
+  start_at: string; end_at: string; timezone?: string; status: string; org_id: string;
   scoring_type: string; allowed_languages: string[];
   plugin_type?: string; plugin_config?: string;
 };
@@ -970,6 +970,7 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
   const [description, setDesc]      = useState(contest.description ?? "");
   const [startAt, setStartAt]       = useState(contest.start_at.slice(0, 16));
   const [endAt, setEndAt]           = useState(contest.end_at.slice(0, 16));
+  const [timezone, setTimezone]     = useState(contest.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   const [status, setStatus]         = useState(contest.status);
   const [scoringType, setScoringType] = useState(contest.scoring_type ?? "ICPC");
   const [allowedLangs, setAllowedLangs] = useState<string[]>(contest.allowed_languages ?? ["C++17", "Python3", "Java17"]);
@@ -1002,6 +1003,7 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
           description,
           start_at: new Date(startAt).toISOString(),
           end_at: new Date(endAt).toISOString(),
+          timezone,
           status,
           scoring_type: scoringType,
           allowed_languages: allowedLangs,
@@ -1055,6 +1057,16 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
           <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>End</label>
           <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className="glass-input text-sm text-white" style={{ colorScheme: "dark" }} />
         </div>
+      </div>
+      <div>
+        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Timezone</label>
+        <input
+          type="text"
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+          className="glass-input text-sm text-white"
+          placeholder="Asia/Kolkata"
+        />
       </div>
       <div>
         <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Status</label>
