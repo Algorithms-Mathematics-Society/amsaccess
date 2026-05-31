@@ -40,6 +40,7 @@ type ContestDetailResponse = {
 type JudgeCapacity = {
   mig_name: string;
   region: string;
+  mode?: "AUTO" | "MANUAL_ON" | "MANUAL_OFF" | string;
   target_size: number;
   is_stable: boolean;
   ready?: boolean;
@@ -289,7 +290,7 @@ export default function ContestDetailPage() {
             <div className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs border" style={{ borderColor: "rgba(255,255,255,0.15)", color: "#d4d4d8" }}>
               <span className={`h-2 w-2 rounded-full ${judgeDotClass}`} />
               {judge
-                ? `Judge: ${judgeLabel} (${judge.running_instances ?? 0}/${judge.total_instances ?? 0} up, target ${judge.target_size})`
+                ? `Judge: ${judgeLabel} (${judge.running_instances ?? 0}/${judge.total_instances ?? 0} up, target ${judge.target_size}) · mode ${judge.mode ?? "AUTO"}`
                 : "Judge: Unknown"}
             </div>
             <div className="flex items-center gap-2">
