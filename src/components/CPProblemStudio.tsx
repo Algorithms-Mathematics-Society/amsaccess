@@ -655,33 +655,45 @@ int main() {
     setIsGeneratingTests(true);
     setPrejudgeMessage("Compiling C++ generators and solutions to execute script DSL...");
     try {
-      const resp = await apiFetch<{ version: number; tests: Array<{ test_number: number; input_preview: string; output_preview: string; input_size: number; output_size: number }> }>(
+      const resp = await apiFetch<{
+        version: number;
+        tests: Array<{
+          test_number: number;
+          input_preview: string;
+          output_preview: string;
+          input_size: number;
+          output_size: number;
+          input_path: string;
+          output_path: string;
+        }>;
+      }>(
         `/api/org/contests/${contestId}/questions/${questionId}/tests/generate`,
         {
           method: "POST",
-          body: JSON.stringify({ script: generatorScript })
+          body: JSON.stringify({ script: generatorScript }),
         }
       );
-      
-      const data = await apiFetch<PersistedTestset>(`/api/org/contests/${contestId}/questions/${questionId}/tests`);
-      const mapped: Testcase[] = (data.tests ?? []).map((t) => ({
-        id: `persisted-${t.test_number}`,
-        type: t.output_path.startsWith("__AUTO_FROM_MODEL__") || t.input_path.includes("/generated_test_input/") ? "generated" : "manual",
-        inputSize: `${Math.round(t.score ?? 0)} KB`,
-        isSample: !!t.is_sample,
+
+      // Use the response directly — no second fetch needed, backend now returns paths + previews
+      const mapped: Testcase[] = (resp.tests ?? []).map((t) => ({
+        id: `generated-${t.test_number}`,
+        type: "generated" as const,
+        inputSize: `${Math.max(1, Math.round(t.input_size / 1024))} KB`,
+        isSample: t.test_number === 1,
         inputPreview: t.input_preview ?? "",
         outputPreview: t.output_preview ?? "",
         inputPath: t.input_path,
         outputPath: t.output_path,
-        subtaskNumber: t.subtask_number ?? undefined,
-        score: t.score ?? 0,
-        status: "valid",
-        uploadState: "uploaded"
+        status: "valid" as const,
+        uploadState: "uploaded" as const,
       }));
+
       setTestcases(mapped);
       setTestsSavedToCloud(mapped.length > 0);
-      setTestsetVersion(data.version ?? resp.version);
-      setPrejudgeMessage(`Successfully generated ${resp.tests.length} tests (Version ${resp.version}).`);
+      setTestsetVersion(resp.version);
+      setPrejudgeMessage(
+        `Successfully generated ${resp.tests.length} test${resp.tests.length !== 1 ? "s" : ""} (Version ${resp.version}). Saved to cloud — ready for validation.`
+      );
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Failed to run C++ generation pipeline.";
       setPrejudgeMessage(msg);
@@ -689,6 +701,7 @@ int main() {
       setIsGeneratingTests(false);
     }
   };
+
 
 
   const uploadTestAsset = async (tcId: string, file: File, kind: "manual_test_input" | "manual_test_output") => {

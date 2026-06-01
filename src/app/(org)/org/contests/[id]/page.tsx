@@ -875,6 +875,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
           checker_code: null,
           validator_code: "",
         };
+        console.log("CP CONFIG SNAPSHOT BEFORE SAVE:", snap);
         try {
           await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
             method: "PUT",
@@ -885,8 +886,8 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
             }),
           });
         } catch (cpErr) {
-          // Non-fatal: log but don't block onSaved
           console.error("cp-config save failed", cpErr);
+          throw new Error("Failed to save custom C++ configurations (validator/checker): " + (cpErr instanceof Error ? cpErr.message : String(cpErr)));
         }
       }
       setSuccess(existing ? "Question updated successfully." : "Question created successfully.");
@@ -999,6 +1000,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
           {/* Desktop full specs view */}
           <div className="hidden md:block">
             <CPProblemStudio
+              key={existing?.id ?? "new"}
               ref={studioRef}
               contestId={contestId}
               questionId={existing?.id}
