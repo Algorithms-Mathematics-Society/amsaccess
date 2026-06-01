@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
   X, Sparkles, Monitor, Play, Square, RefreshCw,
+  Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import CPProblemStudio from "@/components/CPProblemStudio";
@@ -29,7 +30,7 @@ type Invite = {
   id: string; email: string; status: string; created_at: string;
 };
 
-type Tab = "questions" | "invites" | "live" | "settings";
+type Tab = "questions" | "invites" | "students" | "live" | "settings";
 
 type ContestDetailResponse = {
   contest: Contest;
@@ -75,9 +76,12 @@ type LiveSubmission = {
 
 type LiveProctorEvent = {
   id: string;
+  event_id?: string | null;
   session_id: string;
   candidate: string;
   event_type: string;
+  severity?: "INFO" | "WARN" | "CRITICAL" | string;
+  source?: string;
   created_at: string;
 };
 
@@ -328,7 +332,7 @@ export default function ContestDetailPage() {
 
         {/* Tabs */}
         <div className="mb-6 flex gap-1 rounded-xl p-1" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          {([["questions", "Questions", questions.length], ["invites", "Invites", invites.length], ["live", "Live", null], ["settings", "Settings", null]] as const).map(
+          {([["questions", "Questions", questions.length], ["invites", "Invites", invites.length], ["students", "Students", null], ["live", "Live", null], ["settings", "Settings", null]] as const).map(
             ([key, label, count]) => (
               <button
                 key={key}
@@ -370,6 +374,9 @@ export default function ContestDetailPage() {
             onRefresh={load}
           />
         )}
+        {tab === "students" && (
+          <StudentsTab contestId={id} />
+        )}
         {tab === "live" && (
           <LiveMonitorTab contestId={id} />
         )}
@@ -393,6 +400,7 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
   const [infra, setInfra] = useState<LiveInfraEvent[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [transport, setTransport] = useState<"SSE" | "POLLING">("SSE");
 
   const loadLive = useCallback(async () => {
     setBusy(true);
@@ -416,12 +424,87 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
   }, [contestId]);
 
   useEffect(() => {
+    // Initial fetch to load historical items
     void loadLive();
-    const t = setInterval(() => {
-      void loadLive();
-    }, 5000);
-    return () => clearInterval(t);
-  }, [loadLive]);
+
+    let eventSource: EventSource | null = null;
+    let pollInterval: any = null;
+
+    const startPolling = () => {
+      setTransport("POLLING");
+      if (pollInterval) return;
+      pollInterval = setInterval(() => {
+        void loadLive();
+      }, 5000);
+    };
+
+    const startSSE = () => {
+      setTransport("SSE");
+      eventSource = new EventSource(`/api/org/contests/${contestId}/live/stream`);
+
+      eventSource.addEventListener("submission.updated", (event: MessageEvent) => {
+        try {
+          const newSub = JSON.parse(event.data) as LiveSubmission;
+          setSubs((prev) => {
+            const idx = prev.findIndex((s) => s.attempt_id === newSub.attempt_id);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = newSub;
+              return next;
+            }
+            return [newSub, ...prev].slice(0, 500);
+          });
+        } catch (e) {
+          console.error("Error parsing SSE submission", e);
+        }
+      });
+
+      eventSource.addEventListener("activity.event", (event: MessageEvent) => {
+        try {
+          const newProc = JSON.parse(event.data) as LiveProctorEvent;
+          setProctor((prev) => {
+            const idx = prev.findIndex((p) => p.id === newProc.id);
+            if (idx >= 0) return prev;
+            return [newProc, ...prev].slice(0, 1000);
+          });
+        } catch (e) {
+          console.error("Error parsing SSE proctor event", e);
+        }
+      });
+
+      eventSource.addEventListener("infra.event", (event: MessageEvent) => {
+        try {
+          const newInfra = JSON.parse(event.data) as LiveInfraEvent;
+          setInfra((prev) => {
+            const idx = prev.findIndex((i) => i.entity_id === newInfra.entity_id);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = newInfra;
+              return next;
+            }
+            return [newInfra, ...prev].slice(0, 300);
+          });
+        } catch (e) {
+          console.error("Error parsing SSE infra event", e);
+        }
+      });
+
+      eventSource.onerror = (e) => {
+        console.warn("SSE stream error, switching to fallback short polling", e);
+        if (eventSource) {
+          eventSource.close();
+        }
+        startPolling();
+      };
+    };
+
+    startSSE();
+
+    return () => {
+      if (eventSource) eventSource.close();
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [contestId, loadLive]);
 
   async function runReadinessCheck() {
     setErr(null);
@@ -437,7 +520,18 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.12em] text-zinc-400">Runtime Status</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-zinc-400">Runtime Status</p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                transport === "SSE"
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              }`}
+            >
+              {transport === "SSE" ? "LIVE STREAMED (SSE)" : "POLLING FALLBACK"}
+            </span>
+          </div>
           <p className="mt-1 text-lg font-semibold text-white">
             {runtime?.runtime_status ?? "UNKNOWN"}
             {runtime?.runtime_ready ? " · READY" : ""}
@@ -474,7 +568,15 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
           render={(item) => (
             <>
               <span className="font-mono text-[11px] text-zinc-300">{item.candidate}</span>
-              <span className="text-[11px] text-zinc-500">{item.event_type}</span>
+              <span className={`text-[11px] ${
+                item.severity === "CRITICAL"
+                  ? "text-red-300"
+                  : item.severity === "WARN"
+                  ? "text-amber-300"
+                  : "text-zinc-400"
+              }`}>
+                {item.event_type} {item.severity ? `(${item.severity})` : ""}
+              </span>
             </>
           )}
         />
@@ -1433,3 +1535,671 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
     </div>
   );
 }
+
+function StudentsTab({ contestId }: { contestId: string }) {
+  const [activeSubTab, setActiveSubTab] = useState<"provision" | "emails">("provision");
+
+  // Provision Sub-Tab States
+  const [csvContent, setCsvContent] = useState("");
+  const [importStatus, setImportStatus] = useState<any | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const [students, setStudents] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  // Email Sub-Tab States
+  const [subject, setSubject] = useState("Welcome to {{name}} Assessment Onboarding");
+  const [bodyTemplate, setBodyTemplate] = useState(
+    `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: sans-serif; background-color: #121214; color: #e4e4e7; padding: 20px; }
+    .card { background-color: #1a1a1e; border: 1px solid #27272a; padding: 24px; border-radius: 12px; }
+    .header { font-size: 20px; font-weight: bold; color: #a78bfa; margin-bottom: 16px; }
+    .cred-box { background-color: #0c0c0e; border-left: 4px solid #8b5cf6; padding: 16px; margin: 16px 0; border-radius: 4px; }
+    .code { font-family: monospace; font-size: 16px; color: #a78bfa; font-weight: bold; }
+    .footer { font-size: 12px; color: #71717a; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">Contest Access Onboarding Portal</div>
+    <p>Hello <strong>{{name}}</strong>,</p>
+    <p>You have been provisioned access to register for the assessment round.</p>
+    <p>Your unique access credentials are generated below:</p>
+    <div class="cred-box">
+      <strong>Login Username:</strong> {{username}}<br/>
+      <strong>Password:</strong> {{password}}<br/>
+      <strong>Access Contest Code:</strong> <span class="code">{{contestcode}}</span>
+    </div>
+    <p>Please launch your secure Proctor client and enter the Access Contest Code above to enter onboarding.</p>
+    <div class="footer">Algorithms &amp; Mathematics Society Integrity Layer</div>
+  </div>
+</body>
+</html>`
+  );
+  const [sessionCode, setSessionCode] = useState<string>("");
+  const [loadingCode, setLoadingCode] = useState(false);
+  const [emailPreviewMode, setEmailPreviewMode] = useState<"compose" | "preview">("compose");
+
+  // Dispatch Job States
+  const [currentJob, setCurrentJob] = useState<any | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  // Template Options
+  const templates = [
+    {
+      name: "Standard Onboarding Invite",
+      subject: "Welcome to {{name}} Assessment Onboarding",
+      body: `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: sans-serif; background-color: #121214; color: #e4e4e7; padding: 20px; }
+    .card { background-color: #1a1a1e; border: 1px solid #27272a; padding: 24px; border-radius: 12px; }
+    .header { font-size: 20px; font-weight: bold; color: #a78bfa; margin-bottom: 16px; }
+    .cred-box { background-color: #0c0c0e; border-left: 4px solid #8b5cf6; padding: 16px; margin: 16px 0; border-radius: 4px; }
+    .code { font-family: monospace; font-size: 16px; color: #a78bfa; font-weight: bold; }
+    .footer { font-size: 12px; color: #71717a; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">Contest Access Onboarding Portal</div>
+    <p>Hello <strong>{{name}}</strong>,</p>
+    <p>You have been provisioned access to register for the assessment round.</p>
+    <p>Your unique access credentials are generated below:</p>
+    <div class="cred-box">
+      <strong>Login Username:</strong> {{username}}<br/>
+      <strong>Password:</strong> {{password}}<br/>
+      <strong>Access Contest Code:</strong> <span class="code">{{contestcode}}</span>
+    </div>
+    <p>Please launch your secure Proctor client and enter the Access Contest Code above to enter onboarding.</p>
+    <div class="footer">Algorithms &amp; Mathematics Society Integrity Layer</div>
+  </div>
+</body>
+</html>`
+    },
+    {
+      name: "Final Warning / Pre-Assessment Alert",
+      subject: "IMMEDIATE ACTION REQUIRED: {{name}} Assessment Access Verification",
+      body: `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: sans-serif; background-color: #121214; color: #e4e4e7; padding: 20px; }
+    .card { background-color: #1a1a1e; border: 1px solid #f87171; padding: 24px; border-radius: 12px; }
+    .header { font-size: 20px; font-weight: bold; color: #f87171; margin-bottom: 16px; }
+    .cred-box { background-color: #0c0c0e; border-left: 4px solid #f87171; padding: 16px; margin: 16px 0; border-radius: 4px; }
+    .code { font-family: monospace; font-size: 16px; color: #f87171; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">Final Verification Required</div>
+    <p>Hi <strong>{{name}}</strong>,</p>
+    <p>Your secure session credentials are set to expire shortly. Please log in immediately using the credentials below:</p>
+    <div class="cred-box">
+      <strong>Access Code:</strong> <span class="code">{{contestcode}}</span><br/>
+      <strong>Username:</strong> {{username}}<br/>
+      <strong>Password:</strong> {{password}}
+    </div>
+    <p>Ensure your camera, microphone, and platform environment are fully validated before opening.</p>
+  </div>
+</body>
+</html>`
+    }
+  ];
+
+  // Load Students list
+  const loadStudents = useCallback(async () => {
+    try {
+      const res = await apiFetch<any>(
+        `/api/org/contests/${contestId}/students?search=${encodeURIComponent(
+          search
+        )}&limit=${limit}&offset=${(page - 1) * limit}`
+      );
+      setStudents(res.items ?? []);
+      setTotalCount(res.total_count ?? 0);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [contestId, search, page]);
+
+  useEffect(() => {
+    void loadStudents();
+  }, [loadStudents]);
+
+  // Fetch or Auto-Create Session Code
+  const fetchSessionCode = useCallback(async () => {
+    setLoadingCode(true);
+    try {
+      const codes = await apiFetch<any[]>(`/api/org/contests/${contestId}/session-codes`);
+      let active = (codes ?? []).find((c) => c.is_active);
+      if (!active) {
+        // Idempotently create one
+        active = await apiFetch<any>(`/api/org/contests/${contestId}/session-codes`, {
+          method: "POST"
+        });
+      }
+      if (active) {
+        setSessionCode(active.code);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingCode(false);
+    }
+  }, [contestId]);
+
+  useEffect(() => {
+    void fetchSessionCode();
+  }, [fetchSessionCode]);
+
+  // Check running job status continuously
+  useEffect(() => {
+    if (!currentJob || currentJob.status === "COMPLETED" || currentJob.status === "FAILED") return;
+    const interval = setInterval(async () => {
+      try {
+        const job = await apiFetch<any>(`/api/org/contests/${contestId}/emails/jobs/${currentJob.id}`);
+        setCurrentJob(job);
+        if (job.status === "COMPLETED" || job.status === "FAILED" || job.status === "PARTIAL") {
+          clearInterval(interval);
+          void loadStudents();
+        }
+      } catch (e) {
+        clearInterval(interval);
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [currentJob, contestId, loadStudents]);
+
+  // Import CSV Handler
+  async function handleImport() {
+    if (!csvContent) {
+      setImportError("Please enter CSV contents or upload a file first.");
+      return;
+    }
+    setImporting(true);
+    setImportError(null);
+    setImportStatus(null);
+    try {
+      const res = await apiFetch<any>(`/api/org/contests/${contestId}/students/import`, {
+        method: "POST",
+        body: JSON.stringify({ csv: csvContent })
+      });
+      setImportStatus(res);
+      setCsvContent("");
+      void loadStudents();
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : "CSV Import failed.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  // File Upload Helper
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setCsvContent(event.target.result as string);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Bulk Email Dispatch Trigger
+  async function handleSendEmails() {
+    setSendingEmail(true);
+    try {
+      const res = await apiFetch<any>(`/api/org/contests/${contestId}/emails/send`, {
+        method: "POST",
+        body: JSON.stringify({ subject, body_template: bodyTemplate })
+      });
+      setCurrentJob(res);
+      setEmailPreviewMode("compose");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to dispatch emails.");
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
+  // Retry Failed Emails Trigger
+  async function handleRetryEmails() {
+    if (!currentJob) return;
+    try {
+      await apiFetch<any>(`/api/org/contests/${contestId}/emails/jobs/${currentJob.id}/retry`, {
+        method: "POST"
+      });
+      setCurrentJob((prev: any) => ({ ...prev, status: "RUNNING" }));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to trigger retry.");
+    }
+  }
+
+  // Replace placeholders in real-time preview
+  function getPreviewHTML() {
+    let html = bodyTemplate;
+    html = html.replace(/{{name}}/g, "Jane Doe");
+    html = html.replace(/{{username}}/g, "janedoe@amsaccess.com");
+    html = html.replace(/{{password}}/g, "xYz97531!#$");
+    html = html.replace(/{{contestcode}}/g, sessionCode || "RESOLVING...");
+    return html;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Sub-Tabs Selector */}
+      <div className="flex gap-4 border-b border-white/10 pb-2">
+        <button
+          onClick={() => setActiveSubTab("provision")}
+          className={`pb-2 text-sm font-semibold transition ${
+            activeSubTab === "provision"
+              ? "text-violet-400 border-b-2 border-violet-500"
+              : "text-zinc-500 hover:text-zinc-300"
+          }`}
+        >
+          Student Provisioning
+        </button>
+        <button
+          onClick={() => setActiveSubTab("emails")}
+          className={`pb-2 text-sm font-semibold transition ${
+            activeSubTab === "emails"
+              ? "text-violet-400 border-b-2 border-violet-500"
+              : "text-zinc-500 hover:text-zinc-300"
+          }`}
+        >
+          Email Invites Dispatcher
+        </button>
+      </div>
+
+      {activeSubTab === "provision" && (
+        <div className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Import Area */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+              <h3 className="text-sm font-medium text-white flex items-center gap-2">
+                <Upload className="h-4 w-4 text-violet-400" />
+                Upload CSV Student Roster
+              </h3>
+              <p className="text-xs text-zinc-400">
+                Provide a CSV containing columns <code className="text-violet-300">name</code> and{" "}
+                <code className="text-violet-300">email</code>. We will generate unique{" "}
+                <code className="text-violet-300">@amsaccess.com</code> login credentials for each student.
+              </p>
+
+              <div className="flex items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/[0.08] transition">
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+                  Choose File
+                  <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                </label>
+                <span className="text-xs text-zinc-500">or paste plain CSV content below:</span>
+              </div>
+
+              <textarea
+                rows={6}
+                value={csvContent}
+                onChange={(e) => setCsvContent(e.target.value)}
+                placeholder="name,email&#10;Jane Doe,jane@domain.com&#10;John Smith,john@domain.com"
+                className="w-full glass-input resize-none font-mono text-xs text-white"
+              />
+
+              <button
+                onClick={() => void handleImport()}
+                disabled={importing}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50"
+                style={{ background: "rgb(139,92,246)" }}
+              >
+                {importing ? "Provisioning..." : "Process & Import Roster"}
+              </button>
+
+              {importError && (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              {importStatus && (
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-300 space-y-1">
+                  <div className="font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    Provisioning Success!
+                  </div>
+                  <div>Processed Rows: {importStatus.total_rows}</div>
+                  <div>Successfully Created: {importStatus.imported}</div>
+                  {importStatus.errors && importStatus.errors.length > 0 && (
+                    <div className="mt-2 space-y-1 border-t border-emerald-500/10 pt-2 text-[10px] text-zinc-400 max-h-24 overflow-y-auto">
+                      {importStatus.errors.map((e: string, idx: number) => (
+                        <div key={idx}>• {e}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Permanent Code Box */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+              <h3 className="text-sm font-medium text-white flex items-center gap-2">
+                <HelpCircle className="h-4 w-4 text-violet-400" />
+                Permanent Contest Access Code
+              </h3>
+              <p className="text-xs text-zinc-400 font-normal leading-relaxed">
+                This contest features a permanent access code that students use to unlock the assessment in the Proctor Secure app. You do not need to generate code each time.
+              </p>
+              <div className="flex items-center justify-between rounded-lg bg-black/40 border border-white/10 p-4">
+                <div>
+                  <span className="text-[10px] uppercase text-zinc-500 font-semibold block">Fixed Access Code</span>
+                  <span className="font-mono text-xl font-bold text-violet-400 tracking-wider">
+                    {loadingCode ? "RESOLVING..." : sessionCode || "NO CODE ASSIGNED"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => void fetchSessionCode()}
+                  disabled={loadingCode}
+                  className="rounded-lg border border-white/20 bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.08]"
+                >
+                  Sync Code
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Searchable Paginated List */}
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <h3 className="text-sm font-medium text-white">Provisioned Student Credentials</h3>
+              <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9 glass-input text-xs text-white"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-zinc-300 font-normal">
+                <thead className="border-b border-white/10 text-zinc-500 uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="py-2.5 px-3">Name</th>
+                    <th className="py-2.5 px-3">Registered Email</th>
+                    <th className="py-2.5 px-3">Generated User</th>
+                    <th className="py-2.5 px-3">Generated Password</th>
+                    <th className="py-2.5 px-3">Invite Status</th>
+                    <th className="py-2.5 px-3">Provision Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {students.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-4 text-center text-zinc-500">
+                        No students provisioned yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    students.map((st) => (
+                      <tr key={st.id} className="hover:bg-white/[0.02] transition">
+                        <td className="py-3 px-3 font-semibold text-white">{st.name}</td>
+                        <td className="py-3 px-3 text-zinc-400">{st.email}</td>
+                        <td className="py-3 px-3 font-mono text-violet-300">{st.generated_username}</td>
+                        <td className="py-3 px-3 font-mono text-zinc-400">{st.generated_password}</td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                              st.delivery_status === "sent"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : st.delivery_status === "failed"
+                                ? "bg-red-500/10 text-red-400 border-red-500/20"
+                                : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                            }`}
+                          >
+                            {st.delivery_status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-zinc-500">{new Date(st.created_at).toLocaleDateString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalCount > limit && (
+              <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs text-zinc-400">
+                <span>
+                  Showing {(page - 1) * limit + 1} - {Math.min(page * limit, totalCount)} of {totalCount} students
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-zinc-300 disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => (p * limit < totalCount ? p + 1 : p))}
+                    disabled={page * limit >= totalCount}
+                    className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-zinc-300 disabled:opacity-40"
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "emails" && (
+        <div className="space-y-6">
+          {/* Dispatch Job Live progress widget */}
+          {currentJob && (
+            <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.03] p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-white">Live Email Dispatch Job Status</h4>
+                  <p className="text-xs text-zinc-500 font-normal">Job ID: {currentJob.id}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold border ${
+                      currentJob.status === "RUNNING"
+                        ? "bg-violet-500/20 text-violet-300 border-violet-500/30 animate-pulse"
+                        : currentJob.status === "COMPLETED"
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                        : currentJob.status === "PARTIAL"
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                        : "bg-red-500/20 text-red-300 border-red-500/30"
+                    }`}
+                  >
+                    {currentJob.status}
+                  </span>
+                  {currentJob.status === "PARTIAL" && (
+                    <button
+                      onClick={() => void handleRetryEmails()}
+                      className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Retry Failures
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress Counters */}
+              <div className="grid grid-cols-4 gap-4 text-center">
+                <div className="bg-black/35 rounded-lg border border-white/5 p-3">
+                  <div className="text-zinc-500 text-[10px] uppercase font-bold">Total Recipients</div>
+                  <div className="text-lg font-bold text-white mt-1">{currentJob.total_count}</div>
+                </div>
+                <div className="bg-black/35 rounded-lg border border-white/5 p-3">
+                  <div className="text-zinc-500 text-[10px] uppercase font-bold">Progress</div>
+                  <div className="text-lg font-bold text-violet-400 mt-1 font-mono">
+                    {Math.round(((currentJob.sent_count + currentJob.failed_count) / currentJob.total_count) * 100)}%
+                  </div>
+                </div>
+                <div className="bg-black/35 rounded-lg border border-white/5 p-3">
+                  <div className="text-zinc-500 text-[10px] uppercase font-bold">Successfully Sent</div>
+                  <div className="text-lg font-bold text-emerald-400 mt-1">{currentJob.sent_count}</div>
+                </div>
+                <div className="bg-black/35 rounded-lg border border-white/5 p-3">
+                  <div className="text-zinc-500 text-[10px] uppercase font-bold">Failed Delivery</div>
+                  <div className="text-lg font-bold text-red-400 mt-1">{currentJob.failed_count}</div>
+                </div>
+              </div>
+
+              {/* Recipient Details */}
+              {currentJob.recipients && currentJob.recipients.length > 0 && (
+                <div className="bg-black/25 rounded-lg border border-white/10 p-3 max-h-48 overflow-y-auto text-xs">
+                  <div className="font-bold text-zinc-400 mb-2 border-b border-white/5 pb-1 uppercase tracking-wider text-[10px]">Delivery Logs</div>
+                  <div className="space-y-1.5">
+                    {currentJob.recipients.map((rec: any) => (
+                      <div key={rec.id} className="flex justify-between items-center text-[11px]">
+                        <span className="font-mono text-zinc-300">
+                          {rec.name} ({rec.email})
+                        </span>
+                        <span
+                          className={`font-semibold ${
+                            rec.status === "SENT"
+                              ? "text-emerald-400"
+                              : rec.status === "FAILED"
+                              ? "text-red-400"
+                              : "text-zinc-500"
+                          }`}
+                        >
+                          {rec.status} {rec.failure_reason ? `(${rec.failure_reason})` : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Email Template Composer & Gmail Preview */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Editor Area */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-medium text-white flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-violet-400" />
+                  Compose Invitation Template
+                </h3>
+              </div>
+
+              {/* Template dropdown options */}
+              <div>
+                <label className="mb-1 block text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Quick Template Preset</label>
+                <div className="flex gap-2">
+                  {templates.map((t, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setSubject(t.subject);
+                        setBodyTemplate(t.body);
+                      }}
+                      className="rounded border border-white/15 bg-white/[0.03] px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/[0.08]"
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Subject</label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full glass-input text-xs text-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">HTML Body Template</label>
+                <textarea
+                  rows={14}
+                  value={bodyTemplate}
+                  onChange={(e) => setBodyTemplate(e.target.value)}
+                  className="w-full glass-input font-mono text-xs text-white resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setEmailPreviewMode("preview")}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/[0.08] transition"
+                >
+                  <Eye className="h-4 w-4 text-violet-400" />
+                  See Real-Time Preview
+                </button>
+                <button
+                  onClick={() => void handleSendEmails()}
+                  disabled={sendingEmail}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-medium text-white transition disabled:opacity-50"
+                  style={{ background: "rgb(139,92,246)" }}
+                >
+                  <Send className="h-4 w-4" />
+                  {sendingEmail ? "Dispatching..." : "Send Bulk Invites"}
+                </button>
+              </div>
+            </div>
+
+            {/* Live Gmail Preview Panel */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4 flex flex-col">
+              <h3 className="text-sm font-medium text-white flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-violet-400" />
+                Gmail-style Real-Time HTML Preview
+              </h3>
+              <p className="text-xs text-zinc-400 leading-normal font-normal">
+                This shows exactly what students will see in their inboxes. All template variables are compiled in real-time.
+              </p>
+
+              <div className="flex-1 rounded-xl bg-[#0c0c0e] border border-white/5 overflow-hidden flex flex-col min-h-[400px]">
+                <div className="bg-[#121214] border-b border-white/5 p-3 space-y-1">
+                  <div className="text-[11px] text-zinc-500 font-normal">
+                    <span className="font-semibold text-zinc-400">Subject:</span> {subject}
+                  </div>
+                  <div className="text-[11px] text-zinc-500 font-normal">
+                    <span className="font-semibold text-zinc-400">From:</span> ams-access-system@amsaccess.com
+                  </div>
+                </div>
+                <div className="flex-1 p-4 bg-white overflow-auto">
+                  <iframe
+                    title="Live Email Render"
+                    srcDoc={getPreviewHTML()}
+                    className="w-full h-full border-0 bg-white"
+                    sandbox="allow-same-origin"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
