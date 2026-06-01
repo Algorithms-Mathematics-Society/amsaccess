@@ -972,12 +972,12 @@ int main() {
         </div>
 
         {/* WORKSPACE AREA */}
-        <div className="flex flex-1 overflow-hidden min-h-[480px]">
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-[480px]">
           
           {/* SIDEBAR NAVIGATION */}
-          <div className="w-56 shrink-0 border-r border-white/5 bg-black/20 p-4 flex flex-col justify-between">
-            <div className="space-y-1">
-              <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest px-2 mb-3">
+          <div className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-white/5 bg-black/20 p-4 flex flex-row md:flex-col justify-between items-center md:items-stretch gap-4 md:gap-0 overflow-x-auto md:overflow-x-visible">
+            <div className="flex flex-row md:flex-col gap-2 md:gap-1 w-full md:space-y-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
+              <p className="hidden md:block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest px-2 mb-3">
                 Problem Setup
               </p>
                 {[
@@ -1002,7 +1002,7 @@ int main() {
                   <button
                     key={t.id}
                     onClick={() => setActiveTab(t.id as StudioTab)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium border transition ${
+                    className={`whitespace-nowrap flex items-center gap-2 md:gap-3 px-3 py-2 md:py-2.5 rounded-lg text-xs font-medium border transition ${
                       isActive
                         ? "bg-purple-500/10 border-purple-500/30 text-purple-300 font-semibold"
                         : "bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
@@ -1030,7 +1030,7 @@ int main() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-8 h-[60vh]">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:h-[60vh] h-auto">
                   {/* Left: Fields Editor */}
                   <div className="space-y-4 overflow-y-auto pr-2">
                     <div>
@@ -1135,7 +1135,7 @@ int main() {
                       {/* Editable sample tests grid */}
                       <div>
                         <h4 className="font-bold text-white mb-2 uppercase tracking-wider text-[10px]">Sample Tests</h4>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="rounded-xl bg-black/50 border border-white/5 p-3.5 font-mono text-zinc-400">
                             <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">Standard Input</span>
                             <pre className="text-zinc-200 whitespace-pre-wrap">{sampleInputText}</pre>
@@ -1162,7 +1162,7 @@ int main() {
             {/* 3. VALIDATOR TAB */}
             {activeTab === "validator" && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-semibold text-white">Input Validator (testlib.h)</h3>
                     <p className="text-xs text-zinc-400 mt-1">
@@ -1170,7 +1170,7 @@ int main() {
                     </p>
                   </div>
                   
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2 md:gap-3">
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${
                       validatorStatus === "compiled"
                         ? "bg-green-500/10 border-green-500/20 text-green-400"
@@ -1255,7 +1255,7 @@ int main() {
                 </div>
 
                 {/* Checker type selector */}
-                {!isInteractiveQuestion && <div className="flex gap-4">
+                {!isInteractiveQuestion && <div className="flex flex-col md:flex-row gap-4">
                   <button
                     onClick={() => setCheckerType("standard")}
                     className={`flex-1 rounded-xl p-4 text-left border transition ${
@@ -1286,7 +1286,7 @@ int main() {
 
                 {/* STANDARD CHECKERS */}
                 {!isInteractiveQuestion && checkerType === "standard" ? (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-medium text-zinc-300">Select Standard Checker</label>
                       <div className="space-y-2">
@@ -1336,9 +1336,9 @@ int main() {
                 ) : (
                   // CUSTOM CHECKERS EDITOR
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <label className="text-xs font-medium text-zinc-300">C++ Checker Code Editor</label>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2 md:gap-3">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border ${
                           checkerCompilationStatus === "compiled"
                             ? "bg-green-500/10 border-green-500/20 text-green-400"
@@ -1410,7 +1410,7 @@ int main() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 min-h-[50vh]">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[50vh]">
                   {/* Left Sidebar: Generators List */}
                   <div className="col-span-1 rounded-xl border border-white/10 bg-black/20 p-4 space-y-4 flex flex-col justify-between">
                     <div className="space-y-3">
@@ -1473,7 +1473,7 @@ int main() {
                   </div>
 
                   {/* Right Panel: Code Editor */}
-                  <div className="col-span-2 flex flex-col rounded-xl border border-white/10 overflow-hidden bg-black/40">
+                  <div className="col-span-1 lg:col-span-2 flex flex-col rounded-xl border border-white/10 overflow-hidden bg-black/40">
                     {activeGenerator ? (
                       <>
                         <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/20 text-xs text-zinc-400">
@@ -1649,7 +1649,7 @@ int main() {
                         </button>
                       </div>
                     ) : (
-                      <div className="overflow-hidden rounded-2xl border border-white/5 bg-black/25">
+                      <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/25">
                         <table className="w-full text-xs">
                           <thead className="bg-black/40 border-b border-white/5 text-zinc-500">
                             <tr className="text-[10px] uppercase font-semibold text-left">

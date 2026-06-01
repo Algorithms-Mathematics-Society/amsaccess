@@ -995,62 +995,26 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       </div>
 
       {/* Problem Studio */}
-      <>
-        <>
-          {/* Desktop full specs view */}
-          <div className="hidden md:block">
-            <CPProblemStudio
-              key={existing?.id ?? "new"}
-              ref={studioRef}
-              contestId={contestId}
-              questionId={existing?.id}
-              title={title}
-              setTitle={setTitle}
-              points={points}
-              setPoints={setPoints}
-              description={description}
-              setDescription={setDescription}
-              questionType={questionType}
-              timeLimit={timeLimit}
-              setTimeLimit={setTimeLimit}
-              memoryLimit={memoryLimit}
-              setMemoryLimit={setMemoryLimit}
-              initialValidatorCode={existing?.validator_code ?? undefined}
-              initialCheckerCode={existing?.checker_code ?? undefined}
-              initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
-            />
-          </div>
-
-          {/* Mobile warning fallback */}
-          <div className="block md:hidden my-6 rounded-2xl border border-purple-500/20 bg-purple-950/20 p-6 shadow-2xl relative overflow-hidden backdrop-blur-sm">
-            <div className="absolute inset-0 bg-gradient-to-b from-purple-500/[0.03] to-transparent pointer-events-none" />
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-lg shadow-purple-500/5">
-              <Monitor className="h-6 w-6" />
-            </div>
-            <h3 className="text-base font-semibold text-white tracking-tight text-center">Mobile Read-only Summary</h3>
-            <p className="mt-2 text-xs text-zinc-400 leading-relaxed text-center">
-              Edit the full problem setup on desktop. Mobile keeps only quick form controls.
-            </p>
-            <div className="mt-4 grid grid-cols-1 gap-2">
-              <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-left">
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Question title</p>
-                <p className="mt-1 text-sm font-semibold text-white">{title || "Untitled question"}</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-left">
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Limits</p>
-                <p className="mt-1 text-sm font-semibold text-white">{timeLimit} ms / {memoryLimit} MB</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-left">
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Type</p>
-                <p className="mt-1 text-sm font-semibold text-white">{questionType === "interactive" ? "Interactive" : "Code submission"}</p>
-              </div>
-            </div>
-            <p className="mt-4 text-[10px] font-bold text-purple-400 uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 inline-block px-3 py-1 rounded-full">
-              Desktop required for editing
-            </p>
-          </div>
-        </>
-      </>
+      <CPProblemStudio
+        key={existing?.id ?? "new"}
+        ref={studioRef}
+        contestId={contestId}
+        questionId={existing?.id}
+        title={title}
+        setTitle={setTitle}
+        points={points}
+        setPoints={setPoints}
+        description={description}
+        setDescription={setDescription}
+        questionType={questionType}
+        timeLimit={timeLimit}
+        setTimeLimit={setTimeLimit}
+        memoryLimit={memoryLimit}
+        setMemoryLimit={setMemoryLimit}
+        initialValidatorCode={existing?.validator_code ?? undefined}
+        initialCheckerCode={existing?.checker_code ?? undefined}
+        initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
+      />
 
       <div className="mt-4 flex gap-3">
         <button
