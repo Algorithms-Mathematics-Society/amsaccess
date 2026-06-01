@@ -547,21 +547,19 @@ int main() {
   const [configSyncMessage, setConfigSyncMessage] = useState<string | null>(null);
   const hasAnyTests = testcases.length > 0;
   const hasIncompleteTests = testcases.some((t) => !t.inputPath || !t.outputPath);
-  const canRunValidation = !!questionId && hasAnyTests && !hasIncompleteTests && testsSavedToCloud && !isSavingTests && !isRunningTests;
+  const canRunValidation = !!questionId && (generatorScript.trim() !== "" || (testcases.length > 0 && !hasIncompleteTests)) && !isSavingTests && !isRunningTests;
   const runValidationDisabledReason =
     !questionId
       ? "Save question first."
-      : !hasAnyTests
-        ? "Add at least one test."
-        : hasIncompleteTests
-          ? "Upload both input/output for every test."
-          : !testsSavedToCloud
-            ? "Save tests to cloud."
-            : isSavingTests
-              ? "Wait for test save to complete."
-                : isRunningTests
-                ? "Validation already running."
-                : null;
+      : (generatorScript.trim() === "" && testcases.length === 0)
+        ? "Add manual tests or specify a generator script."
+        : (generatorScript.trim() === "" && hasIncompleteTests)
+          ? "Upload both input/output for every manual test."
+          : isSavingTests
+            ? "Saving tests..."
+            : isRunningTests
+              ? "Validation already running."
+              : null;
   const workflowSteps: Array<{ id: string; label: string; done: boolean; blocked?: boolean }> = [
     { id: "upload", label: "Upload tests", done: hasAnyTests && !hasIncompleteTests, blocked: !hasAnyTests || hasIncompleteTests },
     { id: "save", label: "Save tests", done: testsSavedToCloud, blocked: !hasAnyTests || hasIncompleteTests || !testsSavedToCloud },
@@ -657,62 +655,6 @@ int main() {
     }
   };
 
-  const [isGeneratingTests, setIsGeneratingTests] = useState(false);
-
-  const handleGenerateTestsFromScript = async () => {
-    if (!questionId) {
-      setPrejudgeMessage("Save question first so generator pipeline can be executed.");
-      return;
-    }
-    setIsGeneratingTests(true);
-    setPrejudgeMessage("Compiling C++ generators and solutions to execute script DSL...");
-    try {
-      const resp = await apiFetch<{
-        version: number;
-        tests: Array<{
-          test_number: number;
-          input_preview: string;
-          output_preview: string;
-          input_size: number;
-          output_size: number;
-          input_path: string;
-          output_path: string;
-        }>;
-      }>(
-        `/api/org/contests/${contestId}/questions/${questionId}/tests/generate`,
-        {
-          method: "POST",
-          body: JSON.stringify({ script: generatorScript }),
-        }
-      );
-
-      // Use the response directly — no second fetch needed, backend now returns paths + previews
-      const mapped: Testcase[] = (resp.tests ?? []).map((t) => ({
-        id: `generated-${t.test_number}`,
-        type: "generated" as const,
-        inputSize: `${Math.max(1, Math.round(t.input_size / 1024))} KB`,
-        isSample: t.test_number === 1,
-        inputPreview: t.input_preview ?? "",
-        outputPreview: t.output_preview ?? "",
-        inputPath: t.input_path,
-        outputPath: t.output_path,
-        status: "valid" as const,
-        uploadState: "uploaded" as const,
-      }));
-
-      setTestcases(mapped);
-      setTestsSavedToCloud(mapped.length > 0);
-      setTestsetVersion(resp.version);
-      setPrejudgeMessage(
-        `Successfully generated ${resp.tests.length} test${resp.tests.length !== 1 ? "s" : ""} (Version ${resp.version}). Saved to cloud — ready for validation.`
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Failed to run C++ generation pipeline.";
-      setPrejudgeMessage(msg);
-    } finally {
-      setIsGeneratingTests(false);
-    }
-  };
 
   const [isUploadingZip, setIsUploadingZip] = useState(false);
   const [zipUploadProgress, setZipUploadProgress] = useState(0);
@@ -939,18 +881,6 @@ int main() {
       setPrejudgeMessage("Save the problem first so it has a real ID before running jury validation.");
       return;
     }
-    if (!hasAnyTests) {
-      setPrejudgeMessage("Add at least one testcase before running validation.");
-      return;
-    }
-    if (hasIncompleteTests) {
-      setPrejudgeMessage("Every testcase must have both input and output uploaded before validation.");
-      return;
-    }
-    if (!testsSavedToCloud) {
-      setPrejudgeMessage("Save tests to cloud before running validation.");
-      return;
-    }
 
     setPrejudgeMessage(null);
     setPrejudgeErrorCode(null);
@@ -960,23 +890,93 @@ int main() {
     setStopPollingRequested(false);
 
     try {
-      // Keep judge configuration synced before triggering a real prejudge run.
+      // 1. Keep judge configuration synced before triggering validation
       setConfigSyncStatus("syncing");
-      setConfigSyncMessage("Syncing checker/validator/model solution...");
+      setConfigSyncMessage("Syncing checker, validator, and model solver...");
       await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
         method: "PUT",
         body: JSON.stringify({
           checker_type: isInteractiveQuestion || checkerType === "custom" ? "custom" : "token",
           checker_code: checkerType === "custom" ? customCheckerCode : null,
           validator_code: validatorCode,
-          generator_code: generatorScript,
+          generator_script: generatorScript,
           statement_md: description,
           model_solution: testingCode,
           model_lang: testingLang === "python" ? "python3" : "cpp17"
         })
       });
+
+      // 2. Automatically generate or save tests to cloud
+      if (generatorScript.trim() !== "") {
+        setConfigSyncMessage("Compiling dynamic custom generators & materializing tests...");
+        const resp = await apiFetch<{
+          version: number;
+          tests: Array<{
+            test_number: number;
+            input_preview: string;
+            output_preview: string;
+            input_size: number;
+            output_size: number;
+            input_path: string;
+            output_path: string;
+          }>;
+        }>(
+          `/api/org/contests/${contestId}/questions/${questionId}/tests/generate`,
+          {
+            method: "POST",
+            body: JSON.stringify({ script: generatorScript }),
+          }
+        );
+        const mapped = (resp.tests ?? []).map((t) => ({
+          id: `generated-${t.test_number}`,
+          type: "generated" as const,
+          inputSize: `${Math.max(1, Math.round(t.input_size / 1024))} KB`,
+          isSample: t.test_number === 1,
+          inputPreview: t.input_preview ?? "",
+          outputPreview: t.output_preview ?? "",
+          inputPath: t.input_path,
+          outputPath: t.output_path,
+          status: "valid" as const,
+          uploadState: "uploaded" as const,
+        }));
+        setTestcases(mapped);
+        setTestsetVersion(resp.version);
+        setTestsSavedToCloud(mapped.length > 0);
+      } else if (testcases.length > 0) {
+        if (hasIncompleteTests) {
+          throw new Error("Every manual testcase must have both input and output files uploaded.");
+        }
+        setConfigSyncMessage("Persisting manual tests to cloud...");
+        const tests = testcases.map((t, idx) => ({
+          test_number: idx + 1,
+          is_sample: t.isSample,
+          input_path: t.inputPath as string,
+          output_path: t.outputPath as string,
+          subtask_number: t.subtaskNumber ?? null,
+          score: t.score ?? 0
+        }));
+        const saved = await apiFetch<SaveTestsResponse>(
+          `/api/org/contests/${contestId}/questions/${questionId}/tests/upsert`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              version: testsetVersion > 0 ? testsetVersion + 1 : 0,
+              checker_type: isInteractiveQuestion || checkerType === "custom" ? "custom" : "token",
+              time_limit_ms: timeLimit,
+              memory_limit_mb: memoryLimit,
+              tests,
+              subtasks: []
+            })
+          }
+        );
+        setTestsetVersion(saved.version ?? testsetVersion + 1);
+        setTestsSavedToCloud(true);
+      } else {
+        throw new Error("Please add manual tests or specify a generator script before validation.");
+      }
+
       setConfigSyncStatus("synced");
-      setConfigSyncMessage("Config synced. Validation queued.");
+      setConfigSyncMessage("Tests synced. Running jury validation suite...");
       const created = await apiFetch<{ job_id: string }>(
         `/api/org/contests/${contestId}/questions/${questionId}/prejudge`,
         { method: "POST" }
@@ -1543,29 +1543,9 @@ int main() {
                           <p className="text-[10px] text-green-400 font-medium">{generatorSaveMessage}</p>
                         )}
 
-                        <div className="border-t border-white/10 pt-4 space-y-3">
-                          <button
-                            type="button"
-                            onClick={handleGenerateTestsFromScript}
-                            disabled={isGeneratingTests}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2.5 text-xs font-semibold text-white transition shadow-lg shadow-purple-500/10"
-                          >
-                            {isGeneratingTests ? (
-                              <>
-                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                Materializing testcases...
-                              </>
-                            ) : (
-                              <>
-                                <Terminal className="h-3.5 w-3.5" />
-                                Generate & Materialize Tests
-                              </>
-                            )}
-                          </button>
-                          <p className="text-[9px] text-zinc-500 text-center leading-normal">
-                            This compiles your active C++ custom generators and executes the script commands to create input/output test files.
-                          </p>
-                        </div>
+                        <p className="text-[9px] text-zinc-500 leading-normal border-t border-white/10 pt-3">
+                          Script saved with config. Tests auto-generated when you run validation.
+                        </p>
                       </div>
                     </div>
                   </div>
