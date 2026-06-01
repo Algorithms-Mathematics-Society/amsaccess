@@ -5,6 +5,7 @@ import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 import { callGoApi, requireOrgUser } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 export async function POST(
   request: NextRequest,

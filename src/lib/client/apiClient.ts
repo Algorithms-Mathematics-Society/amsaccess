@@ -20,10 +20,11 @@ function timeoutSignal(timeoutMs: number, upstream?: AbortSignal) {
   };
 }
 
-export async function apiFetch<T>(input: RequestInfo | URL, init: RequestInit = {}) {
-  const headers = new Headers(init.headers);
-  const body = init.body;
-  const timeout = timeoutSignal(DEFAULT_API_TIMEOUT_MS, init.signal ?? undefined);
+export async function apiFetch<T>(input: RequestInfo | URL, init: RequestInit & { timeoutMs?: number } = {}) {
+  const { timeoutMs, ...restInit } = init;
+  const headers = new Headers(restInit.headers);
+  const body = restInit.body;
+  const timeout = timeoutSignal(timeoutMs ?? DEFAULT_API_TIMEOUT_MS, restInit.signal ?? undefined);
 
   if (body && !(body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -32,12 +33,12 @@ export async function apiFetch<T>(input: RequestInfo | URL, init: RequestInit = 
   let response: Response;
   try {
     response = await fetch(input, {
-      ...init,
+      ...restInit,
       headers,
       signal: timeout.signal
     });
   } catch (fetchError) {
-    if (timeout.signal.aborted && !init.signal?.aborted) {
+    if (timeout.signal.aborted && !restInit.signal?.aborted) {
       const error = new Error("Request timed out. Please try again.");
       error.name = "TimeoutError";
       throw error;

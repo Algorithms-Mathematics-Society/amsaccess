@@ -925,6 +925,7 @@ int main() {
           {
             method: "POST",
             body: JSON.stringify({ script: generatorScript }),
+            timeoutMs: 120_000,
           }
         );
         const mapped = (resp.tests ?? []).map((t) => ({
