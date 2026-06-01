@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Building2, CalendarDays, Plus, LogOut, Trophy, Users } from "lucide-react";
+import { Building2, CalendarDays, Plus, LogOut, Trophy, Users, BookOpen } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 
 type Org = { id: string; name: string; slug: string };
@@ -94,6 +94,7 @@ export default function OrgDashboardPage() {
           <p className="px-3 pb-2 pt-1 text-xs font-medium uppercase tracking-widest" style={{ color: "#3F3F46" }}>Menu</p>
           <SideLink href="/org/dashboard" active icon={<CalendarDays className="h-4 w-4" />} label="Dashboard" />
           <SideLink href="/org/contests/new" icon={<Plus className="h-4 w-4" />} label="New Contest" />
+          <SideLink href="/org/docs" icon={<BookOpen className="h-4 w-4" />} label="Problemsetting Guide" />
         </nav>
 
         <div className="px-3 pb-4">
