@@ -1828,6 +1828,29 @@ int main() {
                       </div>
                     </div>
 
+                    {/* Status / error banner */}
+                    {(configSyncMessage || prejudgeMessage) && (
+                      <div className={`rounded-xl border px-4 py-3 text-xs font-mono leading-relaxed whitespace-pre-wrap break-all ${
+                        configSyncStatus === "error"
+                          ? "bg-red-500/10 border-red-500/30 text-red-300"
+                          : configSyncStatus === "synced"
+                          ? "bg-green-500/10 border-green-500/30 text-green-300"
+                          : "bg-yellow-500/10 border-yellow-500/30 text-yellow-300"
+                      }`}>
+                        {configSyncStatus === "error" && prejudgeErrorCode && (
+                          <span className="block text-[10px] font-bold uppercase tracking-wider mb-1 opacity-70">
+                            Error code: {prejudgeErrorCode}
+                          </span>
+                        )}
+                        {configSyncMessage && configSyncMessage !== prejudgeMessage && (
+                          <span className="block opacity-70">{configSyncMessage}</span>
+                        )}
+                        {prejudgeMessage && (
+                          <span className="block">{prejudgeMessage}</span>
+                        )}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
                       {/* Left: Model Solver Code (2 cols) */}
                       <div className="xl:col-span-2 space-y-4">
