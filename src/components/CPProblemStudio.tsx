@@ -908,8 +908,38 @@ int main() {
 
       // 2. Automatically generate or save tests to cloud
       if (generatorScript.trim() !== "") {
-        setConfigSyncMessage("Compiling dynamic custom generators & materializing tests...");
-        const resp = await apiFetch<{
+        // Ensure all generators in local state are persisted before generation
+        if (generators.length > 0) {
+          setConfigSyncMessage("Saving generators to cloud...");
+          await Promise.all(
+            generators.map((gen) =>
+              apiFetch(`/api/org/contests/${contestId}/questions/${questionId}/generators`, {
+                method: "POST",
+                body: JSON.stringify({ name: gen.name, code: gen.code }),
+              })
+            )
+          );
+        }
+
+        const genProgressSteps = [
+          "Preparing build workspace...",
+          "Fetching testlib.h header...",
+          "Compiling validator...",
+          "Compiling model solution...",
+          "Compiling custom generators...",
+          "Running generators & validating inputs...",
+          "Running model solution on inputs...",
+          "Uploading test files to cloud...",
+          "Saving testset...",
+        ];
+        let genProgressIdx = 0;
+        setConfigSyncMessage(genProgressSteps[0]);
+        const genProgressTimer = setInterval(() => {
+          genProgressIdx = Math.min(genProgressIdx + 1, genProgressSteps.length - 1);
+          setConfigSyncMessage(genProgressSteps[genProgressIdx]);
+        }, 8000);
+
+        type GenerateResp = {
           version: number;
           tests: Array<{
             test_number: number;
@@ -920,14 +950,16 @@ int main() {
             input_path: string;
             output_path: string;
           }>;
-        }>(
+        };
+        const resp = await apiFetch<GenerateResp>(
           `/api/org/contests/${contestId}/questions/${questionId}/tests/generate`,
           {
             method: "POST",
             body: JSON.stringify({ script: generatorScript }),
             timeoutMs: 120_000,
           }
-        );
+        ).finally(() => clearInterval(genProgressTimer));
+
         const mapped = (resp.tests ?? []).map((t) => ({
           id: `generated-${t.test_number}`,
           type: "generated" as const,
