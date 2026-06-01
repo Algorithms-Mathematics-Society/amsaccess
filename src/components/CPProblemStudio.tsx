@@ -48,14 +48,19 @@ interface CPProblemStudioProps {
   setTimeLimit: (v: number) => void;
   memoryLimit: number;
   setMemoryLimit: (v: number) => void;
-  // Persisted cp-config — used to seed the editor on open
   initialValidatorCode?: string;
   initialCheckerCode?: string;
   initialCheckerType?: "token" | "custom";
+  initialGeneratorScript?: string;
 }
 
 export interface CPProblemStudioHandle {
-  getCpConfig: () => { checker_type: "token" | "custom"; checker_code: string | null; validator_code: string };
+  getCpConfig: () => {
+    checker_type: "token" | "custom";
+    checker_code: string | null;
+    validator_code: string;
+    generator_script: string | null;
+  };
 }
 
 type StudioTab =
@@ -182,6 +187,7 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
   initialValidatorCode,
   initialCheckerCode,
   initialCheckerType,
+  initialGeneratorScript,
 }, ref) {
   const [activeTab, setActiveTab] = useState<StudioTab>("statement");
 
@@ -199,6 +205,11 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
   // --- Validator State — seeded from DB value when editing an existing question ---
   const [validatorCode, setValidatorCode] = useState<string>(initialValidatorCode ?? DEFAULT_VALIDATOR);
   const [validatorStatus, setValidatorStatus] = useState<"compiled" | "dirty" | "error">("compiled");
+
+  const [generatorScript, setGeneratorScript] = useState<string>(
+    initialGeneratorScript && initialGeneratorScript.trim() !== "" ? initialGeneratorScript :
+    `# Generator scripts config\ngen_random 100 50 -1000 1000 > $\ngen_extreme 1000 500 > $\ngen_tle_trap 2000 1000 > $`
+  );
 
   const formatLatexLite = (formula: string): string => {
     return formula
@@ -382,9 +393,10 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
         checker_type: isCustom ? "custom" : "token",
         checker_code: isCustom ? customCheckerCode : null,
         validator_code: validatorCode,
+        generator_script: generatorScript,
       };
     },
-  }), [checkerType, isInteractiveQuestion, customCheckerCode, validatorCode]);
+  }), [checkerType, isInteractiveQuestion, customCheckerCode, validatorCode, generatorScript]);
 
 
   const [testingCode, setTestingCode] = useState<string>(`#include <iostream>
@@ -524,9 +536,6 @@ int main() {
     setActiveGenerator(newGen);
     setNewGenName("");
   };
-  const [generatorScript, setGeneratorScript] = useState<string>(
-    `# Generator scripts config\ngen_random 10 -100 100 42 > $\ngen_random 1000 -1000000 1000000 2026 > $\ngen_extreme_all_negative 50000 -1000000000 > $\ngen_extreme_all_positive 100000 1000000000 > $`
-  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAdvancedGenerators, setShowAdvancedGenerators] = useState(false);
   const [generatorSaveStatus, setGeneratorSaveStatus] = useState<"idle" | "saved" | "error">("idle");
@@ -623,7 +632,7 @@ int main() {
       await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
         method: "PUT",
         body: JSON.stringify({
-          generator_code: generatorScript
+          generator_script: generatorScript
         })
       });
       setGeneratorSaveStatus("saved");

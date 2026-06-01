@@ -30,6 +30,7 @@ type Question = {
   validator_code?: string | null;
   model_solution?: string | null;
   model_lang?: string | null;
+  generator_script?: string | null;
 };
 
 type Invite = {
@@ -874,6 +875,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
           checker_type: "token" as const,
           checker_code: null,
           validator_code: "",
+          generator_script: "",
         };
         console.log("CP CONFIG SNAPSHOT BEFORE SAVE:", snap);
         try {
@@ -883,6 +885,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
               checker_type: snap.checker_type,
               checker_code: snap.checker_code,
               validator_code: snap.validator_code,
+              generator_script: snap.generator_script,
             }),
           });
         } catch (cpErr) {
@@ -1014,6 +1017,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         initialValidatorCode={existing?.validator_code ?? undefined}
         initialCheckerCode={existing?.checker_code ?? undefined}
         initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
+        initialGeneratorScript={existing?.generator_script ?? undefined}
       />
 
       <div className="mt-4 flex gap-3">
