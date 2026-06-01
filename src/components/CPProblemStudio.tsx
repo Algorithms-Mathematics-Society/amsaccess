@@ -30,7 +30,8 @@ import {
   UploadCloud,
   ArrowRight,
   ShieldAlert,
-  PlaySquare
+  PlaySquare,
+  Cpu
 } from "lucide-react";
 
 interface CPProblemStudioProps {
@@ -53,6 +54,7 @@ type StudioTab =
   | "statement"
   | "validator"
   | "checker"
+  | "generators"
   | "tests"
   | "testing";
 
@@ -399,6 +401,97 @@ int main() {
 
   // --- Tests States ---
   const [testcases, setTestcases] = useState<Testcase[]>([]);
+
+  // --- Custom Generators States & Handlers ---
+  interface GeneratorFile {
+    name: string;
+    code: string;
+    updated_at?: string;
+  }
+  const [generators, setGenerators] = useState<GeneratorFile[]>([]);
+  const [activeGenerator, setActiveGenerator] = useState<GeneratorFile | null>(null);
+  const [newGenName, setNewGenName] = useState("");
+  const [isSavingGen, setIsSavingGen] = useState(false);
+  const [isLoadingGen, setIsLoadingGen] = useState(false);
+
+  useEffect(() => {
+    if (!questionId) return;
+    let active = true;
+    const fetchGenerators = async () => {
+      setIsLoadingGen(true);
+      try {
+        const list = await apiFetch<GeneratorFile[]>(`/api/org/contests/${contestId}/questions/${questionId}/generators`);
+        if (!active) return;
+        setGenerators(list ?? []);
+        if ((list ?? []).length > 0 && !activeGenerator) {
+          setActiveGenerator(list[0]);
+        }
+      } catch (err) {
+        console.error("fetchGenerators", err);
+      } finally {
+        if (active) setIsLoadingGen(false);
+      }
+    };
+    void fetchGenerators();
+    return () => {
+      active = false;
+    };
+  }, [questionId, contestId]);
+
+  const handleSaveGeneratorFile = async () => {
+    if (!questionId || !activeGenerator) return;
+    setIsSavingGen(true);
+    try {
+      await apiFetch(`/api/org/contests/${contestId}/questions/${questionId}/generators`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: activeGenerator.name,
+          code: activeGenerator.code
+        })
+      });
+      const list = await apiFetch<GeneratorFile[]>(`/api/org/contests/${contestId}/questions/${questionId}/generators`);
+      setGenerators(list ?? []);
+      setPrejudgeMessage(`Generator ${activeGenerator.name} saved successfully.`);
+    } catch (err) {
+      setPrejudgeMessage(err instanceof Error ? err.message : "Failed to save generator.");
+    } finally {
+      setIsSavingGen(false);
+    }
+  };
+
+  const handleDeleteGeneratorFile = async (name: string) => {
+    if (!questionId) return;
+    try {
+      await apiFetch(`/api/org/contests/${contestId}/questions/${questionId}/generators/${name}`, {
+        method: "DELETE"
+      });
+      const list = await apiFetch<GeneratorFile[]>(`/api/org/contests/${contestId}/questions/${questionId}/generators`);
+      setGenerators(list ?? []);
+      if (activeGenerator?.name === name) {
+        setActiveGenerator(list && list.length > 0 ? list[0] : null);
+      }
+      setPrejudgeMessage(`Generator ${name} deleted.`);
+    } catch (err) {
+      setPrejudgeMessage(err instanceof Error ? err.message : "Failed to delete generator.");
+    }
+  };
+
+  const handleAddGeneratorFile = () => {
+    const trimmed = newGenName.trim();
+    if (!trimmed) return;
+    const exists = generators.some((g) => g.name === trimmed);
+    if (exists) {
+      setPrejudgeMessage("A generator with this name already exists.");
+      return;
+    }
+    const newGen: GeneratorFile = {
+      name: trimmed,
+      code: `#include "testlib.h"\n#include <iostream>\n\nusing namespace std;\n\nint main(int argc, char* argv[]) {\n    registerGen(argc, argv, 1);\n    // Write your generator logic here\n    return 0;\n}\n`
+    };
+    setGenerators((prev) => [...prev, newGen]);
+    setActiveGenerator(newGen);
+    setNewGenName("");
+  };
   const [generatorScript, setGeneratorScript] = useState<string>(
     `# Generator scripts config\ngen_random 10 -100 100 42 > $\ngen_random 1000 -1000000 1000000 2026 > $\ngen_extreme_all_negative 50000 -1000000000 > $\ngen_extreme_all_positive 100000 1000000000 > $`
   );
@@ -519,6 +612,52 @@ int main() {
       setIsGenerating(false);
     }
   };
+
+  const [isGeneratingTests, setIsGeneratingTests] = useState(false);
+
+  const handleGenerateTestsFromScript = async () => {
+    if (!questionId) {
+      setPrejudgeMessage("Save question first so generator pipeline can be executed.");
+      return;
+    }
+    setIsGeneratingTests(true);
+    setPrejudgeMessage("Compiling C++ generators and solutions to execute script DSL...");
+    try {
+      const resp = await apiFetch<{ version: number; tests: Array<{ test_number: number; input_preview: string; output_preview: string; input_size: number; output_size: number }> }>(
+        `/api/org/contests/${contestId}/questions/${questionId}/tests/generate`,
+        {
+          method: "POST",
+          body: JSON.stringify({ script: generatorScript })
+        }
+      );
+      
+      const data = await apiFetch<PersistedTestset>(`/api/org/contests/${contestId}/questions/${questionId}/tests`);
+      const mapped: Testcase[] = (data.tests ?? []).map((t) => ({
+        id: `persisted-${t.test_number}`,
+        type: t.output_path.startsWith("__AUTO_FROM_MODEL__") || t.input_path.includes("/generated_test_input/") ? "generated" : "manual",
+        inputSize: `${Math.round(t.score ?? 0)} KB`,
+        isSample: !!t.is_sample,
+        inputPreview: t.input_preview ?? "",
+        outputPreview: t.output_preview ?? "",
+        inputPath: t.input_path,
+        outputPath: t.output_path,
+        subtaskNumber: t.subtask_number ?? undefined,
+        score: t.score ?? 0,
+        status: "valid",
+        uploadState: "uploaded"
+      }));
+      setTestcases(mapped);
+      setTestsSavedToCloud(mapped.length > 0);
+      setTestsetVersion(data.version ?? resp.version);
+      setPrejudgeMessage(`Successfully generated ${resp.tests.length} tests (Version ${resp.version}).`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to run C++ generation pipeline.";
+      setPrejudgeMessage(msg);
+    } finally {
+      setIsGeneratingTests(false);
+    }
+  };
+
 
   const uploadTestAsset = async (tcId: string, file: File, kind: "manual_test_input" | "manual_test_output") => {
     if (!questionId) {
@@ -800,6 +939,7 @@ int main() {
                   { id: "statement", label: "Problem Statement", icon: FileText },
                   { id: "validator", label: "Input Validator", icon: ShieldAlert },
                   { id: "checker", label: isInteractiveQuestion ? "Interactor" : "Output Checker", icon: CheckCircle2 },
+                  { id: "generators", label: "Custom Generators", icon: Cpu },
                   { id: "tests", label: "Tests", icon: Terminal },
                   { id: "testing", label: "Run Validation", icon: PlaySquare }
                 ].map((t) => {
@@ -809,6 +949,7 @@ int main() {
                   statement: !!title.trim() && !!description.trim(),
                   validator: validatorCode.trim().length > 0,
                   checker: customCheckerCode.trim().length > 0,
+                  generators: generators.length > 0,
                   tests: hasAnyTests && !hasIncompleteTests,
                   testing: !!prejudgeJob
                 };
@@ -1214,6 +1355,120 @@ int main() {
               </div>
             )}
 
+            {/* Custom Generators Tab */}
+            {activeTab === "generators" && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Custom Generators (testlib.h)</h3>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Manage reusable C++ generator files that dynamically construct random/extreme inputs based on command line arguments.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-6 min-h-[50vh]">
+                  {/* Left Sidebar: Generators List */}
+                  <div className="col-span-1 rounded-xl border border-white/10 bg-black/20 p-4 space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Generators List</h4>
+                      {isLoadingGen ? (
+                        <p className="text-xs text-zinc-500">Loading...</p>
+                      ) : generators.length === 0 ? (
+                        <p className="text-xs text-zinc-500 italic">No generators added yet.</p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-[40vh] overflow-y-auto pr-1">
+                          {generators.map((g) => (
+                            <div
+                              key={g.name}
+                              onClick={() => setActiveGenerator(g)}
+                              className={`flex items-center justify-between p-2.5 rounded-lg border text-xs font-mono cursor-pointer transition ${
+                                activeGenerator?.name === g.name
+                                  ? "bg-purple-500/10 border-purple-500/35 text-purple-300"
+                                  : "bg-black/30 border-white/5 text-zinc-400 hover:bg-white/5"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <FileCode className="h-3.5 w-3.5 shrink-0" />
+                                <span className="truncate">{g.name}.cpp</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDeleteGeneratorFile(g.name);
+                                }}
+                                className="text-zinc-500 hover:text-red-400 p-0.5 rounded transition"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-white/10 pt-4 space-y-2">
+                      <label className="text-[10px] uppercase font-bold text-zinc-500">New Generator Name</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="e.g. gen_random"
+                          value={newGenName}
+                          onChange={(e) => setNewGenName(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
+                          className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white focus:border-purple-500/50 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddGeneratorFile}
+                          className="rounded-lg bg-purple-600 hover:bg-purple-500 px-3 py-1.5 text-xs font-bold text-white transition"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Panel: Code Editor */}
+                  <div className="col-span-2 flex flex-col rounded-xl border border-white/10 overflow-hidden bg-black/40">
+                    {activeGenerator ? (
+                      <>
+                        <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/20 text-xs text-zinc-400">
+                          <span className="font-mono text-zinc-200">{activeGenerator.name}.cpp</span>
+                          <button
+                            type="button"
+                            disabled={isSavingGen}
+                            onClick={handleSaveGeneratorFile}
+                            className="inline-flex items-center gap-1.5 text-[11px] text-purple-400 font-bold bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 px-3 py-1 rounded transition"
+                          >
+                            {isSavingGen ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
+                            Save Generator
+                          </button>
+                        </div>
+                        <textarea
+                          rows={16}
+                          value={activeGenerator.code}
+                          onChange={(e) => {
+                            const updated = { ...activeGenerator, code: e.target.value };
+                            setActiveGenerator(updated);
+                            setGenerators((prev) => prev.map((g) => (g.name === activeGenerator.name ? updated : g)));
+                          }}
+                          className="flex-1 w-full p-4 font-mono text-xs text-zinc-300 bg-transparent outline-none focus:ring-0 leading-relaxed resize-none select-text"
+                          spellCheck={false}
+                        />
+                      </>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-zinc-500">
+                        <Cpu className="h-10 w-10 text-zinc-600 mb-2 animate-pulse" />
+                        <p className="text-sm font-semibold">No generator selected</p>
+                        <p className="text-xs text-zinc-500 mt-1 max-w-sm">
+                          Select a generator from the list or type a name to create a new C++ test generator.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 5. TESTS & GENERATORS TAB */}
             {activeTab === "tests" && (
               <div className="space-y-6">
@@ -1259,14 +1514,26 @@ int main() {
                               <p className={generatorSaveStatus === "saved" ? "text-green-400" : "text-red-400"}>{generatorSaveMessage}</p>
                             ) : null}
                           </div>
-                          <button
-                            onClick={handleRunGenerator}
-                            disabled={isGenerating}
-                            className="inline-flex items-center gap-1 text-[11px] text-purple-400 font-bold bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 px-2.5 py-1 rounded"
-                          >
-                            {isGenerating ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-                            Save Generator Config
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleRunGenerator}
+                              disabled={isGenerating}
+                              className="inline-flex items-center gap-1 text-[11px] text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1 rounded"
+                            >
+                              {isGenerating ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                              Save Script Config
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleGenerateTestsFromScript}
+                              disabled={isGeneratingTests}
+                              className="inline-flex items-center gap-1 text-[11px] text-purple-400 font-bold bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 px-2.5 py-1 rounded"
+                            >
+                              {isGeneratingTests ? <RefreshCw className="h-3 w-3 animate-spin" /> : <PlaySquare className="h-3 w-3" />}
+                              One-Click Generate Tests
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
