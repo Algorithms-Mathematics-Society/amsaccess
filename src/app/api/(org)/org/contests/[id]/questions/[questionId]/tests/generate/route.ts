@@ -36,7 +36,7 @@ export async function POST(
       auth.uid
     );
 
-    if (res.status !== 200) {
+    if (res.status !== 200 && res.status !== 202) {
       const code =
         typeof res.data === "object" && res.data && "code" in res.data
           ? String((res.data as { code: unknown }).code)

@@ -921,6 +921,25 @@ int main() {
           );
         }
 
+        type GenerateResp = {
+          version: number;
+          tests: Array<{
+            test_number: number;
+            input_preview: string;
+            output_preview: string;
+            input_size: number;
+            output_size: number;
+            input_path: string;
+            output_path: string;
+          }>;
+        };
+        type GenerateJobResp = {
+          status: "pending" | "running" | "done" | "failed";
+          result?: GenerateResp;
+          error_code?: string;
+          error?: string;
+        };
+
         const genProgressSteps = [
           "Preparing build workspace...",
           "Fetching testlib.h header...",
@@ -939,26 +958,28 @@ int main() {
           setConfigSyncMessage(genProgressSteps[genProgressIdx]);
         }, 8000);
 
-        type GenerateResp = {
-          version: number;
-          tests: Array<{
-            test_number: number;
-            input_preview: string;
-            output_preview: string;
-            input_size: number;
-            output_size: number;
-            input_path: string;
-            output_path: string;
-          }>;
-        };
-        const resp = await apiFetch<GenerateResp>(
-          `/api/org/contests/${contestId}/questions/${questionId}/tests/generate`,
-          {
-            method: "POST",
-            body: JSON.stringify({ script: generatorScript }),
-            timeoutMs: 590_000,
+        const resp = await (async (): Promise<GenerateResp> => {
+          const { job_id } = await apiFetch<{ job_id: string }>(
+            `/api/org/contests/${contestId}/questions/${questionId}/tests/generate`,
+            { method: "POST", body: JSON.stringify({ script: generatorScript }) }
+          );
+
+          const maxPolls = 200;
+          for (let polls = 0; polls < maxPolls; polls++) {
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            const poll = await apiFetch<GenerateJobResp>(
+              `/api/org/contests/${contestId}/questions/${questionId}/tests/generate/${job_id}`
+            );
+            if (poll.status === "done") {
+              return poll.result!;
+            } else if (poll.status === "failed") {
+              const err = new Error(poll.error ?? "Test generation failed.") as Error & { code?: string };
+              err.code = poll.error_code;
+              throw err;
+            }
           }
-        ).finally(() => clearInterval(genProgressTimer));
+          throw new Error("Test generation timed out waiting for result.");
+        })().finally(() => clearInterval(genProgressTimer));
 
         const mapped = (resp.tests ?? []).map((t) => ({
           id: `generated-${t.test_number}`,
