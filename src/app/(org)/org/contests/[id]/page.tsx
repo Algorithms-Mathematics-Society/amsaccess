@@ -1151,25 +1151,6 @@ function InvitesTab({ contestId, invites, onRefresh }: {
     <div>
       {/* Add invites */}
       <div className="glass-card mb-6 p-5">
-        <div className="mb-4 rounded-lg border border-purple-500/30 bg-purple-500/10 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-purple-300">Contest Session Code</p>
-              <p className="mt-1 font-mono text-lg text-white">{sessionCode?.code ?? "Not generated yet"}</p>
-              <p className="mt-1 text-xs text-zinc-400">
-                Students enter this in Proctor → Session Code to access this contest.
-              </p>
-            </div>
-            <button
-              onClick={() => void generateSessionCode()}
-              disabled={codeBusy}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-white transition disabled:opacity-50"
-              style={{ background: "rgb(139,92,246)" }}
-            >
-              {codeBusy ? "Generating…" : sessionCode ? "Regenerate Code" : "Generate Code"}
-            </button>
-          </div>
-        </div>
         <div className="mb-3 flex items-center gap-2">
           <UserPlus className="h-4 w-4" style={{ color: "#a855f7" }} />
           <p className="text-sm font-medium text-white">Invite candidates</p>
