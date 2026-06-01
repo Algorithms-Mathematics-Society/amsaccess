@@ -956,7 +956,7 @@ int main() {
           {
             method: "POST",
             body: JSON.stringify({ script: generatorScript }),
-            timeoutMs: 120_000,
+            timeoutMs: 590_000,
           }
         ).finally(() => clearInterval(genProgressTimer));
 
