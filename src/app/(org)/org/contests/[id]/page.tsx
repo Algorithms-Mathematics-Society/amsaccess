@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -24,6 +24,12 @@ type Question = {
   html_starter: string; css_starter: string; js_starter: string;
   points: number; order_index: number;
   question_type: string; time_limit_ms: number; memory_limit_mb: number;
+  // cp-config (returned by backend, may be null for brand-new questions)
+  checker_type?: string | null;
+  checker_code?: string | null;
+  validator_code?: string | null;
+  model_solution?: string | null;
+  model_lang?: string | null;
 };
 
 type Invite = {
@@ -759,6 +765,12 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
 }
 
 // ─── Question form (add / edit) ──────────────────────────────
+type CpConfigSnapshot = {
+  checker_type: "token" | "custom";
+  checker_code: string | null;
+  validator_code: string;
+};
+
 function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, saving, setSaving }: {
   contestId: string;
   existing?: Question;
@@ -768,6 +780,12 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   saving: boolean;
   setSaving: (v: boolean) => void;
 }) {
+  // Ref filled by CPProblemStudio so handleSave can read current editor state
+  const cpConfigRef = useRef<() => CpConfigSnapshot>(() => ({
+    checker_type: "token",
+    checker_code: null,
+    validator_code: "",
+  }));
   const [title, setTitle]             = useState(existing?.title ?? "");
   const [description, setDescription] = useState(existing?.description ?? `Given an array of $N$ integers, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.
 
@@ -841,16 +859,35 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
     }
     setSaving(true);
     try {
+      let questionId = existing?.id;
       if (existing) {
         await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions/${existing.id}`, {
           method: "PATCH",
           body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
       } else {
-        await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions`, {
+        const created = await apiFetch<{ id: string }>(`/api/org/contests/${contestId}/questions`, {
           method: "POST",
           body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
+        questionId = created.id;
+      }
+      // Always persist cp-config alongside basic question save
+      if (questionId) {
+        const snap = cpConfigRef.current();
+        try {
+          await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
+            method: "PUT",
+            body: JSON.stringify({
+              checker_type: snap.checker_type,
+              checker_code: snap.checker_code,
+              validator_code: snap.validator_code,
+            }),
+          });
+        } catch (cpErr) {
+          // Non-fatal: log but don't block onSaved
+          console.error("cp-config save failed", cpErr);
+        }
       }
       setSuccess(existing ? "Question updated successfully." : "Question created successfully.");
       onSaved();
@@ -975,6 +1012,10 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
               setTimeLimit={setTimeLimit}
               memoryLimit={memoryLimit}
               setMemoryLimit={setMemoryLimit}
+              initialValidatorCode={existing?.validator_code ?? undefined}
+              initialCheckerCode={existing?.checker_code ?? undefined}
+              initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
+              onRegisterGetCpConfig={(fn) => { cpConfigRef.current = fn; }}
             />
           </div>
 

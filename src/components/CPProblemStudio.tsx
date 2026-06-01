@@ -48,6 +48,12 @@ interface CPProblemStudioProps {
   setTimeLimit: (v: number) => void;
   memoryLimit: number;
   setMemoryLimit: (v: number) => void;
+  // Persisted cp-config passed from parent on edit
+  initialValidatorCode?: string;
+  initialCheckerCode?: string;
+  initialCheckerType?: "token" | "custom";
+  // Callback so parent can pull current editor state on save
+  onRegisterGetCpConfig?: (fn: () => { checker_type: "token" | "custom"; checker_code: string | null; validator_code: string }) => void;
 }
 
 type StudioTab =
@@ -128,7 +134,11 @@ export default function CPProblemStudio({
   timeLimit,
   setTimeLimit,
   memoryLimit,
-  setMemoryLimit
+  setMemoryLimit,
+  initialValidatorCode,
+  initialCheckerCode,
+  initialCheckerType,
+  onRegisterGetCpConfig,
 }: CPProblemStudioProps) {
   const [activeTab, setActiveTab] = useState<StudioTab>("statement");
 
@@ -353,7 +363,20 @@ int main(int argc, char* argv[]) {
 }`);
   const [checkerCompilationStatus, setCheckerCompilationStatus] = useState<"compiled" | "dirty" | "error">("compiled");
 
-  // --- Validation Grid States ---
+  // --- Hydrate validator/checker from persisted DB values on mount / question change ---
+  useEffect(() => {
+    if (initialValidatorCode) {
+      setValidatorCode(initialValidatorCode);
+    }
+    if (initialCheckerCode) {
+      setCustomCheckerCode(initialCheckerCode);
+      setCheckerType("custom");
+    } else if (initialCheckerType === "custom") {
+      setCheckerType("custom");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionId]);
+
   const [testingCode, setTestingCode] = useState<string>(`#include <iostream>
 #include <vector>
 #include <algorithm>
@@ -402,7 +425,19 @@ int main() {
   // --- Tests States ---
   const [testcases, setTestcases] = useState<Testcase[]>([]);
 
-  // --- Custom Generators States & Handlers ---
+  // --- Register getCpConfig so parent can read current editor state on "Save question" ---
+  useEffect(() => {
+    if (!onRegisterGetCpConfig) return;
+    onRegisterGetCpConfig(() => ({
+      checker_type: checkerType === "custom" || isInteractiveQuestion ? "custom" : "token",
+      checker_code: checkerType === "custom" || isInteractiveQuestion ? customCheckerCode : null,
+      validator_code: validatorCode,
+    }));
+  // Re-register whenever the values that matter change so the ref always returns fresh state
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onRegisterGetCpConfig, checkerType, isInteractiveQuestion, customCheckerCode, validatorCode]);
+
+
   interface GeneratorFile {
     name: string;
     code: string;
