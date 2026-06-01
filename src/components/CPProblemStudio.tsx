@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import { apiFetch } from "@/lib/client/apiClient";
 import type { ApiClientError } from "@/lib/client/apiClient";
 import {
@@ -48,12 +48,14 @@ interface CPProblemStudioProps {
   setTimeLimit: (v: number) => void;
   memoryLimit: number;
   setMemoryLimit: (v: number) => void;
-  // Persisted cp-config passed from parent on edit
+  // Persisted cp-config — used to seed the editor on open
   initialValidatorCode?: string;
   initialCheckerCode?: string;
   initialCheckerType?: "token" | "custom";
-  // Callback so parent can pull current editor state on save
-  onRegisterGetCpConfig?: (fn: () => { checker_type: "token" | "custom"; checker_code: string | null; validator_code: string }) => void;
+}
+
+export interface CPProblemStudioHandle {
+  getCpConfig: () => { checker_type: "token" | "custom"; checker_code: string | null; validator_code: string };
 }
 
 type StudioTab =
@@ -121,40 +123,7 @@ type SaveTestsResponse = {
   version: number;
 };
 
-export default function CPProblemStudio({
-  contestId,
-  questionId,
-  questionType,
-  title,
-  setTitle,
-  points,
-  setPoints,
-  description,
-  setDescription,
-  timeLimit,
-  setTimeLimit,
-  memoryLimit,
-  setMemoryLimit,
-  initialValidatorCode,
-  initialCheckerCode,
-  initialCheckerType,
-  onRegisterGetCpConfig,
-}: CPProblemStudioProps) {
-  const [activeTab, setActiveTab] = useState<StudioTab>("statement");
-
-  // --- IO / Stream Styles (Advanced Settings maintained locally in studio) ---
-  const [inputStyle, setInputStyle] = useState<"stdin" | "file">("stdin");
-  const [inputFileName, setInputFileName] = useState("input.txt");
-  const [outputStyle, setOutputStyle] = useState<"stdout" | "file">("stdout");
-  const [outputFileName, setOutputFileName] = useState("output.txt");
-  const [inputFormatText, setInputFormatText] = useState("A single integer $N$ followed by $N$ space-separated values.");
-  const [outputFormatText, setOutputFormatText] = useState("A single integer denoting the maximum subarray sum.");
-  const [sampleInputText, setSampleInputText] = useState("9\n-2 1 -3 4 -1 2 1 -5 4");
-  const [sampleOutputText, setSampleOutputText] = useState("6");
-  const [noteText, setNoteText] = useState("For the input array `[-2, 1, -3, 4, -1, 2, 1, -5, 4]`, the contiguous subarray is `[4, -1, 2, 1]` with sum `6`.");
-
-  // --- Validator States ---
-  const [validatorCode, setValidatorCode] = useState<string>(`#include "testlib.h"
+const DEFAULT_VALIDATOR = `#include "testlib.h"
 #include <iostream>
 
 using namespace std;
@@ -175,7 +144,60 @@ int main(int argc, char* argv[]) {
     inf.readEof();
     
     return 0;
-}`);
+}`;
+
+const DEFAULT_CHECKER = `#include "testlib.h"
+#include <iostream>
+
+using namespace std;
+
+int main(int argc, char* argv[]) {
+    registerTestlibCmd(argc, argv);
+    
+    long long jury_ans = ans.readLong();
+    long long user_ans = ouf.readLong();
+    
+    if (jury_ans != user_ans) {
+        quitf(_wa, "expected %lld, found %lld", jury_ans, user_ans);
+    }
+    
+    quitf(_ok, "correct maximum subarray sum");
+    return 0;
+}`;
+
+const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(function CPProblemStudio({
+  contestId,
+  questionId,
+  questionType,
+  title,
+  setTitle,
+  points,
+  setPoints,
+  description,
+  setDescription,
+  timeLimit,
+  setTimeLimit,
+  memoryLimit,
+  setMemoryLimit,
+  initialValidatorCode,
+  initialCheckerCode,
+  initialCheckerType,
+}, ref) {
+  const [activeTab, setActiveTab] = useState<StudioTab>("statement");
+
+  // --- IO / Stream Styles (Advanced Settings maintained locally in studio) ---
+  const [inputStyle, setInputStyle] = useState<"stdin" | "file">("stdin");
+  const [inputFileName, setInputFileName] = useState("input.txt");
+  const [outputStyle, setOutputStyle] = useState<"stdout" | "file">("stdout");
+  const [outputFileName, setOutputFileName] = useState("output.txt");
+  const [inputFormatText, setInputFormatText] = useState("A single integer $N$ followed by $N$ space-separated values.");
+  const [outputFormatText, setOutputFormatText] = useState("A single integer denoting the maximum subarray sum.");
+  const [sampleInputText, setSampleInputText] = useState("9\n-2 1 -3 4 -1 2 1 -5 4");
+  const [sampleOutputText, setSampleOutputText] = useState("6");
+  const [noteText, setNoteText] = useState("For the input array `[-2, 1, -3, 4, -1, 2, 1, -5, 4]`, the contiguous subarray is `[4, -1, 2, 1]` with sum `6`.");
+
+  // --- Validator State — seeded from DB value when editing an existing question ---
+  const [validatorCode, setValidatorCode] = useState<string>(initialValidatorCode ?? DEFAULT_VALIDATOR);
   const [validatorStatus, setValidatorStatus] = useState<"compiled" | "dirty" | "error">("compiled");
 
   const formatLatexLite = (formula: string): string => {
@@ -334,48 +356,36 @@ int main(int argc, char* argv[]) {
     });
   };
 
-  // --- Checker States ---
-  const [checkerType, setCheckerType] = useState<"standard" | "custom">("standard");
+  // --- Checker State — seeded from DB value when editing an existing question ---
+  // initialCheckerType controls whether we start in custom mode.
+  // isInteractiveQuestion always forces custom mode regardless.
+  const [checkerType, setCheckerType] = useState<"standard" | "custom">(
+    initialCheckerType === "custom" || questionType === "interactive" ? "custom" : "standard"
+  );
   const isInteractiveQuestion = questionType === "interactive";
   useEffect(() => {
     if (isInteractiveQuestion) {
       setCheckerType("custom");
     }
   }, [isInteractiveQuestion]);
-  const [selectedStandardChecker, setSelectedStandardChecker] = useState("ncmp"); // sequence of integers
-  const [customCheckerCode, setCustomCheckerCode] = useState<string>(`#include "testlib.h"
-#include <iostream>
-
-using namespace std;
-
-int main(int argc, char* argv[]) {
-    registerTestlibCmd(argc, argv);
-    
-    long long jury_ans = ans.readLong();
-    long long user_ans = ouf.readLong();
-    
-    if (jury_ans != user_ans) {
-        quitf(_wa, "expected %lld, found %lld", jury_ans, user_ans);
-    }
-    
-    quitf(_ok, "correct maximum subarray sum");
-    return 0;
-}`);
+  const [selectedStandardChecker, setSelectedStandardChecker] = useState("ncmp");
+  // Seed custom checker code from DB when editing; fall back to boilerplate for new questions
+  const [customCheckerCode, setCustomCheckerCode] = useState<string>(initialCheckerCode ?? DEFAULT_CHECKER);
   const [checkerCompilationStatus, setCheckerCompilationStatus] = useState<"compiled" | "dirty" | "error">("compiled");
 
-  // --- Hydrate validator/checker from persisted DB values on mount / question change ---
-  useEffect(() => {
-    if (initialValidatorCode) {
-      setValidatorCode(initialValidatorCode);
-    }
-    if (initialCheckerCode) {
-      setCustomCheckerCode(initialCheckerCode);
-      setCheckerType("custom");
-    } else if (initialCheckerType === "custom") {
-      setCheckerType("custom");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questionId]);
+  // Expose getCpConfig via ref so the parent QuestionForm can read current editor state
+  // synchronously at save time — no async effects, no stale closures.
+  useImperativeHandle(ref, () => ({
+    getCpConfig() {
+      const isCustom = checkerType === "custom" || isInteractiveQuestion;
+      return {
+        checker_type: isCustom ? "custom" : "token",
+        checker_code: isCustom ? customCheckerCode : null,
+        validator_code: validatorCode,
+      };
+    },
+  }), [checkerType, isInteractiveQuestion, customCheckerCode, validatorCode]);
+
 
   const [testingCode, setTestingCode] = useState<string>(`#include <iostream>
 #include <vector>
@@ -424,19 +434,6 @@ int main() {
 
   // --- Tests States ---
   const [testcases, setTestcases] = useState<Testcase[]>([]);
-
-  // --- Register getCpConfig so parent can read current editor state on "Save question" ---
-  useEffect(() => {
-    if (!onRegisterGetCpConfig) return;
-    onRegisterGetCpConfig(() => ({
-      checker_type: checkerType === "custom" || isInteractiveQuestion ? "custom" : "token",
-      checker_code: checkerType === "custom" || isInteractiveQuestion ? customCheckerCode : null,
-      validator_code: validatorCode,
-    }));
-  // Re-register whenever the values that matter change so the ref always returns fresh state
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onRegisterGetCpConfig, checkerType, isInteractiveQuestion, customCheckerCode, validatorCode]);
-
 
   interface GeneratorFile {
     name: string;
@@ -2151,4 +2148,6 @@ int main() {
       </div>
     </div>
   );
-}
+});
+
+export default CPProblemStudio;

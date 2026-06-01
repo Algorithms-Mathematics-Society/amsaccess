@@ -9,7 +9,7 @@ import {
   Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
-import CPProblemStudio from "@/components/CPProblemStudio";
+import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
 
 // ─── Types ───────────────────────────────────────────────────
 type Contest = {
@@ -780,12 +780,8 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   saving: boolean;
   setSaving: (v: boolean) => void;
 }) {
-  // Ref filled by CPProblemStudio so handleSave can read current editor state
-  const cpConfigRef = useRef<() => CpConfigSnapshot>(() => ({
-    checker_type: "token",
-    checker_code: null,
-    validator_code: "",
-  }));
+  // Ref to the CP studio — used to read validator/checker code synchronously on save
+  const studioRef = useRef<CPProblemStudioHandle>(null);
   const [title, setTitle]             = useState(existing?.title ?? "");
   const [description, setDescription] = useState(existing?.description ?? `Given an array of $N$ integers, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.
 
@@ -874,7 +870,11 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       }
       // Always persist cp-config alongside basic question save
       if (questionId) {
-        const snap = cpConfigRef.current();
+        const snap = studioRef.current?.getCpConfig() ?? {
+          checker_type: "token" as const,
+          checker_code: null,
+          validator_code: "",
+        };
         try {
           await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
             method: "PUT",
@@ -999,6 +999,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
           {/* Desktop full specs view */}
           <div className="hidden md:block">
             <CPProblemStudio
+              ref={studioRef}
               contestId={contestId}
               questionId={existing?.id}
               title={title}
@@ -1015,7 +1016,6 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
               initialValidatorCode={existing?.validator_code ?? undefined}
               initialCheckerCode={existing?.checker_code ?? undefined}
               initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
-              onRegisterGetCpConfig={(fn) => { cpConfigRef.current = fn; }}
             />
           </div>
 
