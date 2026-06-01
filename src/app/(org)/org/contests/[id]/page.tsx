@@ -141,7 +141,9 @@ export default function ContestDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<ContestDetailResponse>(`/api/org/contests/${id}`);
+      const data = await apiFetch<ContestDetailResponse>(`/api/org/contests/${id}?_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
       setContest(data.contest);
       setQuestions(data.questions);
       setInvites(data.invites);

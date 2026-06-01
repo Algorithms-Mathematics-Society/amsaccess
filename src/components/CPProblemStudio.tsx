@@ -102,6 +102,8 @@ type PrejudgeTestRow = {
   memory_kb: number;
   is_sample: boolean;
   message?: string;
+  got_output?: string;
+  expected_output?: string;
 };
 
 type PersistedTestset = {
@@ -836,7 +838,9 @@ int main() {
             runtime_ms: Number(r.runtime_ms ?? 0),
             memory_kb: Number(r.memory_kb ?? 0),
             is_sample: Boolean(r.is_sample ?? false),
-            message: typeof r.message === "string" ? r.message : undefined
+            message: typeof r.message === "string" ? r.message : undefined,
+            got_output: typeof r.got_output === "string" ? r.got_output : undefined,
+            expected_output: typeof r.expected_output === "string" ? r.expected_output : undefined
           };
         })
         .filter((v): v is PrejudgeTestRow => !!v && v.test_number > 0);
@@ -933,7 +937,9 @@ int main() {
               runtime_ms: Number(r.runtime_ms ?? 0),
               memory_kb: Number(r.memory_kb ?? 0),
               is_sample: Boolean(r.is_sample ?? false),
-              message: typeof r.message === "string" ? r.message : undefined
+              message: typeof r.message === "string" ? r.message : undefined,
+              got_output: typeof r.got_output === "string" ? r.got_output : undefined,
+              expected_output: typeof r.expected_output === "string" ? r.expected_output : undefined
             };
           })
           .filter((v): v is PrejudgeTestRow => !!v && v.test_number > 0);
@@ -2122,7 +2128,22 @@ int main() {
                                         </pre>
                                       </div>
                                     </div>
-
+                                    {p?.verdict === "WA" && (p.got_output !== undefined || p.expected_output !== undefined) && (
+                                      <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-3">
+                                        <div className="space-y-1">
+                                          <span className="text-[9px] uppercase tracking-wider text-red-400 font-bold block">Your Output (got)</span>
+                                          <pre className="rounded-lg bg-red-950/20 border border-red-500/20 p-2.5 font-mono text-[10px] text-red-300 max-h-36 overflow-y-auto whitespace-pre-wrap">
+                                            {p.got_output || "<empty>"}
+                                          </pre>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <span className="text-[9px] uppercase tracking-wider text-green-400 font-bold block">Expected Output (exp)</span>
+                                          <pre className="rounded-lg bg-green-950/20 border border-green-500/20 p-2.5 font-mono text-[10px] text-green-300 max-h-36 overflow-y-auto whitespace-pre-wrap">
+                                            {p.expected_output || "<empty>"}
+                                          </pre>
+                                        </div>
+                                      </div>
+                                    )}
                                     {prejudgeJob && (
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-1">
