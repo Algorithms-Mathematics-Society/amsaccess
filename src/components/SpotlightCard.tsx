@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
+import { BorderBeam } from "./ui/border-beam";
 
 type SpotlightCardProps = {
   children: React.ReactNode;
@@ -48,11 +49,12 @@ export function SpotlightCard({ children, featured, className = "", style }: Spo
   return (
     <article
       onPointerMove={handlePointerMove}
-      className={`spotlight-card glass-card relative overflow-hidden p-5 ${featured ? "ams-card-featured" : ""} ${className}`}
+      className={`spotlight-card glass-card relative overflow-hidden p-5 ${featured ? "ams-card-featured border border-purple-500/20" : ""} ${className}`}
       style={style}
     >
       <div className="spotlight-card-glow pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-300" />
       <div className="relative z-10">{children}</div>
+      {featured && <BorderBeam size={250} duration={12} delay={9} />}
     </article>
   );
 }

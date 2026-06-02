@@ -15,6 +15,7 @@ export const rateLimitPolicies = {
   auth: { limit: 5, windowMs: 60_000 },
   authHourly: { limit: 20, windowMs: 60 * 60_000 },
   contact: { limit: 6, windowMs: 10 * 60_000 },
+  waitlist: { limit: 10, windowMs: 10 * 60_000 },
   privateRead: { limit: 120, windowMs: 60_000 },
   adminWrite: { limit: 30, windowMs: 60_000 },
   orgWrite: { limit: 30, windowMs: 60_000 },

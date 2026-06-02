@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server";
 
 export function getClientIp(request: NextRequest) {
+  const trustedIp = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-real-ip") ?? request.ip;
+  if (trustedIp) return trustedIp;
+
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) return forwardedFor.split(",")[0]?.trim() || "unknown";
 
   return (
-    request.headers.get("x-real-ip") ??
-    request.headers.get("cf-connecting-ip") ??
     request.ip ??
     "unknown"
   );

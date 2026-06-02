@@ -1,10 +1,13 @@
 import type { NextRequest } from "next/server";
-import { apiError, apiOk } from "@/lib/server/http";
+import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
+import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 import { isValidAmsAdminCredential, setAmsAdminSession } from "@/lib/server/amsAdmin";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  const limited = checkRequestRateLimit(request, "auth", ["amsadmin-login"]);
+  if (limited.limited) return apiRateLimited(limited.retryAfter);
   let payload: unknown;
   try {
     payload = await request.json();

@@ -30,10 +30,10 @@ export const plans = [
 ] as const;
 
 export const planStyles = [
-  "border-white/10",
-  "border-purple-300/15",
-  "border-purple-300/20",
-  "border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.012))]"
+  "border-slate-200",
+  "border-purple-200",
+  "border-purple-300",
+  "border-slate-300"
 ] as const;
 
 export const comparisonGroups = [

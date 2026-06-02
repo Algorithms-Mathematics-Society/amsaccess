@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
+import { MarketingFooter } from "@/components/MarketingFooter";
 
 const entries = [
   {
@@ -35,52 +36,52 @@ const entries = [
 
 export default function ChangelogPage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-black text-white">
+    <main className="min-h-screen overflow-hidden bg-white text-slate-900 selection:bg-purple-200 selection:text-purple-900">
       <MarketingHeader />
-      <section
-        className="raycast-hero relative min-h-screen overflow-hidden px-4 pb-20 pt-28 sm:px-5 sm:pt-32"
-        style={{
-          backgroundImage: "linear-gradient(to right, #ffffff05 1px, transparent 1px), linear-gradient(to bottom, #ffffff05 1px, transparent 1px)",
-          backgroundSize: "40px 40px"
-        }}
-      >
-        <div className="raycast-hero-bg" />
-        <div className="absolute left-1/2 top-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#8B5CF6] opacity-20 blur-3xl" />
+      <section className="relative min-h-screen overflow-hidden px-4 pb-20 pt-28 sm:px-5 sm:pt-32">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-transparent to-slate-50/30 pointer-events-none" />
         <div className="relative z-10 mx-auto max-w-5xl">
           <div className="max-w-3xl">
-            <div className="mb-6 inline-flex items-center rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-1.5 text-xs font-medium text-purple-200 backdrop-blur-md">
+            <div className="mb-6 text-xs font-semibold uppercase tracking-widest text-slate-500">
               Changelog
             </div>
-            <h1 className="max-w-3xl bg-gradient-to-b from-white to-[#D4D4D8] bg-clip-text text-4xl font-semibold leading-[1.05] tracking-tight text-transparent sm:text-5xl md:text-7xl">
+            <h1 className="max-w-3xl text-4xl font-medium leading-[1.05] tracking-tight text-slate-900 sm:text-5xl md:text-7xl">
               Release notes for operational teams.
             </h1>
-            <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/70 sm:text-lg md:text-xl">
+            <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg md:text-xl">
               Track desktop app releases, session policy changes, review timeline updates, and deployment-facing improvements.
             </p>
-            <Link className="mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black transition hover:bg-violet-500 hover:text-white" href="/download">
+            <Link
+              className="mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-105 hover:bg-slate-800"
+              href="/download"
+            >
               Get Access by AMS
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
-          <div className="mt-16 border-l border-white/10">
+          <div className="mt-16 border-l border-slate-200">
             {entries.map((entry) => (
               <article key={entry.version} className="relative pb-10 pl-7 last:pb-0">
-                <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full border border-purple-300/40 bg-[#8B5CF6]" />
-                <div className="glass-card p-5">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="rounded-full border border-purple-300/20 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-100">{entry.version}</span>
-                    <span className="text-sm text-white/45">{entry.date}</span>
-                    <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-xs font-medium text-white/55">{entry.category}</span>
+                <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full border border-purple-300 bg-purple-500" />
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2.5 text-sm font-medium">
+                    <span className="text-purple-600 font-semibold">{entry.version}</span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-500">{entry.category}</span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-400 font-normal">{entry.date}</span>
                   </div>
-                  <h2 className="mt-5 text-lg font-semibold tracking-tight text-white">{entry.title}</h2>
-                  <p className="mt-3 text-sm leading-6 text-white/65 md:text-white/50">{entry.body}</p>
+                  <h2 className="mt-5 text-lg font-semibold tracking-tight text-slate-900">{entry.title}</h2>
+                  <p className="mt-3 text-sm leading-6 text-slate-500">{entry.body}</p>
                 </div>
               </article>
             ))}
           </div>
         </div>
       </section>
+
+      <MarketingFooter />
     </main>
   );
 }

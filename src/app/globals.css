@@ -6,6 +6,11 @@
   color-scheme: dark;
   --font-geist: "Geist Sans";
   --font-jetbrains-mono: "JetBrains Mono";
+
+  /* ── Global palette tokens ─────────────────────────────────── */
+  --ams-dark:   5 5 10;          /* #05050A — dark canvas / CTA / footer bg  */
+  --ams-accent: 139 92 246;      /* purple-500 — primary brand accent        */
+
   --ams-bg: 0 0 0;
   --ams-panel: 9 9 11;
   --ams-surface: 14 15 18;
@@ -64,12 +69,19 @@
 
 html {
   min-height: 100%;
+  width: 100%;
+  max-width: 100vw;
+  overscroll-behavior: none;
   background: rgb(var(--ams-bg));
   -webkit-text-size-adjust: 100%;
 }
 
 body {
   min-height: 100%;
+  width: 100%;
+  max-width: 100vw;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
   margin: 0;
   background: var(--ams-body-bg);
   color: rgb(var(--ams-ink));
@@ -695,13 +707,14 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 
 .ams-card-featured {
   background:
-    radial-gradient(circle at 20% 0%, rgba(139, 92, 246, 0.11), transparent 22rem),
+    radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.14), transparent 20rem),
+    radial-gradient(circle at 20% 0%, rgba(139, 92, 246, 0.08), transparent 18rem),
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.016)),
     rgba(25, 25, 25, 0.5);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(196, 181, 253, 0.18);
   box-shadow:
     0 34px 120px rgba(0, 0, 0, 0.54),
-    0 0 54px rgba(139, 92, 246, 0.08),
+    0 0 80px rgba(139, 92, 246, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.075);
 }
 
@@ -760,7 +773,7 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
   font-weight: 650;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.34);
+  color: rgba(255, 255, 255, 0.48);
 }
 
 .ams-cta-primary,
@@ -794,9 +807,14 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 .ams-hero-console {
   position: relative;
   isolation: isolate;
-  contain: layout paint;
-  -webkit-mask-image: linear-gradient(to top, transparent, black 20%);
-  mask-image: linear-gradient(to top, transparent, black 20%);
+  contain: layout;
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.14),
+    0 0 120px -8px rgba(139, 92, 246, 0.28),
+    0 0 60px -20px rgba(109, 40, 217, 0.22),
+    0 40px 140px -20px rgba(0, 0, 0, 0.8),
+    0 4px 20px -2px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .ams-hero-console::after {
@@ -817,14 +835,15 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
 }
 
 .ams-embedded-screen {
-  border: 1px solid rgba(255, 255, 255, 0.065);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0.003)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.014), rgba(255, 255, 255, 0.003)),
     rgba(3, 3, 3, 0.92);
   box-shadow:
     0 14px 38px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.008);
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.008),
+    inset 0 0 40px rgba(139, 92, 246, 0.028);
 }
 
 .ams-context-line {
@@ -1176,3 +1195,63 @@ button:active, a.ams-cta-primary:active, a.ams-cta-secondary:active {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Light-themed range slider (marketing pages) ──────────────── */
+.ams-volume-slider-light::-webkit-slider-runnable-track {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.ams-volume-slider-light::-webkit-slider-thumb {
+  background: #1e293b;
+  border-color: rgba(0, 0, 0, 0.18);
+  box-shadow:
+    0 0 0 5px rgba(139, 92, 246, 0.1),
+    0 0 18px rgba(139, 92, 246, 0.14);
+}
+
+.ams-volume-slider-light:active::-webkit-slider-thumb {
+  transform: scale(1.1);
+  box-shadow:
+    0 0 0 6px rgba(139, 92, 246, 0.14),
+    0 0 24px rgba(139, 92, 246, 0.2);
+}
+
+.ams-volume-slider-light::-moz-range-track {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.ams-volume-slider-light::-moz-range-progress {
+  background: rgba(139, 92, 246, 0.45);
+}
+
+.ams-volume-slider-light::-moz-range-thumb {
+  background: #1e293b;
+  border-color: rgba(0, 0, 0, 0.18);
+  box-shadow:
+    0 0 0 5px rgba(139, 92, 246, 0.1),
+    0 0 18px rgba(139, 92, 246, 0.14);
+}
+
+.ams-volume-slider-light:active::-moz-range-thumb {
+  transform: scale(1.1);
+}
+
+/* Autofill overrides for a clean, light-purple theme instead of browser default green/yellow */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #f5f3ff inset !important;
+  -webkit-text-fill-color: #4c1d95 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+

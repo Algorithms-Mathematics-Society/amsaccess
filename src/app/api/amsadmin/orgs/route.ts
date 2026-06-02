@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
-import { apiError } from "@/lib/server/http";
+import { apiError, apiRateLimited } from "@/lib/server/http";
+import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 import { callGoApi, getFirebaseAdmin } from "@/lib/server/auth";
 import { isAmsAdminAuthenticated } from "@/lib/server/amsAdmin";
 
@@ -11,7 +12,9 @@ function serviceUid(): string {
   return uid;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const limited = checkRequestRateLimit(request, "privateRead", ["amsadmin-orgs"]);
+  if (limited.limited) return apiRateLimited(limited.retryAfter);
   if (!(await isAmsAdminAuthenticated())) return apiError("Unauthorized.", 401, "UNAUTHORIZED");
   try {
     const res = await callGoApi("GET", "/admin/orgs", null, serviceUid());
@@ -23,6 +26,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = checkRequestRateLimit(request, "adminWrite", ["amsadmin-orgs"]);
+  if (limited.limited) return apiRateLimited(limited.retryAfter);
   if (!(await isAmsAdminAuthenticated())) return apiError("Unauthorized.", 401, "UNAUTHORIZED");
   const body = (await request.json()) as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name : "";

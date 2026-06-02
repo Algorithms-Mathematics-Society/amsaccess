@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
-import { apiError } from "@/lib/server/http";
+import { apiError, apiRateLimited } from "@/lib/server/http";
+import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 import { callGoApi } from "@/lib/server/auth";
 import { isAmsAdminAuthenticated } from "@/lib/server/amsAdmin";
 
@@ -12,6 +13,8 @@ function serviceUid(): string {
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  const limited = checkRequestRateLimit(request, "adminWrite", ["amsadmin-org", params.id]);
+  if (limited.limited) return apiRateLimited(limited.retryAfter);
   if (!(await isAmsAdminAuthenticated())) return apiError("Unauthorized.", 401, "UNAUTHORIZED");
   try {
     const body = (await request.json()) as Record<string, unknown>;

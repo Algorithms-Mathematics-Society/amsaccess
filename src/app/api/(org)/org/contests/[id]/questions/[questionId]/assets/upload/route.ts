@@ -1,11 +1,14 @@
 import type { NextRequest } from "next/server";
-import { apiError, apiOk } from "@/lib/server/http";
+import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
+import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 import { withApiLogging } from "@/lib/server/logger";
 import { callGoApi, requireOrgUser } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest, { params }: { params: { id: string; questionId: string } }) {
+  const limited = checkRequestRateLimit(request, "upload", ["question-asset", params.id, params.questionId]);
+  if (limited.limited) return apiRateLimited(limited.retryAfter);
   return withApiLogging("org.contest_questions.assets.upload", async () => {
     const auth = await requireOrgUser();
     if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");

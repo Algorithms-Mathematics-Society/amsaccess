@@ -3,10 +3,10 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { ArrowLeft, LogOut, Save } from "lucide-react";
+import { AMSLogo } from "@/components/AMSLogo";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AMSLogo } from "@/components/AMSLogo";
 import { EventTimeline } from "@/components/EventTimeline";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { apiFetch } from "@/lib/client/apiClient";
