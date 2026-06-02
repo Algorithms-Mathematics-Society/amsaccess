@@ -2203,11 +2203,11 @@ int main() {
               </div>
             )}
 
-            {selectedPrejudgeTest.input_snippet && (
+            {selectedPrejudgeTest.input_snippet !== undefined && (
               <div className="space-y-1">
                 <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-sans font-semibold">Input</span>
                 <pre className="bg-black/40 border border-white/5 rounded-lg p-3 text-blue-300 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
-                  {selectedPrejudgeTest.input_snippet}
+                  {selectedPrejudgeTest.input_snippet || "(empty)"}
                 </pre>
               </div>
             )}
