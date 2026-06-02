@@ -926,6 +926,7 @@ int main() {
 
         type GenerateResp = {
           version: number;
+          total?: number;
           tests: Array<{
             test_number: number;
             input_preview: string;
@@ -943,23 +944,7 @@ int main() {
           error?: string;
         };
 
-        const genProgressSteps = [
-          "Preparing build workspace...",
-          "Fetching testlib.h header...",
-          "Compiling validator...",
-          "Compiling model solution...",
-          "Compiling custom generators...",
-          "Running generators & validating inputs...",
-          "Running model solution on inputs...",
-          "Uploading test files to cloud...",
-          "Saving testset...",
-        ];
-        let genProgressIdx = 0;
-        setConfigSyncMessage(genProgressSteps[0]);
-        const genProgressTimer = setInterval(() => {
-          genProgressIdx = Math.min(genProgressIdx + 1, genProgressSteps.length - 1);
-          setConfigSyncMessage(genProgressSteps[genProgressIdx]);
-        }, 8000);
+        setConfigSyncMessage("Compiling generators in parallel...");
 
         const resp = await (async (): Promise<GenerateResp> => {
           const { job_id } = await apiFetch<{ job_id: string }>(
@@ -967,22 +952,78 @@ int main() {
             { method: "POST", body: JSON.stringify({ script: generatorScript }) }
           );
 
-          const maxPolls = 200;
-          for (let polls = 0; polls < maxPolls; polls++) {
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-            const poll = await apiFetch<GenerateJobResp>(
-              `/api/org/contests/${contestId}/questions/${questionId}/tests/generate/${job_id}`
-            );
-            if (poll.status === "done") {
-              return poll.result!;
-            } else if (poll.status === "failed") {
-              const err = new Error(poll.error ?? "Test generation failed.") as Error & { code?: string };
-              err.code = poll.error_code;
-              throw err;
+          // ── Try WebSocket streaming ─────────────────────────────────────
+          const wsBaseUrl = process.env.NEXT_PUBLIC_GO_WS_URL ?? "";
+          let wsFinished = false;
+
+          if (wsBaseUrl) {
+            try {
+              const { ticket } = await apiFetch<{ ticket: string }>("/api/ws/ticket", {
+                method: "POST",
+                body: JSON.stringify({ job_id, job_type: "generate" }),
+              });
+
+              await new Promise<void>((resolve) => {
+                const ws = new WebSocket(`${wsBaseUrl}/ws/generate/${job_id}?ticket=${encodeURIComponent(ticket)}`);
+                wsRef.current = ws;
+
+                ws.onmessage = (e: MessageEvent<string>) => {
+                  let ev: Record<string, unknown>;
+                  try { ev = JSON.parse(e.data); } catch { return; }
+
+                  const et = ev.event_type as string;
+                  if (et === "phase") {
+                    setConfigSyncMessage(String(ev.message ?? ""));
+                  } else if (et === "compile_done") {
+                    setConfigSyncMessage(`Compiled generator: ${ev.message ?? ""}`);
+                  } else if (et === "test_result") {
+                    const done = Number(ev.passed ?? 0);
+                    const tot = Number(ev.total ?? 0);
+                    setConfigSyncMessage(`Running tests: ${done}${tot > 0 ? ` / ${tot}` : ""}…`);
+                  } else if (et === "job_complete") {
+                    wsFinished = true;
+                    ws.close();
+                  }
+                };
+                ws.onerror = () => resolve();
+                ws.onclose = () => resolve();
+              });
+            } catch {
+              // WS unavailable — fall through to polling
             }
           }
-          throw new Error("Test generation timed out waiting for result.");
-        })().finally(() => clearInterval(genProgressTimer));
+
+          // ── Poll fallback (runs if WS not available or job still running) ──
+          if (!wsFinished) {
+            setConfigSyncMessage("Waiting for generation to complete...");
+            const maxPolls = 400;
+            for (let polls = 0; polls < maxPolls; polls++) {
+              await new Promise((resolve) => setTimeout(resolve, 3000));
+              const poll = await apiFetch<GenerateJobResp>(
+                `/api/org/contests/${contestId}/questions/${questionId}/tests/generate/${job_id}`
+              );
+              if (poll.status === "done") break;
+              if (poll.status === "failed") {
+                const err = new Error(poll.error ?? "Test generation failed.") as Error & { code?: string };
+                err.code = poll.error_code;
+                throw err;
+              }
+            }
+          }
+
+          // Final fetch to get result
+          setConfigSyncMessage("Fetching results...");
+          const final = await apiFetch<GenerateJobResp>(
+            `/api/org/contests/${contestId}/questions/${questionId}/tests/generate/${job_id}`
+          );
+          if (final.status === "failed") {
+            const err = new Error(final.error ?? "Test generation failed.") as Error & { code?: string };
+            err.code = final.error_code;
+            throw err;
+          }
+          if (!final.result) throw new Error("Test generation timed out waiting for result.");
+          return final.result;
+        })();
 
         const mapped = (resp.tests ?? []).map((t) => ({
           id: `generated-${t.test_number}`,
@@ -996,9 +1037,14 @@ int main() {
           status: "valid" as const,
           uploadState: "uploaded" as const,
         }));
+        const totalGenerated = resp.total ?? mapped.length;
+        setTotalTests(totalGenerated);
         setTestcases(mapped);
         setTestsetVersion(resp.version);
         setTestsSavedToCloud(mapped.length > 0);
+        if (totalGenerated > mapped.length) {
+          setConfigSyncMessage(`Generated ${totalGenerated} tests (showing first ${mapped.length} previews).`);
+        }
       } else if (testcases.length > 0) {
         if (hasIncompleteTests) {
           throw new Error("Every manual testcase must have both input and output files uploaded.");

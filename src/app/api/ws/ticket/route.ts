@@ -30,10 +30,12 @@ export async function POST(request: NextRequest) {
 
     const record = body as Record<string, unknown>;
     const jobId = typeof record.job_id === "string" ? record.job_id.trim() : "";
+    const jobType = typeof record.job_type === "string" ? record.job_type.trim() : "prejudge";
     if (!jobId) return apiError("job_id required.", 400, "BAD_REQUEST");
 
     // Confirm the job exists and belongs to this user's org.
-    const res = await callGoApi("GET", `/org/prejudge-jobs/${jobId}`, null, auth.uid);
+    const lookupPath = jobType === "generate" ? `/org/generate-jobs/${jobId}` : `/org/prejudge-jobs/${jobId}`;
+    const res = await callGoApi("GET", lookupPath, null, auth.uid);
     if (res.status !== 200) {
       return apiError("Job not found or access denied.", 403, "FORBIDDEN");
     }
