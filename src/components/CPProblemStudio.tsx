@@ -101,6 +101,7 @@ type PrejudgeTestRow = {
   memory_kb: number;
   is_sample: boolean;
   message?: string;
+  input_snippet?: string;
   got_output?: string;
   expected_output?: string;
 };
@@ -435,6 +436,7 @@ int main() {
   const [hasRunTestingSuite, setHasRunTestingSuite] = useState(false);
   const [openWAJobId, setOpenWAJobId] = useState<number | null>(null);
   const [selectedTestCaseForDetails, setSelectedTestCaseForDetails] = useState<string | null>(null);
+  const [selectedPrejudgeTest, setSelectedPrejudgeTest] = useState<PrejudgeTestRow | null>(null);
   const [prejudgeJob, setPrejudgeJob] = useState<PrejudgeJob | null>(null);
   const [prejudgeMessage, setPrejudgeMessage] = useState<string | null>(null);
   const [prejudgeErrorCode, setPrejudgeErrorCode] = useState<string | null>(null);
@@ -847,6 +849,7 @@ int main() {
             memory_kb: Number(r.memory_kb ?? 0),
             is_sample: Boolean(r.is_sample ?? false),
             message: typeof r.message === "string" ? r.message : undefined,
+            input_snippet: typeof r.input_snippet === "string" ? r.input_snippet : undefined,
             got_output: typeof r.got_output === "string" ? r.got_output : undefined,
             expected_output: typeof r.expected_output === "string" ? r.expected_output : undefined
           };
@@ -1125,6 +1128,7 @@ int main() {
                   memory_kb: Number(ev.memory_kb ?? 0),
                   is_sample: Boolean(ev.is_sample ?? false),
                   message: typeof ev.message === "string" ? ev.message : undefined,
+                  input_snippet: typeof ev.input_snippet === "string" ? ev.input_snippet : undefined,
                   got_output: typeof ev.got_output === "string" ? ev.got_output : undefined,
                   expected_output: typeof ev.expected_output === "string" ? ev.expected_output : undefined,
                 };
@@ -1166,6 +1170,7 @@ int main() {
               memory_kb: Number(r.memory_kb ?? 0),
               is_sample: Boolean(r.is_sample ?? false),
               message: typeof r.message === "string" ? r.message : undefined,
+              input_snippet: typeof r.input_snippet === "string" ? r.input_snippet : undefined,
               got_output: typeof r.got_output === "string" ? r.got_output : undefined,
               expected_output: typeof r.expected_output === "string" ? r.expected_output : undefined,
             };
@@ -1225,6 +1230,7 @@ int main() {
   };
 
   return (
+    <>
     <div className="my-5 rounded-2xl border border-white/10 bg-[#09090b] text-white shadow-xl overflow-hidden">
       <div className="relative flex flex-col w-full min-h-[550px]">
         
@@ -2078,10 +2084,18 @@ int main() {
                             <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1">
                               {prejudgeTests.map((p) => {
                                 const isSample = p.is_sample;
+                                const verdictColor =
+                                  p.verdict === "AC" || p.verdict === "OK"
+                                    ? "bg-green-500/10 text-green-400"
+                                    : p.verdict === "WA"
+                                    ? "bg-orange-500/10 text-orange-400"
+                                    : "bg-red-500/10 text-red-400";
                                 return (
-                                  <div
+                                  <button
                                     key={p.test_number}
-                                    className="p-3.5 rounded-xl border border-white/5 bg-black/40 hover:bg-black/60 transition space-y-3"
+                                    type="button"
+                                    onClick={() => setSelectedPrejudgeTest(p)}
+                                    className="w-full text-left p-3.5 rounded-xl border border-white/5 bg-black/40 hover:bg-black/60 hover:border-white/10 transition cursor-pointer"
                                   >
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2">
@@ -2092,57 +2106,19 @@ int main() {
                                           </span>
                                         )}
                                       </div>
-
                                       <div className="flex items-center gap-3">
                                         <span className="text-[10px] text-zinc-400 font-mono">
                                           {p.runtime_ms} ms / {(p.memory_kb / 1024).toFixed(2)} MB
                                         </span>
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
-                                          p.verdict === "OK" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
-                                        }`}>
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${verdictColor}`}>
                                           {p.verdict}
                                         </span>
                                       </div>
                                     </div>
-
-                                    {p.verdict === "WA" && p.got_output && p.expected_output && (
-                                      <div className="space-y-2 border-t border-white/5 pt-2">
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-[9px] uppercase tracking-wider text-red-400 font-bold">Wrong Answer Diagnostics</span>
-                                          <button
-                                            type="button"
-                                            onClick={() => setOpenWAJobId(openWAJobId === p.test_number ? null : p.test_number)}
-                                            className="text-[10px] text-purple-400 hover:text-purple-300 underline font-semibold"
-                                          >
-                                            {openWAJobId === p.test_number ? "Collapse Diff" : "Compare Outputs"}
-                                          </button>
-                                        </div>
-
-                                        {openWAJobId === p.test_number && (
-                                          <div className="grid grid-cols-2 gap-3 text-[10px] font-mono leading-relaxed bg-zinc-950 p-3 rounded-lg border border-white/5">
-                                            <div className="space-y-1">
-                                              <span className="text-zinc-500 block">Jury Expected Output:</span>
-                                              <pre className="text-green-400 bg-black/30 p-2 rounded overflow-x-auto max-h-24">
-                                                {p.expected_output}
-                                              </pre>
-                                            </div>
-                                            <div className="space-y-1">
-                                              <span className="text-zinc-500 block">Contestant Output:</span>
-                                              <pre className="text-red-400 bg-black/30 p-2 rounded overflow-x-auto max-h-24">
-                                                {p.got_output}
-                                              </pre>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
+                                    {p.message && p.message !== "auto-check" && (
+                                      <p className="mt-1.5 font-mono text-[9px] text-zinc-500 truncate">{p.message}</p>
                                     )}
-
-                                    {p.message && (
-                                      <pre className="rounded-lg bg-zinc-950/80 border border-white/5 p-2.5 font-mono text-[9px] text-zinc-400 overflow-x-auto">
-                                        {p.message}
-                                      </pre>
-                                    )}
-                                  </div>
+                                  </button>
                                 );
                               })}
                             </div>
@@ -2168,6 +2144,97 @@ int main() {
         
       </div>
     </div>
+
+    {/* ── Test Detail Modal (portal-like fixed overlay) ─────────────────── */}
+    {/* ── Test Detail Modal ─────────────────────────────────────────────── */}
+    {selectedPrejudgeTest && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        onClick={() => setSelectedPrejudgeTest(null)}
+      >
+        <div
+          className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 bg-zinc-950 shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-sm font-bold text-zinc-200">
+                Test #{selectedPrejudgeTest.test_number}
+              </span>
+              {selectedPrejudgeTest.is_sample && (
+                <span className="rounded bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 text-[9px] font-bold text-blue-400 uppercase tracking-wider">
+                  Sample
+                </span>
+              )}
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold ${
+                selectedPrejudgeTest.verdict === "AC" || selectedPrejudgeTest.verdict === "OK"
+                  ? "bg-green-500/10 text-green-400"
+                  : selectedPrejudgeTest.verdict === "WA"
+                  ? "bg-orange-500/10 text-orange-400"
+                  : "bg-red-500/10 text-red-400"
+              }`}>
+                {selectedPrejudgeTest.verdict}
+              </span>
+              <span className="text-[11px] text-zinc-500 font-mono">
+                {selectedPrejudgeTest.runtime_ms} ms / {(selectedPrejudgeTest.memory_kb / 1024).toFixed(2)} MB
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedPrejudgeTest(null)}
+              className="text-zinc-500 hover:text-zinc-200 text-xl leading-none transition"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="p-5 space-y-4 text-[11px] font-mono">
+            {selectedPrejudgeTest.message && selectedPrejudgeTest.message !== "auto-check" && (
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-sans font-semibold">Checker / Error Message</span>
+                <pre className="bg-black/40 border border-white/5 rounded-lg p-3 text-zinc-300 overflow-x-auto whitespace-pre-wrap break-all">
+                  {selectedPrejudgeTest.message}
+                </pre>
+              </div>
+            )}
+
+            {selectedPrejudgeTest.input_snippet && (
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-sans font-semibold">Input</span>
+                <pre className="bg-black/40 border border-white/5 rounded-lg p-3 text-blue-300 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
+                  {selectedPrejudgeTest.input_snippet}
+                </pre>
+              </div>
+            )}
+
+            {selectedPrejudgeTest.got_output !== undefined && (
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-sans font-semibold">Your Output</span>
+                <pre className={`bg-black/40 border rounded-lg p-3 overflow-x-auto max-h-40 whitespace-pre-wrap break-all ${
+                  selectedPrejudgeTest.verdict === "AC" || selectedPrejudgeTest.verdict === "OK"
+                    ? "border-green-500/20 text-green-300"
+                    : "border-red-500/20 text-red-300"
+                }`}>
+                  {selectedPrejudgeTest.got_output || "(empty)"}
+                </pre>
+              </div>
+            )}
+
+            {selectedPrejudgeTest.expected_output !== undefined && (
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-sans font-semibold">Expected Output</span>
+                <pre className="bg-black/40 border border-green-500/20 rounded-lg p-3 text-green-300 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
+                  {selectedPrejudgeTest.expected_output || "(empty)"}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 });
 
