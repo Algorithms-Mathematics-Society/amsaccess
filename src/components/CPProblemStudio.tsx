@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useImperativeHandle, useState, useEffect } from "react";
+import React, { forwardRef, useImperativeHandle, useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/client/apiClient";
 import type { ApiClientError } from "@/lib/client/apiClient";
 import {
@@ -442,6 +442,8 @@ int main() {
   const [lastPrejudgeJobId, setLastPrejudgeJobId] = useState<string | null>(null);
   const [isRefreshingJob, setIsRefreshingJob] = useState(false);
   const [stopPollingRequested, setStopPollingRequested] = useState(false);
+  const [totalTests, setTotalTests] = useState(0);
+  const wsRef = useRef<WebSocket | null>(null);
   const [isSavingTests, setIsSavingTests] = useState(false);
   const [testsSavedToCloud, setTestsSavedToCloud] = useState(false);
   const [isHydratingTests, setIsHydratingTests] = useState(false);
@@ -864,6 +866,7 @@ int main() {
     const jobId = lastPrejudgeJobId ?? prejudgeJob?.id;
     if (!jobId) return;
     try {
+      wsRef.current?.close();
       await apiFetch<{ ok: boolean }>(`/api/org/prejudge-jobs/${jobId}/cancel`, { method: "POST" });
       setStopPollingRequested(true);
       setIsRunningTests(false);
@@ -1037,11 +1040,72 @@ int main() {
       );
       setHasRunTestingSuite(true);
       setLastPrejudgeJobId(created.job_id);
+      setTotalTests(0);
+      setPrejudgeTests([]);
 
-      let attempts = 0;
-      while (attempts < 60) {
-        if (stopPollingRequested) break;
-        attempts += 1;
+      // ── WebSocket streaming ──────────────────────────────────────────────
+      const wsBaseUrl = process.env.NEXT_PUBLIC_GO_WS_URL ?? "";
+      let wsConnected = false;
+
+      if (wsBaseUrl) {
+        try {
+          const { ticket } = await apiFetch<{ ticket: string }>("/api/ws/ticket", {
+            method: "POST",
+            body: JSON.stringify({ job_id: created.job_id }),
+          });
+
+          await new Promise<void>((resolve) => {
+            const wsUrl = `${wsBaseUrl}/ws/prejudge/${created.job_id}?ticket=${encodeURIComponent(ticket)}`;
+            const ws = new WebSocket(wsUrl);
+            wsRef.current = ws;
+
+            ws.onopen = () => { wsConnected = true; };
+
+            ws.onmessage = (e: MessageEvent<string>) => {
+              let ev: Record<string, unknown>;
+              try { ev = JSON.parse(e.data); } catch { return; }
+
+              const eventType = ev.event_type as string;
+
+              if (eventType === "job_started") {
+                const tot = Number(ev.total ?? 0);
+                setTotalTests(tot);
+                setPrejudgeJob({ id: created.job_id, status: "RUNNING" });
+              } else if (eventType === "test_result") {
+                const row: PrejudgeTestRow = {
+                  test_number: Number(ev.test_number ?? 0),
+                  verdict: String(ev.verdict ?? "UNKNOWN"),
+                  runtime_ms: Number(ev.runtime_ms ?? 0),
+                  memory_kb: Number(ev.memory_kb ?? 0),
+                  is_sample: Boolean(ev.is_sample ?? false),
+                  message: typeof ev.message === "string" ? ev.message : undefined,
+                  got_output: typeof ev.got_output === "string" ? ev.got_output : undefined,
+                  expected_output: typeof ev.expected_output === "string" ? ev.expected_output : undefined,
+                };
+                if (row.test_number > 0) {
+                  setPrejudgeTests((prev) => {
+                    if (prev.some((t) => t.test_number === row.test_number)) return prev;
+                    return [...prev, row].sort((a, b) => a.test_number - b.test_number);
+                  });
+                }
+              } else if (eventType === "job_complete") {
+                const finalStatus = (ev.status as PrejudgeJob["status"]) ?? "SUCCEEDED";
+                setPrejudgeJob({ id: created.job_id, status: finalStatus });
+                ws.close();
+              }
+            };
+
+            ws.onerror = () => resolve();
+            ws.onclose = () => resolve();
+          });
+        } catch {
+          // Ticket fetch failed or WS couldn't connect — fall through to REST.
+        }
+      }
+
+      // ── REST fallback / catch-up ─────────────────────────────────────────
+      // Runs after WS closes for any reason, or when wsBaseUrl is not set.
+      if (!stopPollingRequested) {
         const job = await apiFetch<PrejudgeJob>(`/api/org/prejudge-jobs/${created.job_id}`);
         setPrejudgeJob(job);
         const rawTests = Array.isArray(job.result_json?.tests) ? (job.result_json?.tests as unknown[]) : [];
@@ -1057,16 +1121,41 @@ int main() {
               is_sample: Boolean(r.is_sample ?? false),
               message: typeof r.message === "string" ? r.message : undefined,
               got_output: typeof r.got_output === "string" ? r.got_output : undefined,
-              expected_output: typeof r.expected_output === "string" ? r.expected_output : undefined
+              expected_output: typeof r.expected_output === "string" ? r.expected_output : undefined,
             };
           })
           .filter((v): v is PrejudgeTestRow => !!v && v.test_number > 0);
-        setPrejudgeTests(parsed);
-        if (isTerminalPrejudgeStatus(job.status)) break;
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
-      if (attempts >= 60) {
-        setPrejudgeMessage("Validation polling timed out. Use Refresh Status or Retry Validation.");
+        if (!wsConnected || parsed.length > 0) {
+          setPrejudgeTests(parsed);
+        }
+        // If job is still not terminal (WS failed mid-run), poll until done.
+        if (!isTerminalPrejudgeStatus(job.status)) {
+          let attempts = 0;
+          while (attempts < 30 && !stopPollingRequested) {
+            attempts++;
+            await new Promise((r) => setTimeout(r, 3000));
+            const updated = await apiFetch<PrejudgeJob>(`/api/org/prejudge-jobs/${created.job_id}`);
+            setPrejudgeJob(updated);
+            const updatedTests = Array.isArray(updated.result_json?.tests)
+              ? (updated.result_json?.tests as unknown[])
+                  .map((row): PrejudgeTestRow | null => {
+                    if (!row || typeof row !== "object") return null;
+                    const r = row as Record<string, unknown>;
+                    return {
+                      test_number: Number(r.test_number ?? 0),
+                      verdict: String(r.verdict ?? "UNKNOWN"),
+                      runtime_ms: Number(r.runtime_ms ?? 0),
+                      memory_kb: Number(r.memory_kb ?? 0),
+                      is_sample: Boolean(r.is_sample ?? false),
+                      message: typeof r.message === "string" ? r.message : undefined,
+                    };
+                  })
+                  .filter((v): v is PrejudgeTestRow => !!v && v.test_number > 0)
+              : [];
+            setPrejudgeTests(updatedTests);
+            if (isTerminalPrejudgeStatus(updated.status)) break;
+          }
+        }
       }
     } catch (error) {
       const e = error as ApiClientError;
@@ -1923,6 +2012,22 @@ int main() {
                                 {prejudgeJob.status}
                               </span>
                             </div>
+
+                            {/* Live progress bar — shown during streaming */}
+                            {prejudgeJob.status === "RUNNING" && totalTests > 0 && (
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[10px] text-zinc-400 font-mono">
+                                  <span>Running tests…</span>
+                                  <span>{prejudgeTests.length} / {totalTests}</span>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
+                                  <div
+                                    className="h-full bg-purple-500 transition-all duration-300"
+                                    style={{ width: `${Math.round((prejudgeTests.length / totalTests) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
 
                             <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1">
                               {prejudgeTests.map((p) => {
