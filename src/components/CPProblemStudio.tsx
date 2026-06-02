@@ -1199,6 +1199,9 @@ int main() {
                       memory_kb: Number(r.memory_kb ?? 0),
                       is_sample: Boolean(r.is_sample ?? false),
                       message: typeof r.message === "string" ? r.message : undefined,
+                      input_snippet: typeof r.input_snippet === "string" ? r.input_snippet : undefined,
+                      got_output: typeof r.got_output === "string" ? r.got_output : undefined,
+                      expected_output: typeof r.expected_output === "string" ? r.expected_output : undefined,
                     };
                   })
                   .filter((v): v is PrejudgeTestRow => !!v && v.test_number > 0)
