@@ -102,11 +102,11 @@ type LiveInfraEvent = {
 };
 
 // ─── Helpers ─────────────────────────────────────────────────
-function statusColor(s: string) {
-  if (s === "ACTIVE")     return { bg: "rgba(34,197,94,0.1)",    border: "rgba(34,197,94,0.3)",    text: "#22c55e" };
-  if (s === "SCHEDULED")  return { bg: "rgba(139,92,246,0.1)",   border: "rgba(139,92,246,0.3)",   text: "#a855f7" };
-  if (s === "ENDED")      return { bg: "rgba(100,116,139,0.1)",  border: "rgba(100,116,139,0.3)",  text: "#94a3b8" };
-  return { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.3)", text: "#f59e0b" };
+function statusClass(s: string) {
+  if (s === "ACTIVE") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (s === "SCHEDULED") return "border-purple-200 bg-purple-50 text-purple-700";
+  if (s === "ENDED") return "border-slate-200 bg-slate-50 text-slate-500";
+  return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
 function toDateTimeLocalValue(isoLike: string): string {
@@ -223,18 +223,18 @@ export default function ContestDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: "#000000" }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-purple-500" />
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-purple-500" />
       </div>
     );
   }
 
   if (error || !contest) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: "#000000" }}>
-        <div className="text-center">
-          <p className="text-sm text-red-400">{error ?? "Contest not found."}</p>
-          <Link href="/org/dashboard" className="mt-4 inline-block text-sm" style={{ color: "#a855f7" }}>← Back</Link>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="rounded-2xl border border-slate-200 bg-white px-8 py-7 text-center shadow-sm">
+          <p className="text-sm text-red-600">{error ?? "Contest not found."}</p>
+          <Link href="/org/dashboard" className="mt-4 inline-block text-sm font-medium text-purple-600 hover:text-purple-700">← Back</Link>
         </div>
       </div>
     );
@@ -246,7 +246,7 @@ export default function ContestDetailPage() {
       : String(contest.plugin_type ?? "CP").toUpperCase() === "CHESS"
       ? "CHESS"
       : "CP";
-  const col = statusColor(contest.status);
+  const statusBadgeClass = statusClass(contest.status);
   const judgePhase = judge?.phase ?? "unknown";
   const judgeLabel = judgePhase === "ready"
     ? "Ready"
@@ -257,50 +257,38 @@ export default function ContestDetailPage() {
     : judgePhase === "stopped"
     ? "Stopped"
     : "Unknown";
-  const judgeDotClass = judgePhase === "ready" ? "bg-green-500" : judgePhase === "starting" ? "bg-amber-400" : judgePhase === "stopping" ? "bg-orange-400" : "bg-zinc-500";
+  const judgeDotClass = judgePhase === "ready" ? "bg-emerald-500" : judgePhase === "starting" ? "bg-amber-400" : judgePhase === "stopping" ? "bg-orange-400" : "bg-slate-400";
 
   return (
-    <div className="min-h-screen" style={{ background: "#000000", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-      <div
-        className="pointer-events-none fixed inset-0 opacity-20"
-        style={{
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-
-      <div id="contest-page-container" className="relative mx-auto max-w-4xl px-6 py-8 transition-all duration-300">
+    <div className="light min-h-screen bg-slate-50 text-slate-900 selection:bg-purple-200 selection:text-purple-900" style={{ fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div id="contest-page-container" className="relative mx-auto max-w-5xl px-6 py-8">
         {/* Back */}
         <Link
           href="/org/dashboard"
-          className="mb-6 inline-flex items-center gap-2 text-sm transition"
-          style={{ color: "#71717A" }}
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-950"
         >
           <ArrowLeft className="h-4 w-4" />
           Dashboard
         </Link>
 
         {/* Contest header */}
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-6 flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-start">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold tracking-tight text-white">{contest.title}</h1>
-              <span
-                className="rounded px-2 py-0.5 text-xs font-medium"
-                style={{ background: col.bg, border: `1px solid ${col.border}`, color: col.text }}
-              >
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{contest.title}</h1>
+              <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${statusBadgeClass}`}>
                 {contest.status}
               </span>
             </div>
             {contest.description && (
-              <p className="mt-1 text-sm" style={{ color: "#64748b" }}>{contest.description}</p>
+              <p className="mt-1 text-sm text-slate-500">{contest.description}</p>
             )}
-            <p className="mt-1 text-xs" style={{ color: "#52525B" }}>
-              {new Date(contest.start_at).toLocaleString()} → {new Date(contest.end_at).toLocaleString()}
+            <p className="mt-2 text-xs font-medium text-slate-400">
+              {new Date(contest.start_at).toLocaleString()} - {new Date(contest.end_at).toLocaleString()}
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs border" style={{ borderColor: "rgba(255,255,255,0.15)", color: "#d4d4d8" }}>
+          <div className="flex flex-col items-start gap-2 lg:items-end">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
               <span className={`h-2 w-2 rounded-full ${judgeDotClass}`} />
               {judge
                 ? `Judge: ${judgeLabel} (${judge.running_instances ?? 0}/${judge.total_instances ?? 0} up, target ${judge.target_size}) · mode ${judge.mode ?? "AUTO"}`
@@ -310,8 +298,7 @@ export default function ContestDetailPage() {
               <button
                 onClick={() => void controlJudge("start")}
                 disabled={judgeBusy}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-50"
-                style={{ background: "rgba(34,197,94,0.2)", border: "1px solid rgba(34,197,94,0.4)" }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
               >
                 <Play className="h-3.5 w-3.5" />
                 Start Compute
@@ -319,8 +306,7 @@ export default function ContestDetailPage() {
               <button
                 onClick={() => void controlJudge("stop")}
                 disabled={judgeBusy}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-50"
-                style={{ color: "#f87171", border: "1px solid rgba(239,68,68,0.4)" }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
               >
                 <Square className="h-3.5 w-3.5" />
                 Stop Compute
@@ -328,36 +314,33 @@ export default function ContestDetailPage() {
               <button
                 onClick={() => void loadJudge()}
                 disabled={judgeBusy}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-50"
-                style={{ color: "#a1a1aa", border: "1px solid rgba(255,255,255,0.2)" }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 disabled:opacity-50"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${judgeBusy ? "animate-spin" : ""}`} />
                 Refresh
               </button>
             </div>
-            {judgeError ? <p className="text-[11px] text-red-400">{judgeError}</p> : null}
+            {judgeError ? <p className="text-[11px] text-red-600">{judgeError}</p> : null}
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-1 rounded-xl p-1" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid-cols-5">
           {([["questions", "Questions", questions.length], ["invites", "Invites", invites.length], ["students", "Students", null], ["live", "Live", null], ["settings", "Settings", null]] as const).map(
             ([key, label, count]) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition"
-                style={
+                className={`flex items-center justify-center gap-2 rounded-xl border py-2 text-sm font-medium transition ${
                   tab === key
-                    ? { background: "rgba(139,92,246,0.15)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.25)" }
-                    : { color: "#71717A", border: "1px solid transparent" }
-                }
+                    ? "border-purple-100 bg-purple-50 text-slate-950 shadow-sm"
+                    : "border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-950"
+                }`}
               >
                 {label}
                 {count !== null && (
                   <span
-                    className="rounded px-1.5 text-xs"
-                    style={tab === key ? { background: "rgba(139,92,246,0.3)", color: "#c4b5fd" } : { background: "rgba(255,255,255,0.06)", color: "#71717A" }}
+                    className={`rounded px-1.5 text-xs ${tab === key ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}
                   >
                     {count}
                   </span>
@@ -527,10 +510,10 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
         <div>
           <div className="flex items-center gap-2">
-            <p className="text-xs uppercase tracking-[0.12em] text-zinc-400">Runtime Status</p>
+            <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Runtime Status</p>
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                 transport === "SSE"
@@ -541,16 +524,16 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
               {transport === "SSE" ? "LIVE STREAMED (SSE)" : "POLLING FALLBACK"}
             </span>
           </div>
-          <p className="mt-1 text-lg font-semibold text-white">
+          <p className="mt-1 text-lg font-semibold text-slate-950">
             {runtime?.runtime_status ?? "UNKNOWN"}
             {runtime?.runtime_ready ? " · READY" : ""}
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-slate-400">
             {runtime ? `instances ${runtime.capacity.running_instances ?? 0}/${runtime.capacity.total_instances ?? 0}, target ${runtime.capacity.target_size}` : "No runtime data"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => void loadLive()} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-zinc-200">
+          <button onClick={() => void loadLive()} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700">
             {busy ? "Refreshing..." : "Refresh"}
           </button>
           <button onClick={() => void runReadinessCheck()} className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-xs text-emerald-300">
@@ -566,8 +549,8 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
           items={subs}
           render={(item) => (
             <>
-              <span className="font-mono text-[11px] text-zinc-300">{item.candidate}</span>
-              <span className="text-[11px] text-zinc-500">{item.final_verdict ?? item.status}</span>
+              <span className="font-mono text-[11px] text-slate-600">{item.candidate}</span>
+              <span className="text-[11px] text-slate-400">{item.final_verdict ?? item.status}</span>
             </>
           )}
         />
@@ -576,13 +559,13 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
           items={proctor}
           render={(item) => (
             <>
-              <span className="font-mono text-[11px] text-zinc-300">{item.candidate}</span>
+              <span className="font-mono text-[11px] text-slate-600">{item.candidate}</span>
               <span className={`text-[11px] ${
                 item.severity === "CRITICAL"
                   ? "text-red-300"
                   : item.severity === "WARN"
                   ? "text-amber-300"
-                  : "text-zinc-400"
+                  : "text-slate-500"
               }`}>
                 {item.event_type} {item.severity ? `(${item.severity})` : ""}
               </span>
@@ -594,8 +577,8 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
           items={infra}
           render={(item) => (
             <>
-              <span className="font-mono text-[11px] text-zinc-300">{item.status}</span>
-              <span className="text-[11px] text-zinc-500">{item.reason_code ?? item.source}</span>
+              <span className="font-mono text-[11px] text-slate-600">{item.status}</span>
+              <span className="text-[11px] text-slate-400">{item.reason_code ?? item.source}</span>
             </>
           )}
         />
@@ -606,14 +589,14 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
 
 function LiveTable<T>({ title, items, render }: { title: string; items: T[]; render: (item: T) => ReactNode }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02]">
-      <div className="border-b border-white/10 px-3 py-2 text-xs font-medium text-zinc-300">{title}</div>
+    <div className="rounded-xl border border-slate-200 bg-white">
+      <div className="border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-600">{title}</div>
       <div className="max-h-72 overflow-y-auto">
         {items.length === 0 ? (
-          <div className="px-3 py-3 text-xs text-zinc-500">No events</div>
+          <div className="px-3 py-3 text-xs text-slate-400">No events</div>
         ) : (
           items.map((item, idx) => (
-            <div key={idx} className="flex items-center justify-between border-b border-white/5 px-3 py-2 last:border-b-0">
+            <div key={idx} className="flex items-center justify-between border-b border-slate-100 px-3 py-2 last:border-b-0">
               {render(item)}
             </div>
           ))
@@ -646,15 +629,14 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm" style={{ color: "#71717A" }}>
+        <p className="text-sm font-medium text-slate-500">
           {questions.length} question{questions.length !== 1 ? "s" : ""}
         </p>
         <div className="flex items-center gap-2">
           {isChessContest ? (
             <Link
               href={`/org/contests/${contestId}/chess/testplay`}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition"
-              style={{ background: "rgba(16,185,129,0.18)", border: "1px solid rgba(16,185,129,0.35)" }}
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
             >
               <Play className="h-4 w-4" />
               Open Chess Test Play
@@ -662,8 +644,7 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
           ) : (
             <button
               onClick={() => { setAdding(true); setEditId(null); }}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition"
-              style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)" }}
+              className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800"
             >
               <Plus className="h-4 w-4" />
               Add question
@@ -673,9 +654,9 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
       </div>
 
       {isChessContest ? (
-        <div className="mb-4 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4">
-          <p className="text-sm font-medium text-emerald-300">This contest is in CHESS mode.</p>
-          <p className="mt-1 text-xs text-zinc-400">
+        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-sm font-semibold text-emerald-800">This contest is in CHESS mode.</p>
+          <p className="mt-1 text-xs text-emerald-700/75">
             CP question editing is disabled for CHESS contests. Use the Chess Test Play workflow for rulesets, validation, and move simulation.
           </p>
         </div>
@@ -706,23 +687,23 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
                 setSaving={setSaving}
               />
             ) : (
-              <div className="glass-card p-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-purple-200 hover:shadow-md">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium" style={{ color: "#52525B" }}>Q{i + 1}</span>
-                      <span className="font-medium text-white">{q.title}</span>
-                      <span className="text-xs" style={{ color: "#a855f7" }}>{q.points} pts</span>
+                      <span className="text-xs font-medium text-slate-400">Q{i + 1}</span>
+                      <span className="font-semibold text-slate-950">{q.title}</span>
+                      <span className="rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">{q.points} pts</span>
                     </div>
                     {q.description && (
-                      <p className="mt-1.5 text-sm line-clamp-2" style={{ color: "#71717A" }}>{q.description}</p>
+                      <p className="mt-1.5 line-clamp-2 text-sm text-slate-500">{q.description}</p>
                     )}
                     <div className="mt-2 flex gap-2">
                       {(["HTML", "CSS", "JS"] as const).map((lang) => {
                         const key = `${lang.toLowerCase()}_starter` as keyof Question;
                         const val = q[key] as string;
                         return val ? (
-                          <span key={lang} className="rounded px-1.5 py-0.5 text-xs font-mono" style={{ background: "rgba(139,92,246,0.1)", color: "#a855f7" }}>
+                          <span key={lang} className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-mono font-medium text-slate-500">
                             {lang}
                           </span>
                         ) : null;
@@ -732,16 +713,14 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => setEditId(q.id)}
-                      className="rounded-lg px-3 py-1.5 text-xs transition"
-                      style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#a1a1aa" }}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => void deleteQuestion(q.id)}
                       disabled={deleting === q.id}
-                      className="rounded-lg px-3 py-1.5 text-xs transition disabled:opacity-40"
-                      style={{ border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}
+                      className="rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-600 transition hover:bg-red-50 disabled:opacity-40"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -753,13 +732,12 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
         ))}
 
         {questions.length === 0 && !adding && !isChessContest && (
-          <div
-            className="flex flex-col items-center justify-center rounded-xl py-16 text-center"
-            style={{ border: "1px dashed rgba(255,255,255,0.08)" }}
-          >
-            <Code2 className="mb-3 h-8 w-8" style={{ color: "#3F3F46" }} />
-            <p className="text-sm font-medium text-white">No questions yet</p>
-            <p className="mt-1 text-xs" style={{ color: "#52525B" }}>Add competitive programming problems</p>
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
+            <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm" aria-hidden="true">
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+            </span>
+            <p className="text-sm font-semibold text-slate-950">No questions yet</p>
+            <p className="mt-1 text-xs text-slate-500">Add competitive programming problems</p>
           </div>
         )}
       </div>
@@ -795,7 +773,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
 <code>
 <div class="p-4 bg-zinc-950/80 border border-purple-500/20 rounded-xl space-y-3 shadow-inner">
   <div class="flex justify-between items-center">
-    <span class="text-xs font-semibold text-zinc-300">Simulated Array Size (N):</span>
+    <span class="text-xs font-semibold text-slate-600">Simulated Array Size (N):</span>
     <span id="n-val" class="text-xs font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">45</span>
   </div>
   <input 
@@ -806,8 +784,8 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
     style="width: 100%; height: 4px; background: #3f3f46; border-radius: 9999px; outline: none; cursor: pointer; accent-color: #a855f7;"
     oninput="document.getElementById('n-val').innerText = this.value; const arr = Array.from({length: 5}, () => Math.floor(Math.random() * 20) - 10); document.getElementById('arr-val').innerText = '[' + arr.join(', ') + ', ...]';" 
   />
-  <div class="bg-black/40 p-2.5 rounded-lg border border-white/5 font-mono text-[10px] text-zinc-400">
-    <span class="text-zinc-500">Sample Segment:</span> <span id="arr-val">[-3, 4, -1, 2, ...]</span>
+  <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-mono text-[10px] text-slate-500">
+    <span class="text-slate-400">Sample Segment:</span> <span id="arr-val">[-3, 4, -1, 2, ...]</span>
   </div>
 </div>
 </code>
@@ -906,54 +884,53 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
 
   return (
     <div
-      className="rounded-xl p-5"
-      style={{ background: "rgba(139,92,246,0.04)", border: "1px solid rgba(139,92,246,0.2)" }}
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
     >
-      <p className="mb-4 text-sm font-medium text-white">{existing ? "Edit question" : "New question"}</p>
+      <p className="mb-4 text-sm font-medium text-slate-950">{existing ? "Edit question" : "New question"}</p>
 
       {error && (
-        <div className="mb-4 rounded px-3 py-2 text-sm" style={{ background: "rgba(239,68,68,0.08)", color: "#fca5a5" }}>{error}</div>
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
       )}
       {success && (
-        <div className="mb-4 rounded px-3 py-2 text-sm" style={{ background: "rgba(34,197,94,0.12)", color: "#86efac" }}>{success}</div>
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</div>
       )}
 
       {/* Title + points */}
       <div className="mb-4 flex gap-3">
         <div className="flex-1">
-          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Title</label>
+          <label className="mb-1.5 block text-xs font-medium text-slate-500">Title</label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Build a responsive navbar"
-            className="glass-input text-sm text-white"
+            className="glass-input text-sm text-slate-950"
           />
         </div>
         <div className="w-24">
-          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Points</label>
+          <label className="mb-1.5 block text-xs font-medium text-slate-500">Points</label>
           <input
             type="number"
             min={1}
             value={points}
             onChange={(e) => setPoints(Number(e.target.value))}
-            className="glass-input text-sm text-white"
+            className="glass-input text-sm text-slate-950"
           />
         </div>
       </div>
 
       {/* Question type */}
       <div className="mb-4">
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Question type</label>
+        <label className="mb-1.5 block text-xs font-medium text-slate-500">Question type</label>
         <div className="inline-flex gap-2">
           <button
             type="button"
             onClick={() => setQuestionType("code")}
             className="rounded-lg px-4 py-2 text-sm font-medium"
             style={{
-              background: questionType === "code" ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.02)",
-              border: questionType === "code" ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.12)",
-              color: questionType === "code" ? "#c4b5fd" : "#A1A1AA",
+              background: questionType === "code" ? "rgba(168,85,247,0.1)" : "#ffffff",
+              border: questionType === "code" ? "1px solid rgba(168,85,247,0.28)" : "1px solid rgba(226,232,240,1)",
+              color: questionType === "code" ? "#6d28d9" : "#64748b",
             }}
           >
             Code submission
@@ -963,9 +940,9 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
             onClick={() => setQuestionType("interactive")}
             className="rounded-lg px-4 py-2 text-sm font-medium"
             style={{
-              background: questionType === "interactive" ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.02)",
-              border: questionType === "interactive" ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.12)",
-              color: questionType === "interactive" ? "#c4b5fd" : "#A1A1AA",
+              background: questionType === "interactive" ? "rgba(168,85,247,0.1)" : "#ffffff",
+              border: questionType === "interactive" ? "1px solid rgba(168,85,247,0.28)" : "1px solid rgba(226,232,240,1)",
+              color: questionType === "interactive" ? "#6d28d9" : "#64748b",
             }}
           >
             Interactive
@@ -976,26 +953,26 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       {/* Time / memory limits */}
       <div className="mb-4 flex gap-3">
         <div className="flex-1">
-          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Time limit (ms)</label>
+          <label className="mb-1.5 block text-xs font-medium text-slate-500">Time limit (ms)</label>
           <input
             type="number"
             min={100}
             value={timeLimit}
             onChange={(e) => setTimeLimit(Number(e.target.value))}
-            className="glass-input text-sm text-white"
+            className="glass-input text-sm text-slate-950"
           />
-          <p className="mt-1 text-[11px]" style={{ color: "#71717A" }}>Min: 100 ms</p>
+          <p className="mt-1 text-[11px] text-slate-500">Min: 100 ms</p>
         </div>
         <div className="flex-1">
-          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Memory limit (MB)</label>
+          <label className="mb-1.5 block text-xs font-medium text-slate-500">Memory limit (MB)</label>
           <input
             type="number"
             min={16}
             value={memoryLimit}
             onChange={(e) => setMemoryLimit(Number(e.target.value))}
-            className="glass-input text-sm text-white"
+            className="glass-input text-sm text-slate-950"
           />
-          <p className="mt-1 text-[11px]" style={{ color: "#71717A" }}>Min: 16 MB</p>
+          <p className="mt-1 text-[11px] text-slate-500">Min: 16 MB</p>
         </div>
       </div>
 
@@ -1026,24 +1003,20 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         <button
           onClick={() => void handleSave()}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50"
-          style={{ background: "rgb(139,92,246)" }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(124,58,237)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(139,92,246)"; }}
+          className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
           {saving ? "Saving…" : "Save question"}
         </button>
         <button
           onClick={onCancel}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition"
-          style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }}
+          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
         >
           <X className="h-4 w-4" />
           Cancel
         </button>
       </div>
-      <p className="mt-2 text-xs" style={{ color: "#71717A" }}>
+      <p className="mt-2 text-xs text-slate-500">
         {saving ? "Saving question... please wait." : "Save question first, then upload tests and run validation."}
       </p>
     </div>
@@ -1165,18 +1138,18 @@ function InvitesTab({ contestId, invites, onRefresh }: {
       {/* Add invites */}
       <div className="glass-card mb-6 p-5">
         <div className="mb-3 flex items-center gap-2">
-          <UserPlus className="h-4 w-4" style={{ color: "#a855f7" }} />
-          <p className="text-sm font-medium text-white">Invite candidates</p>
+          <UserPlus className="h-4 w-4 text-purple-600" />
+          <p className="text-sm font-medium text-slate-950">Invite candidates</p>
         </div>
-        <p className="mb-3 text-xs" style={{ color: "#64748b" }}>
+        <p className="mb-3 text-xs text-slate-500">
           Enter email addresses or `Name &lt;email&gt;` lines. Use the template below to send the desktop download link in one batch.
         </p>
 
         {error && (
-          <div className="mb-3 rounded px-3 py-2 text-sm" style={{ background: "rgba(239,68,68,0.08)", color: "#fca5a5" }}>{error}</div>
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
         )}
         {success && (
-          <div className="mb-3 rounded px-3 py-2 text-sm" style={{ background: "rgba(34,197,94,0.08)", color: "#86efac" }}>{success}</div>
+          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</div>
         )}
 
         <textarea
@@ -1184,7 +1157,7 @@ function InvitesTab({ contestId, invites, onRefresh }: {
           value={emailInput}
           onChange={(e) => setEmailInput(e.target.value)}
           placeholder={"Alice Doe <alice@college.edu>\nbob@university.edu\nCharlie, charlie@institute.ac.in"}
-          className="glass-input mb-3 resize-none text-sm text-white"
+          className="glass-input mb-3 resize-none text-sm text-slate-950"
           style={{ fontFamily: "monospace" }}
         />
         <input
@@ -1192,20 +1165,19 @@ function InvitesTab({ contestId, invites, onRefresh }: {
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="Email subject"
-          className="glass-input mb-3 text-sm text-white"
+          className="glass-input mb-3 text-sm text-slate-950"
         />
         <textarea
           rows={6}
           value={template}
           onChange={(e) => setTemplate(e.target.value)}
           placeholder={"Use {{email}} and {{download_url}} in the message body."}
-          className="glass-input mb-3 resize-y text-sm text-white"
+          className="glass-input mb-3 resize-y text-sm text-slate-950"
         />
         <button
           onClick={() => void addInvites()}
           disabled={saving || !allowBulkInvites}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50"
-          style={{ background: "rgb(139,92,246)" }}
+          className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
           onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(124,58,237)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(139,92,246)"; }}
         >
@@ -1213,14 +1185,14 @@ function InvitesTab({ contestId, invites, onRefresh }: {
           {!allowBulkInvites ? "Bulk invites disabled by AMS admin" : saving ? "Saving…" : "Send invites"}
         </button>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="rounded border border-white/10 p-3">
-            <p className="mb-2 text-xs uppercase tracking-widest" style={{ color: "#64748b" }}>Template Preview</p>
-            <p className="text-sm font-medium text-white">{subject.replaceAll("{{email}}", "candidate@example.com")}</p>
-            <pre className="mt-2 whitespace-pre-wrap text-xs text-white/80">
+          <div className="rounded border border-slate-200 p-3">
+            <p className="mb-2 text-xs uppercase tracking-widest text-slate-500">Template Preview</p>
+            <p className="text-sm font-medium text-slate-950">{subject.replaceAll("{{email}}", "candidate@example.com")}</p>
+            <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-600">
               {template.replaceAll("{{email}}", "candidate@example.com").replaceAll("{{download_url}}", "https://amsaccess.com/download")}
             </pre>
           </div>
-          <div className="rounded border border-white/10 p-3 text-xs" style={{ color: "#94a3b8" }}>
+          <div className="rounded border border-slate-200 p-3 text-xs text-slate-500">
             Allowed placeholders: <code>{"{{email}}"}</code>, <code>{"{{download_url}}"}</code>
           </div>
         </div>
@@ -1228,22 +1200,21 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 
       {/* Invites list */}
       <div>
-        <p className="mb-3 text-xs font-medium uppercase tracking-widest" style={{ color: "#52525B" }}>
+        <p className="mb-3 text-xs font-medium uppercase tracking-widest text-slate-400">
           {invites.length} invite{invites.length !== 1 ? "s" : ""}
         </p>
         {invites.length === 0 ? (
           <div
-            className="flex flex-col items-center justify-center rounded-xl py-12 text-center"
-            style={{ border: "1px dashed rgba(255,255,255,0.08)" }}
+            className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm"
           >
-            <Mail className="mb-3 h-8 w-8" style={{ color: "#3F3F46" }} />
-            <p className="text-sm font-medium text-white">No invites yet</p>
+            <Mail className="mb-3 h-8 w-8 text-slate-400" />
+            <p className="text-sm font-medium text-slate-950">No invites yet</p>
           </div>
         ) : (
           <div className="overflow-hidden glass-card">
             <table className="w-full text-sm">
-              <thead style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                <tr className="text-xs uppercase tracking-widest" style={{ color: "#52525B" }}>
+              <thead className="border-b border-slate-200">
+                <tr className="text-xs uppercase tracking-widest text-slate-400">
                   <th className="px-4 py-3 text-left">Email</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Invited</th>
@@ -1252,8 +1223,8 @@ function InvitesTab({ contestId, invites, onRefresh }: {
               </thead>
               <tbody>
                 {invites.map((inv) => (
-                  <tr key={inv.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                    <td className="px-4 py-3 font-mono text-white">{inv.email}</td>
+                  <tr key={inv.id} className="border-b border-slate-100">
+                    <td className="px-4 py-3 font-mono text-slate-950">{inv.email}</td>
                     <td className="px-4 py-3">
                       <span
                         className="rounded px-2 py-0.5 text-xs"
@@ -1266,17 +1237,14 @@ function InvitesTab({ contestId, invites, onRefresh }: {
                         {inv.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "#64748b" }}>
+                    <td className="px-4 py-3 text-xs text-slate-500">
                       {new Date(inv.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => void removeInvite(inv.id)}
                         disabled={removing === inv.id}
-                        className="rounded p-1.5 transition disabled:opacity-40"
-                        style={{ color: "#71717A" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.color = "#ef4444"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.color = "#71717A"; }}
+                        className="rounded p-1.5 text-slate-500 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -1384,143 +1352,154 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
     }
   }
 
+  const fieldClass = "w-full rounded-xl border border-slate-300 bg-slate-50/70 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-300 focus:bg-white focus:ring-4 focus:ring-purple-100";
+  const labelClass = "mb-1.5 block text-xs font-semibold text-slate-700";
+  const sectionClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
+  const sectionTitleClass = "mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400";
+  const pillClass = (active: boolean, tone: "purple" | "emerald" = "purple") => {
+    if (active && tone === "emerald") return "rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition";
+    if (active) return "rounded-md border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 shadow-sm transition";
+    return "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950";
+  };
+
   return (
-    <div className="space-y-4 glass-card p-7">
-      {error && <div className="rounded px-3 py-2 text-sm" style={{ background: "rgba(239,68,68,0.08)", color: "#fca5a5" }}>{error}</div>}
-      {success && <div className="rounded px-3 py-2 text-sm" style={{ background: "rgba(34,197,94,0.08)", color: "#86efac" }}>Saved.</div>}
+    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="space-y-5 p-6">
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {success && <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Saved.</div>}
 
-      <div>
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Title</label>
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="glass-input text-sm text-white" />
-      </div>
-      <div>
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Description</label>
-        <textarea rows={3} value={description} onChange={(e) => setDesc(e.target.value)} className="glass-input resize-none text-sm text-white" />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Start</label>
-          <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="glass-input text-sm text-white" style={{ colorScheme: "dark" }} />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>End</label>
-          <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className="glass-input text-sm text-white" style={{ colorScheme: "dark" }} />
-        </div>
-      </div>
-      <div>
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Timezone</label>
-        <input
-          type="text"
-          value={timezone}
-          onChange={(e) => setTimezone(e.target.value)}
-          className="glass-input text-sm text-white"
-          placeholder="Asia/Kolkata"
-        />
-      </div>
-      <div>
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Status</label>
-        <div className="flex gap-2">
-          {(["DRAFT", "SCHEDULED", "ACTIVE", "ENDED"] as const).map((s) => (
-            <button
-              key={s} type="button" onClick={() => setStatus(s)}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium transition"
-              style={status === s
-                ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)", color: "#c4b5fd" }
-                : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+        <section className={sectionClass}>
+          <h3 className={sectionTitleClass}>Basic Information</h3>
+          <div className="space-y-4">
+            <div>
+              <label className={labelClass}>Title</label>
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={fieldClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Description</label>
+              <textarea rows={3} value={description} onChange={(e) => setDesc(e.target.value)} className={fieldClass + " resize-none"} />
+            </div>
+          </div>
+        </section>
+
+        <section className={sectionClass}>
+          <h3 className={sectionTitleClass}>Scheduling</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className={labelClass}>Start</label>
+              <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={fieldClass} style={{ colorScheme: "light" }} />
+            </div>
+            <div>
+              <label className={labelClass}>End</label>
+              <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className={fieldClass} style={{ colorScheme: "light" }} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <label className={labelClass}>Timezone</label>
+            <input
+              type="text"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              className={fieldClass}
+              placeholder="Asia/Kolkata"
+            />
+          </div>
+        </section>
+
+        <section className={sectionClass}>
+          <h3 className={sectionTitleClass}>Contest Parameters</h3>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div>
+              <label className={labelClass}>Status</label>
+              <div className="flex flex-wrap gap-2">
+                {(["DRAFT", "SCHEDULED", "ACTIVE", "ENDED"] as const).map((s) => (
+                  <button key={s} type="button" onClick={() => setStatus(s)} className={pillClass(status === s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Scoring type</label>
+              <div className="flex flex-wrap gap-2">
+                {(["IOI", "ICPC", "CF"] as const).map((s) => (
+                  <button key={s} type="button" onClick={() => setScoringType(s)} className={pillClass(scoringType === s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="lg:col-span-2">
+              <label className={labelClass}>Allowed languages</label>
+              <div className="flex flex-wrap gap-2">
+                {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
+                  const active = allowedLangs.includes(lang);
+                  return (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() =>
+                        setAllowedLangs(
+                          active ? allowedLangs.filter((l) => l !== lang) : [...allowedLangs, lang]
+                        )
+                      }
+                      className={pillClass(active)}
+                    >
+                      {lang}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="lg:col-span-2">
+              <label className={labelClass}>Contest mode</label>
+              <div className="flex flex-wrap gap-2">
+                {(["CP", "CHESS"] as const).map((s) => (
+                  <button key={s} type="button" onClick={() => setPluginType(s)} className={pillClass(pluginType === s, "emerald")}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className={sectionClass}>
+          <h3 className={sectionTitleClass}>Plugin Configuration</h3>
+          <label className={labelClass}>Plugin config (JSON)</label>
+          <div className="overflow-hidden rounded-xl border border-slate-300 bg-slate-950 shadow-inner focus-within:border-purple-300 focus-within:ring-4 focus-within:ring-purple-100">
+            <div className="flex min-h-24">
+              <div className="select-none border-r border-white/10 bg-slate-900 px-3 py-3 text-right font-mono text-xs leading-6 text-slate-500">
+                {pluginConfig.split("\n").map((_, index) => (
+                  <div key={index}>{index + 1}</div>
+                ))}
+              </div>
+              <textarea
+                rows={3}
+                value={pluginConfig}
+                onChange={(e) => setPluginConfig(e.target.value)}
+                className="min-h-24 flex-1 resize-y bg-slate-950 px-4 py-3 font-mono text-xs leading-6 text-slate-100 outline-none placeholder:text-slate-500"
+                spellCheck={false}
+              />
+            </div>
+          </div>
+        </section>
       </div>
 
-      <div>
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Scoring type</label>
-        <div className="flex gap-2">
-          {(["IOI", "ICPC", "CF"] as const).map((s) => (
-            <button
-              key={s} type="button" onClick={() => setScoringType(s)}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium transition"
-              style={scoringType === s
-                ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)", color: "#c4b5fd" }
-                : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Allowed languages</label>
-        <div className="flex flex-wrap gap-2">
-          {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
-            const active = allowedLangs.includes(lang);
-            return (
-              <button
-                key={lang}
-                type="button"
-                onClick={() =>
-                  setAllowedLangs(
-                    active ? allowedLangs.filter((l) => l !== lang) : [...allowedLangs, lang]
-                  )
-                }
-                className="rounded-md px-3 py-1 text-xs font-medium transition"
-                style={
-                  active
-                    ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)", color: "#c4b5fd" }
-                    : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
-                }
-              >
-                {lang}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Contest mode</label>
-        <div className="flex gap-2">
-          {(["CP", "CHESS"] as const).map((s) => (
-            <button
-              key={s} type="button" onClick={() => setPluginType(s)}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium transition"
-              style={pluginType === s
-                ? { background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.4)", color: "#6ee7b7" }
-                : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Plugin config (JSON)</label>
-        <textarea
-          rows={3}
-          value={pluginConfig}
-          onChange={(e) => setPluginConfig(e.target.value)}
-          className="glass-input resize-none font-mono text-xs text-white"
-        />
-      </div>
-
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/90 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <button
           onClick={() => void save()} disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white transition disabled:opacity-50"
-          style={{ background: "rgb(139,92,246)" }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(124,58,237)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(139,92,246)"; }}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
           {saving ? "Saving…" : "Save changes"}
         </button>
         <button
           onClick={() => void deleteContest()} disabled={deleting}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition disabled:opacity-50"
-          style={{ border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}
+          className="inline-flex items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
         >
           <Trash2 className="h-4 w-4" />
           Delete contest
@@ -1793,13 +1772,13 @@ function StudentsTab({ contestId }: { contestId: string }) {
   return (
     <div className="space-y-6">
       {/* Sub-Tabs Selector */}
-      <div className="flex gap-4 border-b border-white/10 pb-2">
+      <div className="flex gap-4 border-b border-slate-200 pb-2">
         <button
           onClick={() => setActiveSubTab("provision")}
           className={`pb-2 text-sm font-semibold transition ${
             activeSubTab === "provision"
-              ? "text-violet-400 border-b-2 border-violet-500"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "text-purple-600 border-b-2 border-purple-200"
+              : "text-slate-400 hover:text-slate-600"
           }`}
         >
           Student Provisioning
@@ -1808,8 +1787,8 @@ function StudentsTab({ contestId }: { contestId: string }) {
           onClick={() => setActiveSubTab("emails")}
           className={`pb-2 text-sm font-semibold transition ${
             activeSubTab === "emails"
-              ? "text-violet-400 border-b-2 border-violet-500"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "text-purple-600 border-b-2 border-purple-200"
+              : "text-slate-400 hover:text-slate-600"
           }`}
         >
           Email Invites Dispatcher
@@ -1820,24 +1799,24 @@ function StudentsTab({ contestId }: { contestId: string }) {
         <div className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             {/* Import Area */}
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
-              <h3 className="text-sm font-medium text-white flex items-center gap-2">
-                <Upload className="h-4 w-4 text-violet-400" />
+            <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+              <h3 className="text-sm font-medium text-slate-950 flex items-center gap-2">
+                <Upload className="h-4 w-4 text-purple-600" />
                 Upload CSV Student Roster
               </h3>
-              <p className="text-xs text-zinc-400">
-                Provide a CSV containing columns <code className="text-violet-300">name</code> and{" "}
-                <code className="text-violet-300">email</code>. We will generate unique{" "}
-                <code className="text-violet-300">@amsaccess.com</code> login credentials for each student.
+              <p className="text-xs text-slate-500">
+                Provide a CSV containing columns <code className="text-purple-600">name</code> and{" "}
+                <code className="text-purple-600">email</code>. We will generate unique{" "}
+                <code className="text-purple-600">@amsaccess.com</code> login credentials for each student.
               </p>
 
               <div className="flex items-center gap-3">
-                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/[0.08] transition">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
                   <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
                   Choose File
                   <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
                 </label>
-                <span className="text-xs text-zinc-500">or paste plain CSV content below:</span>
+                <span className="text-xs text-slate-400">or paste plain CSV content below:</span>
               </div>
 
               <textarea
@@ -1845,14 +1824,13 @@ function StudentsTab({ contestId }: { contestId: string }) {
                 value={csvContent}
                 onChange={(e) => setCsvContent(e.target.value)}
                 placeholder="name,email&#10;Jane Doe,jane@domain.com&#10;John Smith,john@domain.com"
-                className="w-full glass-input resize-none font-mono text-xs text-white"
+                className="w-full glass-input resize-none font-mono text-xs text-slate-950"
               />
 
               <button
                 onClick={() => void handleImport()}
                 disabled={importing}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50"
-                style={{ background: "rgb(139,92,246)" }}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
               >
                 {importing ? "Provisioning..." : "Process & Import Roster"}
               </button>
@@ -1873,7 +1851,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
                   <div>Processed Rows: {importStatus.total_rows}</div>
                   <div>Successfully Created: {importStatus.imported}</div>
                   {importStatus.errors && importStatus.errors.length > 0 && (
-                    <div className="mt-2 space-y-1 border-t border-emerald-500/10 pt-2 text-[10px] text-zinc-400 max-h-24 overflow-y-auto">
+                    <div className="mt-2 space-y-1 border-t border-emerald-500/10 pt-2 text-[10px] text-slate-500 max-h-24 overflow-y-auto">
                       {importStatus.errors.map((e: string, idx: number) => (
                         <div key={idx}>• {e}</div>
                       ))}
@@ -1884,25 +1862,25 @@ function StudentsTab({ contestId }: { contestId: string }) {
             </div>
 
             {/* Permanent Code Box */}
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
-              <h3 className="text-sm font-medium text-white flex items-center gap-2">
-                <HelpCircle className="h-4 w-4 text-violet-400" />
+            <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+              <h3 className="text-sm font-medium text-slate-950 flex items-center gap-2">
+                <HelpCircle className="h-4 w-4 text-purple-600" />
                 Permanent Contest Access Code
               </h3>
-              <p className="text-xs text-zinc-400 font-normal leading-relaxed">
+              <p className="text-xs text-slate-500 font-normal leading-relaxed">
                 This contest features a permanent access code that students use to unlock the assessment in the Proctor Secure app. You do not need to generate code each time.
               </p>
-              <div className="flex items-center justify-between rounded-lg bg-black/40 border border-white/10 p-4">
+              <div className="flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200 p-4">
                 <div>
-                  <span className="text-[10px] uppercase text-zinc-500 font-semibold block">Fixed Access Code</span>
-                  <span className="font-mono text-xl font-bold text-violet-400 tracking-wider">
+                  <span className="text-[10px] uppercase text-slate-400 font-semibold block">Fixed Access Code</span>
+                  <span className="font-mono text-xl font-bold text-purple-600 tracking-wider">
                     {loadingCode ? "RESOLVING..." : sessionCode || "NO CODE ASSIGNED"}
                   </span>
                 </div>
                 <button
                   onClick={() => void fetchSessionCode()}
                   disabled={loadingCode}
-                  className="rounded-lg border border-white/20 bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.08]"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
                 >
                   Sync Code
                 </button>
@@ -1911,11 +1889,11 @@ function StudentsTab({ contestId }: { contestId: string }) {
           </div>
 
           {/* Searchable Paginated List */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h3 className="text-sm font-medium text-white">Provisioned Student Credentials</h3>
+              <h3 className="text-sm font-medium text-slate-950">Provisioned Student Credentials</h3>
               <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search students..."
@@ -1924,14 +1902,14 @@ function StudentsTab({ contestId }: { contestId: string }) {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
-                  className="pl-9 glass-input text-xs text-white"
+                  className="pl-9 glass-input text-xs text-slate-950"
                 />
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-300 font-normal">
-                <thead className="border-b border-white/10 text-zinc-500 uppercase tracking-wider text-[10px]">
+              <table className="w-full text-left text-xs text-slate-600 font-normal">
+                <thead className="border-b border-slate-200 text-slate-400 uppercase tracking-wider text-[10px]">
                   <tr>
                     <th className="py-2.5 px-3">Name</th>
                     <th className="py-2.5 px-3">Registered Email</th>
@@ -1941,20 +1919,20 @@ function StudentsTab({ contestId }: { contestId: string }) {
                     <th className="py-2.5 px-3">Provision Date</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-slate-100">
                   {students.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-4 text-center text-zinc-500">
+                      <td colSpan={6} className="py-4 text-center text-slate-400">
                         No students provisioned yet.
                       </td>
                     </tr>
                   ) : (
                     students.map((st) => (
-                      <tr key={st.id} className="hover:bg-white/[0.02] transition">
-                        <td className="py-3 px-3 font-semibold text-white">{st.name}</td>
-                        <td className="py-3 px-3 text-zinc-400">{st.email}</td>
-                        <td className="py-3 px-3 font-mono text-violet-300">{st.generated_username}</td>
-                        <td className="py-3 px-3 font-mono text-zinc-400">{st.generated_password}</td>
+                      <tr key={st.id} className="hover:bg-white transition">
+                        <td className="py-3 px-3 font-semibold text-slate-950">{st.name}</td>
+                        <td className="py-3 px-3 text-slate-500">{st.email}</td>
+                        <td className="py-3 px-3 font-mono text-purple-600">{st.generated_username}</td>
+                        <td className="py-3 px-3 font-mono text-slate-500">{st.generated_password}</td>
                         <td className="py-3 px-3">
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-medium border ${
@@ -1962,13 +1940,13 @@ function StudentsTab({ contestId }: { contestId: string }) {
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                 : st.delivery_status === "failed"
                                 ? "bg-red-500/10 text-red-400 border-red-500/20"
-                                : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                                : "bg-zinc-500/10 text-slate-500 border-zinc-500/20"
                             }`}
                           >
                             {st.delivery_status.toUpperCase()}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-zinc-500">{new Date(st.created_at).toLocaleDateString()}</td>
+                        <td className="py-3 px-3 text-slate-400">{new Date(st.created_at).toLocaleDateString()}</td>
                       </tr>
                     ))
                   )}
@@ -1978,7 +1956,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
 
             {/* Pagination Controls */}
             {totalCount > limit && (
-              <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs text-zinc-400">
+              <div className="flex items-center justify-between border-t border-slate-200 pt-4 text-xs text-slate-500">
                 <span>
                   Showing {(page - 1) * limit + 1} - {Math.min(page * limit, totalCount)} of {totalCount} students
                 </span>
@@ -1986,14 +1964,14 @@ function StudentsTab({ contestId }: { contestId: string }) {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-zinc-300 disabled:opacity-40"
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-slate-600 disabled:opacity-40"
                   >
                     <ChevronLeft className="h-4 w-4" /> Previous
                   </button>
                   <button
                     onClick={() => setPage((p) => (p * limit < totalCount ? p + 1 : p))}
                     disabled={page * limit >= totalCount}
-                    className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-zinc-300 disabled:opacity-40"
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-slate-600 disabled:opacity-40"
                   >
                     Next <ChevronRight className="h-4 w-4" />
                   </button>
@@ -2008,17 +1986,17 @@ function StudentsTab({ contestId }: { contestId: string }) {
         <div className="space-y-6">
           {/* Dispatch Job Live progress widget */}
           {currentJob && (
-            <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.03] p-5 space-y-4">
+            <div className="rounded-xl border border-purple-200/25 bg-purple-50 p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-semibold text-white">Live Email Dispatch Job Status</h4>
-                  <p className="text-xs text-zinc-500 font-normal">Job ID: {currentJob.id}</p>
+                  <h4 className="text-sm font-semibold text-slate-950">Live Email Dispatch Job Status</h4>
+                  <p className="text-xs text-slate-400 font-normal">Job ID: {currentJob.id}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-xs font-bold border ${
                       currentJob.status === "RUNNING"
-                        ? "bg-violet-500/20 text-violet-300 border-violet-500/30 animate-pulse"
+                        ? "bg-violet-500/20 text-purple-600 border-purple-200/30 animate-pulse"
                         : currentJob.status === "COMPLETED"
                         ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                         : currentJob.status === "PARTIAL"
@@ -2031,7 +2009,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
                   {currentJob.status === "PARTIAL" && (
                     <button
                       onClick={() => void handleRetryEmails()}
-                      className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+                      className="inline-flex items-center gap-1 rounded-lg bg-slate-950 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-slate-800"
                     >
                       <RefreshCw className="h-3.5 w-3.5" />
                       Retry Failures
@@ -2042,34 +2020,34 @@ function StudentsTab({ contestId }: { contestId: string }) {
 
               {/* Progress Counters */}
               <div className="grid grid-cols-4 gap-4 text-center">
-                <div className="bg-black/35 rounded-lg border border-white/5 p-3">
-                  <div className="text-zinc-500 text-[10px] uppercase font-bold">Total Recipients</div>
-                  <div className="text-lg font-bold text-white mt-1">{currentJob.total_count}</div>
+                <div className="bg-white rounded-lg border border-slate-100 p-3">
+                  <div className="text-slate-400 text-[10px] uppercase font-bold">Total Recipients</div>
+                  <div className="text-lg font-bold text-slate-950 mt-1">{currentJob.total_count}</div>
                 </div>
-                <div className="bg-black/35 rounded-lg border border-white/5 p-3">
-                  <div className="text-zinc-500 text-[10px] uppercase font-bold">Progress</div>
-                  <div className="text-lg font-bold text-violet-400 mt-1 font-mono">
+                <div className="bg-white rounded-lg border border-slate-100 p-3">
+                  <div className="text-slate-400 text-[10px] uppercase font-bold">Progress</div>
+                  <div className="text-lg font-bold text-purple-600 mt-1 font-mono">
                     {Math.round(((currentJob.sent_count + currentJob.failed_count) / currentJob.total_count) * 100)}%
                   </div>
                 </div>
-                <div className="bg-black/35 rounded-lg border border-white/5 p-3">
-                  <div className="text-zinc-500 text-[10px] uppercase font-bold">Successfully Sent</div>
+                <div className="bg-white rounded-lg border border-slate-100 p-3">
+                  <div className="text-slate-400 text-[10px] uppercase font-bold">Successfully Sent</div>
                   <div className="text-lg font-bold text-emerald-400 mt-1">{currentJob.sent_count}</div>
                 </div>
-                <div className="bg-black/35 rounded-lg border border-white/5 p-3">
-                  <div className="text-zinc-500 text-[10px] uppercase font-bold">Failed Delivery</div>
+                <div className="bg-white rounded-lg border border-slate-100 p-3">
+                  <div className="text-slate-400 text-[10px] uppercase font-bold">Failed Delivery</div>
                   <div className="text-lg font-bold text-red-400 mt-1">{currentJob.failed_count}</div>
                 </div>
               </div>
 
               {/* Recipient Details */}
               {currentJob.recipients && currentJob.recipients.length > 0 && (
-                <div className="bg-black/25 rounded-lg border border-white/10 p-3 max-h-48 overflow-y-auto text-xs">
-                  <div className="font-bold text-zinc-400 mb-2 border-b border-white/5 pb-1 uppercase tracking-wider text-[10px]">Delivery Logs</div>
+                <div className="bg-white rounded-lg border border-slate-200 p-3 max-h-48 overflow-y-auto text-xs">
+                  <div className="font-bold text-slate-500 mb-2 border-b border-slate-100 pb-1 uppercase tracking-wider text-[10px]">Delivery Logs</div>
                   <div className="space-y-1.5">
                     {currentJob.recipients.map((rec: any) => (
                       <div key={rec.id} className="flex justify-between items-center text-[11px]">
-                        <span className="font-mono text-zinc-300">
+                        <span className="font-mono text-slate-600">
                           {rec.name} ({rec.email})
                         </span>
                         <span
@@ -2078,7 +2056,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
                               ? "text-emerald-400"
                               : rec.status === "FAILED"
                               ? "text-red-400"
-                              : "text-zinc-500"
+                              : "text-slate-400"
                           }`}
                         >
                           {rec.status} {rec.failure_reason ? `(${rec.failure_reason})` : ""}
@@ -2094,17 +2072,17 @@ function StudentsTab({ contestId }: { contestId: string }) {
           {/* Email Template Composer & Gmail Preview */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Editor Area */}
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-sm font-medium text-white flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-violet-400" />
+                <h3 className="text-sm font-medium text-slate-950 flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-purple-600" />
                   Compose Invitation Template
                 </h3>
               </div>
 
               {/* Template dropdown options */}
               <div>
-                <label className="mb-1 block text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Quick Template Preset</label>
+                <label className="mb-1 block text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Quick Template Preset</label>
                 <div className="flex gap-2">
                   {templates.map((t, idx) => (
                     <button
@@ -2113,7 +2091,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
                         setSubject(t.subject);
                         setBodyTemplate(t.body);
                       }}
-                      className="rounded border border-white/15 bg-white/[0.03] px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/[0.08]"
+                      className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100"
                     >
                       {t.name}
                     </button>
@@ -2122,38 +2100,37 @@ function StudentsTab({ contestId }: { contestId: string }) {
               </div>
 
               <div>
-                <label className="mb-1 block text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Subject</label>
+                <label className="mb-1 block text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Subject</label>
                 <input
                   type="text"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full glass-input text-xs text-white"
+                  className="w-full glass-input text-xs text-slate-950"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">HTML Body Template</label>
+                <label className="mb-1 block text-[10px] text-slate-400 font-semibold uppercase tracking-wider">HTML Body Template</label>
                 <textarea
                   rows={14}
                   value={bodyTemplate}
                   onChange={(e) => setBodyTemplate(e.target.value)}
-                  className="w-full glass-input font-mono text-xs text-white resize-none"
+                  className="w-full glass-input font-mono text-xs text-slate-950 resize-none"
                 />
               </div>
 
               <div className="flex gap-3">
                 <button
                   onClick={() => setEmailPreviewMode("preview")}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/[0.08] transition"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
                 >
-                  <Eye className="h-4 w-4 text-violet-400" />
+                  <Eye className="h-4 w-4 text-purple-600" />
                   See Real-Time Preview
                 </button>
                 <button
                   onClick={() => void handleSendEmails()}
                   disabled={sendingEmail}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-medium text-white transition disabled:opacity-50"
-                  style={{ background: "rgb(139,92,246)" }}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
                 >
                   <Send className="h-4 w-4" />
                   {sendingEmail ? "Dispatching..." : "Send Bulk Invites"}
@@ -2162,22 +2139,22 @@ function StudentsTab({ contestId }: { contestId: string }) {
             </div>
 
             {/* Live Gmail Preview Panel */}
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-4 flex flex-col">
-              <h3 className="text-sm font-medium text-white flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-violet-400" />
+            <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4 flex flex-col">
+              <h3 className="text-sm font-medium text-slate-950 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-600" />
                 Gmail-style Real-Time HTML Preview
               </h3>
-              <p className="text-xs text-zinc-400 leading-normal font-normal">
+              <p className="text-xs text-slate-500 leading-normal font-normal">
                 This shows exactly what students will see in their inboxes. All template variables are compiled in real-time.
               </p>
 
-              <div className="flex-1 rounded-xl bg-[#0c0c0e] border border-white/5 overflow-hidden flex flex-col min-h-[400px]">
-                <div className="bg-[#121214] border-b border-white/5 p-3 space-y-1">
-                  <div className="text-[11px] text-zinc-500 font-normal">
-                    <span className="font-semibold text-zinc-400">Subject:</span> {subject}
+              <div className="flex-1 rounded-xl bg-white border border-slate-100 overflow-hidden flex flex-col min-h-[400px]">
+                <div className="bg-slate-50 border-b border-slate-100 p-3 space-y-1">
+                  <div className="text-[11px] text-slate-400 font-normal">
+                    <span className="font-semibold text-slate-500">Subject:</span> {subject}
                   </div>
-                  <div className="text-[11px] text-zinc-500 font-normal">
-                    <span className="font-semibold text-zinc-400">From:</span> ams-access-system@amsaccess.com
+                  <div className="text-[11px] text-slate-400 font-normal">
+                    <span className="font-semibold text-slate-500">From:</span> ams-access-system@amsaccess.com
                   </div>
                 </div>
                 <div className="flex-1 p-4 bg-white overflow-auto">

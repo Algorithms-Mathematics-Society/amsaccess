@@ -172,7 +172,7 @@ export default function LandingPage() {
       <section id="use-cases" className="py-32 bg-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 md:gap-24 relative">
-            
+
             {/* Decorative Brackets background removed as requested */}
             <div className="absolute inset-0 flex justify-center items-center pointer-events-none opacity-50 scale-150 md:scale-100">
             </div>
