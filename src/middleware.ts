@@ -16,6 +16,62 @@ function noStore(response: NextResponse) {
   return setSecurityHeaders(response);
 }
 
+// Verifies the HMAC-SHA256 signed ams_admin_session cookie using Web Crypto
+// (the only crypto API available in the Edge runtime). Replicates the signing
+// logic from src/lib/server/amsAdmin.ts, which uses Node.js crypto and cannot
+// run in middleware. crypto.subtle.verify is constant-time by spec.
+async function verifyAmsAdminToken(token: string): Promise<boolean> {
+  const user = process.env.AMSADMIN_USER ?? "";
+  const pass = process.env.AMSADMIN_PASSWORD ?? "";
+  // Mirror the secret resolution order in amsAdmin.ts
+  const secret = process.env.AMSADMIN_SESSION_SECRET ?? process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? pass;
+
+  if (!user || !pass || !secret || !token) return false;
+
+  // Token format: base64url(payload_json).base64url(hmac_sha256)
+  const dot = token.indexOf(".");
+  if (dot === -1) return false;
+  const payload = token.slice(0, dot);
+  const sigB64url = token.slice(dot + 1);
+
+  // Decode the base64url signature to an ArrayBuffer
+  let sigBuffer: ArrayBuffer;
+  try {
+    const base64 = sigB64url.replace(/-/g, "+").replace(/_/g, "/");
+    const binary = atob(base64);
+    sigBuffer = new ArrayBuffer(binary.length);
+    const view = new Uint8Array(sigBuffer);
+    for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+  } catch {
+    return false;
+  }
+
+  // Import secret and verify signature — crypto.subtle.verify is constant-time by spec
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+    const valid = await crypto.subtle.verify("HMAC", key, sigBuffer, new TextEncoder().encode(payload));
+    if (!valid) return false;
+  } catch {
+    return false;
+  }
+
+  // Decode payload and check user identity and expiry
+  try {
+    const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+    const json = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+    const parsed = JSON.parse(json) as { user?: unknown; exp?: unknown };
+    return parsed.user === user && typeof parsed.exp === "number" && parsed.exp > Date.now();
+  } catch {
+    return false;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = request.headers.get("host") ?? "";
@@ -31,9 +87,8 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/amsadmin")) {
     if (pathname === "/amsadmin/login") return response;
-    const adminCookie = request.cookies.get("ams_admin_session")?.value;
-    const expected = `${process.env.AMSADMIN_USER ?? ""}:${process.env.AMSADMIN_PASSWORD ?? ""}`;
-    if (!adminCookie || adminCookie !== expected) {
+    const adminCookie = request.cookies.get("ams_admin_session")?.value ?? "";
+    if (!adminCookie || !(await verifyAmsAdminToken(adminCookie))) {
       return noStore(NextResponse.redirect(new URL("/amsadmin/login", request.url)));
     }
     return response;

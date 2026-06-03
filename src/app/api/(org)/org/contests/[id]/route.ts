@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
+import { apiError, apiOk, apiOkCached, apiRateLimited, safeGoApiError } from "@/lib/server/http";
 import { withApiLogging } from "@/lib/server/logger";
 import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 import { callGoApi, requireOrgUser } from "@/lib/server/auth";
@@ -8,23 +8,23 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   return withApiLogging("org.contests.detail", async () => {
-    const limited = checkRequestRateLimit(request, "privateRead", ["contest", params.id]);
-    if (limited.limited) return apiRateLimited(limited.retryAfter);
-
     const auth = await requireOrgUser();
     if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");
+
+    const limited = checkRequestRateLimit(request, "privateRead", ["contest", params.id], auth.uid);
+    if (limited.limited) return apiRateLimited(limited.retryAfter);
 
     const res = await callGoApi("GET", `/org/contests/${params.id}`, null, auth.uid);
     if (res.status !== 200) {
       return apiError(
-        typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to load contest.",
+        safeGoApiError(res, "Unable to load contest."),
         res.status,
         res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
       );
     }
 
     const raw = res.data as Record<string, unknown>;
-    return apiOk({
+    return apiOkCached({
       contest: {
         id: String(raw.id ?? ""),
         org_id: String(raw.org_id ?? ""),
@@ -63,7 +63,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const res = await callGoApi("PUT", `/org/contests/${params.id}`, payload as Record<string, unknown>, auth.uid);
     if (res.status !== 200) {
       return apiError(
-        typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to save contest.",
+        safeGoApiError(res, "Unable to save contest."),
         res.status,
         res.status === 400 ? "BAD_REQUEST" : res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
       );
@@ -84,7 +84,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const res = await callGoApi("DELETE", `/org/contests/${params.id}`, null, auth.uid);
     if (res.status !== 204) {
       return apiError(
-        typeof res.data === "object" && res.data && "error" in res.data ? String((res.data as { error: unknown }).error) : "Unable to delete contest.",
+        safeGoApiError(res, "Unable to delete contest."),
         res.status,
         res.status === 404 ? "NOT_FOUND" : "SERVER_ERROR",
       );

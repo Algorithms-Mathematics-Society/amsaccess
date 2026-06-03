@@ -33,7 +33,8 @@ export async function POST(
       "POST",
       `/org/contests/${params.id}/questions/${params.questionId}/tests/generate`,
       payload as Record<string, unknown>,
-      auth.uid
+      auth.uid,
+      110_000,
     );
 
     if (res.status !== 200 && res.status !== 202) {

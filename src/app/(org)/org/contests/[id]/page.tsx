@@ -834,45 +834,59 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       setError("Memory limit must be at least 16 MB.");
       return;
     }
+
+    // Capture editor state synchronously before any await — prevents the
+    // studio component from changing underneath us mid-save.
+    const snap = studioRef.current?.getCpConfig() ?? {
+      checker_type: "token" as const,
+      checker_code: null,
+      validator_code: "",
+      generator_script: "",
+    };
+    const cpPayload = {
+      checker_type: snap.checker_type,
+      checker_code: snap.checker_code,
+      validator_code: snap.validator_code,
+      generator_script: snap.generator_script,
+    };
+
     setSaving(true);
     try {
-      let questionId = existing?.id;
       if (existing) {
+        // Existing question: save cp-config FIRST so that if the metadata
+        // PATCH fails, cp-config is already committed (the less-harmful
+        // direction of partial failure — metadata drift is visible immediately,
+        // cp-config drift would be silently wrong).
+        await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${existing.id}/cp-config`, {
+          method: "PUT",
+          body: JSON.stringify(cpPayload),
+        });
         await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions/${existing.id}`, {
           method: "PATCH",
           body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
       } else {
+        // New question: POST to create the record and get the ID, then
+        // PUT cp-config. If cp-config fails, issue a compensating DELETE so
+        // the orphaned record is removed and the next retry starts clean
+        // (otherwise retry would POST again and create a duplicate question).
         const created = await apiFetch<{ id: string }>(`/api/org/contests/${contestId}/questions`, {
           method: "POST",
           body: JSON.stringify({ title, description, html_starter: html, css_starter: css, js_starter: js, points, order_index: nextIndex, question_type: questionType, time_limit_ms: timeLimit, memory_limit_mb: memoryLimit })
         });
-        questionId = created.id;
-      }
-      // Always persist cp-config alongside basic question save
-      if (questionId) {
-        const snap = studioRef.current?.getCpConfig() ?? {
-          checker_type: "token" as const,
-          checker_code: null,
-          validator_code: "",
-          generator_script: "",
-        };
-        console.log("CP CONFIG SNAPSHOT BEFORE SAVE:", snap);
         try {
-          await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${questionId}/cp-config`, {
+          await apiFetch<{ ok: boolean }>(`/api/org/contests/${contestId}/questions/${created.id}/cp-config`, {
             method: "PUT",
-            body: JSON.stringify({
-              checker_type: snap.checker_type,
-              checker_code: snap.checker_code,
-              validator_code: snap.validator_code,
-              generator_script: snap.generator_script,
-            }),
+            body: JSON.stringify(cpPayload),
           });
         } catch (cpErr) {
-          console.error("cp-config save failed", cpErr);
-          throw new Error("Failed to save custom C++ configurations (validator/checker): " + (cpErr instanceof Error ? cpErr.message : String(cpErr)));
+          // Best-effort cleanup: remove the orphaned question so retry
+          // doesn't accumulate duplicates. Ignore cleanup errors.
+          await apiFetch(`/api/org/contests/${contestId}/questions/${created.id}`, { method: "DELETE" }).catch(() => null);
+          throw new Error("CP configuration could not be saved" + (cpErr instanceof Error ? `: ${cpErr.message}` : "") + ". The question was not created — please try again.");
         }
       }
+
       setSuccess(existing ? "Question updated successfully." : "Question created successfully.");
       onSaved();
     } catch (saveError) {
@@ -1674,22 +1688,28 @@ function StudentsTab({ contestId }: { contestId: string }) {
     void fetchSessionCode();
   }, [fetchSessionCode]);
 
-  // Check running job status continuously
+  // Check running job status continuously.
+  // Uses recursive setTimeout so a slow response never causes concurrent in-flight requests.
   useEffect(() => {
     if (!currentJob || currentJob.status === "COMPLETED" || currentJob.status === "FAILED") return;
-    const interval = setInterval(async () => {
+    let cancelled = false;
+    async function poll() {
+      if (cancelled) return;
       try {
-        const job = await apiFetch<any>(`/api/org/contests/${contestId}/emails/jobs/${currentJob.id}`);
+        const job = await apiFetch<any>(`/api/org/contests/${contestId}/emails/jobs/${currentJob!.id}`);
+        if (cancelled) return;
         setCurrentJob(job);
         if (job.status === "COMPLETED" || job.status === "FAILED" || job.status === "PARTIAL") {
-          clearInterval(interval);
           void loadStudents();
+          return;
         }
-      } catch (e) {
-        clearInterval(interval);
+      } catch {
+        return;
       }
-    }, 2000);
-    return () => clearInterval(interval);
+      setTimeout(poll, 2000);
+    }
+    void poll();
+    return () => { cancelled = true; };
   }, [currentJob, contestId, loadStudents]);
 
   // Import CSV Handler

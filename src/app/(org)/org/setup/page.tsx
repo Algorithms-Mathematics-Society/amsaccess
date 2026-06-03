@@ -42,61 +42,40 @@ export default function OrgSetupPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-5" style={{ background: "#000000" }}>
-      <div
-        className="pointer-events-none fixed inset-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-
-      <div className="relative w-full max-w-md">
-        <div
-          className="relative rounded-2xl border p-8"
-          style={{ borderColor: "rgba(139,92,246,0.2)", background: "rgba(9,9,11,0.96)", backdropFilter: "blur(24px)" }}
-        >
+    <main className="light flex min-h-screen items-center justify-center bg-slate-50 text-slate-900 px-5" style={{ fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div className="w-full max-w-md">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="mb-6 flex flex-col items-center gap-3 text-center">
-            <div
-              className="flex h-12 w-12 items-center justify-center rounded-full"
-              style={{ border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.08)", boxShadow: "0 0 20px rgba(139,92,246,0.2)" }}
-            >
-              <Building2 className="h-5 w-5" style={{ color: "rgb(139,92,246)" }} />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-purple-50 shadow-sm">
+              <Building2 className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-white">Create your organization</h1>
-              <p className="mt-1 text-xs" style={{ color: "#71717A" }}>Set up your org to host contests</p>
+              <h1 className="text-lg font-semibold tracking-tight text-slate-950">Create your organization</h1>
+              <p className="mt-1 text-xs text-slate-500">Set up your org to host contests</p>
             </div>
           </div>
 
           {error && (
-            <div
-              className="mb-5 rounded border px-4 py-3 text-sm"
-              style={{ borderColor: "rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#FCA5A5" }}
-            >
+            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Organization name</label>
+              <label className="mb-1.5 block text-xs font-medium text-slate-500">Organization name</label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="Acme University"
-                className="w-full rounded border py-2.5 px-4 text-sm text-white outline-none transition"
-                style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", caretColor: "rgb(139,92,246)" }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(139,92,246,0.6)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(139,92,246,0.1)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.boxShadow = "none"; }}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium" style={{ color: "#A1A1AA" }}>Slug</label>
+              <label className="mb-1.5 block text-xs font-medium text-slate-500">Slug</label>
               <input
                 type="text"
                 required
@@ -104,21 +83,15 @@ export default function OrgSetupPage() {
                 value={slug}
                 onChange={(e) => { setSlug(e.target.value); setSlugEdited(true); }}
                 placeholder="acme-university"
-                className="w-full rounded border py-2.5 px-4 text-sm text-white outline-none transition"
-                style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", caretColor: "rgb(139,92,246)", fontFamily: "monospace" }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(139,92,246,0.6)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(139,92,246,0.1)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.boxShadow = "none"; }}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 font-mono"
               />
-              <p className="mt-1 text-xs" style={{ color: "#52525B" }}>Lowercase letters, numbers, and hyphens only</p>
+              <p className="mt-1 text-xs text-slate-400">Lowercase letters, numbers, and hyphens only</p>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 w-full rounded py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: "rgb(139,92,246)", boxShadow: "0 0 20px rgba(139,92,246,0.35)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(124,58,237)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(139,92,246)"; }}
+              className="mt-2 w-full rounded-full bg-slate-950 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Creating…" : "Create organization"}
             </button>

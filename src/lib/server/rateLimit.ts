@@ -71,8 +71,18 @@ export function checkRateLimit(key: string, policy: RateLimitPolicy) {
   };
 }
 
-export function checkRequestRateLimit(request: NextRequest, policyName: keyof typeof rateLimitPolicies, parts: string[] = []) {
+// uid adds a per-user dimension so a single user can't exhaust the IP quota by rotating
+// proxies, and shared IPs (office NAT, university) get per-user buckets instead of one
+// shared bucket. Pass auth.uid after the auth check — omit for pre-auth endpoints.
+export function checkRequestRateLimit(
+  request: NextRequest,
+  policyName: keyof typeof rateLimitPolicies,
+  parts: string[] = [],
+  uid?: string | null,
+) {
   const ip = getClientIp(request);
-  const key = [policyName, ip, ...parts.map((part) => part.trim().toLowerCase()).filter(Boolean)].join(":");
-  return checkRateLimit(key, rateLimitPolicies[policyName]);
+  const keyParts: string[] = [policyName, ip];
+  if (uid) keyParts.push(`u:${uid}`);
+  keyParts.push(...parts.map((part) => part.trim().toLowerCase()).filter(Boolean));
+  return checkRateLimit(keyParts.join(":"), rateLimitPolicies[policyName]);
 }

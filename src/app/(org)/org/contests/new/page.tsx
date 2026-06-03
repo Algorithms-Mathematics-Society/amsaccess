@@ -2,9 +2,9 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
+import { OrgPortalShell } from "@/components/OrgPortalShell";
 
 export default function NewContestPage() {
   const router = useRouter();
@@ -62,173 +62,149 @@ export default function NewContestPage() {
   }
 
   return (
-    <div className="min-h-screen px-8 py-8" style={{ background: "#000000", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-      <div
-        className="pointer-events-none fixed inset-0 opacity-30"
-        style={{
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-
-      <div className="relative mx-auto max-w-2xl">
-        <Link
-          href="/org/dashboard"
-          className="mb-8 inline-flex items-center gap-2 text-sm transition"
-          style={{ color: "#71717A" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#a1a1aa"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#71717A"; }}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to dashboard
-        </Link>
-
-        <div className="mb-8 flex items-center gap-4">
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-xl"
-            style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)" }}
-          >
-            <Calendar className="h-5 w-5" style={{ color: "#a855f7" }} />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-white">New contest</h1>
-            <p className="text-sm" style={{ color: "#64748b" }}>Schedule a contest and invite candidates</p>
-          </div>
+    <OrgPortalShell active="new-contest">
+      {/* Header */}
+      <header className="flex items-center gap-4 border-b border-slate-200 bg-white/80 px-8 py-6 backdrop-blur-xl">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-purple-50">
+          <Calendar className="h-5 w-5 text-purple-600" />
         </div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">New contest</h1>
+          <p className="mt-0.5 text-sm text-slate-500">Schedule a contest and invite candidates</p>
+        </div>
+      </header>
 
-        {error && (
-          <div className="mb-6 rounded-lg border px-4 py-3 text-sm" style={{ borderColor: "rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#fca5a5" }}>
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="glass-card space-y-5 p-7">
-          <Field label="Title">
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Spring 2025 Web Dev Challenge"
-              className="glass-input text-sm text-white"
-            />
-          </Field>
-
-          <Field label="Description" hint="Optional — shown to invited candidates">
-            <textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of the contest…"
-              className="glass-input resize-none text-sm text-white"
-            />
-          </Field>
-
-          <Field label="Contest type">
-            <div className="inline-flex rounded-lg border border-white/10 bg-white/[0.02] p-1">
-              {(["CP", "CHESS"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setPluginType(mode)}
-                  className="rounded-md px-4 py-2 text-sm font-medium transition"
-                  style={
-                    pluginType === mode
-                      ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)", color: "#c4b5fd" }
-                      : { background: "transparent", border: "1px solid transparent", color: "#71717A" }
-                  }
-                >
-                  {mode === "CP" ? "CP Contest" : "Chess Contest"}
-                </button>
-              ))}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">
+        <div className="max-w-2xl">
+          {error && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
             </div>
-            <p className="mt-2 text-xs text-zinc-500">
-              Contest timings/status are configured after creation inside contest settings.
-            </p>
-          </Field>
-
-          {pluginType === "CP" ? (
-            <>
-              <Field label="Scoring type">
-                <div className="flex gap-3">
-                  {(["IOI", "ICPC", "CF"] as const).map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setScoringType(s)}
-                      className="rounded-lg px-4 py-2 text-sm font-medium transition"
-                      style={
-                        scoringType === s
-                          ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
-                          : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
-                      }
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </Field>
-
-              <Field label="Allowed languages">
-                <div className="flex flex-wrap gap-2">
-                  {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
-                    const active = allowedLanguages.includes(lang);
-                    return (
-                      <button
-                        key={lang}
-                        type="button"
-                        onClick={() =>
-                          setAllowedLanguages(
-                            active ? allowedLanguages.filter((l) => l !== lang) : [...allowedLanguages, lang]
-                          )
-                        }
-                        className="rounded-md px-3 py-1 text-xs font-medium transition"
-                        style={
-                          active
-                            ? { background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.5)", color: "#c4b5fd" }
-                            : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }
-                        }
-                      >
-                        {lang}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Field>
-            </>
-          ) : (
-            <Field label="Plugin config (JSON)" hint="Used for CHESS runtime/session behavior">
-              <textarea
-                rows={4}
-                value={pluginConfig}
-                onChange={(e) => setPluginConfig(e.target.value)}
-                className="glass-input resize-none font-mono text-xs text-white"
-              />
-            </Field>
           )}
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 rounded-lg py-2.5 text-sm font-medium text-white transition disabled:opacity-50"
-              style={{ background: "rgb(139,92,246)", boxShadow: "0 0 16px rgba(139,92,246,0.25)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(124,58,237)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(139,92,246)"; }}
-            >
-              {loading ? "Creating…" : "Create contest"}
-            </button>
-            <Link
-              href="/org/dashboard"
-              className="rounded-lg px-5 py-2.5 text-sm font-medium transition"
-              style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#71717A" }}
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
+          <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm space-y-5">
+            <Field label="Title">
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Spring 2025 Web Dev Challenge"
+                className="glass-input text-sm"
+              />
+            </Field>
+
+            <Field label="Description" hint="Optional — shown to invited candidates">
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief description of the contest…"
+                className="glass-input resize-none text-sm"
+              />
+            </Field>
+
+            <Field label="Contest type">
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                {(["CP", "CHESS"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setPluginType(mode)}
+                    className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                      pluginType === mode
+                        ? "bg-purple-50 border border-purple-200 text-purple-700"
+                        : "bg-transparent border border-transparent text-slate-500 hover:bg-white hover:text-slate-950"
+                    }`}
+                  >
+                    {mode === "CP" ? "CP Contest" : "Chess Contest"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                Contest timings/status are configured after creation inside contest settings.
+              </p>
+            </Field>
+
+            {pluginType === "CP" ? (
+              <>
+                <Field label="Scoring type">
+                  <div className="flex gap-3">
+                    {(["IOI", "ICPC", "CF"] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setScoringType(s)}
+                        className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                          scoringType === s
+                            ? "bg-purple-50 border border-purple-200 text-purple-700"
+                            : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                <Field label="Allowed languages">
+                  <div className="flex flex-wrap gap-2">
+                    {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
+                      const active = allowedLanguages.includes(lang);
+                      return (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() =>
+                            setAllowedLanguages(
+                              active ? allowedLanguages.filter((l) => l !== lang) : [...allowedLanguages, lang]
+                            )
+                          }
+                          className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                            active
+                              ? "bg-purple-50 border border-purple-200 text-purple-700"
+                              : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+                          }`}
+                        >
+                          {lang}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              </>
+            ) : (
+              <Field label="Plugin config (JSON)" hint="Used for CHESS runtime/session behavior">
+                <textarea
+                  rows={4}
+                  value={pluginConfig}
+                  onChange={(e) => setPluginConfig(e.target.value)}
+                  className="glass-input resize-none font-mono text-xs"
+                />
+              </Field>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-violet-700 disabled:opacity-50"
+              >
+                {loading ? "Creating…" : "Create contest"}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/org/dashboard")}
+                className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </OrgPortalShell>
   );
 }
 
@@ -236,8 +212,8 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return (
     <div>
       <div className="mb-1.5 flex items-baseline gap-2">
-        <label className="text-xs font-medium" style={{ color: "#A1A1AA" }}>{label}</label>
-        {hint && <span className="text-xs" style={{ color: "#52525B" }}>{hint}</span>}
+        <label className="text-xs font-medium text-slate-500">{label}</label>
+        {hint && <span className="text-xs text-slate-400">{hint}</span>}
       </div>
       {children}
     </div>

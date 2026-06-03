@@ -32,7 +32,6 @@ export default function OrgLoginPage() {
       });
 
       router.push(result.redirectTo);
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed.");
     } finally {
