@@ -4,8 +4,6 @@ import { getAuth } from "firebase-admin/auth";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-const GO_API_URL = process.env.GO_API_URL ?? "http://localhost:8080";
-const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
 export function getFirebaseAdmin() {
   if (!getApps().length) {
@@ -53,9 +51,9 @@ export async function createSessionCookie(idToken: string): Promise<string> {
   return getFirebaseAdmin().createSessionCookie(idToken, { expiresIn });
 }
 
-function internalHeaders(firebaseUid: string): Record<string, string> {
+function internalHeaders(firebaseUid: string, internalApiSecret: string): Record<string, string> {
   return {
-    "Authorization": `Bearer ${INTERNAL_API_SECRET}`,
+    "Authorization": `Bearer ${internalApiSecret}`,
     "X-Firebase-UID": firebaseUid,
   };
 }
@@ -72,12 +70,23 @@ export async function callGoApi(
   body: FormData | Record<string, unknown> | null,
   firebaseUid: string | null,
 ): Promise<GoApiResult> {
-  const headers = internalHeaders(firebaseUid ?? "");
+  const goApiUrl = process.env.GO_API_URL ?? "http://localhost:8080";
+  const internalApiSecret = process.env.INTERNAL_API_SECRET ?? "";
+
+  if (!internalApiSecret) {
+    return {
+      status: 503,
+      contentType: "application/json",
+      data: { error: "INTERNAL_API_SECRET is not configured.", code: "SERVER_ERROR" },
+    };
+  }
+
+  const headers = internalHeaders(firebaseUid ?? "", internalApiSecret);
   if (body !== null && !(body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
 
-  const res = await fetch(`${GO_API_URL}${path}`, {
+  const res = await fetch(`${goApiUrl}${path}`, {
     method,
     headers,
     body: body instanceof FormData
