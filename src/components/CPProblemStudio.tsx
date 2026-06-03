@@ -251,7 +251,7 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
             <img
               src={url}
               alt={alt}
-              className="mx-auto max-w-full max-h-56 rounded-xl border border-white/10 shadow-lg hover:border-purple-500/30 transition-colors duration-300"
+              className="mx-auto max-w-full max-h-56 rounded-xl border border-white/[0.1] shadow-lg hover:border-white/20 transition-colors duration-300"
             />
             {alt && <span className="text-[10px] text-zinc-500 mt-1.5 font-medium block">{alt}</span>}
           </span>
@@ -268,7 +268,7 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
       if (part.startsWith("$$") && part.endsWith("$$")) {
         const formula = formatLatexLite(part.substring(2, part.length - 2));
         return (
-          <div key={pIdx} className="my-2 overflow-x-auto rounded border border-purple-500/20 bg-purple-500/5 px-2 py-1 font-mono text-[11px] text-purple-200 whitespace-pre-wrap">
+          <div key={pIdx} className="my-2 overflow-x-auto rounded border border-white/[0.1] bg-white/[0.02] px-2 py-1 font-mono text-[11px] text-zinc-300 whitespace-pre-wrap">
             {formula}
           </div>
         );
@@ -278,7 +278,7 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
       if (part.startsWith("$") && part.endsWith("$")) {
         const formula = formatLatexLite(part.substring(1, part.length - 1));
         return (
-          <span key={pIdx} className="mx-0.5 inline-block font-mono text-[11px] font-semibold text-purple-300 bg-purple-500/10 px-1 py-0.5 rounded border border-purple-500/10">
+          <span key={pIdx} className="mx-0.5 inline-block font-mono text-[11px] font-semibold text-zinc-200 bg-white/[0.06] px-1 py-0.5 rounded border border-white/[0.08]">
             {formula}
           </span>
         );
@@ -301,7 +301,7 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
         return (
           <div
             key={idx}
-            className="my-4 overflow-hidden rounded-xl border border-white/10 bg-black/40 p-4"
+            className="my-4 overflow-hidden rounded-xl border border-white/[0.1] bg-black/[0.4] p-4"
             dangerouslySetInnerHTML={{ __html: htmlContent }}
           />
         );
@@ -318,7 +318,7 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
             if (processed.startsWith("### ")) {
               const headerText = processed.substring(4);
               return (
-                <h4 key={lIdx} className="text-xs font-semibold text-purple-300 mt-4 mb-2 uppercase tracking-wider">
+                <h4 key={lIdx} className="text-xs font-semibold text-zinc-200 mt-4 mb-2 uppercase tracking-wider">
                   {parseInlineFormatting(headerText)}
                 </h4>
               );
@@ -326,7 +326,7 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
             if (processed.startsWith("## ")) {
               const headerText = processed.substring(3);
               return (
-                <h3 key={lIdx} className="text-sm font-bold text-white mt-5 mb-2 border-b border-white/5 pb-1">
+                <h3 key={lIdx} className="text-sm font-bold text-white mt-5 mb-2 border-b border-white/[0.05] pb-1">
                   {parseInlineFormatting(headerText)}
                 </h3>
               );
@@ -1234,15 +1234,15 @@ int main() {
 
   return (
     <>
-    <div className="my-5 rounded-2xl border border-white/10 bg-[#09090b] text-white shadow-xl overflow-hidden">
+    <div className="my-5 rounded-2xl border border-white/[0.1] bg-[#09090b] text-white shadow-xl overflow-hidden">
       <div className="relative flex flex-col w-full min-h-[550px]">
         
         {/* SUB HEADER / BANNER */}
-        <div className="flex shrink-0 items-center justify-between border-b border-white/5 bg-black/30 px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.05] bg-black/[0.3] px-5 py-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-purple-400" />
+            <Terminal className="h-4 w-4 text-white" />
             <span className="text-xs font-semibold tracking-tight">Problem Settings</span>
-            <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-purple-300 uppercase tracking-wider">
+            <span className="rounded bg-white/[0.08] border border-white/[0.15] px-1.5 py-0.5 text-[9px] font-semibold text-zinc-200 uppercase tracking-wider">
               real judge flow
             </span>
           </div>
@@ -1252,7 +1252,7 @@ int main() {
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-[480px]">
           
           {/* SIDEBAR NAVIGATION */}
-          <div className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-white/5 bg-black/20 p-4 flex flex-row md:flex-col justify-between items-center md:items-stretch gap-4 md:gap-0 overflow-x-auto md:overflow-x-visible">
+          <div className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-white/[0.05] bg-[#0c0c0e] p-4 flex flex-row md:flex-col justify-between items-center md:items-stretch gap-4 md:gap-0 overflow-x-auto md:overflow-x-visible">
             <div className="flex flex-row md:flex-col gap-2 md:gap-1 w-full md:space-y-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
               <p className="hidden md:block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest px-2 mb-3">
                 Problem Setup
@@ -1275,11 +1275,11 @@ int main() {
                     onClick={() => setActiveTab(t.id as StudioTab)}
                     className={`whitespace-nowrap flex items-center gap-2 md:gap-3 px-3 py-2 md:py-2.5 rounded-lg text-xs font-medium border transition ${
                       isActive
-                        ? "bg-purple-500/10 border-purple-500/30 text-purple-300 font-semibold"
-                        : "bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
+                        ? "bg-white/[0.08] border-white/[0.2] text-white font-bold"
+                        : "bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]"
                     }`}
                   >
-                    <Icon className={`h-4 w-4 ${isActive ? "text-purple-400" : "text-zinc-500"}`} />
+                    <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-zinc-500"}`} />
                     {t.label}
                     <span className={`ml-auto h-1.5 w-1.5 rounded-full ${workflowMap[t.id] ? "bg-green-400" : "bg-zinc-600"}`} />
                   </button>
@@ -1312,7 +1312,7 @@ int main() {
                         rows={12}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-black/40 p-4 text-xs font-mono text-white focus:border-purple-500/50 focus:outline-none"
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-4 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1323,7 +1323,7 @@ int main() {
                         rows={3}
                         value={inputFormatText}
                         onChange={(e) => setInputFormatText(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs font-mono text-white focus:border-purple-500/50 focus:outline-none"
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1334,7 +1334,7 @@ int main() {
                         rows={3}
                         value={outputFormatText}
                         onChange={(e) => setOutputFormatText(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs font-mono text-white focus:border-purple-500/50 focus:outline-none"
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1345,7 +1345,7 @@ int main() {
                         rows={3}
                         value={noteText}
                         onChange={(e) => setNoteText(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs font-mono text-white focus:border-purple-500/50 focus:outline-none"
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1356,7 +1356,7 @@ int main() {
                         rows={4}
                         value={sampleInputText}
                         onChange={(e) => setSampleInputText(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs font-mono text-white focus:border-purple-500/50 focus:outline-none"
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1367,14 +1367,14 @@ int main() {
                         rows={3}
                         value={sampleOutputText}
                         onChange={(e) => setSampleOutputText(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs font-mono text-white focus:border-purple-500/50 focus:outline-none"
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
                       />
                     </div>
                   </div>
  
                   {/* Right: Statement Live Preview */}
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-6 overflow-y-auto space-y-4 relative">
-                    <div className="absolute right-4 top-4 flex items-center gap-1.5 text-[10px] text-purple-400 font-semibold tracking-wide bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded">
+                  <div className="rounded-2xl border border-white/[0.1] bg-zinc-950/60 p-6 overflow-y-auto space-y-4 relative">
+                    <div className="absolute right-4 top-4 flex items-center gap-1.5 text-[10px] text-zinc-300 font-bold bg-white/[0.08] border border-white/[0.15] px-2 py-1 rounded">
                       <Eye className="h-3 w-3" />
                       Live Statement Preview
                     </div>
@@ -1407,11 +1407,11 @@ int main() {
                       <div>
                         <h4 className="font-bold text-white mb-2 uppercase tracking-wider text-[10px]">Sample Tests</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="rounded-xl bg-black/50 border border-white/5 p-3.5 font-mono text-zinc-400">
+                          <div className="rounded-xl bg-black/[0.5] border border-white/[0.05] p-3.5 font-mono text-zinc-400">
                             <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">Standard Input</span>
                             <pre className="text-zinc-200 whitespace-pre-wrap">{sampleInputText}</pre>
                           </div>
-                          <div className="rounded-xl bg-black/50 border border-white/5 p-3.5 font-mono text-zinc-400">
+                          <div className="rounded-xl bg-black/[0.5] border border-white/[0.05] p-3.5 font-mono text-zinc-400">
                             <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">Standard Output</span>
                             <pre className="text-zinc-200 whitespace-pre-wrap">{sampleOutputText}</pre>
                           </div>
@@ -1419,7 +1419,7 @@ int main() {
                       </div>
 
                       {noteText && (
-                        <div className="border-l-2 border-purple-500/40 pl-3 py-1 bg-purple-500/[0.02] space-y-1">
+                        <div className="border-l-2 border-white/[0.3] pl-3 py-1 bg-white/[0.02] space-y-1">
                           <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px]">Note</h4>
                           <div className="italic text-zinc-400">{renderStatementHtml(noteText)}</div>
                         </div>
@@ -1433,7 +1433,7 @@ int main() {
             {/* 3. VERIFICATION RULES STEP */}
             {activeTab === "verification" && (
               <div className="space-y-6 animate-fadeIn">
-                <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div className="flex items-center justify-between border-b border-white/[0.05] pb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-white">Verification Rules</h3>
                     <p className="text-xs text-zinc-400 mt-1">
@@ -1444,14 +1444,14 @@ int main() {
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   {/* Left Column: Input Validator */}
-                  <div className="space-y-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                  <div className="space-y-4 rounded-2xl border border-white/[0.1] bg-[#0c0c0e] p-5">
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Input Validator (testlib.h)</h4>
                         <p className="text-[10px] text-zinc-500 mt-0.5">Enforces bounds on input formats.</p>
                       </div>
-                      <label className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1.5 text-xs font-semibold text-white border border-white/5 cursor-pointer transition">
-                        <UploadCloud className="h-3 w-3 text-purple-400" />
+                      <label className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1.5 text-xs font-semibold text-white border border-white/[0.05] cursor-pointer transition">
+                        <UploadCloud className="h-3 w-3 text-zinc-300" />
                         Upload .cpp
                         <input
                           type="file"
@@ -1472,8 +1472,8 @@ int main() {
                       </label>
                     </div>
 
-                    <div className="rounded-xl border border-white/10 overflow-hidden bg-black/40">
-                      <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/10 bg-black/20 text-[10px] text-zinc-400 font-mono">
+                    <div className="rounded-xl border border-white/[0.1] overflow-hidden bg-black/[0.4]">
+                      <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.1] bg-black/[0.2] text-[10px] text-zinc-400 font-mono">
                         <span>validator.cpp</span>
                         <span>C++17 GCC 11</span>
                       </div>
@@ -1489,9 +1489,9 @@ int main() {
                       />
                     </div>
 
-                    <div className="rounded-xl bg-purple-500/5 border border-purple-500/10 p-3.5 space-y-1.5">
-                      <h5 className="text-[10px] font-bold uppercase text-purple-300 tracking-wider flex items-center gap-1">
-                        <Sparkles className="h-3 w-3 text-purple-400" />
+                    <div className="rounded-xl bg-white/[0.03] border border-white/[0.08] p-3.5 space-y-1.5">
+                      <h5 className="text-[10px] font-bold uppercase text-zinc-200 tracking-wider flex items-center gap-1">
+                        <Terminal className="h-3 w-3 text-zinc-300" />
                         Validator Tips
                       </h5>
                       <ul className="text-[10px] text-zinc-400 space-y-1 list-disc list-inside leading-normal">
@@ -1502,19 +1502,19 @@ int main() {
                   </div>
 
                   {/* Right Column: Output Checker */}
-                  <div className="space-y-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                  <div className="space-y-4 rounded-2xl border border-white/[0.1] bg-[#0c0c0e] p-5">
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">{isInteractiveQuestion ? "Interactor" : "Output Checker"}</h4>
                         <p className="text-[10px] text-zinc-500 mt-0.5">Verifies contestant answer correctness.</p>
                       </div>
                       {!isInteractiveQuestion && (
-                        <div className="flex items-center gap-1 bg-black/40 border border-white/5 rounded p-0.5">
+                        <div className="flex items-center gap-1 bg-black/[0.4] border border-white/[0.05] rounded p-0.5">
                           <button
                             type="button"
                             onClick={() => setCheckerType("standard")}
                             className={`px-2 py-1 text-[10px] font-semibold rounded transition ${
-                              checkerType === "standard" ? "bg-purple-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+                              checkerType === "standard" ? "bg-white text-black font-bold" : "text-zinc-400 hover:text-zinc-200"
                             }`}
                           >
                             Standard
@@ -1523,7 +1523,7 @@ int main() {
                             type="button"
                             onClick={() => setCheckerType("custom")}
                             className={`px-2 py-1 text-[10px] font-semibold rounded transition ${
-                              checkerType === "custom" ? "bg-purple-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+                              checkerType === "custom" ? "bg-white text-black font-bold" : "text-zinc-400 hover:text-zinc-200"
                             }`}
                           >
                             Custom
@@ -1542,8 +1542,8 @@ int main() {
                               onClick={() => setSelectedStandardChecker(ch)}
                               className={`text-left p-2.5 rounded-lg border text-[11px] font-mono transition ${
                                 selectedStandardChecker === ch
-                                  ? "bg-purple-500/10 border-purple-500/30 text-purple-300"
-                                  : "bg-black/30 border-white/5 text-zinc-400 hover:bg-white/5"
+                                  ? "bg-white/[0.08] border-white/[0.2] text-white font-bold"
+                                  : "bg-black/[0.3] border-white/[0.05] text-zinc-400 hover:bg-white/[0.05]"
                               }`}
                             >
                               <span className="font-bold block text-zinc-200">{ch}.cpp</span>
@@ -1553,15 +1553,15 @@ int main() {
                             </button>
                           ))}
                         </div>
-                        <div className="rounded-lg bg-black/40 border border-white/5 p-4 font-mono text-[10px] space-y-1.5">
+                        <div className="rounded-lg bg-black/[0.4] border border-white/[0.05] p-4 font-mono text-[10px] space-y-1.5">
                           <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Active Standard Checker</div>
                           <div><span className="text-zinc-500">Name:</span> <span className="text-zinc-300">{selectedStandardChecker}.cpp</span></div>
                           <div><span className="text-zinc-500">Behavior:</span> <span className="text-zinc-400">{standardCheckersInfo[selectedStandardChecker]}</span></div>
                         </div>
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-white/10 overflow-hidden bg-black/40">
-                        <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/10 bg-black/20 text-[10px] text-zinc-400 font-mono">
+                      <div className="rounded-xl border border-white/[0.1] overflow-hidden bg-black/[0.4]">
+                        <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.1] bg-black/[0.2] text-[10px] text-zinc-400 font-mono">
                           <span>checker.cpp</span>
                           <span>C++17 GCC 11</span>
                         </div>
@@ -1586,7 +1586,7 @@ int main() {
             {activeTab === "pipeline" && (
               <div className="space-y-6 animate-fadeIn">
                 {/* Stepper horizontal tabs */}
-                <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2 border-b border-white/[0.05] pb-3">
                   {[
                     { id: "generators", label: "Dynamic Generators", icon: Cpu },
                     { id: "tests", label: "Saved Testcases", icon: FileStack },
@@ -1601,8 +1601,8 @@ int main() {
                         onClick={() => setPipelineSubTab(sub.id as any)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border transition ${
                           isSubActive
-                            ? "bg-purple-500/10 border-purple-500/30 text-purple-300"
-                            : "bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
+                            ? "bg-white/[0.08] border-white/[0.2] text-white font-bold"
+                            : "bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]"
                         }`}
                       >
                         <SubIcon className="h-3.5 w-3.5" />
@@ -1617,7 +1617,7 @@ int main() {
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[50vh]">
                       {/* Left: Custom C++ generator list */}
-                      <div className="col-span-1 rounded-xl border border-white/10 bg-black/20 p-4 space-y-4 flex flex-col justify-between">
+                      <div className="col-span-1 rounded-xl border border-white/[0.1] bg-[#0c0c0e] p-4 space-y-4 flex flex-col justify-between">
                         <div className="space-y-3">
                           <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Custom C++ Files</h4>
                           {isLoadingGen ? (
@@ -1632,8 +1632,8 @@ int main() {
                                   onClick={() => setActiveGenerator(g)}
                                   className={`flex items-center justify-between p-2.5 rounded-lg border text-xs font-mono cursor-pointer transition ${
                                     activeGenerator?.name === g.name
-                                      ? "bg-purple-500/10 border-purple-500/35 text-purple-300"
-                                      : "bg-black/30 border-white/5 text-zinc-400 hover:bg-white/5"
+                                      ? "bg-white/[0.08] border-white/[0.2] text-white font-bold"
+                                      : "bg-black/[0.3] border-white/[0.05] text-zinc-400 hover:bg-white/[0.05]"
                                   }`}
                                 >
                                   <div className="flex items-center gap-2 truncate">
@@ -1656,7 +1656,7 @@ int main() {
                           )}
                         </div>
 
-                        <div className="border-t border-white/10 pt-4 space-y-2">
+                        <div className="border-t border-white/[0.1] pt-4 space-y-2">
                           <label className="text-[10px] uppercase font-bold text-zinc-500">New Generator Name</label>
                           <div className="flex gap-2">
                             <input
@@ -1664,12 +1664,12 @@ int main() {
                               placeholder="e.g. gen_random"
                               value={newGenName}
                               onChange={(e) => setNewGenName(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
-                              className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white focus:border-purple-500/50 focus:outline-none"
+                              className="flex-1 rounded-lg border border-white/[0.1] bg-black/[0.4] px-3 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none"
                             />
                             <button
                               type="button"
                               onClick={handleAddGeneratorFile}
-                              className="rounded-lg bg-purple-600 hover:bg-purple-500 px-3 py-1.5 text-xs font-bold text-white transition"
+                              className="rounded-lg bg-white hover:bg-zinc-200 px-3 py-1.5 text-xs font-bold text-black transition"
                             >
                               Add
                             </button>
@@ -1678,16 +1678,16 @@ int main() {
                       </div>
 
                       {/* Middle: Active generator C++ code editor */}
-                      <div className="col-span-1 flex flex-col rounded-xl border border-white/10 overflow-hidden bg-black/40">
+                      <div className="col-span-1 flex flex-col rounded-xl border border-white/[0.1] overflow-hidden bg-black/[0.4]">
                         {activeGenerator ? (
                           <>
-                            <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/20 text-xs text-zinc-400">
+                            <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.1] bg-black/[0.2] text-xs text-zinc-400">
                               <span className="font-mono text-zinc-200">{activeGenerator.name}.cpp</span>
                               <button
                                 type="button"
                                 disabled={isSavingGen}
                                 onClick={handleSaveGeneratorFile}
-                                className="inline-flex items-center gap-1.5 text-[11px] text-purple-400 font-bold bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 px-3 py-1 rounded transition"
+                                className="inline-flex items-center gap-1.5 text-[11px] text-white font-bold bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.15] px-3 py-1 rounded transition"
                               >
                                 {isSavingGen ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
                                 Save
@@ -1714,14 +1714,14 @@ int main() {
                       </div>
 
                       {/* Right: Generator script commands workspace */}
-                      <div className="col-span-1 rounded-xl border border-white/10 bg-black/20 p-4 space-y-4">
+                      <div className="col-span-1 rounded-xl border border-white/[0.1] bg-[#0c0c0e] p-4 space-y-4">
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Generator Script</label>
                           <button
                             type="button"
                             disabled={isGenerating}
                             onClick={handleRunGenerator}
-                            className="inline-flex items-center gap-1 text-[10px] text-purple-400 font-bold bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 px-2.5 py-1 rounded transition"
+                            className="inline-flex items-center gap-1 text-[10px] text-white font-bold bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.15] px-2.5 py-1 rounded transition"
                           >
                             {isGenerating ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Database className="h-3 w-3" />}
                             Save Script
@@ -1732,7 +1732,7 @@ int main() {
                           rows={8}
                           value={generatorScript}
                           onChange={(e) => setGeneratorScript(e.target.value)}
-                          className="w-full p-3 font-mono text-[11px] text-zinc-300 bg-black/40 border border-white/10 rounded-xl outline-none focus:border-purple-500/50 leading-relaxed resize-none select-text"
+                          className="w-full p-3 font-mono text-[11px] text-zinc-300 bg-black/[0.4] border border-white/[0.1] rounded-xl outline-none focus:border-white/30 leading-relaxed resize-none select-text"
                           placeholder="# Write generator calls here"
                           spellCheck={false}
                         />
@@ -1741,7 +1741,7 @@ int main() {
                           <p className="text-[10px] text-green-400 font-medium">{generatorSaveMessage}</p>
                         )}
 
-                        <p className="text-[9px] text-zinc-500 leading-normal border-t border-white/10 pt-3">
+                        <p className="text-[9px] text-zinc-500 leading-normal border-t border-white/[0.1] pt-3">
                           Script saved with config. Tests auto-generated when you run validation.
                         </p>
                       </div>
@@ -1752,7 +1752,7 @@ int main() {
                 {/* Sub Tab 2: Saved Testcases list & manual uploads */}
                 {pipelineSubTab === "tests" && (
                   <div className="space-y-6">
-                    <div className="rounded-2xl border border-white/10 bg-black/20 p-5 space-y-4">
+                    <div className="rounded-2xl border border-white/[0.1] bg-[#0c0c0e] p-5 space-y-4">
                       <div className="flex items-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                           <h4 className="text-sm font-semibold text-white">Manual File Uploads & Persisted Tests</h4>
@@ -1780,13 +1780,13 @@ int main() {
                               ]);
                               setTestsSavedToCloud(false);
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-transparent px-3 py-1.5 text-xs text-zinc-300 transition"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] hover:border-white/[0.2] bg-transparent px-3 py-1.5 text-xs text-zinc-300 transition"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             Add Manual Test
                           </button>
 
-                          <label className="inline-flex items-center gap-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-3.5 py-1.5 text-xs font-semibold text-white transition cursor-pointer shadow-lg shadow-purple-600/10">
+                          <label className="inline-flex items-center gap-2 rounded-lg bg-white hover:bg-zinc-200 disabled:opacity-50 px-3.5 py-1.5 text-xs font-bold text-black transition cursor-pointer shadow-lg">
                             {isUploadingZip ? (
                               <>
                                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -1814,18 +1814,18 @@ int main() {
 
                       {/* Saved tests table */}
                       {isHydratingTests ? (
-                        <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 p-10 text-center">
+                        <div className="rounded-2xl border border-dashed border-white/[0.1] bg-black/10 p-10 text-center">
                           <p className="text-sm font-semibold text-white">Loading saved tests…</p>
                         </div>
                       ) : testcases.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 p-10 text-center">
+                        <div className="rounded-2xl border border-dashed border-white/[0.1] bg-black/10 p-10 text-center">
                           <p className="text-sm font-semibold text-white">No tests added yet</p>
                           <p className="mt-2 text-xs text-zinc-400">Add a manual test or upload a zip file above.</p>
                         </div>
                       ) : (
-                        <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/40">
+                        <div className="overflow-x-auto rounded-xl border border-white/[0.05] bg-black/[0.4]">
                           <table className="w-full text-xs">
-                            <thead className="bg-black/20 border-b border-white/10 text-zinc-400">
+                            <thead className="bg-black/[0.2] border-b border-white/[0.1] text-zinc-400">
                               <tr className="text-[10px] uppercase font-semibold text-left">
                                 <th className="px-4 py-2.5">Index</th>
                                 <th className="px-4 py-2.5">Type</th>
@@ -1837,13 +1837,13 @@ int main() {
                                 <th className="px-4 py-2.5 text-right">Actions</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5 font-mono text-zinc-300">
+                            <tbody className="divide-y divide-white/[0.05] font-mono text-zinc-300">
                               {testcases.map((t, idx) => (
-                                <tr key={t.id} className="hover:bg-white/5 transition">
+                                <tr key={t.id} className="hover:bg-white/[0.05] transition">
                                   <td className="px-4 py-2.5 text-zinc-500">Test {idx + 1}</td>
                                   <td className="px-4 py-2.5">
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                      t.type === "manual" ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400"
+                                      t.type === "manual" ? "bg-blue-500/10 text-blue-400" : "bg-white/[0.08] border border-white/[0.15] text-zinc-300"
                                     }`}>
                                       {t.type}
                                     </span>
@@ -1865,7 +1865,7 @@ int main() {
                                         );
                                         setTestsSavedToCloud(false);
                                       }}
-                                      className="rounded bg-zinc-800 border-zinc-700 text-purple-600 focus:ring-0"
+                                      className="rounded bg-zinc-800 border-zinc-700 text-black border-zinc-700 focus:ring-0 focus:ring-offset-0"
                                     />
                                   </td>
                                   <td className="px-4 py-2.5">
@@ -1877,7 +1877,7 @@ int main() {
                                   </td>
                                   <td className="px-4 py-2.5">
                                     <div className="flex gap-2">
-                                      <label className="cursor-pointer rounded border border-white/10 px-2 py-1 text-[10px] text-zinc-300 hover:border-purple-500/40">
+                                      <label className="cursor-pointer rounded border border-white/[0.1] px-2 py-1 text-[10px] text-zinc-300 hover:border-white/30">
                                         In
                                         <input
                                           type="file"
@@ -1889,7 +1889,7 @@ int main() {
                                           }}
                                         />
                                       </label>
-                                      <label className="cursor-pointer rounded border border-white/10 px-2 py-1 text-[10px] text-zinc-300 hover:border-purple-500/40">
+                                      <label className="cursor-pointer rounded border border-white/[0.1] px-2 py-1 text-[10px] text-zinc-300 hover:border-white/30">
                                         Out
                                         <input
                                           type="file"
@@ -1933,7 +1933,7 @@ int main() {
                           type="button"
                           onClick={() => void upsertTestsToCloud()}
                           disabled={!questionId || !hasAnyTests || hasIncompleteTests || isSavingTests}
-                          className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-purple-600/10"
+                          className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-zinc-200 disabled:opacity-50 px-4 py-2 text-xs font-bold text-black shadow-lg"
                         >
                           {isSavingTests ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
                           {isSavingTests ? "Saving Tests..." : "Save Tests to Cloud"}
@@ -1959,7 +1959,7 @@ int main() {
                           type="button"
                           onClick={handleRunTestingSuite}
                           disabled={!canRunValidation || isRunningTests}
-                          className="inline-flex items-center gap-2 rounded-xl bg-purple-500 hover:bg-purple-600 disabled:opacity-50 px-4 py-2 text-xs font-semibold text-white transition shadow-lg shadow-purple-500/10"
+                          className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-zinc-200 disabled:opacity-50 px-4 py-2 text-xs font-bold text-black transition shadow-lg"
                         >
                           {isRunningTests ? (
                             <>
@@ -1977,7 +1977,7 @@ int main() {
                           type="button"
                           onClick={() => void refreshPrejudgeStatus()}
                           disabled={!lastPrejudgeJobId || isRefreshingJob}
-                          className="inline-flex items-center gap-2 rounded-xl border border-white/10 hover:border-white/20 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-zinc-200"
+                          className="inline-flex items-center gap-2 rounded-xl border border-white/[0.1] hover:border-white/[0.2] disabled:opacity-50 px-3 py-2 text-xs font-semibold text-zinc-200 bg-black/[0.2]"
                         >
                           <RefreshCw className={`h-3.5 w-3.5 ${isRefreshingJob ? "animate-spin" : ""}`} />
                           Refresh Status
@@ -1986,7 +1986,7 @@ int main() {
                           type="button"
                           onClick={() => void cancelValidation()}
                           disabled={!lastPrejudgeJobId && !prejudgeJob?.id}
-                          className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 hover:border-red-500/40 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-red-300"
+                          className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 hover:border-red-500/50 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-red-400 bg-black/[0.2]"
                         >
                           Cancel Validation
                         </button>
@@ -2019,7 +2019,7 @@ int main() {
                     <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
                       {/* Left: Model Solver Code (2 cols) */}
                       <div className="xl:col-span-2 space-y-4">
-                        <div className="rounded-2xl border border-white/10 bg-black/20 p-5 space-y-4">
+                        <div className="rounded-2xl border border-white/[0.1] bg-[#0c0c0e] p-5 space-y-4">
                           <div className="flex items-center justify-between">
                             <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
                               Manual Solver Code
@@ -2027,14 +2027,14 @@ int main() {
                             <select
                               value={testingLang}
                               onChange={(e) => setTestingLang(e.target.value as "cpp" | "python")}
-                              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white focus:outline-none"
+                              className="rounded-lg border border-white/[0.1] bg-black/[0.4] px-2 py-1 text-xs text-white focus:outline-none"
                             >
                               <option value="cpp">C++17</option>
                               <option value="python">Python 3</option>
                             </select>
                           </div>
 
-                          <div className="rounded-xl border border-white/10 overflow-hidden bg-black/40">
+                          <div className="rounded-xl border border-white/[0.1] overflow-hidden bg-black/[0.4]">
                             <textarea
                               rows={16}
                               value={testingCode}
@@ -2049,8 +2049,8 @@ int main() {
                       {/* Right: Validation Job status logs (3 cols) */}
                       <div className="xl:col-span-3 space-y-4">
                         {prejudgeJob ? (
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-5 space-y-4">
-                            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                          <div className="rounded-2xl border border-white/[0.1] bg-[#0c0c0e] p-5 space-y-4">
+                            <div className="flex items-center justify-between border-b border-white/[0.05] pb-3">
                               <div>
                                 <span className="text-xs font-semibold text-zinc-300">Validation Job Summary</span>
                                 <span className="block text-[10px] text-zinc-500 font-mono mt-0.5">ID: {prejudgeJob.id}</span>
@@ -2075,9 +2075,9 @@ int main() {
                                   <span>Running tests…</span>
                                   <span>{prejudgeTests.length} / {totalTests}</span>
                                 </div>
-                                <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
+                                <div className="h-1.5 w-full rounded-full bg-white/[0.05] overflow-hidden">
                                   <div
-                                    className="h-full bg-purple-500 transition-all duration-300"
+                                    className="h-full bg-white transition-all duration-300"
                                     style={{ width: `${Math.round((prejudgeTests.length / totalTests) * 100)}%` }}
                                   />
                                 </div>
@@ -2098,7 +2098,7 @@ int main() {
                                     key={p.test_number}
                                     type="button"
                                     onClick={() => setSelectedPrejudgeTest(p)}
-                                    className="w-full text-left p-3.5 rounded-xl border border-white/5 bg-black/40 hover:bg-black/60 hover:border-white/10 transition cursor-pointer"
+                                    className="w-full text-left p-3.5 rounded-xl border border-white/[0.05] bg-black/[0.4] hover:bg-black/[0.6] hover:border-white/[0.1] transition cursor-pointer"
                                   >
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2">
@@ -2127,7 +2127,7 @@ int main() {
                             </div>
                           </div>
                         ) : (
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-6 flex flex-col items-center justify-center text-center text-zinc-500 min-h-[30vh]">
+                          <div className="rounded-2xl border border-white/[0.1] bg-[#0c0c0e] p-6 flex flex-col items-center justify-center text-center text-zinc-500 min-h-[30vh]">
                             <Play className="h-8 w-8 text-zinc-600 mb-2" />
                             <p className="text-xs font-semibold">No active validation job</p>
                             <p className="text-[10px] text-zinc-500 mt-1 max-w-xs">
@@ -2156,11 +2156,11 @@ int main() {
         onClick={() => setSelectedPrejudgeTest(null)}
       >
         <div
-          className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 bg-zinc-950 shadow-2xl"
+          className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/[0.1] bg-zinc-950 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
             <div className="flex items-center gap-3">
               <span className="font-mono text-sm font-bold text-zinc-200">
                 Test #{selectedPrejudgeTest.test_number}
@@ -2197,7 +2197,7 @@ int main() {
             {selectedPrejudgeTest.message && selectedPrejudgeTest.message !== "auto-check" && (
               <div className="space-y-1">
                 <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-sans font-semibold">Checker / Error Message</span>
-                <pre className="bg-black/40 border border-white/5 rounded-lg p-3 text-zinc-300 overflow-x-auto whitespace-pre-wrap break-all">
+                <pre className="bg-black/[0.4] border border-white/[0.05] rounded-lg p-3 text-zinc-300 overflow-x-auto whitespace-pre-wrap break-all">
                   {selectedPrejudgeTest.message}
                 </pre>
               </div>
@@ -2206,7 +2206,7 @@ int main() {
             {selectedPrejudgeTest.input_snippet !== undefined && (
               <div className="space-y-1">
                 <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-sans font-semibold">Input</span>
-                <pre className="bg-black/40 border border-white/5 rounded-lg p-3 text-blue-300 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
+                <pre className="bg-black/[0.4] border border-white/[0.05] rounded-lg p-3 text-blue-300 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
                   {selectedPrejudgeTest.input_snippet || "(empty)"}
                 </pre>
               </div>
@@ -2215,7 +2215,7 @@ int main() {
             {selectedPrejudgeTest.got_output !== undefined && (
               <div className="space-y-1">
                 <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-sans font-semibold">Your Output</span>
-                <pre className={`bg-black/40 border rounded-lg p-3 overflow-x-auto max-h-40 whitespace-pre-wrap break-all ${
+                <pre className={`bg-black/[0.4] border rounded-lg p-3 overflow-x-auto max-h-40 whitespace-pre-wrap break-all ${
                   selectedPrejudgeTest.verdict === "AC" || selectedPrejudgeTest.verdict === "OK"
                     ? "border-green-500/20 text-green-300"
                     : "border-red-500/20 text-red-300"
@@ -2228,7 +2228,7 @@ int main() {
             {selectedPrejudgeTest.expected_output !== undefined && (
               <div className="space-y-1">
                 <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-sans font-semibold">Expected Output</span>
-                <pre className="bg-black/40 border border-green-500/20 rounded-lg p-3 text-green-300 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
+                <pre className="bg-black/[0.4] border border-green-500/20 rounded-lg p-3 text-green-300 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
                   {selectedPrejudgeTest.expected_output || "(empty)"}
                 </pre>
               </div>
