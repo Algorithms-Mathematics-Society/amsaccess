@@ -22,7 +22,6 @@ export async function GET() {
     version: release.version,
     name: release.name,
     publishedAt: release.publishedAt,
-    releaseUrl: release.releaseUrl,
     windows: {
       msi: publicAsset(release.windows.msi),
       exe: publicAsset(release.windows.exe)

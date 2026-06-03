@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDownToLine, ExternalLink } from "lucide-react";
+import { ArrowDownToLine } from "lucide-react";
 import { PlatformLogo } from "@/components/PlatformLogo";
 import { ProctorNetwork } from "@/components/ProctorNetwork";
 import type { ReleaseAsset } from "@/lib/releases";
@@ -22,7 +22,6 @@ type PlatformConfig = {
   name: PlatformName;
   downloads: DownloadItem[];
   version: string | null;
-  releaseUrl: string | null;
   comingSoon?: boolean;
 };
 
@@ -59,7 +58,7 @@ function DownloadButton({ asset, label, featured }: { asset: ReleaseAsset; label
   );
 }
 
-function PlatformCard({ name, downloads, version, releaseUrl, comingSoon, featured }: PlatformConfig & { featured: boolean }) {
+function PlatformCard({ name, downloads, version, comingSoon, featured }: PlatformConfig & { featured: boolean }) {
   return (
     <article className={featured
       ? "relative flex min-h-[21.75rem] overflow-hidden rounded-2xl border border-white/10 bg-ams-dark p-6 text-white shadow-2xl shadow-slate-950/20 ring-1 ring-purple-400/30"
@@ -111,19 +110,6 @@ function PlatformCard({ name, downloads, version, releaseUrl, comingSoon, featur
             <span className={featured ? "text-purple-100/55" : "text-slate-400"}>Channel</span>
             <span className={featured ? "font-medium text-purple-100" : "font-medium text-purple-700"}>Alpha</span>
           </div>
-          {releaseUrl && (
-            <div className="flex items-center justify-between gap-4">
-              <span className={featured ? "text-purple-100/55" : "text-slate-400"}>Release notes</span>
-              <a
-                href={releaseUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={featured ? "flex items-center gap-1 font-medium text-purple-100/80 transition hover:text-white" : "flex items-center gap-1 font-medium text-slate-500 transition hover:text-purple-700"}
-              >
-                GitHub <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          )}
         </div>
       </div>
     </article>

@@ -48,16 +48,6 @@ export function MarketingFooter() {
                 <li><Link href="/contact" className="hover:text-purple-400 transition-colors">Contact sales</Link></li>
                 <li><Link href="/contact" className="hover:text-purple-400 transition-colors">Support</Link></li>
                 <li><Link href="/contact" className="hover:text-purple-400 transition-colors">Security</Link></li>
-                <li>
-                  <a
-                    href="https://github.com/Algorithms-Mathematics-Society/ams-access/releases"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-purple-400 transition-colors"
-                  >
-                    GitHub releases
-                  </a>
-                </li>
               </ul>
             </div>
           </div>

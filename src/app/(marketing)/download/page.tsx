@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, ShieldCheck, FileText } from "lucide-react";
+import { ShieldCheck, FileText } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { DownloadPlatformCards } from "@/components/DownloadPlatformCards";
@@ -64,16 +64,6 @@ export default async function DownloadPage() {
               >
                 View Changelog
               </Link>
-              {release?.releaseUrl && (
-                <a
-                  href={release.releaseUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50"
-                >
-                  GitHub Release <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              )}
             </div>
           </div>
 
@@ -84,19 +74,16 @@ export default async function DownloadPage() {
                 name: "Linux",
                 downloads: linuxDownloads,
                 version: release?.version ?? null,
-                releaseUrl: release?.releaseUrl ?? null,
               },
               {
                 name: "Windows",
                 downloads: windowsDownloads,
                 version: release?.version ?? null,
-                releaseUrl: release?.releaseUrl ?? null,
               },
               {
                 name: "macOS",
                 downloads: macDownloads,
                 version: macDownloads.length > 0 ? (release?.version ?? null) : null,
-                releaseUrl: release?.releaseUrl ?? null,
                 comingSoon: macDownloads.length === 0,
               },
             ]}
@@ -126,25 +113,14 @@ export default async function DownloadPage() {
                 <h2 className="text-base font-semibold tracking-tight text-slate-900">Release notes</h2>
               </div>
               <p className="mt-4 text-sm leading-6 text-slate-500">
-                Each release publishes with build integrity details and a full changelog on GitHub.
+                Each release publishes with build integrity details and a full internal changelog.
               </p>
-              {release?.releaseUrl ? (
-                <a
-                  href={release.releaseUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-purple-700 transition hover:text-purple-900"
-                >
-                  View on GitHub <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              ) : (
-                <Link
-                  className="mt-5 inline-flex text-sm font-semibold text-purple-700 transition hover:text-purple-900"
-                  href="/changelog"
-                >
-                  View release history
-                </Link>
-              )}
+              <Link
+                className="mt-5 inline-flex text-sm font-semibold text-purple-700 transition hover:text-purple-900"
+                href="/changelog"
+              >
+                View release history
+              </Link>
             </section>
           </div>
         </div>
