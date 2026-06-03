@@ -199,11 +199,87 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
   const [inputFileName, setInputFileName] = useState("input.txt");
   const [outputStyle, setOutputStyle] = useState<"stdout" | "file">("stdout");
   const [outputFileName, setOutputFileName] = useState("output.txt");
+  
+  const [descBody, setDescBody] = useState("");
   const [inputFormatText, setInputFormatText] = useState("A single integer $N$ followed by $N$ space-separated values.");
   const [outputFormatText, setOutputFormatText] = useState("A single integer denoting the maximum subarray sum.");
   const [sampleInputText, setSampleInputText] = useState("9\n-2 1 -3 4 -1 2 1 -5 4");
   const [sampleOutputText, setSampleOutputText] = useState("6");
   const [noteText, setNoteText] = useState("For the input array `[-2, 1, -3, 4, -1, 2, 1, -5, 4]`, the contiguous subarray is `[4, -1, 2, 1]` with sum `6`.");
+
+  const isInitialized = useRef(false);
+
+  useEffect(() => {
+    if (!isInitialized.current && description) {
+      // Parse markdown segments
+      const sections = {
+        descBody: "",
+        inputFormatText: "",
+        outputFormatText: "",
+        sampleInputText: "",
+        sampleOutputText: "",
+        noteText: ""
+      };
+
+      const inputFormatRegex = /###\s+Input\s+Format/i;
+      const outputFormatRegex = /###\s+Output\s+Format/i;
+      const sampleInputRegex = /###\s+Sample\s+Input/i;
+      const sampleOutputRegex = /###\s+Sample\s+Output/i;
+      const noteRegex = /###\s+Note/i;
+
+      const getIndex = (regex: RegExp) => {
+        const match = description.match(regex);
+        return match ? { index: match.index!, length: match[0].length } : null;
+      };
+
+      const idxs = [
+        { key: "inputFormatText" as const, pos: getIndex(inputFormatRegex) },
+        { key: "outputFormatText" as const, pos: getIndex(outputFormatRegex) },
+        { key: "sampleInputText" as const, pos: getIndex(sampleInputRegex) },
+        { key: "sampleOutputText" as const, pos: getIndex(sampleOutputRegex) },
+        { key: "noteText" as const, pos: getIndex(noteRegex) }
+      ].filter(item => item.pos !== null) as Array<{ key: keyof typeof sections; pos: { index: number; length: number } }>;
+
+      idxs.sort((a, b) => a.pos.index - b.pos.index);
+
+      if (idxs.length === 0) {
+        sections.descBody = description;
+      } else {
+        sections.descBody = description.slice(0, idxs[0].pos.index).trim();
+        for (let i = 0; i < idxs.length; i++) {
+          const current = idxs[i];
+          const start = current.pos.index + current.pos.length;
+          const end = i + 1 < idxs.length ? idxs[i+1].pos.index : description.length;
+          sections[current.key] = description.slice(start, end).trim();
+        }
+      }
+
+      setDescBody(sections.descBody);
+      if (sections.inputFormatText) setInputFormatText(sections.inputFormatText);
+      if (sections.outputFormatText) setOutputFormatText(sections.outputFormatText);
+      if (sections.sampleInputText) setSampleInputText(sections.sampleInputText);
+      if (sections.sampleOutputText) setSampleOutputText(sections.sampleOutputText);
+      if (sections.noteText) setNoteText(sections.noteText);
+      
+      isInitialized.current = true;
+    }
+  }, [description]);
+
+  useEffect(() => {
+    if (!isInitialized.current) return;
+    const concatenated = [
+      descBody.trim(),
+      inputFormatText.trim() ? `### Input Format\n${inputFormatText.trim()}` : "",
+      outputFormatText.trim() ? `### Output Format\n${outputFormatText.trim()}` : "",
+      sampleInputText.trim() ? `### Sample Input\n${sampleInputText.trim()}` : "",
+      sampleOutputText.trim() ? `### Sample Output\n${sampleOutputText.trim()}` : "",
+      noteText.trim() ? `### Note\n${noteText.trim()}` : ""
+    ].filter(Boolean).join("\n\n");
+
+    if (concatenated !== description) {
+      setDescription(concatenated);
+    }
+  }, [descBody, inputFormatText, outputFormatText, sampleInputText, sampleOutputText, noteText, description, setDescription]);
 
   // --- Validator State — seeded from DB value when editing an existing question ---
   const [validatorCode, setValidatorCode] = useState<string>(initialValidatorCode ?? DEFAULT_VALIDATOR);
@@ -1310,8 +1386,8 @@ int main() {
                       </label>
                       <textarea
                         rows={12}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
+                        value={descBody}
+                        onChange={(e) => setDescBody(e.target.value)}
                         className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-4 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
                       />
                     </div>
@@ -1390,7 +1466,7 @@ int main() {
                     <div className="space-y-4 text-xs text-zinc-300 leading-relaxed font-sans">
                       {/* Description output */}
                       <div className="space-y-2">
-                        {renderStatementHtml(description)}
+                        {renderStatementHtml(descBody)}
                       </div>
 
                       <div className="space-y-1">
@@ -2068,7 +2144,32 @@ int main() {
                               </span>
                             </div>
 
-                            {/* Live progress bar — shown during streaming */}
+                            {/* Aggregate summary — shown when job is done */}
+                            {(prejudgeJob.status === "SUCCEEDED" || prejudgeJob.status === "FAILED") &&
+                              aggregateTotal !== null && (
+                              <div className="grid grid-cols-2 gap-2 py-2">
+                                <div className="rounded-xl bg-white/5 p-3 text-center">
+                                  <div className={`text-lg font-bold font-mono ${aggregatePassed === aggregateTotal ? "text-green-400" : "text-red-400"}`}>
+                                    {aggregatePassed} / {aggregateTotal}
+                                  </div>
+                                  <div className="text-[10px] text-zinc-500 mt-0.5">Tests Passed</div>
+                                </div>
+                                <div className="rounded-xl bg-white/5 p-3 text-center">
+                                  <div className="text-lg font-bold font-mono text-purple-400">
+                                    {aggregateMaxRuntimeMs !== null ? `${aggregateMaxRuntimeMs}ms` : "—"}
+                                  </div>
+                                  <div className="text-[10px] text-zinc-500 mt-0.5">Max Runtime</div>
+                                </div>
+                                <div className="rounded-xl bg-white/5 p-3 text-center col-span-2">
+                                  <div className="text-lg font-bold font-mono text-cyan-400">
+                                    {aggregateMaxMemoryKb !== null ? `${(aggregateMaxMemoryKb / 1024).toFixed(1)} MB` : "—"}
+                                  </div>
+                                  <div className="text-[10px] text-zinc-500 mt-0.5">Peak Memory</div>
+                                </div>
+                              </div>
+                            )}
+
+
                             {prejudgeJob.status === "RUNNING" && totalTests > 0 && (
                               <div className="space-y-1">
                                 <div className="flex justify-between text-[10px] text-zinc-400 font-mono">
@@ -2087,12 +2188,15 @@ int main() {
                             <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1">
                               {prejudgeTests.map((p) => {
                                 const isSample = p.is_sample;
+                                const v = normalizeVerdict(p.verdict);
                                 const verdictColor =
-                                  p.verdict === "AC" || p.verdict === "OK"
-                                    ? "bg-green-500/10 text-green-400"
-                                    : p.verdict === "WA"
-                                    ? "bg-orange-500/10 text-orange-400"
-                                    : "bg-red-500/10 text-red-400";
+                                  v === "AC" ? "bg-green-500/10 text-green-400 border border-green-500/20" :
+                                  v === "WA" ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" :
+                                  v === "TLE" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
+                                  v === "MLE" ? "bg-violet-500/10 text-violet-400 border border-violet-500/20" :
+                                  v === "CE" ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20" :
+                                  "bg-red-500/10 text-red-400 border border-red-500/20";
+
                                 return (
                                   <button
                                     key={p.test_number}
@@ -2114,7 +2218,7 @@ int main() {
                                           {p.runtime_ms} ms / {(p.memory_kb / 1024).toFixed(2)} MB
                                         </span>
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${verdictColor}`}>
-                                          {p.verdict}
+                                          {v}
                                         </span>
                                       </div>
                                     </div>
