@@ -72,6 +72,25 @@ async function verifyAmsAdminToken(token: string): Promise<boolean> {
   }
 }
 
+// Decode the exp claim from a Firebase session cookie (a signed JWT) without
+// verifying the signature — this is intentionally a UX check only, not a
+// security check. The authoritative verification happens in requireOrgUser()
+// → verifySessionCookie(cookie, true) in every API route handler. Checking
+// exp here just lets us redirect at the page level so users don't see a
+// blank dashboard waiting for 401s from every API call on an expired session.
+function isSessionCookieExpired(cookie: string): boolean {
+  try {
+    const parts = cookie.split(".");
+    if (parts.length < 2) return true;
+    const padded = parts[1] + "=".repeat((4 - (parts[1].length % 4)) % 4);
+    const json = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+    const payload = JSON.parse(json) as { exp?: unknown };
+    return typeof payload.exp !== "number" || payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = request.headers.get("host") ?? "";
@@ -101,7 +120,7 @@ export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get("ams_session")?.value;
 
   if (pathname === "/download") {
-    if (!sessionCookie) {
+    if (!sessionCookie || isSessionCookieExpired(sessionCookie)) {
       const loginUrl = new URL("/org/login", request.url);
       loginUrl.searchParams.set("next", "/download");
       return noStore(NextResponse.redirect(loginUrl));
@@ -110,14 +129,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith("/admin")) {
-    if (!sessionCookie) {
+    if (!sessionCookie || isSessionCookieExpired(sessionCookie)) {
       return noStore(NextResponse.redirect(new URL("/access-admin-only", request.url)));
     }
     return response;
   }
 
   if (pathname.startsWith("/org")) {
-    if (!sessionCookie) {
+    if (!sessionCookie || isSessionCookieExpired(sessionCookie)) {
       return noStore(NextResponse.redirect(new URL("/org/login", request.url)));
     }
     return response;

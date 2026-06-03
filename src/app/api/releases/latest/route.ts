@@ -1,6 +1,9 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { fetchLatestRelease } from "@/lib/releases";
 import type { ReleaseAsset } from "@/lib/releases";
+import { apiRateLimited } from "@/lib/server/http";
+import { checkRequestRateLimitAsync } from "@/lib/server/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +15,12 @@ function publicAsset(asset?: ReleaseAsset) {
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Rate-limit this public unauthenticated endpoint to prevent Vercel
+  // invocation cost amplification and GitHub API rate-limit exhaustion.
+  const limited = await checkRequestRateLimitAsync(request, "publicRead", ["releases-latest"]);
+  if (limited.limited) return apiRateLimited(limited.retryAfter);
+
   const release = await fetchLatestRelease();
   if (!release) {
     return NextResponse.json({ error: "No release found" }, { status: 404 });

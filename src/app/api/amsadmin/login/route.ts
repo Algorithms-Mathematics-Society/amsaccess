@@ -1,13 +1,17 @@
 import type { NextRequest } from "next/server";
 import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
-import { checkRequestRateLimit } from "@/lib/server/rateLimit";
+import { checkRequestRateLimitAsync } from "@/lib/server/rateLimit";
 import { isValidAmsAdminCredential, setAmsAdminSession } from "@/lib/server/amsAdmin";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  const limited = checkRequestRateLimit(request, "auth", ["amsadmin-login"]);
+  const limited = await checkRequestRateLimitAsync(request, "auth", ["amsadmin-login"]);
   if (limited.limited) return apiRateLimited(limited.retryAfter);
+
+  // Hourly budget: stops sustained low-and-slow brute-force across rotating IPs
+  const hourlyLimited = await checkRequestRateLimitAsync(request, "authHourly", ["amsadmin-login"]);
+  if (hourlyLimited.limited) return apiRateLimited(hourlyLimited.retryAfter);
   let payload: unknown;
   try {
     payload = await request.json();

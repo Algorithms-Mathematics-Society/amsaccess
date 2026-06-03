@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { apiError, apiOk, apiRateLimited } from "@/lib/server/http";
 import { withApiLogging } from "@/lib/server/logger";
-import { checkRequestRateLimit } from "@/lib/server/rateLimit";
+import { checkRequestRateLimitAsync } from "@/lib/server/rateLimit";
 import { isValidEmail, normalizeEmail } from "@/lib/server/request";
 import { createSessionCookie } from "@/lib/server/auth";
 
@@ -33,10 +33,13 @@ export async function POST(request: NextRequest) {
       return apiError("Email and password are required.", 400, "BAD_REQUEST");
     }
 
-    const minuteLimit = checkRequestRateLimit(request, "auth", [scope, email]);
+    // Distributed rate limits (Upstash when configured, in-memory fallback).
+    // Email is included in the key so brute-forcing a specific account is
+    // throttled regardless of which IP the attacker rotates through.
+    const minuteLimit = await checkRequestRateLimitAsync(request, "auth", [scope, email]);
     if (minuteLimit.limited) return apiRateLimited(minuteLimit.retryAfter);
 
-    const hourlyLimit = checkRequestRateLimit(request, "authHourly", [scope, email]);
+    const hourlyLimit = await checkRequestRateLimitAsync(request, "authHourly", [scope, email]);
     if (hourlyLimit.limited) return apiRateLimited(hourlyLimit.retryAfter);
 
     const firebaseWebApiKey = process.env.FIREBASE_WEB_API_KEY ?? "";
@@ -45,14 +48,30 @@ export async function POST(request: NextRequest) {
       return apiError("Auth service not configured.", 500, "SERVER_ERROR");
     }
 
-    const firebaseRes = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseWebApiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, returnSecureToken: true }),
+    // Explicit timeout on the upstream Firebase Identity Toolkit call.
+    // Without this, a slow/hung Firebase endpoint holds the serverless slot
+    // indefinitely and can exhaust all concurrent function capacity.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    let firebaseRes: Response;
+    try {
+      firebaseRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseWebApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, returnSecureToken: true }),
+          signal: controller.signal,
+        },
+      );
+    } catch (err) {
+      if ((err as { name?: string }).name === "AbortError") {
+        return apiError("Authentication service timed out.", 504, "SERVER_ERROR");
       }
-    );
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
 
     if (!firebaseRes.ok) {
       return apiError("Invalid credentials.", 401, "UNAUTHORIZED");

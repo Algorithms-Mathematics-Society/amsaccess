@@ -22,6 +22,6 @@ export async function POST(request: NextRequest) {
     return apiError("Enter a valid email address.", 400, "BAD_REQUEST");
   }
 
-  console.info("beta_waitlist_joined", { email });
+  console.info("beta_waitlist_joined");
   return apiOk({ joined: true });
 }
