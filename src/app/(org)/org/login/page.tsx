@@ -56,8 +56,8 @@ export default function OrgLoginPage() {
               Downloads are reserved for organization admins and operators. Use the same organization credentials you use for the AMS portal.
             </p>
 
-            <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-ams-dark p-5 text-white shadow-2xl shadow-slate-950/20">
-              <div className="absolute inset-0" />
+            <div className="relative mt-8 overflow-hidden rounded-2xl border border-white/10 bg-ams-dark p-5 text-white shadow-2xl shadow-slate-950/20">
+              <div className="pointer-events-none absolute inset-0" />
               <div className="relative min-h-44 overflow-hidden rounded-xl border border-white/10 bg-black/30 p-5">
                 <ProctorNetwork nodeCount={24} connectDist={120} mouseRadius={140} />
                 <div className="relative z-10 flex h-full flex-col justify-between gap-10">
@@ -136,7 +136,7 @@ export default function OrgLoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-[1.01] hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-[1.01] hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? "Signing in..." : "Sign in"}
                 <ArrowRight className="h-4 w-4" />
