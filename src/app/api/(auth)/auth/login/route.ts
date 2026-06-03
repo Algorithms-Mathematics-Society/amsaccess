@@ -9,8 +9,6 @@ import { createSessionCookie } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
 
-const FIREBASE_WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY ?? "";
-
 type LoginScope = "admin" | "org";
 
 function isLoginScope(value: unknown): value is LoginScope {
@@ -41,12 +39,14 @@ export async function POST(request: NextRequest) {
     const hourlyLimit = checkRequestRateLimit(request, "authHourly", [scope, email]);
     if (hourlyLimit.limited) return apiRateLimited(hourlyLimit.retryAfter);
 
-    if (!FIREBASE_WEB_API_KEY) {
+    const firebaseWebApiKey = process.env.FIREBASE_WEB_API_KEY ?? "";
+
+    if (!firebaseWebApiKey) {
       return apiError("Auth service not configured.", 500, "SERVER_ERROR");
     }
 
     const firebaseRes = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_WEB_API_KEY}`,
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseWebApiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,7 +63,11 @@ export async function POST(request: NextRequest) {
     let sessionCookieValue: string;
     try {
       sessionCookieValue = await createSessionCookie(firebaseData.idToken);
-    } catch {
+    } catch (error) {
+      if (process.env.NODE_ENV !== "production") {
+        const details = error instanceof Error ? error.message : String(error);
+        console.error("firebase_session_cookie_failed", details);
+      }
       return apiError("Unable to create session.", 500, "SERVER_ERROR");
     }
 

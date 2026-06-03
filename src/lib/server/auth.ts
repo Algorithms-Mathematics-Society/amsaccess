@@ -1,4 +1,5 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app";
+import type { ServiceAccount } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -10,7 +11,11 @@ export function getFirebaseAdmin() {
   if (!getApps().length) {
     const adminJson = process.env.FIREBASE_ADMIN_SDK_JSON;
     if (!adminJson) throw new Error("FIREBASE_ADMIN_SDK_JSON not set");
-    initializeApp({ credential: cert(JSON.parse(adminJson)) });
+    const serviceAccount = JSON.parse(adminJson) as ServiceAccount & { private_key?: string };
+    if (typeof serviceAccount.private_key === "string") {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+    }
+    initializeApp({ credential: cert(serviceAccount) });
   }
   return getAuth();
 }
