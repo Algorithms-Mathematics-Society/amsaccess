@@ -583,7 +583,7 @@ int main() {
       }
       setIsHydratingTests(true);
       try {
-        const data = await apiFetch<PersistedTestset>(`/api/org/contests/${contestId}/questions/${questionId}/tests`);
+        const data = await apiFetch<PersistedTestset>(`/api/org/contests/${contestId}/questions/${questionId}/tests`, { timeoutMs: 120000 });
         if (!active) return;
         const mapped: Testcase[] = (data.tests ?? []).map((t) => ({
           id: `persisted-${t.test_number}`,
