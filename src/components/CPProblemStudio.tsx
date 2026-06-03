@@ -2144,6 +2144,14 @@ int main() {
                               </span>
                             </div>
 
+                            {/* Error detail — shown when job FAILED with an error message */}
+                            {prejudgeJob.status === "FAILED" && prejudgeJob.error_message && (
+                              <div className="rounded-xl bg-red-950/30 border border-red-500/20 p-3">
+                                <p className="text-[10px] font-semibold text-red-400 uppercase tracking-wider mb-1">Failure Reason</p>
+                                <pre className="text-[10px] font-mono text-red-300 whitespace-pre-wrap break-all leading-relaxed">{prejudgeJob.error_message}</pre>
+                              </div>
+                            )}
+
                             {/* Aggregate summary — shown when job is done */}
                             {(prejudgeJob.status === "SUCCEEDED" || prejudgeJob.status === "FAILED") &&
                               aggregateTotal !== null && (
