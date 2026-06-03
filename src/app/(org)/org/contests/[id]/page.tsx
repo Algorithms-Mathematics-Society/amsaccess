@@ -752,6 +752,21 @@ type CpConfigSnapshot = {
   validator_code: string;
 };
 
+type FollowUpPart = {
+  id: string;
+  statement: string;
+  expected_answer: string;
+  points: number;
+};
+
+function parseFollowUpParts(raw: string): FollowUpPart[] {
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as FollowUpPart[];
+  } catch { /* empty */ }
+  return [];
+}
+
 function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, saving, setSaving }: {
   contestId: string;
   existing?: Question;
@@ -800,8 +815,17 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   const [css, setCss]                 = useState(existing?.css_starter ?? "");
   const [js, setJs]                   = useState(existing?.js_starter ?? "");
   const [points, setPoints]           = useState(existing?.points ?? 10);
-  const [questionType, setQuestionType] = useState<"code" | "interactive">(
-    existing?.question_type === "interactive" ? "interactive" : "code"
+  const [questionType, setQuestionType] = useState<"code" | "interactive" | "follow_up">(
+    existing?.question_type === "interactive" ? "interactive"
+    : existing?.question_type === "follow_up" ? "follow_up"
+    : "code"
+  );
+  const [followUpParts, setFollowUpParts] = useState<FollowUpPart[]>(() =>
+    existing?.question_type === "follow_up"
+      ? (parseFollowUpParts(existing.description).length > 0
+          ? parseFollowUpParts(existing.description)
+          : [{ id: crypto.randomUUID(), statement: "", expected_answer: "", points: 10 }])
+      : [{ id: crypto.randomUUID(), statement: "", expected_answer: "", points: 10 }]
   );
   const [timeLimit, setTimeLimit]     = useState(existing?.time_limit_ms ?? 2000);
   const [memoryLimit, setMemoryLimit] = useState(existing?.memory_limit_mb ?? 256);
@@ -826,6 +850,34 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
     setError(null);
     setSuccess(null);
     if (!title.trim()) { setError("Title is required."); return; }
+
+    if (questionType === "follow_up") {
+      if (followUpParts.length === 0) { setError("Add at least one part."); return; }
+      const totalPts = followUpParts.reduce((s, p) => s + p.points, 0);
+      const fuDescription = JSON.stringify(followUpParts);
+      setSaving(true);
+      try {
+        if (existing) {
+          await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions/${existing.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ title, description: fuDescription, points: totalPts, question_type: "follow_up", time_limit_ms: 2000, memory_limit_mb: 256 }),
+          });
+        } else {
+          await apiFetch<{ id: string }>(`/api/org/contests/${contestId}/questions`, {
+            method: "POST",
+            body: JSON.stringify({ title, description: fuDescription, points: totalPts, order_index: nextIndex, question_type: "follow_up", time_limit_ms: 2000, memory_limit_mb: 256 }),
+          });
+        }
+        setSuccess(existing ? "Question updated successfully." : "Question created successfully.");
+        onSaved();
+      } catch (saveError) {
+        setError(saveError instanceof Error ? saveError.message : "Unable to save question.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     if (!Number.isFinite(timeLimit) || timeLimit < 100) {
       setError("Time limit must be at least 100 ms.");
       return;
@@ -921,77 +973,77 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
             className="glass-input text-sm text-slate-950"
           />
         </div>
-        <div className="w-24">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Points</label>
-          <input
-            type="number"
-            min={1}
-            value={points}
-            onChange={(e) => setPoints(Number(e.target.value))}
-            className="glass-input text-sm text-slate-950"
-          />
-        </div>
+        {questionType !== "follow_up" && (
+          <div className="w-24">
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Points</label>
+            <input
+              type="number"
+              min={1}
+              value={points}
+              onChange={(e) => setPoints(Number(e.target.value))}
+              className="glass-input text-sm text-slate-950"
+            />
+          </div>
+        )}
       </div>
 
       {/* Question type */}
       <div className="mb-4">
         <label className="mb-1.5 block text-xs font-medium text-slate-500">Question type</label>
         <div className="inline-flex gap-2">
-          <button
-            type="button"
-            onClick={() => setQuestionType("code")}
-            className="rounded-lg px-4 py-2 text-sm font-medium"
-            style={{
-              background: questionType === "code" ? "rgba(168,85,247,0.1)" : "#ffffff",
-              border: questionType === "code" ? "1px solid rgba(168,85,247,0.28)" : "1px solid rgba(226,232,240,1)",
-              color: questionType === "code" ? "#6d28d9" : "#64748b",
-            }}
-          >
-            Code submission
-          </button>
-          <button
-            type="button"
-            onClick={() => setQuestionType("interactive")}
-            className="rounded-lg px-4 py-2 text-sm font-medium"
-            style={{
-              background: questionType === "interactive" ? "rgba(168,85,247,0.1)" : "#ffffff",
-              border: questionType === "interactive" ? "1px solid rgba(168,85,247,0.28)" : "1px solid rgba(226,232,240,1)",
-              color: questionType === "interactive" ? "#6d28d9" : "#64748b",
-            }}
-          >
-            Interactive
-          </button>
+          {(["code", "interactive", "follow_up"] as const).map((qt) => (
+            <button
+              key={qt}
+              type="button"
+              onClick={() => setQuestionType(qt)}
+              className="rounded-lg px-4 py-2 text-sm font-medium"
+              style={{
+                background: questionType === qt ? "rgba(168,85,247,0.1)" : "#ffffff",
+                border: questionType === qt ? "1px solid rgba(168,85,247,0.28)" : "1px solid rgba(226,232,240,1)",
+                color: questionType === qt ? "#6d28d9" : "#64748b",
+              }}
+            >
+              {qt === "code" ? "Code submission" : qt === "interactive" ? "Interactive" : "Follow Up"}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Time / memory limits */}
-      <div className="mb-4 flex gap-3">
-        <div className="flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Time limit (ms)</label>
-          <input
-            type="number"
-            min={100}
-            value={timeLimit}
-            onChange={(e) => setTimeLimit(Number(e.target.value))}
-            className="glass-input text-sm text-slate-950"
-          />
-          <p className="mt-1 text-[11px] text-slate-500">Min: 100 ms</p>
+      {/* Time / memory limits — hidden for follow_up */}
+      {questionType !== "follow_up" && (
+        <div className="mb-4 flex gap-3">
+          <div className="flex-1">
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Time limit (ms)</label>
+            <input
+              type="number"
+              min={100}
+              value={timeLimit}
+              onChange={(e) => setTimeLimit(Number(e.target.value))}
+              className="glass-input text-sm text-slate-950"
+            />
+            <p className="mt-1 text-[11px] text-slate-500">Min: 100 ms</p>
+          </div>
+          <div className="flex-1">
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Memory limit (MB)</label>
+            <input
+              type="number"
+              min={16}
+              value={memoryLimit}
+              onChange={(e) => setMemoryLimit(Number(e.target.value))}
+              className="glass-input text-sm text-slate-950"
+            />
+            <p className="mt-1 text-[11px] text-slate-500">Min: 16 MB</p>
+          </div>
         </div>
-        <div className="flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Memory limit (MB)</label>
-          <input
-            type="number"
-            min={16}
-            value={memoryLimit}
-            onChange={(e) => setMemoryLimit(Number(e.target.value))}
-            className="glass-input text-sm text-slate-950"
-          />
-          <p className="mt-1 text-[11px] text-slate-500">Min: 16 MB</p>
-        </div>
-      </div>
+      )}
 
-      {/* Problem Studio */}
-      <CPProblemStudio
+      {/* Follow Up editor */}
+      {questionType === "follow_up" && (
+        <FollowUpEditor parts={followUpParts} onChange={setFollowUpParts} />
+      )}
+
+      {/* Problem Studio — only for code/interactive */}
+      {questionType !== "follow_up" && <CPProblemStudio
         key={existing?.id ?? "new"}
         ref={studioRef}
         contestId={contestId}
@@ -1002,7 +1054,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         setPoints={setPoints}
         description={description}
         setDescription={setDescription}
-        questionType={questionType}
+        questionType={questionType as "code" | "interactive"}
         timeLimit={timeLimit}
         setTimeLimit={setTimeLimit}
         memoryLimit={memoryLimit}
@@ -1011,7 +1063,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         initialCheckerCode={existing?.checker_code ?? undefined}
         initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
         initialGeneratorScript={existing?.generator_script ?? undefined}
-      />
+      />}
 
       <div className="mt-4 flex gap-3">
         <button
@@ -1031,8 +1083,110 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         </button>
       </div>
       <p className="mt-2 text-xs text-slate-500">
-        {saving ? "Saving question... please wait." : "Save question first, then upload tests and run validation."}
+        {saving ? "Saving question... please wait."
+          : questionType === "follow_up" ? "Points are the sum of all parts."
+          : "Save question first, then upload tests and run validation."}
       </p>
+    </div>
+  );
+}
+
+// ─── Follow-up editor ────────────────────────────────────────
+function FollowUpEditor({ parts, onChange }: {
+  parts: FollowUpPart[];
+  onChange: (parts: FollowUpPart[]) => void;
+}) {
+  function addPart() {
+    onChange([...parts, { id: crypto.randomUUID(), statement: "", expected_answer: "", points: 10 }]);
+  }
+
+  function removePart(id: string) {
+    onChange(parts.filter((p) => p.id !== id));
+  }
+
+  function updatePart(id: string, patch: Partial<FollowUpPart>) {
+    onChange(parts.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  }
+
+  const totalPoints = parts.reduce((s, p) => s + p.points, 0);
+
+  return (
+    <div className="mb-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-slate-500">
+          Parts
+          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">
+            {totalPoints} pts total
+          </span>
+        </label>
+        <button
+          type="button"
+          onClick={addPart}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add part
+        </button>
+      </div>
+
+      {parts.length === 0 && (
+        <p className="rounded-xl border border-dashed border-slate-200 py-8 text-center text-xs text-slate-400">
+          No parts yet — click &quot;Add part&quot; to begin.
+        </p>
+      )}
+
+      {parts.map((part, idx) => (
+        <div
+          key={part.id}
+          className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-700">Part {idx + 1}</span>
+            <button
+              type="button"
+              onClick={() => removePart(part.id)}
+              className="rounded-md p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-slate-500">
+              Statement <span className="text-slate-400 font-normal">(Markdown + MathJax)</span>
+            </label>
+            <textarea
+              rows={4}
+              value={part.statement}
+              onChange={(e) => updatePart(part.id, { statement: e.target.value })}
+              placeholder={"Find the value of $x$ such that $x^2 + 5x + 6 = 0$."}
+              className="glass-input w-full resize-y font-mono text-xs text-slate-950"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-slate-500">Expected answer</label>
+            <input
+              type="text"
+              value={part.expected_answer}
+              onChange={(e) => updatePart(part.id, { expected_answer: e.target.value })}
+              placeholder="-2 or -3"
+              className="glass-input text-sm text-slate-950"
+            />
+          </div>
+
+          <div className="w-28">
+            <label className="mb-1 block text-[11px] font-medium text-slate-500">Points</label>
+            <input
+              type="number"
+              min={0}
+              value={part.points}
+              onChange={(e) => updatePart(part.id, { points: Math.max(0, Number(e.target.value)) })}
+              className="glass-input text-sm text-slate-950"
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
