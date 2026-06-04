@@ -507,7 +507,7 @@ int main() {
     cout << max_so_far << "\n";
     return 0;
 }`);
-  const [testingLang, setTestingLang] = useState<"cpp" | "python">("cpp");
+  const [testingLang, setTestingLang] = useState<"c" | "cpp" | "cpp20" | "python" | "pypy3" | "java">("cpp");
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [hasRunTestingSuite, setHasRunTestingSuite] = useState(false);
   const [openWAJobId, setOpenWAJobId] = useState<number | null>(null);
@@ -984,7 +984,7 @@ int main() {
           generator_script: generatorScript,
           statement_md: description,
           model_solution: testingCode,
-          model_lang: testingLang === "python" ? "python3" : "cpp17"
+          model_lang: testingLang === "python" ? "python3" : testingLang === "pypy3" ? "pypy3" : testingLang === "java" ? "java17" : testingLang === "cpp20" ? "cpp20" : testingLang === "c" ? "c" : "cpp17"
         })
       });
 
@@ -2102,11 +2102,15 @@ int main() {
                             </label>
                             <select
                               value={testingLang}
-                              onChange={(e) => setTestingLang(e.target.value as "cpp" | "python")}
+                              onChange={(e) => setTestingLang(e.target.value as "c" | "cpp" | "cpp20" | "python" | "pypy3" | "java")}
                               className="rounded-lg border border-white/[0.1] bg-black/[0.4] px-2 py-1 text-xs text-white focus:outline-none"
                             >
+                              <option value="c">C</option>
                               <option value="cpp">C++17</option>
+                              <option value="cpp20">C++20</option>
                               <option value="python">Python 3</option>
+                              <option value="pypy3">PyPy 3</option>
+                              <option value="java">Java 17</option>
                             </select>
                           </div>
 
