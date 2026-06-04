@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
-import MarkovEditor, { type MarkovChain } from "@/components/MarkovEditor";
+import MarkovEditor, { type MarkovChain, normalizeChain } from "@/components/MarkovEditor";
 
 // ─── Types ───────────────────────────────────────────────────
 type Contest = {
@@ -932,7 +932,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         const body = JSON.stringify({
           title, description, points, question_type: "markov",
           time_limit_ms: 2000, memory_limit_mb: 256,
-          markov_answer_json: JSON.stringify(markovChain),
+          markov_answer_json: JSON.stringify(normalizeChain(markovChain)),
           ...(existing ? {} : { order_index: nextIndex }),
         });
         if (existing) {
@@ -1175,7 +1175,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
                   wordBreak: "break-all",
                 }}
               >
-                {JSON.stringify(markovChain, null, 2)}
+                {JSON.stringify(normalizeChain(markovChain), null, 2)}
               </pre>
             </div>
           </div>

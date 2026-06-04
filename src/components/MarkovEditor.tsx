@@ -569,6 +569,14 @@ function ValidationHint({ chain }: { chain: MarkovChain }) {
   );
 }
 
+/** Returns a copy of the chain with x/y stripped from states (for storage/display). */
+export function normalizeChain(chain: MarkovChain): { states: Omit<MarkovState, "x" | "y">[]; transitions: MarkovTransition[] } {
+  return {
+    states: chain.states.map(({ id, isInitial, isAccepting }) => ({ id, isInitial, isAccepting })),
+    transitions: chain.transitions,
+  };
+}
+
 function parseProb(s: string): number {
   s = s.trim();
   const slash = s.indexOf("/");
