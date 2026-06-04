@@ -136,6 +136,7 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
   // ── State mouse events ──────────────────────────────────────
   function handleStateMouseDown(e: React.MouseEvent, stateId: string) {
     e.stopPropagation();
+    if (e.button === 2) return; // right-click handled by onContextMenu
     if (readOnly) return;
     if (mode === "transition") {
       if (!drawFrom) {
@@ -205,6 +206,7 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
   // ── Toggle initial/accepting on right-click ─────────────────
   function handleStateContextMenu(e: React.MouseEvent, stateId: string) {
     e.preventDefault();
+    e.stopPropagation();
     if (readOnly) return;
     // cycle: normal → initial → accepting → both → normal
     onChange({
@@ -329,6 +331,7 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
         onMouseUp={handleSvgMouseUp}
         onDoubleClick={handleSvgDoubleClick}
         onClick={() => { if (mode === "select") setSelected(null); }}
+        onContextMenu={(e) => e.preventDefault()}
       >
         <defs>
           <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -434,7 +437,7 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
             >
               {/* Accepting: double ring */}
               {s.isAccepting && (
-                <circle cx={s.x} cy={s.y} r={RADIUS + 5} fill="none" stroke={isSel ? "#c084fc" : "#a855f788"} strokeWidth={1.5} />
+                <circle cx={s.x} cy={s.y} r={RADIUS + 6} fill="none" stroke={isSel ? "#c084fc" : "#a855f7"} strokeWidth={2} strokeDasharray="4 2" />
               )}
               <circle
                 cx={s.x} cy={s.y} r={RADIUS}
