@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
+import MarkovEditor, { type MarkovChain } from "@/components/MarkovEditor";
 
 // ─── Types ───────────────────────────────────────────────────
 type Contest = {
@@ -31,6 +32,7 @@ type Question = {
   model_solution?: string | null;
   model_lang?: string | null;
   generator_script?: string | null;
+  markov_answer_json?: string | null;
 };
 
 type Invite = {
@@ -815,11 +817,18 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   const [css, setCss]                 = useState(existing?.css_starter ?? "");
   const [js, setJs]                   = useState(existing?.js_starter ?? "");
   const [points, setPoints]           = useState(existing?.points ?? 10);
-  const [questionType, setQuestionType] = useState<"code" | "interactive" | "follow_up">(
+  const [questionType, setQuestionType] = useState<"code" | "interactive" | "follow_up" | "markov">(
     existing?.question_type === "interactive" ? "interactive"
     : existing?.question_type === "follow_up" ? "follow_up"
+    : existing?.question_type === "markov" ? "markov"
     : "code"
   );
+  const [markovChain, setMarkovChain] = useState<MarkovChain>(() => {
+    if (existing?.markov_answer_json) {
+      try { return JSON.parse(existing.markov_answer_json) as MarkovChain; } catch { /**/ }
+    }
+    return { states: [], transitions: [] };
+  });
   const [followUpParts, setFollowUpParts] = useState<FollowUpPart[]>(() =>
     existing?.question_type === "follow_up"
       ? (parseFollowUpParts(existing.description).length > 0
@@ -867,6 +876,32 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
             method: "POST",
             body: JSON.stringify({ title, description: fuDescription, points: totalPts, order_index: nextIndex, question_type: "follow_up", time_limit_ms: 2000, memory_limit_mb: 256 }),
           });
+        }
+        setSuccess(existing ? "Question updated successfully." : "Question created successfully.");
+        onSaved();
+      } catch (saveError) {
+        setError(saveError instanceof Error ? saveError.message : "Unable to save question.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (questionType === "markov") {
+      if (!description.trim()) { setError("Problem statement is required."); return; }
+      if (markovChain.states.length === 0) { setError("Define at least one state in the answer key."); return; }
+      setSaving(true);
+      try {
+        const body = JSON.stringify({
+          title, description, points, question_type: "markov",
+          time_limit_ms: 2000, memory_limit_mb: 256,
+          markov_answer_json: JSON.stringify(markovChain),
+          ...(existing ? {} : { order_index: nextIndex }),
+        });
+        if (existing) {
+          await apiFetch<{ saved: boolean }>(`/api/org/contests/${contestId}/questions/${existing.id}`, { method: "PATCH", body });
+        } else {
+          await apiFetch<{ id: string }>(`/api/org/contests/${contestId}/questions`, { method: "POST", body });
         }
         setSuccess(existing ? "Question updated successfully." : "Question created successfully.");
         onSaved();
@@ -991,7 +1026,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       <div className="mb-4">
         <label className="mb-1.5 block text-xs font-medium text-slate-500">Question type</label>
         <div className="inline-flex gap-2">
-          {(["code", "interactive", "follow_up"] as const).map((qt) => (
+          {(["code", "interactive", "follow_up", "markov"] as const).map((qt) => (
             <button
               key={qt}
               type="button"
@@ -1003,14 +1038,14 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
                 color: questionType === qt ? "#6d28d9" : "#64748b",
               }}
             >
-              {qt === "code" ? "Code submission" : qt === "interactive" ? "Interactive" : "Follow Up"}
+              {qt === "code" ? "Code submission" : qt === "interactive" ? "Interactive" : qt === "follow_up" ? "Follow Up" : "Markov Chain"}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Time / memory limits — hidden for follow_up */}
-      {questionType !== "follow_up" && (
+      {/* Time / memory limits — hidden for follow_up and markov */}
+      {questionType !== "follow_up" && questionType !== "markov" && (
         <div className="mb-4 flex gap-3">
           <div className="flex-1">
             <label className="mb-1.5 block text-xs font-medium text-slate-500">Time limit (ms)</label>
@@ -1042,8 +1077,32 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         <FollowUpEditor parts={followUpParts} onChange={setFollowUpParts} />
       )}
 
+      {/* Markov editor — problem statement + answer key chain */}
+      {questionType === "markov" && (
+        <div className="mb-4">
+          <div className="mb-3">
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Problem Statement</label>
+            <textarea
+              rows={5}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe the Markov chain problem the student must solve…"
+              className="glass-input w-full text-sm font-mono"
+              style={{ resize: "vertical" }}
+            />
+          </div>
+          <label className="mb-1.5 block text-xs font-medium text-slate-500">
+            Answer Key — build the correct Markov chain below
+          </label>
+          <p className="mb-2 text-[11px] text-slate-400">
+            Double-click canvas to add state · Drag to move · Right-click state to toggle initial/accepting · Click arrow label to edit probability
+          </p>
+          <MarkovEditor value={markovChain} onChange={setMarkovChain} />
+        </div>
+      )}
+
       {/* Problem Studio — only for code/interactive */}
-      {questionType !== "follow_up" && <CPProblemStudio
+      {questionType !== "follow_up" && questionType !== "markov" && <CPProblemStudio
         key={existing?.id ?? "new"}
         ref={studioRef}
         contestId={contestId}
@@ -1085,6 +1144,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       <p className="mt-2 text-xs text-slate-500">
         {saving ? "Saving question... please wait."
           : questionType === "follow_up" ? "Points are the sum of all parts."
+          : questionType === "markov" ? "Define the correct Markov chain as the answer key."
           : "Save question first, then upload tests and run validation."}
       </p>
     </div>
