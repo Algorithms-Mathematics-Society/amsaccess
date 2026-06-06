@@ -17,7 +17,7 @@ export function FooterCTASection() {
           </h2>
           <Link
             href="/download"
-            className="inline-flex h-12 items-center justify-center rounded-full bg-white px-8 text-sm font-medium text-black shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-transform hover:scale-105"
+            className="ams-btn ams-btn-inverse ams-btn-lg"
           >
             Download
           </Link>

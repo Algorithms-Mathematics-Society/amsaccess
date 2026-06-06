@@ -28,7 +28,7 @@ export default function ChessPluginDocsPage() {
           </p>
           <Link
             href="/contact"
-            className="mt-8 inline-flex h-11 items-center justify-center rounded-full bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-105 hover:bg-slate-800"
+            className="mt-8 ams-btn ams-btn-primary ams-btn-md"
           >
             Contact team
           </Link>

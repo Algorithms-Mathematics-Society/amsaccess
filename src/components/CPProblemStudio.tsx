@@ -1308,6 +1308,66 @@ int main() {
     yesno: "Case insensitive YES/NO verdict matcher."
   };
 
+  const statementReady = Boolean(title.trim()) && Boolean(description.trim());
+  const constraintsReady = timeLimit >= 100 && memoryLimit >= 16 && Boolean(inputFormatText.trim()) && Boolean(outputFormatText.trim());
+  const samplesReady = Boolean(sampleInputText.trim()) && Boolean(sampleOutputText.trim());
+  const validatorReady = validatorCode.trim().length > 0 && validatorStatus !== "error";
+  const checkerReady = checkerType === "standard" || customCheckerCode.trim().length > 0;
+  const testsReady = testsSavedToCloud && syncedTestsCount > 0 && !hasIncompleteTests;
+  const prejudgePassed = prejudgeJob?.status === "SUCCEEDED";
+  const prejudgeFailed = prejudgeJob?.status === "FAILED";
+  const publishReady = statementReady && constraintsReady && samplesReady && validatorReady && checkerReady && testsReady && prejudgePassed;
+  const problemReadinessItems: Array<{ id: string; label: string; state: "complete" | "pending" | "blocked"; detail: string }> = [
+    {
+      id: "statement",
+      label: "Statement",
+      state: statementReady ? "complete" : "blocked",
+      detail: statementReady ? "Title and statement are present." : "Add a title and problem statement.",
+    },
+    {
+      id: "constraints",
+      label: "Constraints",
+      state: constraintsReady ? "complete" : "blocked",
+      detail: constraintsReady ? String(timeLimit) + " ms / " + String(memoryLimit) + " MB limits set." : "Set limits plus input/output format.",
+    },
+    {
+      id: "samples",
+      label: "Samples",
+      state: samplesReady ? "complete" : "pending",
+      detail: samplesReady ? "Sample input and output are present." : "Add at least one sample input/output pair.",
+    },
+    {
+      id: "validator",
+      label: "Validator",
+      state: validatorReady ? "complete" : validatorStatus === "error" ? "blocked" : "pending",
+      detail: validatorReady ? "Validator source is available." : validatorStatus === "error" ? "Validator needs attention." : "Add or compile validator code.",
+    },
+    {
+      id: "checker",
+      label: "Checker",
+      state: checkerReady ? "complete" : "blocked",
+      detail: checkerReady ? (checkerType === "standard" ? "Standard checker selected." : "Custom checker source is present.") : "Select a checker or add custom checker code.",
+    },
+    {
+      id: "tests",
+      label: "Tests",
+      state: testsReady ? "complete" : hasIncompleteTests ? "blocked" : "pending",
+      detail: testsReady ? String(syncedTestsCount) + " synced test" + (syncedTestsCount === 1 ? "" : "s") + "." : hasIncompleteTests ? "Some tests are missing input/output files." : "Save tests to cloud.",
+    },
+    {
+      id: "prejudge",
+      label: "Prejudge",
+      state: prejudgePassed ? "complete" : prejudgeFailed ? "blocked" : "pending",
+      detail: prejudgePassed ? "Validation suite passed." : prejudgeFailed ? "Validation suite failed." : "Run validation suite before publishing.",
+    },
+    {
+      id: "publish",
+      label: "Publish",
+      state: publishReady ? "complete" : "pending",
+      detail: publishReady ? "Problem is ready to save and publish." : "Complete readiness checks before publish.",
+    },
+  ];
+
   return (
     <>
     <div className="my-5 rounded-2xl border border-white/[0.1] bg-[#09090b] text-white shadow-xl overflow-hidden">
@@ -2259,6 +2319,45 @@ int main() {
             )}
 
           </div>
+
+          <aside className="w-full shrink-0 border-t border-white/[0.05] bg-[#0b0b0d] p-4 md:w-64 md:border-l md:border-t-0">
+            <div className="md:sticky md:top-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Readiness</p>
+                  <h4 className="mt-1 text-sm font-semibold text-white">Problem spine</h4>
+                </div>
+                <span className={"rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-wider " + (publishReady ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-amber-400/30 bg-amber-400/10 text-amber-300")}>
+                  {publishReady ? "Ready" : "Blocked"}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {problemReadinessItems.map((item) => {
+                  const complete = item.state === "complete";
+                  const blocked = item.state === "blocked";
+                  const Icon = complete ? CheckCircle2 : blocked ? AlertCircle : HelpCircle;
+                  const rowClass = complete
+                    ? "border-emerald-400/15 bg-emerald-400/[0.06] text-emerald-300"
+                    : blocked
+                    ? "border-red-400/15 bg-red-400/[0.06] text-red-300"
+                    : "border-white/[0.08] bg-white/[0.03] text-zinc-400";
+
+                  return (
+                    <div key={item.id} className={"rounded-lg border p-3 " + rowClass}>
+                      <div className="flex items-start gap-2.5">
+                        <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-zinc-100">{item.label}</p>
+                          <p className="mt-1 text-[10px] leading-4 text-current opacity-80">{item.detail}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
         </div>
         
       </div>

@@ -189,14 +189,14 @@ export default function NewContestPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-violet-700 disabled:opacity-50"
+                className="ams-btn ams-btn-primary ams-btn-md flex-1"
               >
                 {loading ? "Creating…" : "Create contest"}
               </button>
               <button
                 type="button"
                 onClick={() => router.push("/org/dashboard")}
-                className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50"
+                className="ams-btn ams-btn-secondary ams-btn-md"
               >
                 Cancel
               </button>

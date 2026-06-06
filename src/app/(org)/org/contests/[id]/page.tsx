@@ -103,6 +103,15 @@ type LiveInfraEvent = {
   created_at: string;
 };
 
+type ReadinessState = "complete" | "pending" | "blocked";
+
+type LaunchChecklistItem = {
+  id: string;
+  label: string;
+  state: ReadinessState;
+  detail: string;
+};
+
 // ─── Helpers ─────────────────────────────────────────────────
 function statusClass(s: string) {
   if (s === "ACTIVE") return "border-emerald-200 bg-emerald-50 text-emerald-700";
@@ -157,6 +166,128 @@ function renderMarkdownPreview(md: string): string {
       return `<p style="margin:6px 0;line-height:1.6;color:#cbd5e1;font-size:13px">${p.replace(/\n/g, "<br/>")}</p>`;
     })
     .join("\n");
+}
+
+function getReviewerCount(pluginConfig?: string): number | null {
+  if (!pluginConfig) return null;
+  try {
+    const parsed = JSON.parse(pluginConfig) as Record<string, unknown>;
+    const possibleLists = [
+      parsed.reviewers,
+      parsed.reviewerEmails,
+      parsed.reviewer_emails,
+      parsed.reviewerIds,
+      parsed.reviewer_ids,
+    ];
+    const list = possibleLists.find((value) => Array.isArray(value));
+    return Array.isArray(list) ? list.length : null;
+  } catch {
+    return null;
+  }
+}
+
+function deriveLaunchState(
+  contest: Contest,
+  items: LaunchChecklistItem[]
+): { label: string; tone: "draft" | "ready" | "live" | "attention" | "ended" } {
+  if (contest.status === "ENDED") return { label: "Ended", tone: "ended" };
+  if (contest.status === "ACTIVE") return { label: "Live", tone: "live" };
+  if (items.some((item) => item.state === "blocked")) return { label: "Needs attention", tone: "attention" };
+  if (contest.status === "SCHEDULED" && items.every((item) => item.state !== "blocked")) return { label: "Ready to launch", tone: "ready" };
+  if (items.every((item) => item.state === "complete")) return { label: "Ready to launch", tone: "ready" };
+  return { label: "Draft", tone: "draft" };
+}
+
+function buildLaunchChecklist({
+  contest,
+  questions,
+  invites,
+  judgePhase,
+  pluginType,
+}: {
+  contest: Contest;
+  questions: Question[];
+  invites: Invite[];
+  judgePhase: string;
+  pluginType: string;
+}): LaunchChecklistItem[] {
+  const titleReady = contest.title.trim().length > 0;
+  const scheduleStart = new Date(contest.start_at);
+  const scheduleEnd = new Date(contest.end_at);
+  const scheduleReady =
+    !Number.isNaN(scheduleStart.getTime()) &&
+    !Number.isNaN(scheduleEnd.getTime()) &&
+    scheduleEnd > scheduleStart;
+  const hasQuestions = pluginType === "CHESS" || questions.length > 0;
+  const cpQuestions = pluginType === "CP" ? questions : [];
+  const questionsConfigured =
+    pluginType === "CHESS" ||
+    cpQuestions.every((q) => q.title.trim() && q.description.trim() && q.time_limit_ms >= 100 && q.memory_limit_mb >= 16);
+  const validationReady =
+    pluginType === "CHESS" ||
+    (cpQuestions.length > 0 &&
+      cpQuestions.every((q) => Boolean(q.validator_code?.trim()) && (q.checker_type === "token" || Boolean(q.checker_code?.trim()))));
+  const runtimeReady = pluginType === "CHESS" || judgePhase === "ready";
+  const proctoringConfigured = Boolean(contest.timezone) && Boolean(contest.plugin_type ?? pluginType);
+  const approved = contest.status === "SCHEDULED" || contest.status === "ACTIVE" || contest.status === "ENDED";
+  const reviewerCount = getReviewerCount(contest.plugin_config);
+
+  return [
+    {
+      id: "basics",
+      label: "Basics complete",
+      state: titleReady ? "complete" : "blocked",
+      detail: titleReady ? "Contest title is set." : "Add a contest title before launch.",
+    },
+    {
+      id: "schedule",
+      label: "Schedule set",
+      state: scheduleReady ? "complete" : "blocked",
+      detail: scheduleReady ? scheduleStart.toLocaleString() + " to " + scheduleEnd.toLocaleString() : "Set a valid start and end time.",
+    },
+    {
+      id: "questions",
+      label: "Questions ready",
+      state: hasQuestions && questionsConfigured ? "complete" : "blocked",
+      detail: pluginType === "CHESS" ? "Chess contest uses ruleset/testplay workflow." : hasQuestions ? "Problem metadata and limits are present." : "Add at least one problem.",
+    },
+    {
+      id: "tests",
+      label: "Test data validated",
+      state: validationReady ? "complete" : "pending",
+      detail: pluginType === "CHESS" ? "Validation happens in the chess workflow." : validationReady ? "Validator/checker configuration is present for every problem." : "Run/save validator and checker configuration for every problem.",
+    },
+    {
+      id: "candidates",
+      label: "Candidates invited/imported",
+      state: invites.length > 0 ? "complete" : "pending",
+      detail: invites.length > 0 ? String(invites.length) + " invite" + (invites.length === 1 ? "" : "s") + " created." : "Invite candidates or import a roster.",
+    },
+    {
+      id: "runtime",
+      label: "Runtime ready",
+      state: runtimeReady ? "complete" : "pending",
+      detail: pluginType === "CHESS" ? "Chess mode does not require CP judge capacity." : runtimeReady ? "Judge capacity reports ready." : "Start compute or wait for judge capacity to become ready.",
+    },
+    {
+      id: "proctoring",
+      label: "Proctoring configured",
+      state: proctoringConfigured ? "complete" : "pending",
+      detail: proctoringConfigured ? pluginType + " mode with " + (contest.timezone ?? "workspace timezone") + "." : "Set contest mode and timezone.",
+    },
+    {
+      id: "reviewers",
+      label: "Reviewers assigned",
+      state: reviewerCount !== null && reviewerCount > 0 ? "complete" : "pending",
+      detail: reviewerCount === null ? "Reviewer assignment is not exposed in the current contest data yet." : reviewerCount > 0 ? String(reviewerCount) + " reviewer" + (reviewerCount === 1 ? "" : "s") + " assigned." : "Assign at least one reviewer before launch.",
+    },
+    {
+      id: "approval",
+      label: "Launch approved",
+      state: approved ? "complete" : "pending",
+      detail: approved ? "Contest status is " + contest.status + "." : "Move from draft to scheduled when ready.",
+    },
+  ];
 }
 
 // ─── Main page ───────────────────────────────────────────────
@@ -297,6 +428,14 @@ export default function ContestDetailPage() {
     ? "Stopped"
     : "Unknown";
   const judgeDotClass = judgePhase === "ready" ? "bg-emerald-500" : judgePhase === "starting" ? "bg-amber-400" : judgePhase === "stopping" ? "bg-orange-400" : "bg-slate-400";
+  const launchChecklist = buildLaunchChecklist({
+    contest,
+    questions,
+    invites,
+    judgePhase,
+    pluginType: effectivePluginType,
+  });
+  const launchState = deriveLaunchState(contest, launchChecklist);
 
   return (
     <div className="light min-h-screen bg-slate-50 text-slate-900 selection:bg-purple-200 selection:text-purple-900" style={{ fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
@@ -337,7 +476,7 @@ export default function ContestDetailPage() {
               <button
                 onClick={() => void controlJudge("start")}
                 disabled={judgeBusy}
-                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+                className="ams-btn ams-btn-success ams-btn-sm"
               >
                 <Play className="h-3.5 w-3.5" />
                 Start Compute
@@ -345,7 +484,7 @@ export default function ContestDetailPage() {
               <button
                 onClick={() => void controlJudge("stop")}
                 disabled={judgeBusy}
-                className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                className="ams-btn ams-btn-danger ams-btn-sm"
               >
                 <Square className="h-3.5 w-3.5" />
                 Stop Compute
@@ -353,7 +492,7 @@ export default function ContestDetailPage() {
               <button
                 onClick={() => void loadJudge()}
                 disabled={judgeBusy}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 disabled:opacity-50"
+                className="ams-btn ams-btn-secondary ams-btn-sm"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${judgeBusy ? "animate-spin" : ""}`} />
                 Refresh
@@ -362,6 +501,8 @@ export default function ContestDetailPage() {
             {judgeError ? <p className="text-[11px] text-red-600">{judgeError}</p> : null}
           </div>
         </div>
+
+        <LaunchChecklistPanel items={launchChecklist} state={launchState} />
 
         {/* Tabs */}
         <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid-cols-5">
@@ -421,6 +562,68 @@ export default function ContestDetailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function LaunchChecklistPanel({
+  items,
+  state,
+}: {
+  items: LaunchChecklistItem[];
+  state: { label: string; tone: "draft" | "ready" | "live" | "attention" | "ended" };
+}) {
+  const completeCount = items.filter((item) => item.state === "complete").length;
+  const stateClass =
+    state.tone === "ready" || state.tone === "live"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : state.tone === "attention"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : state.tone === "ended"
+      ? "border-slate-200 bg-slate-100 text-slate-600"
+      : "border-purple-200 bg-purple-50 text-purple-700";
+
+  return (
+    <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="launch-readiness-title">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Launch readiness</p>
+          <h2 id="launch-readiness-title" className="mt-1 text-lg font-semibold tracking-tight text-slate-950">
+            Contest launch checklist
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {completeCount} of {items.length} checks complete before launch.
+          </p>
+        </div>
+        <span className={"inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-semibold " + stateClass}>
+          {state.label}
+        </span>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((item) => {
+          const complete = item.state === "complete";
+          const blocked = item.state === "blocked";
+          const Icon = complete ? CheckCircle2 : blocked ? AlertTriangle : HelpCircle;
+          const itemClass = complete
+            ? "border-emerald-100 bg-emerald-50/60 text-emerald-700"
+            : blocked
+            ? "border-red-100 bg-red-50/60 text-red-700"
+            : "border-slate-200 bg-slate-50 text-slate-500";
+
+          return (
+            <div key={item.id} className={"rounded-xl border p-3 " + itemClass}>
+              <div className="flex items-start gap-2.5">
+                <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-current opacity-80">{item.detail}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -572,10 +775,10 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => void loadLive()} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700">
+          <button onClick={() => void loadLive()} className="ams-btn ams-btn-secondary ams-btn-sm">
             {busy ? "Refreshing..." : "Refresh"}
           </button>
-          <button onClick={() => void runReadinessCheck()} className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-xs text-emerald-300">
+          <button onClick={() => void runReadinessCheck()} className="ams-btn ams-btn-success ams-btn-sm">
             Run readiness check
           </button>
         </div>
@@ -675,7 +878,7 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
           {isChessContest ? (
             <Link
               href={`/org/contests/${contestId}/chess/testplay`}
-              className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+              className="ams-btn ams-btn-success ams-btn-md"
             >
               <Play className="h-4 w-4" />
               Open Chess Test Play
@@ -683,7 +886,7 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
           ) : (
             <button
               onClick={() => { setAdding(true); setEditId(null); }}
-              className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800"
+              className="ams-btn ams-btn-primary ams-btn-md"
             >
               <Plus className="h-4 w-4" />
               Add question
@@ -752,14 +955,14 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => setEditId(q.id)}
-                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                      className="ams-btn ams-btn-secondary ams-btn-sm"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => void deleteQuestion(q.id)}
                       disabled={deleting === q.id}
-                      className="rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-600 transition hover:bg-red-50 disabled:opacity-40"
+                      className="ams-btn ams-btn-danger ams-icon-btn-sm"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -1209,14 +1412,14 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         <button
           onClick={() => void handleSave()}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
+          className="ams-btn ams-btn-primary ams-btn-md disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
           {saving ? "Saving…" : "Save question"}
         </button>
         <button
           onClick={onCancel}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-950"
+          className="ams-btn ams-btn-secondary ams-btn-md"
         >
           <X className="h-4 w-4" />
           Cancel
@@ -1486,9 +1689,7 @@ function InvitesTab({ contestId, invites, onRefresh }: {
         <button
           onClick={() => void addInvites()}
           disabled={saving || !allowBulkInvites}
-          className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(124,58,237)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(139,92,246)"; }}
+          className="ams-btn ams-btn-primary ams-btn-md disabled:opacity-50"
         >
           <Mail className="h-4 w-4" />
           {!allowBulkInvites ? "Bulk invites disabled by AMS admin" : saving ? "Saving…" : "Send invites"}
@@ -1801,14 +2002,14 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
       <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/90 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <button
           onClick={() => void save()} disabled={saving}
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
+          className="ams-btn ams-btn-primary ams-btn-md"
         >
           <Save className="h-4 w-4" />
           {saving ? "Saving…" : "Save changes"}
         </button>
         <button
           onClick={() => void deleteContest()} disabled={deleting}
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+          className="ams-btn ams-btn-danger ams-btn-md"
         >
           <Trash2 className="h-4 w-4" />
           Delete contest
@@ -2145,7 +2346,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
               <button
                 onClick={() => void handleImport()}
                 disabled={importing}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
+                className="w-full ams-btn ams-btn-primary ams-btn-md"
               >
                 {importing ? "Provisioning..." : "Process & Import Roster"}
               </button>
@@ -2195,7 +2396,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
                 <button
                   onClick={() => void fetchSessionCode()}
                   disabled={loadingCode}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+                  className="ams-btn ams-btn-secondary ams-btn-sm"
                 >
                   Sync Code
                 </button>
@@ -2324,7 +2525,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
                   {currentJob.status === "PARTIAL" && (
                     <button
                       onClick={() => void handleRetryEmails()}
-                      className="inline-flex items-center gap-1 rounded-lg bg-slate-950 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-slate-800"
+                      className="ams-btn ams-btn-primary ams-btn-sm"
                     >
                       <RefreshCw className="h-3.5 w-3.5" />
                       Retry Failures
@@ -2437,7 +2638,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
               <div className="flex gap-3">
                 <button
                   onClick={() => setEmailPreviewMode("preview")}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+                  className="flex-1 ams-btn ams-btn-secondary ams-btn-sm"
                 >
                   <Eye className="h-4 w-4 text-purple-600" />
                   See Real-Time Preview
@@ -2445,7 +2646,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
                 <button
                   onClick={() => void handleSendEmails()}
                   disabled={sendingEmail}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:opacity-50"
+                  className="flex-1 ams-btn ams-btn-primary ams-btn-sm"
                 >
                   <Send className="h-4 w-4" />
                   {sendingEmail ? "Dispatching..." : "Send Bulk Invites"}

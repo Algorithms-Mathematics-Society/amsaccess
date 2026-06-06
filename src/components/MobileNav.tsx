@@ -61,7 +61,7 @@ export function MobileNav({ usePlainAnchor = false }: MobileNavProps) {
         aria-expanded={open}
         aria-controls="mobile-menu-panel"
         onClick={() => setOpen((v) => !v)}
-        className="mobile-hamburger relative z-[60] flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-100 transition-all hover:border-slate-300 hover:bg-slate-200 lg:hidden"
+        className="mobile-hamburger relative z-[60] ams-btn ams-btn-muted ams-icon-btn lg:!hidden"
       >
         <span
           className={`absolute transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
@@ -104,7 +104,7 @@ export function MobileNav({ usePlainAnchor = false }: MobileNavProps) {
             type="button"
             aria-label="Close menu"
             onClick={() => setOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+            className="ams-btn ams-btn-secondary ams-icon-btn-sm"
           >
             <X className="h-4 w-4" />
           </button>
@@ -139,7 +139,7 @@ export function MobileNav({ usePlainAnchor = false }: MobileNavProps) {
         <div className="space-y-3 border-t border-slate-100 bg-slate-50 p-3">
           <NavLink
             href="/pricing"
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-slate-900 text-sm font-bold text-white shadow transition hover:bg-slate-700"
+            className="ams-btn ams-btn-primary ams-btn-lg w-full"
           >
             Compare Plans
             <ArrowUpRight className="h-4 w-4" />

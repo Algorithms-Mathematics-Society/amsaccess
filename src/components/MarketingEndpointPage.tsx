@@ -26,7 +26,7 @@ export function MarketingHeader() {
 
         <div className="flex items-center gap-3">
           <Link
-            className="hidden lg:inline-flex h-9 items-center justify-center gap-2 rounded-full bg-slate-900 px-4 text-sm font-medium text-white shadow transition-transform hover:scale-105"
+            className="!hidden lg:!inline-flex ams-btn ams-btn-primary ams-btn-sm"
             href="/download"
           >
             Download <Download className="h-4 w-4" />
@@ -79,14 +79,14 @@ export function MarketingEndpointPage({
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                className={`${primaryIsDownload ? "hidden lg:inline-flex" : "inline-flex"} h-11 items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-105 hover:bg-slate-800`}
+                className={`${primaryIsDownload ? "!hidden lg:!inline-flex" : "inline-flex"} ams-btn ams-btn-primary ams-btn-md`}
                 href={primaryHref}
               >
                 {primaryLabel}
                 <ArrowRight className="h-4 w-4" />
               </Link>
               {primaryIsDownload && (
-                <div className="inline-flex min-h-11 items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-5 text-left lg:hidden">
+                <div className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-5 text-left lg:hidden">
                   <div className="flex shrink-0 items-center gap-1.5 text-slate-400">
                     <PlatformLogo platform="Windows" className="h-4 w-4" />
                     <PlatformLogo platform="macOS" className="h-4 w-4" />
@@ -99,7 +99,7 @@ export function MarketingEndpointPage({
                 </div>
               )}
               <Link
-                className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300"
+                className="ams-btn ams-btn-secondary ams-btn-md"
                 href="/"
               >
                 Back to Home

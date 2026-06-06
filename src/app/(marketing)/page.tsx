@@ -47,19 +47,22 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden flex flex-col items-center justify-center min-h-[90vh]">
         <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-5xl mx-auto">
-          <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-medium tracking-tight text-slate-900 leading-[1.05] mb-10 max-w-4xl mx-auto">
-            Experience liftoff with the next-gen evaluation platform
+          <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-medium tracking-tight text-slate-900 leading-[1.05] mb-6 max-w-4xl mx-auto">
+            Serious online rounds need a controlled shell
           </h1>
+          <p className="mb-10 max-w-2xl text-base leading-8 text-slate-600 md:text-lg">
+            AMS Access pairs a locked desktop workspace with live integrity signals, candidate timelines, and reviewer-ready evidence for every assessment session.
+          </p>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <Link
               href="/download"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-slate-900 px-8 text-sm font-medium text-white shadow-xl shadow-slate-900/20 transition-all hover:scale-105 hover:bg-slate-800"
+              className="ams-btn ams-btn-primary ams-btn-lg"
             >
               <Download className="h-4 w-4" /> Download Access
             </Link>
             <Link
               href="/#use-cases"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-slate-100 px-8 text-sm font-medium text-slate-900 transition-all hover:bg-slate-200"
+              className="ams-btn ams-btn-muted ams-btn-lg"
             >
               Explore use cases
             </Link>
@@ -80,7 +83,7 @@ export default function LandingPage() {
               </p>
               <Link
                 href="#product"
-                className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-6 text-sm font-medium text-slate-900 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300"
+                className="ams-btn ams-btn-secondary"
               >
                 Explore Product
               </Link>
@@ -103,7 +106,7 @@ export default function LandingPage() {
                       alt: "AMS Access Contestant Hub",
                     })
                   }
-                  className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/50 bg-white/75 text-slate-800 shadow-lg shadow-slate-900/10 backdrop-blur-md transition hover:scale-105 hover:bg-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
+                  className="absolute right-3 top-3 ams-btn ams-btn-overlay-light ams-icon-btn focus:ring-offset-slate-900"
                   aria-label="View AMS Access Contestant Hub image"
                 >
                   <Maximize2 className="h-4 w-4" />
@@ -157,7 +160,7 @@ export default function LandingPage() {
                       alt: "AMS Access proctored contest editor",
                     })
                   }
-                  className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/50 bg-white/75 text-slate-800 shadow-lg shadow-slate-900/10 backdrop-blur-md transition hover:scale-105 hover:bg-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
+                  className="absolute right-3 top-3 ams-btn ams-btn-overlay-light ams-icon-btn focus:ring-offset-slate-900"
                   aria-label="View AMS Access proctored contest editor image"
                 >
                   <Maximize2 className="h-4 w-4" />
@@ -185,7 +188,7 @@ export default function LandingPage() {
               <h3 className="text-3xl font-medium text-slate-500 mb-8">Achieve new heights</h3>
               <Link
                 href="/download"
-                className="inline-flex h-11 items-center justify-center rounded-full bg-slate-900 px-8 text-sm font-medium text-white shadow-md transition-transform hover:scale-105"
+                className="ams-btn ams-btn-primary ams-btn-md"
               >
                 Download
               </Link>
@@ -199,7 +202,7 @@ export default function LandingPage() {
               <h3 className="text-3xl font-medium text-slate-500 mb-8">Level up your entire team</h3>
               <Link
                 href="/pricing"
-                className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-8 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100"
+                className="ams-btn ams-btn-muted ams-btn-md"
               >
                 Read More
               </Link>
@@ -222,7 +225,7 @@ export default function LandingPage() {
           <button
             type="button"
             onClick={() => setZoomImage(null)}
-            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white"
+            className="absolute right-4 top-4 ams-btn ams-btn-overlay-dark ams-icon-btn"
             aria-label="Close image viewer"
           >
             <X className="h-5 w-5" />

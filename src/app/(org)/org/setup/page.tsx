@@ -91,7 +91,7 @@ export default function OrgSetupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 w-full rounded-full bg-slate-950 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 ams-btn ams-btn-primary ams-btn-md w-full"
             >
               {loading ? "Creating…" : "Create organization"}
             </button>

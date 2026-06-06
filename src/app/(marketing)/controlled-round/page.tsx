@@ -118,14 +118,14 @@ export default function ControlledRoundPage() {
 
               <div className="mt-10 flex flex-wrap gap-3">
                 <Link
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-105 hover:bg-slate-800"
+                  className="ams-btn ams-btn-primary ams-btn-md"
                   href="/contact"
                 >
                   Request access
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300"
+                  className="ams-btn ams-btn-secondary ams-btn-md"
                   href="/docs"
                 >
                   Read Docs

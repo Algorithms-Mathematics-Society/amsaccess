@@ -34,14 +34,14 @@ export default function DocsPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                className="hidden h-11 items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-105 hover:bg-slate-800 lg:inline-flex"
+                className="!hidden ams-btn ams-btn-primary ams-btn-md lg:!inline-flex"
                 href="/download"
               >
                 Get Access by AMS
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300"
+                className="ams-btn ams-btn-secondary ams-btn-md"
                 href="/"
               >
                 Back to Home
@@ -86,7 +86,7 @@ export default function DocsPage() {
                 <h2 id="coming-soon-title" className="text-xl font-semibold tracking-tight text-slate-900">{comingSoon}</h2>
               </div>
               <button
-                className="rounded-full border border-slate-200 p-2 text-slate-400 transition hover:border-slate-300 hover:text-slate-700"
+                className="ams-btn ams-btn-secondary ams-icon-btn"
                 type="button"
                 onClick={() => setComingSoon(null)}
                 aria-label="Close modal"
@@ -98,7 +98,7 @@ export default function DocsPage() {
               This guide is being prepared. Contact the team for the current operating reference.
             </p>
             <Link
-              className="mt-6 inline-flex h-10 items-center justify-center rounded-full bg-slate-900 px-5 text-sm font-semibold text-white transition-all hover:scale-105 hover:bg-slate-700"
+              className="mt-6 ams-btn ams-btn-primary"
               href="/contact"
             >
               Contact team

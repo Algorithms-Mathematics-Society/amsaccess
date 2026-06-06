@@ -52,7 +52,7 @@ export default function ChangelogPage() {
               Track desktop app releases, session policy changes, review timeline updates, and deployment-facing improvements.
             </p>
             <Link
-              className="mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-105 hover:bg-slate-800"
+              className="mt-8 ams-btn ams-btn-primary ams-btn-md"
               href="/download"
             >
               Get Access by AMS

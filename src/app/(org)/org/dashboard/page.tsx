@@ -64,7 +64,7 @@ export default function OrgDashboardPage() {
         </div>
         <Link
           href="/org/contests/new"
-          className="inline-flex h-11 items-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:scale-[1.01] hover:bg-slate-800"
+          className="ams-btn ams-btn-primary ams-btn-md"
         >
           <Plus className="h-4 w-4" />
           New contest
@@ -123,7 +123,7 @@ export default function OrgDashboardPage() {
               <p className="mt-2 text-sm text-slate-500">Create your first contest to get started.</p>
               <Link
                 href="/org/contests/new"
-                className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:scale-[1.01] hover:bg-slate-800"
+                className="mt-6 ams-btn ams-btn-primary ams-btn-md"
               >
                 <Plus className="h-4 w-4" />
                 New contest

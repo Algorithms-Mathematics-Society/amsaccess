@@ -135,7 +135,7 @@ export default function OrgLoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-2 inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-[1.01] hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 ams-btn ams-btn-primary ams-btn-lg w-full cursor-pointer"
               >
                 {loading ? "Signing in..." : "Sign in"}
                 <ArrowRight className="h-4 w-4" />

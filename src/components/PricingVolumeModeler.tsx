@@ -146,10 +146,10 @@ export function PricingVolumeModeler() {
               </div>
 
               <Link
-                className={`relative z-10 mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition-all hover:scale-105 ${
+                className={`relative z-10 mt-8 ams-btn ams-btn-md ${
                   isRecommended
-                    ? "bg-white text-slate-900 shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:bg-white/90"
-                    : "bg-slate-900 text-white hover:bg-slate-700"
+                    ? "ams-btn-inverse"
+                    : "ams-btn-primary"
                 }`}
                 href={plan.href}
               >

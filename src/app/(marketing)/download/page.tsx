@@ -59,7 +59,7 @@ export default async function DownloadPage() {
             )}
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50"
+                className="ams-btn ams-btn-secondary ams-btn-md"
                 href="/changelog"
               >
                 View Changelog

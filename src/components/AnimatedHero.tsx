@@ -53,7 +53,7 @@ export function AnimatedHero() {
             </ShimmerButton>
           </Link>
           <Link
-            className="inline-flex h-[3.25rem] w-full items-center justify-center rounded-full border border-white/20 bg-white/5 px-8 text-sm font-medium text-white shadow-sm backdrop-blur-md transition-all hover:border-white/40 hover:bg-white/10 hover:text-white md:w-auto"
+            className="inline-flex h-[3.25rem] w-full items-center justify-center rounded-lg border border-white/20 bg-white/5 px-8 text-sm font-medium text-white shadow-sm backdrop-blur-md transition-colors hover:border-white/40 hover:bg-white/10 hover:text-white md:w-auto"
             href="/#pricing"
           >
             View Pricing

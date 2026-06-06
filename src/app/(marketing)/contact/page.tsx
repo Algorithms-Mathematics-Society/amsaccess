@@ -162,14 +162,14 @@ export default function ContactPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition-all hover:scale-105 hover:bg-slate-800"
+                className="ams-btn ams-btn-primary ams-btn-md"
                 href="/pricing"
               >
                 View Pricing
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300"
+                className="ams-btn ams-btn-secondary ams-btn-md"
                 href="/"
               >
                 Back to Home
@@ -230,7 +230,7 @@ export default function ContactPage() {
               {status === "sent" ? <p className="text-sm text-emerald-700">Message received. The team will follow up by email.</p> : null}
               <button
                 disabled={status === "sending"}
-                className="inline-flex h-11 items-center justify-center rounded-full bg-slate-900 px-5 text-sm font-semibold text-white transition-all hover:scale-105 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="ams-btn ams-btn-primary ams-btn-md"
                 type="submit"
               >
                 {status === "sending" ? "Sending..." : "Send message"}

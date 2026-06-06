@@ -200,8 +200,6 @@ export default function AdminLoginPage() {
                 background: "rgb(139,92,246)",
                 boxShadow: "0 0 20px rgba(139,92,246,0.35)",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(124,58,237)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "rgb(139,92,246)"; }}
             >
               {isLoading ? "Verifying…" : "Sign in"}
             </button>

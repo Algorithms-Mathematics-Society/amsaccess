@@ -177,7 +177,7 @@ gen_array -n 100000 -max_val 1000000000 > $`;
                 <h3 className="text-base font-medium text-slate-950">Standard C++ testlib Generator</h3>
                 <button
                   onClick={() => handleCopy(generatorCodeSnippet, "gen")}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-xs text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
+                  className="ams-btn ams-btn-muted ams-btn-sm"
                 >
                   {copiedText === "gen" ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
                   {copiedText === "gen" ? "Copied!" : "Copy code"}
@@ -200,7 +200,7 @@ gen_array -n 100000 -max_val 1000000000 > $`;
                 <h3 className="text-base font-medium text-slate-950">Input Validator Snippet</h3>
                 <button
                   onClick={() => handleCopy(validatorCodeSnippet, "val")}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-xs text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
+                  className="ams-btn ams-btn-muted ams-btn-sm"
                 >
                   {copiedText === "val" ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
                   {copiedText === "val" ? "Copied!" : "Copy code"}
@@ -223,7 +223,7 @@ gen_array -n 100000 -max_val 1000000000 > $`;
                 <h3 className="text-base font-medium text-slate-950">Script DSL Syntax</h3>
                 <button
                   onClick={() => handleCopy(scriptSnippet, "script")}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-xs text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
+                  className="ams-btn ams-btn-muted ams-btn-sm"
                 >
                   {copiedText === "script" ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
                   {copiedText === "script" ? "Copied!" : "Copy code"}
