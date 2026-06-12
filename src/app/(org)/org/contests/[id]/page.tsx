@@ -857,15 +857,37 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Auto-dismiss the success notice; auto-reset a pending delete confirmation.
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(t);
+  }, [notice]);
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    const t = setTimeout(() => setConfirmDeleteId(null), 4000);
+    return () => clearTimeout(t);
+  }, [confirmDeleteId]);
 
   async function deleteQuestion(qId: string) {
     setDeleting(qId);
+    setConfirmDeleteId(null);
     try {
       await apiFetch<{ deleted: boolean }>(`/api/org/contests/${contestId}/questions/${qId}`, { method: "DELETE" });
+      setNotice("Question deleted.");
       onRefresh();
     } finally {
       setDeleting(null);
     }
+  }
+
+  function startAdding() {
+    setAdding(true);
+    setEditId(null);
+    setConfirmDeleteId(null);
   }
 
   return (
@@ -885,7 +907,7 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
             </Link>
           ) : (
             <button
-              onClick={() => { setAdding(true); setEditId(null); }}
+              onClick={startAdding}
               className="ams-btn ams-btn-primary ams-btn-md"
             >
               <Plus className="h-4 w-4" />
@@ -894,6 +916,13 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
           )}
         </div>
       </div>
+
+      {notice && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {notice}
+        </div>
+      )}
 
       {isChessContest ? (
         <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
@@ -908,7 +937,7 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
         <QuestionForm
           contestId={contestId}
           nextIndex={questions.length + 1}
-          onSaved={() => { setAdding(false); onRefresh(); }}
+          onSaved={() => { setAdding(false); setNotice("Question created successfully."); onRefresh(); }}
           onCancel={() => setAdding(false)}
           saving={saving}
           setSaving={setSaving}
@@ -923,7 +952,7 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
                 contestId={contestId}
                 existing={q}
                 nextIndex={q.order_index}
-                onSaved={() => { setEditId(null); onRefresh(); }}
+                onSaved={() => { setEditId(null); setNotice("Question updated successfully."); onRefresh(); }}
                 onCancel={() => setEditId(null)}
                 saving={saving}
                 setSaving={setSaving}
@@ -937,35 +966,50 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
                       <span className="font-semibold text-slate-950">{q.title}</span>
                       <span className="rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">{q.points} pts</span>
                     </div>
-                    {q.description && (
+                    {q.description && normalizeQuestionType(q.question_type) !== "follow_up" && (
                       <p className="mt-1.5 line-clamp-2 text-sm text-slate-500">{q.description}</p>
                     )}
-                    <div className="mt-2 flex gap-2">
-                      {(["HTML", "CSS", "JS"] as const).map((lang) => {
-                        const key = `${lang.toLowerCase()}_starter` as keyof Question;
-                        const val = q[key] as string;
-                        return val ? (
-                          <span key={lang} className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-mono font-medium text-slate-500">
-                            {lang}
-                          </span>
-                        ) : null;
-                      })}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
+                        {QUESTION_TYPE_META[normalizeQuestionType(q.question_type)].label}
+                      </span>
+                      {(normalizeQuestionType(q.question_type) === "code" || normalizeQuestionType(q.question_type) === "interactive") && (
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-mono font-medium text-slate-500">
+                          {q.time_limit_ms} ms · {q.memory_limit_mb} MB
+                        </span>
+                      )}
+                      {normalizeQuestionType(q.question_type) === "follow_up" && (
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">
+                          {parseFollowUpParts(q.description).length} part{parseFollowUpParts(q.description).length !== 1 ? "s" : ""}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <button
-                      onClick={() => setEditId(q.id)}
+                      onClick={() => { setEditId(q.id); setAdding(false); setConfirmDeleteId(null); }}
                       className="ams-btn ams-btn-secondary ams-btn-sm"
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => void deleteQuestion(q.id)}
-                      disabled={deleting === q.id}
-                      className="ams-btn ams-btn-danger ams-icon-btn-sm"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {confirmDeleteId === q.id ? (
+                      <button
+                        onClick={() => void deleteQuestion(q.id)}
+                        disabled={deleting === q.id}
+                        className="ams-btn ams-btn-danger ams-btn-sm"
+                      >
+                        {deleting === q.id ? "Deleting…" : "Confirm delete?"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(q.id)}
+                        disabled={deleting === q.id}
+                        title="Delete question"
+                        className="ams-btn ams-btn-danger ams-icon-btn-sm"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -979,7 +1023,16 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
               <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
             </span>
             <p className="text-sm font-semibold text-slate-950">No questions yet</p>
-            <p className="mt-1 text-xs text-slate-500">Add competitive programming problems</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Code, interactive, follow-up, and Markov-chain questions are all supported.
+            </p>
+            <button
+              onClick={startAdding}
+              className="ams-btn ams-btn-primary ams-btn-md mt-4"
+            >
+              <Plus className="h-4 w-4" />
+              Add your first question
+            </button>
           </div>
         )}
       </div>
@@ -1001,6 +1054,17 @@ type FollowUpPart = {
   points: number;
 };
 
+const QUESTION_TYPE_META: Record<"code" | "interactive" | "follow_up" | "markov", { label: string; hint: string }> = {
+  code: { label: "Code submission", hint: "Classic judged problem — statement, tests, validator and checker. Graded automatically by the judge." },
+  interactive: { label: "Interactive", hint: "The student's program converses with your custom checker over stdin/stdout. Requires a custom checker." },
+  follow_up: { label: "Follow Up", hint: "Short-answer parts with expected answers. Total points are the sum of all parts." },
+  markov: { label: "Markov Chain", hint: "The student draws a Markov chain; it is graded against the answer-key chain you build below." },
+};
+
+function normalizeQuestionType(raw: string | undefined): "code" | "interactive" | "follow_up" | "markov" {
+  return raw === "interactive" || raw === "follow_up" || raw === "markov" ? raw : "code";
+}
+
 function parseFollowUpParts(raw: string): FollowUpPart[] {
   try {
     const parsed = JSON.parse(raw);
@@ -1021,47 +1085,14 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   // Ref to the CP studio — used to read validator/checker code synchronously on save
   const studioRef = useRef<CPProblemStudioHandle>(null);
   const [title, setTitle]             = useState(existing?.title ?? "");
-  const [description, setDescription] = useState(existing?.description ?? `Given an array of $N$ integers, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.
-
-### Problem Visualization
-![Maximum Subarray Explanation Matrix](https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80)
-
-### Interactive Array Simulator
-<code>
-<div class="p-4 bg-zinc-950/80 border border-purple-500/20 rounded-xl space-y-3 shadow-inner">
-  <div class="flex justify-between items-center">
-    <span class="text-xs font-semibold text-slate-600">Simulated Array Size (N):</span>
-    <span id="n-val" class="text-xs font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">45</span>
-  </div>
-  <input 
-    type="range" 
-    min="5" 
-    max="100" 
-    value="45" 
-    style="width: 100%; height: 4px; background: #3f3f46; border-radius: 9999px; outline: none; cursor: pointer; accent-color: #a855f7;"
-    oninput="document.getElementById('n-val').innerText = this.value; const arr = Array.from({length: 5}, () => Math.floor(Math.random() * 20) - 10); document.getElementById('arr-val').innerText = '[' + arr.join(', ') + ', ...]';" 
-  />
-  <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-mono text-[10px] text-slate-500">
-    <span class="text-slate-400">Sample Segment:</span> <span id="arr-val">[-3, 4, -1, 2, ...]</span>
-  </div>
-</div>
-</code>
-
-### Input Format
-- The first line contains a single integer $N$ ($1 \\le N \\le 10^5$), representing the size of the array.
-- The second line contains $N$ space-separated integers $A_1, A_2, \\dots, A_N$ ($-10^9 \\le A_i \\le 10^9$).
-
-### Output Format
-- Output a single integer representing the maximum contiguous subarray sum.`);
+  const [description, setDescription] = useState(existing?.description ?? "");
   const [html, setHtml]               = useState(existing?.html_starter ?? "");
   const [css, setCss]                 = useState(existing?.css_starter ?? "");
   const [js, setJs]                   = useState(existing?.js_starter ?? "");
   const [points, setPoints]           = useState(existing?.points ?? 10);
+  const originalType = existing ? normalizeQuestionType(existing.question_type) : null;
   const [questionType, setQuestionType] = useState<"code" | "interactive" | "follow_up" | "markov">(
-    existing?.question_type === "interactive" ? "interactive"
-    : existing?.question_type === "follow_up" ? "follow_up"
-    : existing?.question_type === "markov" ? "markov"
-    : "code"
+    normalizeQuestionType(existing?.question_type)
   );
   const [markovChain, setMarkovChain] = useState<MarkovChain>(() => {
     if (existing?.markov_answer_json) {
@@ -1095,13 +1126,33 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
     }
   }, [contestId]);
 
+  function handleCancel() {
+    if (saving) return;
+    // Lightweight dirty check: for an existing question only the title is
+    // compared (the studio re-composes `description`, so it can differ from
+    // the stored value without user edits); for a new question, any content.
+    const dirty = existing
+      ? title !== existing.title
+      : Boolean(title.trim() || description.trim());
+    if (dirty && !window.confirm("Discard unsaved changes to this question?")) return;
+    onCancel();
+  }
+
   async function handleSave() {
     setError(null);
     setSuccess(null);
     if (!title.trim()) { setError("Title is required."); return; }
+    if (questionType !== "follow_up" && (!Number.isFinite(points) || points < 1)) {
+      setError("Points must be at least 1.");
+      return;
+    }
 
     if (questionType === "follow_up") {
       if (followUpParts.length === 0) { setError("Add at least one part."); return; }
+      if (followUpParts.some((p) => !Number.isFinite(p.points) || p.points < 1)) {
+        setError("Each part needs at least 1 point.");
+        return;
+      }
       const totalPts = followUpParts.reduce((s, p) => s + p.points, 0);
       const fuDescription = JSON.stringify(followUpParts);
       setSaving(true);
@@ -1265,23 +1316,30 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       {/* Question type */}
       <div className="mb-4">
         <label className="mb-1.5 block text-xs font-medium text-slate-500">Question type</label>
-        <div className="inline-flex gap-2">
+        <div className="inline-flex flex-wrap gap-2">
           {(["code", "interactive", "follow_up", "markov"] as const).map((qt) => (
             <button
               key={qt}
               type="button"
               onClick={() => setQuestionType(qt)}
-              className="rounded-lg px-4 py-2 text-sm font-medium"
-              style={{
-                background: questionType === qt ? "rgba(168,85,247,0.1)" : "#ffffff",
-                border: questionType === qt ? "1px solid rgba(168,85,247,0.28)" : "1px solid rgba(226,232,240,1)",
-                color: questionType === qt ? "#6d28d9" : "#64748b",
-              }}
+              aria-pressed={questionType === qt}
+              className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                questionType === qt
+                  ? "border-purple-300 bg-purple-50 text-purple-800"
+                  : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+              }`}
             >
-              {qt === "code" ? "Code submission" : qt === "interactive" ? "Interactive" : qt === "follow_up" ? "Follow Up" : "Markov Chain"}
+              {QUESTION_TYPE_META[qt].label}
             </button>
           ))}
         </div>
+        <p className="mt-1.5 text-xs text-slate-500">{QUESTION_TYPE_META[questionType].hint}</p>
+        {originalType !== null && questionType !== originalType && (
+          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span className="font-semibold">Heads up:</span> changing the type of an existing question replaces how it is
+            graded. Its previous grading configuration (tests, checker, or answer key) may no longer apply after saving.
+          </div>
+        )}
       </div>
 
       {/* Time / memory limits — hidden for follow_up and markov */}
@@ -1408,7 +1466,8 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         initialGeneratorScript={existing?.generator_script ?? undefined}
       />}
 
-      <div className="mt-4 flex gap-3">
+      {/* Sticky save bar — stays visible while scrolling the long editor above */}
+      <div className="sticky bottom-0 z-20 -mx-5 -mb-5 mt-5 flex flex-wrap items-center gap-3 rounded-b-2xl border-t border-slate-200 bg-white/95 px-5 py-3 backdrop-blur">
         <button
           onClick={() => void handleSave()}
           disabled={saving}
@@ -1418,19 +1477,19 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
           {saving ? "Saving…" : "Save question"}
         </button>
         <button
-          onClick={onCancel}
+          onClick={handleCancel}
           className="ams-btn ams-btn-secondary ams-btn-md"
         >
           <X className="h-4 w-4" />
           Cancel
         </button>
+        <p className="text-xs text-slate-500">
+          {saving ? "Saving question... please wait."
+            : questionType === "follow_up" ? "Points are the sum of all parts."
+            : questionType === "markov" ? "Define the correct Markov chain as the answer key."
+            : "Save question first, then upload tests and run validation."}
+        </p>
       </div>
-      <p className="mt-2 text-xs text-slate-500">
-        {saving ? "Saving question... please wait."
-          : questionType === "follow_up" ? "Points are the sum of all parts."
-          : questionType === "markov" ? "Define the correct Markov chain as the answer key."
-          : "Save question first, then upload tests and run validation."}
-      </p>
     </div>
   );
 }

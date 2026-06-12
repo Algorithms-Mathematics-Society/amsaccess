@@ -201,16 +201,23 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
   const [outputFileName, setOutputFileName] = useState("output.txt");
   
   const [descBody, setDescBody] = useState("");
-  const [inputFormatText, setInputFormatText] = useState("A single integer $N$ followed by $N$ space-separated values.");
-  const [outputFormatText, setOutputFormatText] = useState("A single integer denoting the maximum subarray sum.");
-  const [sampleInputText, setSampleInputText] = useState("9\n-2 1 -3 4 -1 2 1 -5 4");
-  const [sampleOutputText, setSampleOutputText] = useState("6");
-  const [noteText, setNoteText] = useState("For the input array `[-2, 1, -3, 4, -1, 2, 1, -5, 4]`, the contiguous subarray is `[4, -1, 2, 1]` with sum `6`.");
+  const [inputFormatText, setInputFormatText] = useState("");
+  const [outputFormatText, setOutputFormatText] = useState("");
+  const [sampleInputText, setSampleInputText] = useState("");
+  const [sampleOutputText, setSampleOutputText] = useState("");
+  const [noteText, setNoteText] = useState("");
 
   const isInitialized = useRef(false);
 
   useEffect(() => {
-    if (!isInitialized.current && description) {
+    if (isInitialized.current) return;
+    // Mark initialized even when the statement starts empty — otherwise the
+    // compose effect below never runs and statement edits are silently lost.
+    if (!description) {
+      isInitialized.current = true;
+      return;
+    }
+    {
       // Parse markdown segments
       const sections = {
         descBody: "",
@@ -1417,7 +1424,11 @@ int main() {
                   >
                     <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-zinc-500"}`} />
                     {t.label}
-                    <span className={`ml-auto h-1.5 w-1.5 rounded-full ${workflowMap[t.id] ? "bg-green-400" : "bg-zinc-600"}`} />
+                    {t.id === "pipeline" && !questionId ? (
+                      <Lock className="ml-auto h-3 w-3 text-zinc-500" aria-label="Unlocks after the question is saved" />
+                    ) : (
+                      <span className={`ml-auto h-1.5 w-1.5 rounded-full ${workflowMap[t.id] ? "bg-green-400" : "bg-zinc-600"}`} />
+                    )}
                   </button>
                 );
               })}
@@ -1448,7 +1459,8 @@ int main() {
                         rows={12}
                         value={descBody}
                         onChange={(e) => setDescBody(e.target.value)}
-                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-4 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
+                        placeholder={"State the problem clearly. Markdown is supported.\n\nInline math: $1 \\le N \\le 10^5$ · bold: **text** · images: ![caption](https://…)"}
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-4 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1459,7 +1471,8 @@ int main() {
                         rows={3}
                         value={inputFormatText}
                         onChange={(e) => setInputFormatText(e.target.value)}
-                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
+                        placeholder={"e.g. The first line contains a single integer $N$ ($1 \\le N \\le 10^5$).\nThe second line contains $N$ space-separated integers."}
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1470,7 +1483,8 @@ int main() {
                         rows={3}
                         value={outputFormatText}
                         onChange={(e) => setOutputFormatText(e.target.value)}
-                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
+                        placeholder="e.g. Output a single integer — the answer to the problem."
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1481,7 +1495,8 @@ int main() {
                         rows={3}
                         value={noteText}
                         onChange={(e) => setNoteText(e.target.value)}
-                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
+                        placeholder="Optional. Explain the sample, edge cases, or scoring nuances."
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1492,7 +1507,8 @@ int main() {
                         rows={4}
                         value={sampleInputText}
                         onChange={(e) => setSampleInputText(e.target.value)}
-                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
+                        placeholder={"Exact input the student will see, e.g.\n5\n1 2 3 4 5"}
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -1503,7 +1519,8 @@ int main() {
                         rows={3}
                         value={sampleOutputText}
                         onChange={(e) => setSampleOutputText(e.target.value)}
-                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white focus:border-white/30 focus:outline-none"
+                        placeholder="Expected output for the sample input above."
+                        className="w-full rounded-xl border border-white/[0.1] bg-black/[0.4] p-3 text-xs font-mono text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -1525,34 +1542,46 @@ int main() {
  
                     <div className="space-y-4 text-xs text-zinc-300 leading-relaxed font-sans">
                       {/* Description output */}
-                      <div className="space-y-2">
-                        {renderStatementHtml(descBody)}
-                      </div>
+                      {descBody.trim() ? (
+                        <div className="space-y-2">
+                          {renderStatementHtml(descBody)}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] italic text-zinc-600">Start typing the problem description to see it rendered here.</p>
+                      )}
 
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px]">Input Format</h4>
-                        <div className="text-zinc-300">{renderStatementHtml(inputFormatText)}</div>
-                      </div>
+                      {inputFormatText.trim() && (
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px]">Input Format</h4>
+                          <div className="text-zinc-300">{renderStatementHtml(inputFormatText)}</div>
+                        </div>
+                      )}
 
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px]">Output Format</h4>
-                        <div className="text-zinc-300">{renderStatementHtml(outputFormatText)}</div>
-                      </div>
+                      {outputFormatText.trim() && (
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px]">Output Format</h4>
+                          <div className="text-zinc-300">{renderStatementHtml(outputFormatText)}</div>
+                        </div>
+                      )}
 
                       {/* Editable sample tests grid */}
-                      <div>
-                        <h4 className="font-bold text-white mb-2 uppercase tracking-wider text-[10px]">Sample Tests</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="rounded-xl bg-black/[0.5] border border-white/[0.05] p-3.5 font-mono text-zinc-400">
-                            <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">Standard Input</span>
-                            <pre className="text-zinc-200 whitespace-pre-wrap">{sampleInputText}</pre>
-                          </div>
-                          <div className="rounded-xl bg-black/[0.5] border border-white/[0.05] p-3.5 font-mono text-zinc-400">
-                            <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">Standard Output</span>
-                            <pre className="text-zinc-200 whitespace-pre-wrap">{sampleOutputText}</pre>
+                      {(sampleInputText.trim() || sampleOutputText.trim()) ? (
+                        <div>
+                          <h4 className="font-bold text-white mb-2 uppercase tracking-wider text-[10px]">Sample Tests</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="rounded-xl bg-black/[0.5] border border-white/[0.05] p-3.5 font-mono text-zinc-400">
+                              <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">Standard Input</span>
+                              <pre className="text-zinc-200 whitespace-pre-wrap">{sampleInputText}</pre>
+                            </div>
+                            <div className="rounded-xl bg-black/[0.5] border border-white/[0.05] p-3.5 font-mono text-zinc-400">
+                              <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block mb-1">Standard Output</span>
+                              <pre className="text-zinc-200 whitespace-pre-wrap">{sampleOutputText}</pre>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        <p className="text-[11px] italic text-zinc-600">Add a sample input/output pair to preview the Sample Tests block.</p>
+                      )}
 
                       {noteText && (
                         <div className="border-l-2 border-white/[0.3] pl-3 py-1 bg-white/[0.02] space-y-1">
@@ -1721,6 +1750,20 @@ int main() {
             {/* 4. TEST SUITE & RUN STEP */}
             {activeTab === "pipeline" && (
               <div className="space-y-6 animate-fadeIn">
+                {/* Unsaved-question lock banner — every action below needs a question ID */}
+                {!questionId && (
+                  <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.08] p-4">
+                    <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                    <div>
+                      <p className="text-xs font-semibold text-amber-200">Save the question to unlock this step</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-amber-200/70">
+                        Generators, test uploads, and the validation suite are stored against a saved question.
+                        Finish the statement and verification rules, click <span className="font-semibold">Save question</span> below,
+                        then reopen it with Edit to continue here.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {/* Stepper horizontal tabs */}
                 <div className="flex items-center gap-2 border-b border-white/[0.05] pb-3">
                   {[
