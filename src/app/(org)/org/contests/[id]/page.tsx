@@ -6,7 +6,8 @@ import Link from "next/link";
 import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
   X, Sparkles, Monitor, Play, Square, RefreshCw,
-  Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle, Clock
+  Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle, Clock,
+  Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
@@ -544,45 +545,87 @@ export default function ContestDetailPage() {
             </p>
           </div>
           <div className="flex flex-col items-start gap-2 lg:items-end">
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
-              <span className={`h-2 w-2 rounded-full ${judgeDotClass}`} />
-              {judge
-                ? `Judge: ${judgeLabel} (${judge.running_instances ?? 0}/${judge.total_instances ?? 0} up, target ${judge.target_size}) · mode ${judge.mode ?? "AUTO"}`
-                : "Judge: Unknown"}
-            </div>
-            {judge?.mode === "MANUAL_ON" && judge.manual_until ? (
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700">
-                <Clock className="h-3 w-3" />
-                {new Date(judge.manual_until).getTime() - nowMs > 0
-                  ? `Compute auto-stops in ${formatRemaining(new Date(judge.manual_until).getTime() - nowMs)}`
-                  : "Compute auto-stopping…"}
+            {/* Judge status card */}
+            <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 lg:w-auto lg:min-w-[240px]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${judgeDotClass} ${judgePhase === "starting" || judgePhase === "ready" ? "animate-pulse" : ""}`} />
+                  <span className="text-sm font-semibold text-slate-900">
+                    {judge ? judgeLabel : "Unknown"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => void loadJudge()}
+                  disabled={judgeBusy}
+                  title="Refresh judge status"
+                  className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${judgeBusy ? "animate-spin" : ""}`} />
+                </button>
               </div>
-            ) : null}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => void controlJudge("start")}
-                disabled={judgeBusy}
-                className="ams-btn ams-btn-success ams-btn-sm"
-              >
-                <Play className="h-3.5 w-3.5" />
-                Start Compute
-              </button>
-              <button
-                onClick={() => void controlJudge("stop")}
-                disabled={judgeBusy}
-                className="ams-btn ams-btn-danger ams-btn-sm"
-              >
-                <Square className="h-3.5 w-3.5" />
-                Stop Compute
-              </button>
-              <button
-                onClick={() => void loadJudge()}
-                disabled={judgeBusy}
-                className="ams-btn ams-btn-secondary ams-btn-sm"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${judgeBusy ? "animate-spin" : ""}`} />
-                Refresh
-              </button>
+              {judge && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  <Cpu className="mb-0.5 mr-1 inline h-3 w-3" />
+                  {judge.running_instances ?? 0} / {judge.total_instances ?? 0} instances · target {judge.target_size} · <span className="font-medium text-slate-700">{judge.mode ?? "AUTO"}</span>
+                </p>
+              )}
+              {/* AUTO mode billing warning */}
+              {judge?.mode === "AUTO" && (judge.running_instances ?? 0) > 0 && (
+                <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1">
+                  <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+                  <span className="text-[10px] font-medium text-amber-700">AUTO mode — instances may be billing</span>
+                </div>
+              )}
+              {/* MANUAL_ON countdown */}
+              {judge?.mode === "MANUAL_ON" && judge.manual_until && (
+                <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1">
+                  <Clock className="h-3 w-3 shrink-0 text-amber-500" />
+                  <span className="text-[10px] font-medium text-amber-700">
+                    {new Date(judge.manual_until).getTime() - nowMs > 0
+                      ? `Auto-stops in ${formatRemaining(new Date(judge.manual_until).getTime() - nowMs)}`
+                      : "Auto-stopping…"}
+                  </span>
+                </div>
+              )}
+              {/* Contextual action buttons */}
+              <div className="mt-2.5 flex items-center gap-1.5">
+                {(judgePhase === "stopped" || judgePhase === "unknown") && (
+                  <button
+                    onClick={() => void controlJudge("start")}
+                    disabled={judgeBusy}
+                    className="ams-btn ams-btn-success ams-btn-sm flex-1 justify-center"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    Start Compute
+                  </button>
+                )}
+                {judgePhase === "ready" && (
+                  <button
+                    onClick={() => void controlJudge("stop")}
+                    disabled={judgeBusy}
+                    className="ams-btn ams-btn-danger ams-btn-sm flex-1 justify-center"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                    Stop Compute
+                  </button>
+                )}
+                {(judgePhase === "starting" || judgePhase === "stopping") && (
+                  <div className="flex w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-500">
+                    <RefreshCw className="h-3 w-3 animate-spin text-purple-500" />
+                    {judgePhase === "starting" ? "Starting…" : "Stopping…"}
+                  </div>
+                )}
+                {judgePhase === "ready" && (
+                  <button
+                    onClick={() => void controlJudge("start")}
+                    disabled={judgeBusy}
+                    title="Restart compute"
+                    className="ams-btn ams-btn-secondary ams-btn-sm"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
             {judgeError ? <p className="text-[11px] text-red-600">{judgeError}</p> : null}
           </div>
@@ -630,28 +673,33 @@ export default function ContestDetailPage() {
 
         {/* Tabs */}
         <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid-cols-5">
-          {([["questions", "Questions", questions.length], ["invites", "Invites", invites.length], ["students", "Students", null], ["live", "Live", null], ["settings", "Settings", null]] as const).map(
-            ([key, label, count]) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`flex items-center justify-center gap-2 rounded-xl border py-2 text-sm font-medium transition ${
-                  tab === key
-                    ? "border-purple-100 bg-purple-50 text-slate-950 shadow-sm"
-                    : "border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-950"
-                }`}
-              >
-                {label}
-                {count !== null && (
-                  <span
-                    className={`rounded px-1.5 text-xs ${tab === key ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
-            )
-          )}
+          {([
+            ["questions", "Questions", questions.length, Code2],
+            ["invites", "Invites", invites.length, Mail],
+            ["students", "Students", null, Users],
+            ["live", "Live", null, Activity],
+            ["settings", "Settings", null, Settings],
+          ] as const).map(([key, label, count, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 text-sm font-medium transition ${
+                tab === key
+                  ? "border-purple-100 bg-purple-50 text-purple-800 shadow-sm"
+                  : "border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-950"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              {label}
+              {count !== null && (
+                <span
+                  className={`rounded px-1.5 text-xs ${tab === key ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Tab content */}
@@ -874,77 +922,120 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
     }
   }
 
+  const runtimeStatusColor = runtime?.runtime_status === "READY"
+    ? "text-emerald-600"
+    : runtime?.runtime_status === "WARMING"
+    ? "text-amber-500"
+    : runtime?.runtime_status === "DEGRADED"
+    ? "text-red-600"
+    : "text-slate-500";
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Runtime Status</p>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                transport === "SSE"
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                  : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-              }`}
-            >
-              {transport === "SSE" ? "LIVE STREAMED (SSE)" : "POLLING FALLBACK"}
-            </span>
+      {/* Status card */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`text-2xl font-bold tracking-tight ${runtimeStatusColor}`}>
+                {runtime?.runtime_status ?? "UNKNOWN"}
+              </span>
+              {runtime?.runtime_ready && (
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                  READY
+                </span>
+              )}
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                  transport === "SSE"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                    : "border-amber-200 bg-amber-50 text-amber-600"
+                }`}
+              >
+                {transport === "SSE" ? "SSE live" : "Polling fallback"}
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500">
+              <Cpu className="mb-0.5 mr-1 inline h-3 w-3" />
+              {runtime
+                ? `${runtime.capacity.running_instances ?? 0} / ${runtime.capacity.total_instances ?? 0} instances up · target ${runtime.capacity.target_size}`
+                : "No runtime data"}
+            </p>
+            {runtime?.ready_checked_at && (
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                Last readiness check: {new Date(runtime.ready_checked_at).toLocaleTimeString()}
+              </p>
+            )}
           </div>
-          <p className="mt-1 text-lg font-semibold text-slate-950">
-            {runtime?.runtime_status ?? "UNKNOWN"}
-            {runtime?.runtime_ready ? " · READY" : ""}
-          </p>
-          <p className="text-xs text-slate-400">
-            {runtime ? `instances ${runtime.capacity.running_instances ?? 0}/${runtime.capacity.total_instances ?? 0}, target ${runtime.capacity.target_size}` : "No runtime data"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => void loadLive()} className="ams-btn ams-btn-secondary ams-btn-sm">
-            {busy ? "Refreshing..." : "Refresh"}
-          </button>
-          <button onClick={() => void runReadinessCheck()} className="ams-btn ams-btn-success ams-btn-sm">
-            Run readiness check
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void loadLive()}
+              title="Refresh"
+              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40"
+              disabled={busy}
+            >
+              <RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
+            </button>
+            <button onClick={() => void runReadinessCheck()} className="ams-btn ams-btn-success ams-btn-sm">
+              <Zap className="h-3.5 w-3.5" />
+              Run readiness check
+            </button>
+          </div>
         </div>
       </div>
-      {err ? <div className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-300">{err}</div> : null}
+
+      {err ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div> : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <LiveTable
           title="Submissions"
+          count={subs.length}
           items={subs}
           render={(item) => (
             <>
-              <span className="font-mono text-[11px] text-slate-600">{item.candidate}</span>
-              <span className="text-[11px] text-slate-400">{item.final_verdict ?? item.status}</span>
+              <span className="font-mono text-[11px] text-slate-700">{item.candidate}</span>
+              <span className={`text-[11px] font-medium ${item.final_verdict === "AC" ? "text-emerald-600" : item.final_verdict ? "text-red-500" : "text-slate-400"}`}>
+                {item.final_verdict ?? item.status}
+              </span>
             </>
           )}
         />
         <LiveTable
           title="Proctor Events"
+          count={proctor.length}
           items={proctor}
+          rowClass={(item) =>
+            item.severity === "CRITICAL"
+              ? "border-l-2 border-l-red-400 bg-red-50/40"
+              : item.severity === "WARN"
+              ? "border-l-2 border-l-amber-400 bg-amber-50/30"
+              : ""
+          }
           render={(item) => (
             <>
-              <span className="font-mono text-[11px] text-slate-600">{item.candidate}</span>
-              <span className={`text-[11px] ${
+              <span className="font-mono text-[11px] text-slate-700">{item.candidate}</span>
+              <span className={`text-[11px] font-medium ${
                 item.severity === "CRITICAL"
-                  ? "text-red-300"
+                  ? "text-red-600"
                   : item.severity === "WARN"
-                  ? "text-amber-300"
+                  ? "text-amber-600"
                   : "text-slate-500"
               }`}>
-                {item.event_type} {item.severity ? `(${item.severity})` : ""}
+                {item.event_type}
               </span>
             </>
           )}
         />
         <LiveTable
           title="Infra Events"
+          count={infra.length}
           items={infra}
           render={(item) => (
             <>
-              <span className="font-mono text-[11px] text-slate-600">{item.status}</span>
-              <span className="text-[11px] text-slate-400">{item.reason_code ?? item.source}</span>
+              <span className="font-mono text-[11px] text-slate-700">{item.status}</span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-500">
+                {item.source ?? item.reason_code}
+              </span>
             </>
           )}
         />
@@ -953,16 +1044,41 @@ function LiveMonitorTab({ contestId }: { contestId: string }) {
   );
 }
 
-function LiveTable<T>({ title, items, render }: { title: string; items: T[]; render: (item: T) => ReactNode }) {
+function LiveTable<T>({
+  title,
+  count,
+  items,
+  render,
+  rowClass,
+}: {
+  title: string;
+  count?: number;
+  items: T[];
+  render: (item: T) => ReactNode;
+  rowClass?: (item: T) => string;
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-600">{title}</div>
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-2.5">
+        <span className="text-xs font-semibold text-slate-700">{title}</span>
+        {count !== undefined && (
+          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+            {count}
+          </span>
+        )}
+      </div>
       <div className="max-h-72 overflow-y-auto">
         {items.length === 0 ? (
-          <div className="px-3 py-3 text-xs text-slate-400">No events</div>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Activity className="mb-2 h-5 w-5 text-slate-300" />
+            <p className="text-[11px] text-slate-400">No events yet</p>
+          </div>
         ) : (
           items.map((item, idx) => (
-            <div key={idx} className="flex items-center justify-between border-b border-slate-100 px-3 py-2 last:border-b-0">
+            <div
+              key={idx}
+              className={`flex items-center justify-between border-b border-slate-100 px-3 py-2 last:border-b-0 ${idx % 2 === 1 ? "bg-slate-50/40" : ""} ${rowClass ? rowClass(item) : ""}`}
+            >
               {render(item)}
             </div>
           ))
@@ -1017,9 +1133,14 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-500">
-          {questions.length} question{questions.length !== 1 ? "s" : ""}
-        </p>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">
+            {questions.length} question{questions.length !== 1 ? "s" : ""}
+          </p>
+          {questions.length > 1 && !isChessContest && (
+            <p className="text-[11px] text-slate-400">Shown in order — reorder from the backend</p>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {isChessContest ? (
             <Link
@@ -1069,90 +1190,112 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
       )}
 
       <div className="space-y-3">
-        {isChessContest ? null : questions.map((q, i) => (
-          <div key={q.id}>
-            {editId === q.id ? (
-              <QuestionForm
-                contestId={contestId}
-                existing={q}
-                nextIndex={q.order_index}
-                onSaved={() => { setEditId(null); setNotice("Question updated successfully."); onRefresh(); }}
-                onCancel={() => setEditId(null)}
-                saving={saving}
-                setSaving={setSaving}
-              />
-            ) : (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-purple-200 hover:shadow-md">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-400">Q{i + 1}</span>
-                      <span className="font-semibold text-slate-950">{q.title}</span>
-                      <span className="rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">{q.points} pts</span>
-                    </div>
-                    {q.description && normalizeQuestionType(q.question_type) !== "follow_up" && (
-                      <p className="mt-1.5 line-clamp-2 text-sm text-slate-500">{q.description}</p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
-                        {QUESTION_TYPE_META[normalizeQuestionType(q.question_type)].label}
-                      </span>
-                      {(normalizeQuestionType(q.question_type) === "code" || normalizeQuestionType(q.question_type) === "interactive") && (
-                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-mono font-medium text-slate-500">
-                          {q.time_limit_ms} ms · {q.memory_limit_mb} MB
+        {isChessContest ? null : questions.map((q, i) => {
+          const qType = normalizeQuestionType(q.question_type);
+          const typeBorderClass = qType === "code" ? "border-l-purple-400" : qType === "interactive" ? "border-l-indigo-400" : qType === "follow_up" ? "border-l-amber-400" : "border-l-teal-400";
+          const typePillClass = qType === "code" ? "bg-purple-50 text-purple-700 border border-purple-200" : qType === "interactive" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : qType === "follow_up" ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-teal-50 text-teal-700 border border-teal-200";
+          return (
+            <div key={q.id}>
+              {editId === q.id ? (
+                <QuestionForm
+                  contestId={contestId}
+                  existing={q}
+                  nextIndex={q.order_index}
+                  onSaved={() => { setEditId(null); setNotice("Question updated successfully."); onRefresh(); }}
+                  onCancel={() => setEditId(null)}
+                  saving={saving}
+                  setSaving={setSaving}
+                />
+              ) : (
+                <div className={`rounded-2xl border border-slate-200 border-l-4 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md ${typeBorderClass}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-100 text-[10px] font-bold text-slate-500">
+                          {i + 1}
                         </span>
-                      )}
-                      {normalizeQuestionType(q.question_type) === "follow_up" && (
-                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">
-                          {parseFollowUpParts(q.description).length} part{parseFollowUpParts(q.description).length !== 1 ? "s" : ""}
+                        <span className="font-semibold text-slate-950">{q.title}</span>
+                        <span className="rounded-md bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                          {q.points} pts
                         </span>
+                      </div>
+                      {q.description && qType !== "follow_up" && (
+                        <p className="mt-1.5 line-clamp-2 text-sm text-slate-500">{q.description}</p>
+                      )}
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${typePillClass}`}>
+                          {QUESTION_TYPE_META[qType].label}
+                        </span>
+                        {(qType === "code" || qType === "interactive") && (
+                          <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-500">
+                            {q.time_limit_ms} ms
+                          </span>
+                        )}
+                        {(qType === "code" || qType === "interactive") && (
+                          <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-500">
+                            {q.memory_limit_mb} MB
+                          </span>
+                        )}
+                        {qType === "follow_up" && (
+                          <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-500">
+                            {parseFollowUpParts(q.description).length} part{parseFollowUpParts(q.description).length !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        onClick={() => { setEditId(q.id); setAdding(false); setConfirmDeleteId(null); }}
+                        className="ams-btn ams-btn-secondary ams-btn-sm"
+                      >
+                        Edit
+                      </button>
+                      {confirmDeleteId === q.id ? (
+                        <button
+                          onClick={() => void deleteQuestion(q.id)}
+                          disabled={deleting === q.id}
+                          className="ams-btn ams-btn-danger ams-btn-sm"
+                        >
+                          {deleting === q.id ? "Deleting…" : "Confirm?"}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(q.id)}
+                          disabled={deleting === q.id}
+                          aria-label="Delete question"
+                          title="Delete question"
+                          className="ams-btn ams-btn-danger ams-icon-btn-sm"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       )}
                     </div>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      onClick={() => { setEditId(q.id); setAdding(false); setConfirmDeleteId(null); }}
-                      className="ams-btn ams-btn-secondary ams-btn-sm"
-                    >
-                      Edit
-                    </button>
-                    {confirmDeleteId === q.id ? (
-                      <button
-                        onClick={() => void deleteQuestion(q.id)}
-                        disabled={deleting === q.id}
-                        className="ams-btn ams-btn-danger ams-btn-sm"
-                      >
-                        {deleting === q.id ? "Deleting…" : "Confirm delete?"}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmDeleteId(q.id)}
-                        disabled={deleting === q.id}
-                        title="Delete question"
-                        className="ams-btn ams-btn-danger ams-icon-btn-sm"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          );
+        })}
 
         {questions.length === 0 && !adding && !isChessContest && (
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
-            <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm" aria-hidden="true">
-              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-            </span>
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center shadow-sm">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+              <Code2 className="h-5 w-5 text-slate-400" />
+            </div>
             <p className="text-sm font-semibold text-slate-950">No questions yet</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Code, interactive, follow-up, and Markov-chain questions are all supported.
+            <p className="mt-1 text-xs text-slate-500 max-w-xs">
+              Add judged problems, interactive questions, short-answer follow-ups, or Markov-chain diagrams.
             </p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              {(["Code submission", "Interactive", "Follow Up", "Markov Chain"] as const).map((t) => (
+                <span key={t} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+                  {t}
+                </span>
+              ))}
+            </div>
             <button
               onClick={startAdding}
-              className="ams-btn ams-btn-primary ams-btn-md mt-4"
+              className="ams-btn ams-btn-primary ams-btn-md mt-5"
             >
               <Plus className="h-4 w-4" />
               Add your first question
@@ -1854,86 +1997,162 @@ function InvitesTab({ contestId, invites, onRefresh }: {
     }
   }
 
+  // Parse emails live for counter
+  const parsedEmailCount = emailInput
+    .split(/\n+/)
+    .flatMap((line) => line.split(","))
+    .map((e) => {
+      const parts = e.trim().split(/[<\s]+/).filter(Boolean);
+      return parts[parts.length - 1]?.replace(">", "").toLowerCase() ?? "";
+    })
+    .filter((e) => e.includes("@")).length;
+
   return (
-    <div>
-      {/* Add invites */}
-      <div className="glass-card mb-6 p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <UserPlus className="h-4 w-4 text-purple-600" />
-          <p className="text-sm font-medium text-slate-950">Invite candidates</p>
+    <div className="space-y-6">
+      {/* Session code highlight card */}
+      {sessionCode && (
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-purple-200 bg-purple-50 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-100">
+              <Key className="h-4 w-4 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Contest Session Code</p>
+              <p className="mt-0.5 font-mono text-lg font-bold tracking-widest text-purple-900">{sessionCode.code}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { void navigator.clipboard.writeText(sessionCode.code); }}
+            title="Copy code"
+            className="flex items-center gap-1.5 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-xs font-medium text-purple-700 transition hover:bg-purple-100"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copy
+          </button>
         </div>
-        <p className="mb-3 text-xs text-slate-500">
-          Enter email addresses or `Name &lt;email&gt;` lines. Use the template below to send the desktop download link in one batch.
-        </p>
+      )}
 
-        {error && (
-          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
-        )}
-        {success && (
-          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</div>
-        )}
+      {/* Compose + Preview side-by-side */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* Compose form */}
+        <div className="glass-card p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <UserPlus className="h-4 w-4 text-purple-600" />
+            <p className="text-sm font-semibold text-slate-950">Invite candidates</p>
+          </div>
+          <p className="mb-3 text-xs text-slate-500">
+            One email per line, or comma-separated. Accepts <code className="text-slate-700">Name &lt;email&gt;</code> format.
+          </p>
 
-        <textarea
-          rows={4}
-          value={emailInput}
-          onChange={(e) => setEmailInput(e.target.value)}
-          placeholder={"Alice Doe <alice@college.edu>\nbob@university.edu\nCharlie, charlie@institute.ac.in"}
-          className="glass-input mb-3 resize-none text-sm text-slate-950"
-          style={{ fontFamily: "monospace" }}
-        />
-        <input
-          type="text"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder="Email subject"
-          className="glass-input mb-3 text-sm text-slate-950"
-        />
-        <textarea
-          rows={6}
-          value={template}
-          onChange={(e) => setTemplate(e.target.value)}
-          placeholder={"Use {{email}} and {{download_url}} in the message body."}
-          className="glass-input mb-3 resize-y text-sm text-slate-950"
-        />
-        <button
-          onClick={() => void addInvites()}
-          disabled={saving || !allowBulkInvites}
-          className="ams-btn ams-btn-primary ams-btn-md disabled:opacity-50"
-        >
-          <Mail className="h-4 w-4" />
-          {!allowBulkInvites ? "Bulk invites disabled by AMS admin" : saving ? "Saving…" : "Send invites"}
-        </button>
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="rounded border border-slate-200 p-3">
-            <p className="mb-2 text-xs uppercase tracking-widest text-slate-500">Template Preview</p>
-            <p className="text-sm font-medium text-slate-950">{subject.replaceAll("{{email}}", "candidate@example.com")}</p>
-            <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-600">
-              {template.replaceAll("{{email}}", "candidate@example.com").replaceAll("{{download_url}}", "https://amsaccess.com/download")}
+          {error && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+          )}
+          {success && (
+            <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</div>
+          )}
+
+          <div className="mb-1.5 flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-700">Recipients</label>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${parsedEmailCount > 0 ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
+              {parsedEmailCount} email{parsedEmailCount !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <textarea
+            rows={4}
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            placeholder={"Alice Doe <alice@college.edu>\nbob@university.edu\ncharlie@institute.ac.in"}
+            className="glass-input mb-3 resize-none text-sm text-slate-950"
+            style={{ fontFamily: "monospace" }}
+          />
+
+          <label className="mb-1.5 block text-xs font-semibold text-slate-700">Subject</label>
+          <input
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="Email subject — use {{email}} for recipient address"
+            className="glass-input mb-3 text-sm text-slate-950"
+          />
+
+          <div className="mb-1.5 flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-700">Body template</label>
+            <span className="text-[11px] text-slate-400">
+              vars: <code className="text-slate-600">{"{{email}}"}</code> · <code className="text-slate-600">{"{{download_url}}"}</code>
+            </span>
+          </div>
+          <textarea
+            rows={5}
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+            placeholder={"Use {{email}} and {{download_url}} in the message body."}
+            className="glass-input mb-4 resize-y text-sm text-slate-950"
+          />
+          <button
+            onClick={() => void addInvites()}
+            disabled={saving || !allowBulkInvites || parsedEmailCount === 0}
+            className="ams-btn ams-btn-primary ams-btn-md w-full justify-center disabled:opacity-50"
+          >
+            <Mail className="h-4 w-4" />
+            {!allowBulkInvites ? "Bulk invites disabled by AMS admin" : saving ? "Sending…" : `Send to ${parsedEmailCount || "…"} recipient${parsedEmailCount !== 1 ? "s" : ""}`}
+          </button>
+        </div>
+
+        {/* Live preview */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Live preview</p>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <p className="mb-2 text-sm font-semibold text-slate-900">
+              {subject.replaceAll("{{email}}", "candidate@example.com") || <span className="italic text-slate-400">Subject line</span>}
+            </p>
+            <pre className="whitespace-pre-wrap text-xs leading-relaxed text-slate-600">
+              {template.replaceAll("{{email}}", "candidate@example.com").replaceAll("{{download_url}}", "https://amsaccess.com/download") || <span className="italic text-slate-400">Body preview…</span>}
             </pre>
           </div>
-          <div className="rounded border border-slate-200 p-3 text-xs text-slate-500">
-            Allowed placeholders: <code>{"{{email}}"}</code>, <code>{"{{download_url}}"}</code>
-          </div>
+          {!sessionCode && (
+            <button
+              onClick={() => void generateSessionCode()}
+              disabled={codeBusy}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-purple-300 bg-purple-50 py-2.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100 disabled:opacity-50"
+            >
+              <Key className="h-3.5 w-3.5" />
+              {codeBusy ? "Generating…" : "Generate session code"}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Invites list */}
       <div>
-        <p className="mb-3 text-xs font-medium uppercase tracking-widest text-slate-400">
-          {invites.length} invite{invites.length !== 1 ? "s" : ""}
-        </p>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+            {invites.length} invite{invites.length !== 1 ? "s" : ""}
+          </p>
+          {invites.length > 0 && (
+            <button
+              onClick={() => {
+                void navigator.clipboard.writeText(invites.map((i) => i.email).join("\n"));
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
+            >
+              <Copy className="h-3 w-3" />
+              Copy all emails
+            </button>
+          )}
+        </div>
         {invites.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm"
-          >
-            <Mail className="mb-3 h-8 w-8 text-slate-400" />
-            <p className="text-sm font-medium text-slate-950">No invites yet</p>
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
+              <Mail className="h-4 w-4 text-slate-400" />
+            </div>
+            <p className="text-sm font-semibold text-slate-950">No invites yet</p>
+            <p className="mt-1 text-xs text-slate-500">Send your first invite using the form above.</p>
           </div>
         ) : (
           <div className="overflow-hidden glass-card">
             <table className="w-full text-sm">
-              <thead className="border-b border-slate-200">
-                <tr className="text-xs uppercase tracking-widest text-slate-400">
+              <thead className="border-b border-slate-200 bg-slate-50">
+                <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   <th className="px-4 py-3 text-left">Email</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Invited</th>
@@ -1942,28 +2161,28 @@ function InvitesTab({ contestId, invites, onRefresh }: {
               </thead>
               <tbody>
                 {invites.map((inv) => (
-                  <tr key={inv.id} className="border-b border-slate-100">
-                    <td className="px-4 py-3 font-mono text-slate-950">{inv.email}</td>
+                  <tr key={inv.id} className="border-b border-slate-100 transition hover:bg-slate-50/60">
+                    <td className="px-4 py-3 font-mono text-xs text-slate-900">{inv.email}</td>
                     <td className="px-4 py-3">
                       <span
-                        className="rounded px-2 py-0.5 text-xs"
-                        style={
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                           inv.status === "accepted"
-                            ? { background: "rgba(34,197,94,0.1)", color: "#22c55e" }
-                            : { background: "rgba(245,158,11,0.1)", color: "#f59e0b" }
-                        }
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
                       >
                         {inv.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-500">
+                    <td className="px-4 py-3 text-xs text-slate-400">
                       {new Date(inv.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => void removeInvite(inv.id)}
                         disabled={removing === inv.id}
-                        className="rounded p-1.5 text-slate-500 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                        aria-label="Remove invite"
+                        className="rounded p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -2074,155 +2293,199 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
   const fieldClass = "w-full rounded-xl border border-slate-300 bg-slate-50/70 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-purple-300 focus:bg-white focus:ring-4 focus:ring-purple-100";
   const labelClass = "mb-1.5 block text-xs font-semibold text-slate-700";
   const sectionClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
-  const sectionTitleClass = "mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400";
+  const sectionHeadClass = "mb-4 flex items-center gap-2";
+  const sectionTitleClass = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-400";
   const pillClass = (active: boolean, tone: "purple" | "emerald" = "purple") => {
-    if (active && tone === "emerald") return "rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition";
-    if (active) return "rounded-md border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 shadow-sm transition";
-    return "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950";
+    if (active && tone === "emerald") return "rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition";
+    if (active) return "rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 shadow-sm transition";
+    return "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950";
+  };
+
+  const statusMeta: Record<string, string> = {
+    DRAFT: "not visible to students",
+    SCHEDULED: "auto-opens at start time",
+    ACTIVE: "students can join now",
+    ENDED: "submissions closed",
+  };
+
+  const langColors: Record<string, string> = {
+    "C++17": "bg-blue-400",
+    "Python3": "bg-yellow-400",
+    "Java17": "bg-orange-400",
+    "Go": "bg-cyan-400",
+    "Rust": "bg-red-400",
   };
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="space-y-5 p-6">
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-        {success && <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Saved.</div>}
+    <div className="space-y-4">
+      {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <section className={sectionClass}>
+      <div className={sectionClass}>
+        <div className={sectionHeadClass}>
+          <Info className="h-3.5 w-3.5 text-slate-400" />
           <h3 className={sectionTitleClass}>Basic Information</h3>
-          <div className="space-y-4">
-            <div>
-              <label className={labelClass}>Title</label>
-              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={fieldClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Description</label>
-              <textarea rows={3} value={description} onChange={(e) => setDesc(e.target.value)} className={fieldClass + " resize-none"} />
-            </div>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className={labelClass}>Title</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={fieldClass} />
           </div>
-        </section>
-
-        <section className={sectionClass}>
-          <h3 className={sectionTitleClass}>Scheduling</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className={labelClass}>Start</label>
-              <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={fieldClass} style={{ colorScheme: "light" }} />
-            </div>
-            <div>
-              <label className={labelClass}>End</label>
-              <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className={fieldClass} style={{ colorScheme: "light" }} />
-            </div>
+          <div>
+            <label className={labelClass}>Description</label>
+            <textarea rows={3} value={description} onChange={(e) => setDesc(e.target.value)} className={fieldClass + " resize-none"} />
           </div>
-          <div className="mt-4">
-            <label className={labelClass}>Timezone</label>
-            <input
-              type="text"
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              className={fieldClass}
-              placeholder="Asia/Kolkata"
-            />
-          </div>
-        </section>
-
-        <section className={sectionClass}>
-          <h3 className={sectionTitleClass}>Contest Parameters</h3>
-          <div className="grid gap-5 lg:grid-cols-2">
-            <div>
-              <label className={labelClass}>Status</label>
-              <div className="flex flex-wrap gap-2">
-                {(["DRAFT", "SCHEDULED", "ACTIVE", "ENDED"] as const).map((s) => (
-                  <button key={s} type="button" onClick={() => setStatus(s)} className={pillClass(status === s)}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className={labelClass}>Scoring type</label>
-              <div className="flex flex-wrap gap-2">
-                {(["IOI", "ICPC", "CF"] as const).map((s) => (
-                  <button key={s} type="button" onClick={() => setScoringType(s)} className={pillClass(scoringType === s)}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="lg:col-span-2">
-              <label className={labelClass}>Allowed languages</label>
-              <div className="flex flex-wrap gap-2">
-                {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
-                  const active = allowedLangs.includes(lang);
-                  return (
-                    <button
-                      key={lang}
-                      type="button"
-                      onClick={() =>
-                        setAllowedLangs(
-                          active ? allowedLangs.filter((l) => l !== lang) : [...allowedLangs, lang]
-                        )
-                      }
-                      className={pillClass(active)}
-                    >
-                      {lang}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="lg:col-span-2">
-              <label className={labelClass}>Contest mode</label>
-              <div className="flex flex-wrap gap-2">
-                {(["CP", "CHESS"] as const).map((s) => (
-                  <button key={s} type="button" onClick={() => setPluginType(s)} className={pillClass(pluginType === s, "emerald")}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className={sectionClass}>
-          <h3 className={sectionTitleClass}>Plugin Configuration</h3>
-          <label className={labelClass}>Plugin config (JSON)</label>
-          <div className="overflow-hidden rounded-xl border border-slate-300 bg-slate-950 shadow-inner focus-within:border-purple-300 focus-within:ring-4 focus-within:ring-purple-100">
-            <div className="flex min-h-24">
-              <div className="select-none border-r border-white/10 bg-slate-900 px-3 py-3 text-right font-mono text-xs leading-6 text-slate-500">
-                {pluginConfig.split("\n").map((_, index) => (
-                  <div key={index}>{index + 1}</div>
-                ))}
-              </div>
-              <textarea
-                rows={3}
-                value={pluginConfig}
-                onChange={(e) => setPluginConfig(e.target.value)}
-                className="min-h-24 flex-1 resize-y bg-slate-950 px-4 py-3 font-mono text-xs leading-6 text-slate-100 outline-none placeholder:text-slate-500"
-                spellCheck={false}
-              />
-            </div>
-          </div>
-        </section>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/90 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className={sectionClass}>
+        <div className={sectionHeadClass}>
+          <Calendar className="h-3.5 w-3.5 text-slate-400" />
+          <h3 className={sectionTitleClass}>Scheduling</h3>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className={labelClass}>Start</label>
+            <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={fieldClass} style={{ colorScheme: "light" }} />
+          </div>
+          <div>
+            <label className={labelClass}>End</label>
+            <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className={fieldClass} style={{ colorScheme: "light" }} />
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className={labelClass}>Timezone</label>
+          <input
+            type="text"
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className={fieldClass}
+            placeholder="Asia/Kolkata"
+          />
+        </div>
+      </div>
+
+      <div className={sectionClass}>
+        <div className={sectionHeadClass}>
+          <Sliders className="h-3.5 w-3.5 text-slate-400" />
+          <h3 className={sectionTitleClass}>Contest Parameters</h3>
+        </div>
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div>
+            <label className={labelClass}>Status</label>
+            <div className="flex flex-wrap gap-2">
+              {(["DRAFT", "SCHEDULED", "ACTIVE", "ENDED"] as const).map((s) => (
+                <button key={s} type="button" onClick={() => setStatus(s)} className={pillClass(status === s)}>
+                  <span className="block">{s}</span>
+                  {status === s && (
+                    <span className="block mt-0.5 text-[10px] font-normal opacity-70">{statusMeta[s]}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Scoring type</label>
+            <div className="flex flex-wrap gap-2">
+              {(["IOI", "ICPC", "CF"] as const).map((s) => (
+                <button key={s} type="button" onClick={() => setScoringType(s)} className={pillClass(scoringType === s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            <label className={labelClass}>Allowed languages</label>
+            <div className="flex flex-wrap gap-2">
+              {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
+                const active = allowedLangs.includes(lang);
+                return (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() =>
+                      setAllowedLangs(
+                        active ? allowedLangs.filter((l) => l !== lang) : [...allowedLangs, lang]
+                      )
+                    }
+                    className={pillClass(active)}
+                  >
+                    <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${langColors[lang] ?? "bg-slate-400"}`} />
+                    {lang}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            <label className={labelClass}>Contest mode</label>
+            <div className="flex flex-wrap gap-2">
+              {(["CP", "CHESS"] as const).map((s) => (
+                <button key={s} type="button" onClick={() => setPluginType(s)} className={pillClass(pluginType === s, "emerald")}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={sectionClass}>
+        <div className={sectionHeadClass}>
+          <Puzzle className="h-3.5 w-3.5 text-slate-400" />
+          <h3 className={sectionTitleClass}>Plugin Configuration</h3>
+        </div>
+        <label className={labelClass}>Plugin config (JSON)</label>
+        <div className="overflow-hidden rounded-xl border border-slate-300 bg-slate-950 shadow-inner focus-within:border-purple-300 focus-within:ring-4 focus-within:ring-purple-100">
+          <div className="flex min-h-24">
+            <div className="select-none border-r border-white/10 bg-slate-900 px-3 py-3 text-right font-mono text-xs leading-6 text-slate-500">
+              {pluginConfig.split("\n").map((_, index) => (
+                <div key={index}>{index + 1}</div>
+              ))}
+            </div>
+            <textarea
+              rows={3}
+              value={pluginConfig}
+              onChange={(e) => setPluginConfig(e.target.value)}
+              className="min-h-24 flex-1 resize-y bg-slate-950 px-4 py-3 font-mono text-xs leading-6 text-slate-100 outline-none placeholder:text-slate-500"
+              spellCheck={false}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Save footer */}
+      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 shadow-sm">
         <button
           onClick={() => void save()} disabled={saving}
           className="ams-btn ams-btn-primary ams-btn-md"
         >
-          <Save className="h-4 w-4" />
-          {saving ? "Saving…" : "Save changes"}
+          {success ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+          {saving ? "Saving…" : success ? "Saved!" : "Save changes"}
         </button>
-        <button
-          onClick={() => void deleteContest()} disabled={deleting}
-          className="ams-btn ams-btn-danger ams-btn-md"
-        >
-          <Trash2 className="h-4 w-4" />
-          Delete contest
-        </button>
+        {success && <span className="text-xs text-emerald-600">Changes saved successfully.</span>}
+      </div>
+
+      {/* Danger zone — delete */}
+      <div className="rounded-2xl border border-red-200 bg-red-50/60 p-5">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-red-900">Delete contest</p>
+            <p className="mt-0.5 text-xs text-red-700">
+              Permanently removes this contest, all questions, and all invites. This action cannot be undone.
+            </p>
+            <button
+              onClick={() => void deleteContest()} disabled={deleting}
+              className="ams-btn ams-btn-danger ams-btn-sm mt-3"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {deleting ? "Deleting…" : "Delete contest"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
