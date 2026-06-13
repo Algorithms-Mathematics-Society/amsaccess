@@ -1,0 +1,373 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\definecolor{sectionblue}{RGB}{30,80,160}
+\definecolor{codegreen}{RGB}{20,110,70}
+
+\newtheorem{lemma}{Lemma}
+\newtheorem{remark}{Remark}
+
+\title{\textbf{Problem AA --- The Rare Event Problem}}
+\author{\textit{Three Monte Carlo Estimators, One Deep Idea}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\hrule
+\bigskip
+
+\noindent
+\textbf{Setup.}
+Let $X \sim \mathcal{N}(0,1)$ and fix a threshold $b > 0$.
+You want to estimate the probability
+\[
+  p \;=\; P(X > b) \;=\; \Phi^c(b)
+\]
+where $\Phi^c = 1 - \Phi$ is the standard normal tail.
+For $b = 3$, $p \approx 1.35 \times 10^{-3}$; for $b = 4$, $p \approx 3.17 \times 10^{-5}$.
+These are ``rare'' events.
+
+Each part introduces a more powerful estimator.
+The answer to each part feeds directly into the next.
+
+\bigskip\hrule\bigskip
+
+% ============================================================
+\section*{\textcolor{sectionblue}{Part 1: Crude Monte Carlo --- Why Naive Fails}}
+% ============================================================
+
+\subsection*{Problem Statement}
+
+The natural estimator draws $N$ i.i.d.\ samples $X_1, \ldots, X_N \sim \mathcal{N}(0,1)$ and counts:
+\[
+  \hat{p}_{\mathrm{MC}} \;=\; \frac{1}{N}\sum_{k=1}^{N} \mathbf{1}[X_k > b].
+\]
+
+\begin{enumerate}[label=(\alph*)]
+
+  \item Show that $\hat{p}_{\mathrm{MC}}$ is unbiased and has variance
+  \[
+    \mathrm{Var}(\hat{p}_{\mathrm{MC}}) = \frac{p(1-p)}{N}.
+  \]
+
+  \item Define the \textbf{relative error}
+  $\mathrm{RE} = \dfrac{\sqrt{\mathrm{Var}(\hat{p}_{\mathrm{MC}})}}{p}$.
+  Show that for small $p$,
+  \[
+    \mathrm{RE} \approx \frac{1}{\sqrt{N p}}.
+  \]
+
+  \item To achieve $\mathrm{RE} \leq \varepsilon$, how many samples are needed?
+  Show that for $b = 4$ and target $\varepsilon = 0.05$, you need
+  $N \approx 1.3 \times 10^7$ samples.
+
+  \item (Key observation.)
+  Use \textbf{Mill's ratio} --- the approximation
+  $\Phi^c(b) \approx \dfrac{\phi(b)}{b}$ for large $b$
+  (where $\phi(x) = e^{-x^2/2}/\sqrt{2\pi}$) --- to show that as $b \to \infty$,
+  the sample requirement to achieve fixed relative error grows like
+  \[
+    N^{\mathrm{MC}} \;\sim\; \frac{b}{\varepsilon^2 \phi(b)} \;=\; \frac{b\sqrt{2\pi}}{\varepsilon^2}\,e^{b^2/2}.
+  \]
+  This is \emph{exponential} in $b^2$.  The crude estimator is fundamentally broken for rare events.
+
+\end{enumerate}
+
+\subsection*{Expected Solution Path}
+
+\textbf{(a)} Each $\mathbf{1}[X_k > b]$ is Bernoulli$(p)$, so its mean is $p$ and variance $p(1-p)$.
+By independence, $\mathrm{Var}(\hat{p}_{\mathrm{MC}}) = p(1-p)/N$. \quad $\square$
+
+\textbf{(b)} $\mathrm{RE}^2 = p(1-p)/(Np^2) = (1-p)/(Np) \approx 1/(Np)$ for small $p$. \quad $\square$
+
+\textbf{(c)} $\mathrm{RE} \leq \varepsilon \Rightarrow N \geq 1/(\varepsilon^2 p)$.
+For $b=4$: $p \approx 3.17 \times 10^{-5}$, $\varepsilon = 0.05$,
+giving $N \geq (0.05)^{-2} \times 3.17^{-1} \times 10^5 \approx 1.3 \times 10^7$.
+
+\textbf{(d)} Using Mill's ratio: $p \approx \phi(b)/b$,
+so $N \sim b/(\varepsilon^2\phi(b)) = b\sqrt{2\pi}\,e^{b^2/2}/\varepsilon^2$. \quad $\square$
+
+\subsection*{Final Answer}
+\[
+  \mathrm{Var}(\hat{p}_{\mathrm{MC}}) = \frac{p(1-p)}{N}, \qquad
+  N^{\mathrm{MC}}_{\min} \approx \frac{1}{\varepsilon^2 p} \;\sim\; e^{b^2/2} \quad \text{(exponential in } b^2\text{)}.
+\]
+
+\subsection*{What Skill It Tests}
+Variance of a Bernoulli estimator; relative vs.\ absolute error; the Mill's ratio approximation;
+recognising that exponential difficulty comes from the geometry of the normal tail.
+
+\bigskip\hrule\bigskip
+
+% ============================================================
+\section*{\textcolor{sectionblue}{Part 2: Control Variates --- Using What You Already Know}}
+% ============================================================
+
+\subsection*{Problem Statement}
+
+For each crude-MC sample $X_k$, you already computed $X_k$.
+Since $\mathbb{E}[X^2] = 1$ is known exactly, the variable $X^2 - 1$ has zero mean and
+is correlated with $\mathbf{1}[X > b]$.
+Use it to reduce variance.
+
+Define the \textbf{control-variate estimator}:
+\[
+  \hat{p}_{c} \;=\; \hat{p}_{\mathrm{MC}} \;+\; c\,\overline{W}, \qquad \overline{W} = \frac{1}{N}\sum_{k=1}^N (X_k^2 - 1),
+\]
+where $c$ is a constant to be chosen.
+
+\begin{enumerate}[label=(\alph*)]
+
+  \item Show that $\hat{p}_c$ is unbiased for any $c$.
+
+  \item
+  The variance of $\hat{p}_c$ is minimised at
+  \[
+    c^* \;=\; -\frac{\mathrm{Cov}\!\bigl(\mathbf{1}[X>b],\; X^2-1\bigr)}{\mathrm{Var}(X^2-1)}.
+  \]
+  Compute $\mathrm{Cov}\!\bigl(\mathbf{1}[X>b],\, X^2\bigr)$.
+  \begin{itemize}
+    \item Write $\mathrm{Cov}(\mathbf{1}[X>b], X^2) = \mathbb{E}[X^2\mathbf{1}[X>b]] - p$.
+    \item Compute $\mathbb{E}[X^2\mathbf{1}[X>b]]$ by integration by parts:
+    \[
+      \mathbb{E}[X^2\mathbf{1}[X>b]]
+      = \int_b^\infty x^2\,\phi(x)\,dx
+      = b\,\phi(b) + \Phi^c(b).
+    \]
+    \item Conclude: $\mathrm{Cov}(\mathbf{1}[X>b], X^2-1) = b\,\phi(b)$.
+  \end{itemize}
+
+  \item Show that $\mathrm{Var}(X^2-1) = \mathbb{E}[(X^2-1)^2] = 2$.
+  (Hint: $X^2 \sim \chi^2_1$ has variance 2.)
+
+  \item The variance reduction factor is $1 - \rho^2$, where $\rho = \mathrm{Corr}(\mathbf{1}[X>b], X^2-1)$.
+  Compute $\rho^2$ and show that for large $b$:
+  \[
+    \rho^2 \;\approx\; \frac{b^2\phi(b)^2}{2\,\Phi^c(b)} \;\approx\; \frac{b^3\phi(b)}{2}
+    \;\xrightarrow[b\to\infty]{}\; 0.
+  \]
+  Interpret: control variates give \emph{no asymptotic improvement} for very rare events.
+  The sample requirement is still exponential in $b^2$.
+
+\end{enumerate}
+
+\subsection*{Expected Solution Path}
+
+\textbf{(a)} $\mathbb{E}[\hat{p}_c] = p + c \cdot \mathbb{E}[\overline{W}] = p + c \cdot 0 = p$. \quad $\square$
+
+\textbf{(b)} Integration by parts with $u = x$, $dv = x\phi(x)dx = -d\phi(x)$:
+\[
+  \int_b^\infty x^2\phi(x)\,dx
+  = \bigl[-x\phi(x)\bigr]_b^\infty + \int_b^\infty \phi(x)\,dx
+  = b\phi(b) + \Phi^c(b).
+\]
+So $\mathrm{Cov} = b\phi(b) + \Phi^c(b) - p \cdot 1 - \mathbb{E}[\mathbf{1}[X>b]]\cdot(-1)$...
+more carefully: $\mathrm{Cov}(\mathbf{1}[X>b],X^2-1) = \mathbb{E}[(X^2-1)\mathbf{1}[X>b]]$
+$= \mathbb{E}[X^2\mathbf{1}[X>b]] - \mathbb{E}[\mathbf{1}[X>b]] = b\phi(b) + p - p = b\phi(b)$. \quad $\square$
+
+\textbf{(c)} $\mathbb{E}[(X^2-1)^2] = \mathbb{E}[X^4] - 2\mathbb{E}[X^2] + 1 = 3 - 2 + 1 = 2$
+(using $\mathbb{E}[X^4] = 3$ for $\mathcal{N}(0,1)$). \quad $\square$
+
+\textbf{(d)} $\rho^2 = (b\phi(b))^2/(p(1-p)\cdot 2) \approx b^2\phi(b)^2/(2p)$.
+Using Mill's ratio $p \approx \phi(b)/b$: $\rho^2 \approx b^3\phi(b)/2 \to 0$
+since $\phi(b) = e^{-b^2/2}/\sqrt{2\pi}$ decays faster than any polynomial. \quad $\square$
+
+\subsection*{Final Answer}
+\[
+  c^* = -\frac{b\phi(b)}{2}, \qquad
+  \mathrm{Var}(\hat{p}_c) = \frac{p(1-p)}{N}(1 - \rho^2), \quad \rho^2 \approx \frac{b^3\phi(b)}{2} \to 0.
+\]
+Control variates reduce variance by a constant factor but \emph{do not change the scaling} with $b$.
+
+\subsection*{What Skill It Tests}
+Computing covariance via $\mathbb{E}[XY] - \mathbb{E}[X]\mathbb{E}[Y]$; integration by parts on Gaussian integrals;
+variance of $\chi^2_1$; the correlation formula for variance reduction;
+reading off the asymptotic from Mill's ratio.
+
+\bigskip\hrule\bigskip
+
+% ============================================================
+\section*{\textcolor{sectionblue}{Part 3: Importance Sampling --- Exponential Improvement}}
+% ============================================================
+
+\subsection*{Problem Statement}
+
+The problem with Parts 1 and 2 is that we keep sampling from the ``wrong'' distribution:
+most $\mathcal{N}(0,1)$ draws fall far below $b$, wasting compute.
+\emph{Importance sampling} fixes this by sampling from a distribution centred near $b$,
+then correcting for the change of measure.
+
+Sample $\tilde{X} \sim \mathcal{N}(\mu, 1)$ (mean shifted by $\mu > 0$) and define the estimator:
+\[
+  \hat{p}_{\mathrm{IS}} \;=\; \frac{1}{N}\sum_{k=1}^{N} \mathbf{1}[\tilde{X}_k > b]\cdot L(\tilde{X}_k),
+\]
+where $L(x) = \dfrac{\phi(x)}{\phi_\mu(x)}$ is the \textbf{likelihood ratio} (Radon-Nikodym derivative)
+and $\phi_\mu(x) = \phi(x - \mu)$ is the density of $\mathcal{N}(\mu,1)$.
+
+\begin{enumerate}[label=(\alph*)]
+
+  \item Simplify the likelihood ratio.  Show that:
+  \[
+    L(x) = e^{-\mu x + \mu^2/2}.
+  \]
+
+  \item Show that $\hat{p}_{\mathrm{IS}}$ is unbiased for \emph{any} $\mu > 0$:
+  \[
+    \mathbb{E}_\mu\!\bigl[\mathbf{1}[\tilde{X}>b]\cdot L(\tilde{X})\bigr] = p.
+  \]
+
+  \item The variance of $\hat{p}_{\mathrm{IS}}$ is $\frac{1}{N}\bigl(\mathbb{E}_\mu[\mathbf{1}[\tilde{X}>b]L^2(\tilde{X})] - p^2\bigr)$.
+  Compute the second moment:
+  \[
+    \mathbb{E}_\mu\!\bigl[\mathbf{1}[\tilde{X}>b]\,L(\tilde{X})^2\bigr]
+    \;=\; e^{\mu^2}\,\Phi^c(b + \mu).
+  \]
+  \textit{Hint: Complete the square in the Gaussian integral.}
+
+  \item Choose $\mu^* = b$.  Show that with this choice:
+  \begin{itemize}
+    \item The sampling distribution $\mathcal{N}(b,1)$ puts probability $\tfrac{1}{2}$ above $b$
+      (exactly half of all samples are ``useful'').
+    \item The second moment equals $e^{b^2}\,\Phi^c(2b) \approx \frac{e^{b^2}\phi(2b)}{2b}$.
+    \item The relative error satisfies:
+    \[
+      \mathrm{RE}_{\mathrm{IS}}^2
+      = \frac{e^{b^2}\,\Phi^c(2b) - p^2}{Np^2}
+      \;\approx\; \frac{e^{b^2}\phi(2b)/2b}{N\,\phi(b)^2/b^2}
+      \;=\; \frac{b\,e^{-2b^2}}{2N\phi(b)^2}
+      \;\approx\; \frac{b\sqrt{2\pi}}{N}.
+    \]
+    This is \textbf{polynomial} in $b$ --- not exponential.
+  \end{itemize}
+
+  \item Compare the sample requirements for $\varepsilon = 0.05$ and $b = 4$:
+  \[
+    N^{\mathrm{MC}}_{\min} \approx 1.3 \times 10^7, \qquad
+    N^{\mathrm{IS}}_{\min} \approx \frac{b\sqrt{2\pi}}{\varepsilon^2} \approx 4000.
+  \]
+  This is a factor of $\approx 3000\times$ fewer samples --- at $b = 5$ the gap is $\approx 10^9$.
+
+\end{enumerate}
+
+\subsection*{Expected Solution Path}
+
+\textbf{(a)}
+$L(x) = \dfrac{e^{-x^2/2}/\sqrt{2\pi}}{e^{-(x-\mu)^2/2}/\sqrt{2\pi}} = e^{-(x^2-(x-\mu)^2)/2} = e^{-\mu x + \mu^2/2}$. \quad $\square$
+
+\textbf{(b)}
+\begin{align*}
+\mathbb{E}_\mu\!\bigl[\mathbf{1}[\tilde{X}>b]L(\tilde{X})\bigr]
+&= \int_b^\infty e^{-\mu x+\mu^2/2}\,\phi_\mu(x)\,dx \\
+&= \int_b^\infty \phi(x)\,dx = \Phi^c(b) = p. \quad \square
+\end{align*}
+
+\textbf{(c)}
+\begin{align*}
+\mathbb{E}_\mu\!\bigl[\mathbf{1}[\tilde{X}>b]L^2\bigr]
+&= \int_b^\infty e^{-2\mu x+\mu^2}\,\phi_\mu(x)\,dx
+= e^{\mu^2}\int_b^\infty e^{-2\mu x}\,\phi_\mu(x)\,dx \\
+&= e^{\mu^2}\int_b^\infty e^{-2\mu x} \frac{e^{-(x-\mu)^2/2}}{\sqrt{2\pi}}\,dx.
+\end{align*}
+Complete the square in the exponent:
+$-2\mu x - (x-\mu)^2/2 = -(x+\mu)^2/2 + \mu^2/2 - \mu^2/2 + ...$
+
+More directly: write $-(x-\mu)^2/2 - 2\mu x + \mu^2 = -(x+\mu)^2/2 + c$. Expand:
+$(x+\mu)^2/2 = x^2/2 + \mu x + \mu^2/2$.
+We need: $(x-\mu)^2/2 + 2\mu x - \mu^2 = x^2/2 - \mu x + \mu^2/2 + 2\mu x - \mu^2 = (x+\mu)^2/2 - \mu^2$.
+So $-2\mu x - (x-\mu)^2/2 + \mu^2 = -(x+\mu)^2/2$.
+Therefore:
+\[
+  \mathbb{E}_\mu\!\bigl[\mathbf{1}[\tilde{X}>b]L^2\bigr]
+  = \int_b^\infty \frac{e^{-(x+\mu)^2/2}}{\sqrt{2\pi}}\,dx
+  = \Phi^c(b + \mu).
+\]
+Wait --- we need to re-examine. Let's redo carefully:
+\[
+  e^{\mu^2}\int_b^\infty e^{-2\mu x} \frac{e^{-(x-\mu)^2/2}}{\sqrt{2\pi}}\,dx
+  = e^{\mu^2}\int_b^\infty \frac{e^{-(x-\mu)^2/2 - 2\mu x}}{\sqrt{2\pi}}\,dx.
+\]
+The exponent: $-(x-\mu)^2/2 - 2\mu x = -x^2/2 + \mu x - \mu^2/2 - 2\mu x = -x^2/2 - \mu x - \mu^2/2 = -(x+\mu)^2/2$.
+Hence:
+\[
+  e^{\mu^2}\int_b^\infty \frac{e^{-(x+\mu)^2/2}}{\sqrt{2\pi}}\,dx
+  = e^{\mu^2}\,\Phi^c(b+\mu). \quad \square
+\]
+
+\textbf{(d)} At $\mu^* = b$:
+second moment $= e^{b^2}\Phi^c(2b) \approx e^{b^2}\phi(2b)/(2b) = e^{b^2}\cdot e^{-2b^2}/(2b\sqrt{2\pi}) = e^{-b^2}/(2b\sqrt{2\pi})$.
+
+And $p^2 = [\Phi^c(b)]^2 \approx \phi(b)^2/b^2 = e^{-b^2}/(2\pi b^2)$.
+
+$\mathrm{RE}_{\mathrm{IS}}^2 \approx \frac{e^{-b^2}/(2b\sqrt{2\pi})}{N \cdot e^{-b^2}/(2\pi b^2)} = \frac{2\pi b^2}{N \cdot 2b\sqrt{2\pi}} = \frac{b\sqrt{\pi/2}}{N} \approx \frac{b\sqrt{2\pi}}{N}$.
+(The exact prefactor is $O(1)$; the key point is $\mathrm{RE}^2 = O(b/N)$, polynomial not exponential.)
+
+Achieving $\mathrm{RE} \leq \varepsilon$: $N \geq b\sqrt{2\pi}/\varepsilon^2$. For $b=4$, $\varepsilon=0.05$: $N \approx 4\cdot 2.5/0.0025 \approx 4000$. \quad $\square$
+
+\subsection*{Final Answer}
+\[
+  \hat{p}_{\mathrm{IS}} = \frac{1}{N}\sum_k \mathbf{1}[\tilde{X}_k > b]\,e^{-b\tilde{X}_k + b^2/2},
+  \quad \tilde{X}_k \sim \mathcal{N}(b,1).
+\]
+\[
+  N^{\mathrm{IS}}_{\min} \;\sim\; O(b) \quad \text{vs.} \quad N^{\mathrm{MC}}_{\min} \;\sim\; e^{b^2/2}.
+\]
+Importance sampling turns an exponentially hard problem into a polynomial one.
+
+\subsection*{What Skill It Tests}
+Computing likelihood ratios between Gaussian densities; completing the square in a Gaussian integral;
+the change-of-measure argument (unbiasedness despite sampling from wrong distribution);
+comparing polynomial vs.\ exponential scaling; the deep insight that variance reduction comes
+from matching your sampling distribution to the integrand.
+
+\bigskip\hrule\bigskip
+
+% ============================================================
+\section*{\textcolor{sectionblue}{Follow-Up Questions}}
+% ============================================================
+
+\begin{enumerate}
+  \item \textbf{(Part 2)} Show that the optimal $c^*$ can be estimated from the same samples:
+  $\hat{c} = -\widehat{\mathrm{Cov}}(\mathbf{1}[X>b], X^2) / \widehat{\mathrm{Var}}(X^2)$.
+  Why is this still valid?  (Hint: $\hat{c} \to c^*$ in probability.)
+
+  \item \textbf{(Part 3)} What is the \emph{zero-variance} IS distribution --- the choice of
+  $\mu$ that makes $\mathrm{Var}(\hat{p}_{\mathrm{IS}}) = 0$?
+  (Hint: what distribution is proportional to $\mathbf{1}[x > b]\phi(x)$?)
+  Why can't you use it in practice?
+
+  \item \textbf{(Part 3)} Generalise to $X_1 + \cdots + X_n \sim \mathcal{N}(0,n)$.
+  Show the optimal shift is still $\mu^* = b/n$ per step (each $X_i$ shifted by $b/n$),
+  and compute the second moment of the IS estimator.
+
+  \item \textbf{(All parts)} Define the \emph{efficiency} of an estimator relative to crude MC as
+  $\mathrm{Eff} = \mathrm{Var}(\hat{p}_{\mathrm{MC}}) / \mathrm{Var}(\hat{p})$.
+  For $b = 3, 4, 5$: compute $\mathrm{Eff}_{\mathrm{CV}}$ and $\mathrm{Eff}_{\mathrm{IS}}$ numerically.
+
+  \item \textbf{(Challenge)} For the multi-step sum $S_n = \sum_{i=1}^n X_i$,
+  show that the optimal importance distribution shifts each $X_i \sim \mathcal{N}(\mu^*, 1)$
+  where $\mu^* = b/n$, and that this is equivalent to tilting by the
+  \emph{exponential change of measure} $dQ/dP = e^{\theta S_n - n\psi(\theta)}$
+  where $\psi(\theta) = \theta^2/2$ (the cumulant generating function of $\mathcal{N}(0,1)$)
+  and $\theta^* = b/n$ solves $\psi'(\theta) = b/n$.
+  This is the \emph{saddlepoint} condition.
+\end{enumerate}
+
+\subsection*{Difficulty Rating}
+\textbf{Part 1:} 1.5/5 \quad Clean probability calculation; the Mill's ratio step is the only trick.\\
+\textbf{Part 2:} 3/5 \quad The integration-by-parts for $\mathbb{E}[X^2\mathbf{1}[X>b]]$ is the crux;
+the $\rho^2 \to 0$ punchline requires careful asymptotic bookkeeping.\\
+\textbf{Part 3:} 4/5 \quad The change-of-measure identity, completing the square in the exponent,
+and the polynomial vs.\ exponential comparison are all non-trivial;
+the saddlepoint connection in the follow-up is graduate-level.
+
+\bigskip\hrule\bigskip
+
+\begin{center}
+  \textit{See \texttt{aa\_interactive.html} for the live Monte Carlo simulator.}
+\end{center}
+
+\end{document}

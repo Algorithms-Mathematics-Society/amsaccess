@@ -172,6 +172,27 @@ int main(int argc, char* argv[]) {
     return 0;
 }`;
 
+// Joins the statement section fields into the single canonical markdown blob
+// stored in `description`. Used both to seed the parse baseline and to compose
+// on edit, so the two are guaranteed to agree.
+function composeStatementMarkdown(f: {
+  descBody: string;
+  inputFormatText: string;
+  outputFormatText: string;
+  sampleInputText: string;
+  sampleOutputText: string;
+  noteText: string;
+}): string {
+  return [
+    f.descBody.trim(),
+    f.inputFormatText.trim() ? `### Input Format\n${f.inputFormatText.trim()}` : "",
+    f.outputFormatText.trim() ? `### Output Format\n${f.outputFormatText.trim()}` : "",
+    f.sampleInputText.trim() ? `### Sample Input\n${f.sampleInputText.trim()}` : "",
+    f.sampleOutputText.trim() ? `### Sample Output\n${f.sampleOutputText.trim()}` : "",
+    f.noteText.trim() ? `### Note\n${f.noteText.trim()}` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
 const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(function CPProblemStudio({
   contestId,
   questionId,
@@ -208,12 +229,19 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
   const [noteText, setNoteText] = useState("");
 
   const isInitialized = useRef(false);
+  // Canonical form of the statement as last parsed/composed. The compose effect
+  // only writes back to `description` when the fields produce something DIFFERENT
+  // from this baseline — so merely opening a question (whose stored statement may
+  // not be in canonical section order/spacing) never silently rewrites it; only a
+  // real edit to a field does.
+  const composedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isInitialized.current) return;
     // Mark initialized even when the statement starts empty — otherwise the
     // compose effect below never runs and statement edits are silently lost.
     if (!description) {
+      composedRef.current = "";
       isInitialized.current = true;
       return;
     }
@@ -267,26 +295,27 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
       if (sections.sampleInputText) setSampleInputText(sections.sampleInputText);
       if (sections.sampleOutputText) setSampleOutputText(sections.sampleOutputText);
       if (sections.noteText) setNoteText(sections.noteText);
-      
+
+      // Baseline = canonical form of what we just parsed. The compose effect
+      // compares against this, not against the raw stored `description`, so a
+      // non-canonical stored statement isn't rewritten just by opening it.
+      composedRef.current = composeStatementMarkdown(sections);
       isInitialized.current = true;
     }
   }, [description]);
 
   useEffect(() => {
     if (!isInitialized.current) return;
-    const concatenated = [
-      descBody.trim(),
-      inputFormatText.trim() ? `### Input Format\n${inputFormatText.trim()}` : "",
-      outputFormatText.trim() ? `### Output Format\n${outputFormatText.trim()}` : "",
-      sampleInputText.trim() ? `### Sample Input\n${sampleInputText.trim()}` : "",
-      sampleOutputText.trim() ? `### Sample Output\n${sampleOutputText.trim()}` : "",
-      noteText.trim() ? `### Note\n${noteText.trim()}` : ""
-    ].filter(Boolean).join("\n\n");
-
-    if (concatenated !== description) {
+    const concatenated = composeStatementMarkdown({
+      descBody, inputFormatText, outputFormatText, sampleInputText, sampleOutputText, noteText,
+    });
+    // Only write back on a genuine change vs the last parsed/composed value —
+    // never on initial load (where concatenated === the baseline).
+    if (concatenated !== composedRef.current) {
+      composedRef.current = concatenated;
       setDescription(concatenated);
     }
-  }, [descBody, inputFormatText, outputFormatText, sampleInputText, sampleOutputText, noteText, description, setDescription]);
+  }, [descBody, inputFormatText, outputFormatText, sampleInputText, sampleOutputText, noteText, setDescription]);
 
   // --- Validator State — seeded from DB value when editing an existing question ---
   const [validatorCode, setValidatorCode] = useState<string>(initialValidatorCode ?? DEFAULT_VALIDATOR);

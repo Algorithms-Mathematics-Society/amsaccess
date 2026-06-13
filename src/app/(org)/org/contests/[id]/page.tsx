@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
   X, Sparkles, Monitor, Play, Square, RefreshCw,
-  Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle
+  Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle, Clock
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
@@ -58,6 +58,9 @@ type JudgeCapacity = {
   total_instances?: number;
   running_instances?: number;
   current_actions?: Record<string, number>;
+  // ISO time at which a MANUAL_ON/MANUAL_OFF override auto-reverts to AUTO.
+  // Present only while an override is in effect; drives the "auto-stops in …" UI.
+  manual_until?: string | null;
 };
 
 type RuntimeStatus = {
@@ -112,7 +115,24 @@ type LaunchChecklistItem = {
   detail: string;
 };
 
+// ─── Compute (judge capacity) safety constants ───────────────
+// How long the contest page tolerates inactivity before nudging the user that
+// compute is still running, and how long a "Dismiss" snoozes that nudge. The
+// backend TTL (JUDGE_MANUAL_MODE_TTL_MINUTES) is the hard auto-stop; these only
+// drive the in-dashboard reminder while a tab is open.
+const IDLE_NUDGE_MS = 30 * 60 * 1000;
+const IDLE_SNOOZE_MS = 10 * 60 * 1000;
+
 // ─── Helpers ─────────────────────────────────────────────────
+// Compact "Xh Ym" / "Ym" for a positive duration in milliseconds.
+function formatRemaining(ms: number): string {
+  if (ms <= 0) return "0m";
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 function statusClass(s: string) {
   if (s === "ACTIVE") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (s === "SCHEDULED") return "border-purple-200 bg-purple-50 text-purple-700";
@@ -378,18 +398,76 @@ export default function ContestDetailPage() {
     }
   }, [judge, loadJudge]);
 
+  // Compute auto-stop visibility + idle reminder.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [showIdleNudge, setShowIdleNudge] = useState(false);
+  const lastActivityRef = useRef(Date.now());
+  const idleSnoozeUntilRef = useRef(0);
+  const expiryRefreshedRef = useRef<string | null>(null);
+
   async function controlJudge(action: "start" | "stop") {
     setJudgeBusy(true);
     setJudgeError(null);
     try {
       const data = await apiFetch<JudgeCapacity>(`/api/org/judge-capacity/${action}`, { method: "POST" });
       setJudge(data);
+      if (action === "start") {
+        // Reset the idle clock so the 30-min reminder counts from when compute
+        // actually came up, not from page load.
+        lastActivityRef.current = Date.now();
+        idleSnoozeUntilRef.current = 0;
+      }
     } catch (e) {
       setJudgeError(e instanceof Error ? e.message : `Unable to ${action} judge capacity.`);
     } finally {
       setJudgeBusy(false);
     }
   }
+
+  // Tick once a minute while a manual override is in effect so the "auto-stops
+  // in …" countdown stays current without extra API polling.
+  useEffect(() => {
+    if (judge?.mode !== "MANUAL_ON" || !judge.manual_until) return;
+    const t = setInterval(() => setNowMs(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, [judge?.mode, judge?.manual_until]);
+
+  // When the backend auto-stop time passes, refresh once so the dashboard
+  // reflects the fleet actually winding down (rather than showing stale state).
+  useEffect(() => {
+    if (judge?.mode !== "MANUAL_ON" || !judge.manual_until) return;
+    const remaining = new Date(judge.manual_until).getTime() - nowMs;
+    if (remaining <= 0 && expiryRefreshedRef.current !== judge.manual_until) {
+      expiryRefreshedRef.current = judge.manual_until;
+      void loadJudge();
+    }
+  }, [judge?.mode, judge?.manual_until, nowMs, loadJudge]);
+
+  // Track interaction so we can tell when the author has walked away.
+  useEffect(() => {
+    const onActivity = () => { lastActivityRef.current = Date.now(); };
+    window.addEventListener("pointerdown", onActivity, { passive: true });
+    window.addEventListener("keydown", onActivity, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", onActivity);
+      window.removeEventListener("keydown", onActivity);
+    };
+  }, []);
+
+  // While compute is explicitly running (MANUAL_ON), surface a reminder after a
+  // stretch of inactivity. Disarmed whenever compute isn't manually on.
+  useEffect(() => {
+    if (judge?.mode !== "MANUAL_ON") {
+      setShowIdleNudge(false);
+      return;
+    }
+    const check = setInterval(() => {
+      const now = Date.now();
+      if (now < idleSnoozeUntilRef.current) return;
+      if (now - lastActivityRef.current >= IDLE_NUDGE_MS) setShowIdleNudge(true);
+    }, 30000);
+    return () => clearInterval(check);
+  }, [judge?.mode]);
 
   if (loading) {
     return (
@@ -472,6 +550,14 @@ export default function ContestDetailPage() {
                 ? `Judge: ${judgeLabel} (${judge.running_instances ?? 0}/${judge.total_instances ?? 0} up, target ${judge.target_size}) · mode ${judge.mode ?? "AUTO"}`
                 : "Judge: Unknown"}
             </div>
+            {judge?.mode === "MANUAL_ON" && judge.manual_until ? (
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700">
+                <Clock className="h-3 w-3" />
+                {new Date(judge.manual_until).getTime() - nowMs > 0
+                  ? `Compute auto-stops in ${formatRemaining(new Date(judge.manual_until).getTime() - nowMs)}`
+                  : "Compute auto-stopping…"}
+              </div>
+            ) : null}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => void controlJudge("start")}
@@ -501,6 +587,44 @@ export default function ContestDetailPage() {
             {judgeError ? <p className="text-[11px] text-red-600">{judgeError}</p> : null}
           </div>
         </div>
+
+        {showIdleNudge && judge?.mode === "MANUAL_ON" ? (
+          <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border border-amber-300 bg-white p-4 shadow-lg">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-900">Compute is still running</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  No activity for a while. Stop compute to avoid unnecessary cost
+                  {judge.manual_until && new Date(judge.manual_until).getTime() - nowMs > 0
+                    ? ` — it will auto-stop in ${formatRemaining(new Date(judge.manual_until).getTime() - nowMs)} otherwise`
+                    : ""}
+                  .
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => { setShowIdleNudge(false); void controlJudge("stop"); }}
+                    disabled={judgeBusy}
+                    className="ams-btn ams-btn-danger ams-btn-sm"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                    Stop Compute
+                  </button>
+                  <button
+                    onClick={() => {
+                      idleSnoozeUntilRef.current = Date.now() + IDLE_SNOOZE_MS;
+                      lastActivityRef.current = Date.now();
+                      setShowIdleNudge(false);
+                    }}
+                    className="ams-btn ams-btn-secondary ams-btn-sm"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <LaunchChecklistPanel items={launchChecklist} state={launchState} />
 
@@ -1113,28 +1237,52 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   const [success, setSuccess]         = useState<string | null>(null);
 
   useEffect(() => {
+    // Widen the page while the editor is open, then restore the container's
+    // ORIGINAL classes verbatim on unmount. (Snapshotting avoids the bug where
+    // restoring a hardcoded width leaves the page permanently narrowed if the
+    // base class — currently max-w-5xl — ever differs from the assumed one.)
     const wrapper = document.getElementById("contest-page-container");
-    if (wrapper) {
-      wrapper.classList.remove("max-w-4xl");
-      wrapper.classList.add("max-w-[98vw]", "lg:max-w-[95vw]");
-    }
+    if (!wrapper) return;
+    const originalClassName = wrapper.className;
+    wrapper.classList.remove("max-w-5xl", "max-w-4xl");
+    wrapper.classList.add("max-w-[98vw]", "lg:max-w-[95vw]");
     return () => {
-      if (wrapper) {
-        wrapper.classList.remove("max-w-[98vw]", "lg:max-w-[95vw]");
-        wrapper.classList.add("max-w-4xl");
-      }
-    }
+      wrapper.className = originalClassName;
+    };
   }, [contestId]);
+
+  function isDirty(): boolean {
+    if (!existing) {
+      // New question: any meaningful content counts as dirty.
+      return Boolean(
+        title.trim() ||
+        description.trim() ||
+        (questionType === "follow_up" && followUpParts.some((p) => p.statement.trim() || p.expected_answer.trim())) ||
+        (questionType === "markov" && markovChain.states.length > 0)
+      );
+    }
+    if (title !== existing.title) return true;
+    if (questionType !== originalType) return true;
+    if (questionType === "follow_up") {
+      return JSON.stringify(followUpParts) !== existing.description;
+    }
+    if (questionType === "markov") {
+      if (description !== existing.description) return true;
+      return JSON.stringify(normalizeChain(markovChain)) !== (existing.markov_answer_json ?? "");
+    }
+    // code / interactive: the compose effect keeps `description` change-only, so
+    // comparing it here is safe (no spurious prompts on open).
+    return (
+      description !== existing.description ||
+      points !== existing.points ||
+      timeLimit !== existing.time_limit_ms ||
+      memoryLimit !== existing.memory_limit_mb
+    );
+  }
 
   function handleCancel() {
     if (saving) return;
-    // Lightweight dirty check: for an existing question only the title is
-    // compared (the studio re-composes `description`, so it can differ from
-    // the stored value without user edits); for a new question, any content.
-    const dirty = existing
-      ? title !== existing.title
-      : Boolean(title.trim() || description.trim());
-    if (dirty && !window.confirm("Discard unsaved changes to this question?")) return;
+    if (isDirty() && !window.confirm("Discard unsaved changes to this question?")) return;
     onCancel();
   }
 
@@ -1336,8 +1484,10 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         <p className="mt-1.5 text-xs text-slate-500">{QUESTION_TYPE_META[questionType].hint}</p>
         {originalType !== null && questionType !== originalType && (
           <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <span className="font-semibold">Heads up:</span> changing the type of an existing question replaces how it is
-            graded. Its previous grading configuration (tests, checker, or answer key) may no longer apply after saving.
+            <span className="font-semibold">Heads up:</span> changing the type of an existing question changes how it is
+            graded <span className="font-semibold">and can replace its content</span>. The statement, answer key, or
+            follow-up parts authored for the previous type — plus its grading config (tests, checker, or answer key) —
+            may be overwritten or no longer apply once you save. Consider creating a new question instead.
           </div>
         )}
       </div>
@@ -1582,9 +1732,9 @@ function FollowUpEditor({ parts, onChange }: {
             <label className="mb-1 block text-[11px] font-medium text-slate-500">Points</label>
             <input
               type="number"
-              min={0}
+              min={1}
               value={part.points}
-              onChange={(e) => updatePart(part.id, { points: Math.max(0, Number(e.target.value)) })}
+              onChange={(e) => updatePart(part.id, { points: Math.max(1, Number(e.target.value)) })}
               className="glass-input text-sm text-slate-950"
             />
           </div>
