@@ -354,6 +354,16 @@ export default function ContestDetailPage() {
       setModeReconciled(true);
       return;
     }
+    // Never auto-convert a contest that already has questions. The ?mode=CHESS
+    // hint exists only so a freshly-created (empty) chess contest renders in
+    // chess mode before its plugin_type read settles. A populated CP contest
+    // reaching here means a stale or hand-edited URL — flipping plugin_type
+    // would persist (UpdateContest COALESCEs it) and hide every existing
+    // question behind the "CHESS mode" banner. Refuse and leave it as CP.
+    if (questions.length > 0) {
+      setModeReconciled(true);
+      return;
+    }
     let cancelled = false;
     const reconcile = async () => {
       try {
@@ -378,7 +388,7 @@ export default function ContestDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [contest, forcedMode, id, load, modeReconciled]);
+  }, [contest, forcedMode, id, load, modeReconciled, questions.length]);
 
   const loadJudge = useCallback(async () => {
     try {
@@ -1182,7 +1192,7 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
         <QuestionForm
           contestId={contestId}
           nextIndex={questions.length + 1}
-          onSaved={() => { setAdding(false); setNotice("Question created successfully."); onRefresh(); }}
+          onSaved={(warning) => { setAdding(false); setNotice(warning ?? "Question created successfully."); onRefresh(); }}
           onCancel={() => setAdding(false)}
           saving={saving}
           setSaving={setSaving}
@@ -1201,7 +1211,7 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
                   contestId={contestId}
                   existing={q}
                   nextIndex={q.order_index}
-                  onSaved={() => { setEditId(null); setNotice("Question updated successfully."); onRefresh(); }}
+                  onSaved={(warning) => { setEditId(null); setNotice(warning ?? "Question updated successfully."); onRefresh(); }}
                   onCancel={() => setEditId(null)}
                   saving={saving}
                   setSaving={setSaving}
@@ -1344,7 +1354,7 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
   contestId: string;
   existing?: Question;
   nextIndex: number;
-  onSaved: () => void;
+  onSaved: (warning?: string) => void;
   onCancel: () => void;
   saving: boolean;
   setSaving: (v: boolean) => void;
@@ -1549,10 +1559,14 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
             body: JSON.stringify(cpPayload),
           });
         } catch (cpErr) {
-          // Best-effort cleanup: remove the orphaned question so retry
-          // doesn't accumulate duplicates. Ignore cleanup errors.
-          await apiFetch(`/api/org/contests/${contestId}/questions/${created.id}`, { method: "DELETE" }).catch(() => null);
-          throw new Error("CP configuration could not be saved" + (cpErr instanceof Error ? `: ${cpErr.message}` : "") + ". The question was not created — please try again.");
+          // The question row is already created and committed. Deleting it on a
+          // transient config-save failure destroys the author's work (this is the
+          // "I added a question and it vanished" footgun). Keep the question and
+          // surface a recoverable warning instead — the author can reopen it and
+          // re-save the configuration, which goes through the existing-question
+          // (PATCH) path and won't create a duplicate.
+          onSaved("Question created, but its problem configuration didn't save" + (cpErr instanceof Error ? `: ${cpErr.message}` : "") + ". Open the question and save its configuration again.");
+          return;
         }
       }
 
