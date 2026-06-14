@@ -71,20 +71,20 @@ export function apiOkCached<T>(data: T, init?: ResponseInit) {
   );
 }
 
-// Extracts a safe error string from a Go API response. Only passes the upstream
-// error message through for 400 (user-actionable validation failures). All other
-// status codes use the caller-supplied fallback to prevent internal detail leaks.
+// Extracts a safe error string from a Go API response. The upstream `error`
+// message is passed through for any status, because the Go API only ever puts
+// curated, human-written strings in that field (raw provider/internal errors are
+// logged server-side, never returned). For non-400 statuses we append the stable
+// `code` enum so an operator can pinpoint which step failed (e.g.
+// JUDGE_AUTOSCALER_CONFIG_FAILED) instead of seeing only a generic fallback.
 export function safeGoApiError(res: { status: number; data: unknown }, fallback: string): string {
-  if (
-    res.status === 400 &&
-    typeof res.data === "object" &&
-    res.data !== null &&
-    "error" in res.data &&
-    typeof (res.data as { error: unknown }).error === "string"
-  ) {
-    return (res.data as { error: string }).error;
-  }
-  return fallback;
+  if (typeof res.data !== "object" || res.data === null) return fallback;
+  const data = res.data as { error?: unknown; code?: unknown };
+  if (typeof data.error !== "string" || data.error === "") return fallback;
+  if (res.status === 400) return data.error;
+  return typeof data.code === "string" && data.code !== ""
+    ? `${data.error} (${data.code})`
+    : data.error;
 }
 
 export function apiRateLimited(retryAfter: number) {
