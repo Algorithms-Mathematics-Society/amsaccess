@@ -40,7 +40,7 @@ type Invite = {
   id: string; email: string; status: string; created_at: string;
 };
 
-type Tab = "questions" | "invites" | "students" | "live" | "settings";
+type Tab = "questions" | "invites" | "students" | "leaderboard" | "live" | "settings";
 
 type ContestDetailResponse = {
   contest: Contest;
@@ -107,6 +107,61 @@ type LiveInfraEvent = {
   created_at: string;
 };
 
+type LeaderboardQuestion = {
+  id: string;
+  order_index: number;
+  title: string;
+  points: number;
+};
+
+type LeaderboardProblemState = {
+  question_id: string;
+  attempts: number;
+  best_score: number;
+  verdict: string;
+  last_submission_at?: string | null;
+};
+
+type LeaderboardEntry = {
+  rank: number;
+  session_id: string;
+  candidate_name: string;
+  candidate_email: string;
+  total_score: number;
+  solved_count: number;
+  penalty_seconds: number;
+  last_scored_at?: string | null;
+  latest_activity_at?: string | null;
+  problems: LeaderboardProblemState[];
+};
+
+type LeaderboardResponse = {
+  contest_id: string;
+  status: string;
+  scoring_type: string;
+  questions: LeaderboardQuestion[];
+  entries: LeaderboardEntry[];
+  updated_at: string;
+};
+
+type HistoricalSubmission = {
+  id: string;
+  problem_id: string;
+  question_title: string;
+  attempt_no: number;
+  language: string;
+  status: string;
+  final_verdict?: string | null;
+  score: number;
+  runtime_ms?: number | null;
+  memory_kb?: number | null;
+  error_message?: string | null;
+  source_code: string;
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+};
+
 type ReadinessState = "complete" | "pending" | "blocked";
 
 type LaunchChecklistItem = {
@@ -132,6 +187,34 @@ function formatRemaining(ms: number): string {
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function formatPenaltySeconds(seconds: number): string {
+  if (seconds <= 0) return "0m";
+  const minutes = Math.floor(seconds / 60);
+  const remSeconds = seconds % 60;
+  return remSeconds > 0 ? `${minutes}m ${remSeconds}s` : `${minutes}m`;
+}
+
+function verdictTone(verdict: string): string {
+  switch (verdict) {
+    case "AC":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "RUNNING":
+      return "border-purple-200 bg-purple-50 text-purple-700";
+    case "WA":
+    case "RE":
+    case "CE":
+    case "IE":
+      return "border-red-200 bg-red-50 text-red-700";
+    case "TLE":
+    case "MLE":
+    case "OLE":
+    case "ATTEMPTED":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-500";
+  }
 }
 
 function statusClass(s: string) {
@@ -672,11 +755,12 @@ export default function ContestDetailPage() {
         <LaunchChecklistPanel items={launchChecklist} state={launchState} />
 
         {/* Tabs */}
-        <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid-cols-5">
+        <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid-cols-6">
           {([
             ["questions", "Questions", questions.length, Code2],
             ["invites", "Invites", invites.length, Mail],
             ["students", "Students", null, Users],
+            ["leaderboard", "Leaderboard", null, BarChart2],
             ["live", "Live", null, Activity],
             ["settings", "Settings", null, Settings],
           ] as const).map(([key, label, count, Icon]) => (
@@ -720,6 +804,9 @@ export default function ContestDetailPage() {
         )}
         {tab === "students" && (
           <StudentsTab contestId={id} />
+        )}
+        {tab === "leaderboard" && contest && (
+          <LeaderboardTab contestId={id} contestStatus={contest.status} />
         )}
         {tab === "live" && (
           <LiveMonitorTab contestId={id} />
@@ -1085,6 +1172,257 @@ function LiveTable<T>({
         )}
       </div>
     </div>
+  );
+}
+
+function LeaderboardTab({ contestId, contestStatus }: { contestId: string; contestStatus: string }) {
+  const [board, setBoard] = useState<LeaderboardResponse | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [showSubmissions, setShowSubmissions] = useState(false);
+  const [submissions, setSubmissions] = useState<HistoricalSubmission[]>([]);
+  const [submissionsBusy, setSubmissionsBusy] = useState(false);
+  const [submissionsErr, setSubmissionsErr] = useState<string | null>(null);
+
+  const loadBoard = useCallback(async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const data = await apiFetch<LeaderboardResponse>(`/api/org/contests/${contestId}/leaderboard`);
+      setBoard(data);
+      setSelectedSessionId((current) => current ?? data.entries[0]?.session_id ?? null);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Unable to load leaderboard.");
+    } finally {
+      setBusy(false);
+    }
+  }, [contestId]);
+
+  const loadSubmissions = useCallback(async (sessionId: string) => {
+    setSubmissionsBusy(true);
+    setSubmissionsErr(null);
+    try {
+      const data = await apiFetch<HistoricalSubmission[]>(
+        `/api/org/contests/${contestId}/leaderboard/sessions/${sessionId}/submissions`
+      );
+      setSubmissions(data);
+    } catch (e) {
+      setSubmissionsErr(e instanceof Error ? e.message : "Unable to load submissions.");
+    } finally {
+      setSubmissionsBusy(false);
+    }
+  }, [contestId]);
+
+  useEffect(() => {
+    void loadBoard();
+  }, [loadBoard]);
+
+  useEffect(() => {
+    if (contestStatus !== "ACTIVE") return;
+    const timer = setInterval(() => void loadBoard(), 2000);
+    return () => clearInterval(timer);
+  }, [contestStatus, loadBoard]);
+
+  useEffect(() => {
+    if (!showSubmissions || !selectedSessionId) return;
+    void loadSubmissions(selectedSessionId);
+    if (contestStatus !== "ACTIVE") return;
+    const timer = setInterval(() => void loadSubmissions(selectedSessionId), 2000);
+    return () => clearInterval(timer);
+  }, [contestStatus, loadSubmissions, selectedSessionId, showSubmissions]);
+
+  const selectedEntry =
+    board?.entries.find((entry) => entry.session_id === selectedSessionId) ?? board?.entries[0] ?? null;
+
+  return (
+    <>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Contest standings</p>
+            <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Leaderboard</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Proper rank ordering with live updates as submissions are judged.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void loadBoard()}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!selectedEntry) return;
+                setShowSubmissions(true);
+              }}
+              disabled={!selectedEntry}
+              className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-medium text-purple-700 transition hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              View Submissions
+            </button>
+          </div>
+        </div>
+
+        {err ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{err}</div>
+        ) : busy && !board ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">Loading leaderboard…</div>
+        ) : !board || board.entries.length === 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+            No ranked submissions yet.
+          </div>
+        ) : (
+          <>
+            {selectedEntry ? (
+              <div className="mb-4 rounded-xl border border-purple-100 bg-purple-50/70 p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Selected: #{selectedEntry.rank} {selectedEntry.candidate_name}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {selectedEntry.total_score} points · {selectedEntry.solved_count} solved · penalty {formatPenaltySeconds(selectedEntry.penalty_seconds)}
+                    </p>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    {board.updated_at ? `Updated ${new Date(board.updated_at).toLocaleTimeString()}` : ""}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[840px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.14em] text-slate-400">
+                    <th className="px-3 py-3 font-semibold">Rank</th>
+                    <th className="px-3 py-3 font-semibold">Candidate</th>
+                    <th className="px-3 py-3 font-semibold">Score</th>
+                    <th className="px-3 py-3 font-semibold">Solved</th>
+                    <th className="px-3 py-3 font-semibold">Penalty</th>
+                    {board.questions.map((question) => (
+                      <th key={question.id} className="px-2 py-3 text-center font-semibold">
+                        Q{question.order_index + 1}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {board.entries.map((entry) => {
+                    const active = entry.session_id === selectedSessionId;
+                    return (
+                      <tr
+                        key={entry.session_id}
+                        onClick={() => setSelectedSessionId(entry.session_id)}
+                        className={`cursor-pointer border-b border-slate-100 transition hover:bg-slate-50 ${
+                          active ? "bg-purple-50/70" : "bg-white"
+                        }`}
+                      >
+                        <td className="px-3 py-3 font-semibold text-slate-900">#{entry.rank}</td>
+                        <td className="px-3 py-3">
+                          <div className="font-medium text-slate-900">{entry.candidate_name}</div>
+                          <div className="text-xs text-slate-500">{entry.candidate_email}</div>
+                        </td>
+                        <td className="px-3 py-3 font-semibold text-slate-900">{entry.total_score}</td>
+                        <td className="px-3 py-3 text-slate-600">{entry.solved_count}</td>
+                        <td className="px-3 py-3 text-slate-600">{formatPenaltySeconds(entry.penalty_seconds)}</td>
+                        {board.questions.map((question) => {
+                          const state = entry.problems.find((item) => item.question_id === question.id);
+                          const verdict = state?.verdict ?? "UNATTEMPTED";
+                          return (
+                            <td key={`${entry.session_id}:${question.id}`} className="px-2 py-3 text-center">
+                              <span className={`inline-flex min-w-14 items-center justify-center rounded-md border px-2 py-1 text-[11px] font-semibold ${verdictTone(verdict)}`}>
+                                {verdict === "UNATTEMPTED" ? "-" : verdict}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+
+      {showSubmissions && selectedEntry ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-6 backdrop-blur-sm">
+          <div className="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  {selectedEntry.candidate_name} · Submission history
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Historical solutions with verdicts across all questions.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSubmissions(false)}
+                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-5">
+              {submissionsErr ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{submissionsErr}</div>
+              ) : submissionsBusy && submissions.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">Loading submissions…</div>
+              ) : submissions.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">No submissions found for this participant.</div>
+              ) : (
+                <div className="space-y-4">
+                  {submissions.map((submission) => {
+                    const verdict = submission.final_verdict ?? submission.status ?? "PENDING";
+                    return (
+                      <article key={submission.id} className="overflow-hidden rounded-2xl border border-slate-200">
+                        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{submission.question_title}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Attempt #{submission.attempt_no} · {submission.language} · {new Date(submission.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className={`inline-flex items-center rounded-md border px-2 py-1 font-semibold ${verdictTone(verdict)}`}>
+                              {verdict}
+                            </span>
+                            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">Score {submission.score}</span>
+                            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">
+                              {submission.runtime_ms != null ? `${submission.runtime_ms}ms` : "Runtime N/A"}
+                            </span>
+                            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-600">
+                              {submission.memory_kb != null ? `${Math.round(submission.memory_kb / 1024)}MB` : "Memory N/A"}
+                            </span>
+                          </div>
+                        </div>
+                        {submission.error_message ? (
+                          <div className="border-b border-red-100 bg-red-50 px-4 py-3 text-xs text-red-700">
+                            {submission.error_message}
+                          </div>
+                        ) : null}
+                        <pre className="overflow-x-auto bg-slate-950 px-4 py-4 text-xs leading-6 text-slate-200">
+{submission.source_code || "// Submitted source unavailable"}
+                        </pre>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -3161,4 +3499,3 @@ function StudentsTab({ contestId }: { contestId: string }) {
     </div>
   );
 }
-
