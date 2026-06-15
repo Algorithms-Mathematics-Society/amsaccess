@@ -1349,9 +1349,19 @@ function LeaderboardTab({
 
   useEffect(() => { void loadBoard(); }, [loadBoard]);
 
+  // Suspend the live auto-refresh while the admin is mid-interaction (unsaved
+  // drag reorder or an open delete confirmation), otherwise the 2s poll would
+  // call loadBoard() and clobber the in-progress edit with server data.
+  const suspendRefreshRef = useRef(false);
+  useEffect(() => {
+    suspendRefreshRef.current = orderDirty || deleteConfirm !== null;
+  }, [orderDirty, deleteConfirm]);
+
   useEffect(() => {
     if (contestStatus !== "ACTIVE") return;
-    const timer = setInterval(() => void loadBoard(), 2000);
+    const timer = setInterval(() => {
+      if (!suspendRefreshRef.current) void loadBoard();
+    }, 2000);
     return () => clearInterval(timer);
   }, [contestStatus, loadBoard]);
 
