@@ -38,6 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         allowed_languages: Array.isArray(raw.allowed_languages) ? raw.allowed_languages : [],
         plugin_type: raw.plugin_type == null ? (raw.pluginType == null ? "CP" : String(raw.pluginType)) : String(raw.plugin_type),
         plugin_config: raw.plugin_config == null ? (raw.pluginConfig == null ? null : String(raw.pluginConfig)) : String(raw.plugin_config),
+        results_visible_at: raw.results_visible_at == null ? null : String(raw.results_visible_at),
       },
       questions: Array.isArray(raw.questions) ? raw.questions : [],
       invites: Array.isArray(raw.invites) ? raw.invites : [],

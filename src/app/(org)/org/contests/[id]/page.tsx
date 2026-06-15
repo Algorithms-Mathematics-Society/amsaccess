@@ -7,7 +7,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
   X, Sparkles, Monitor, Play, Square, RefreshCw,
   Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle, Clock,
-  Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle
+  Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle, GripVertical, Lock
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
@@ -19,6 +19,7 @@ type Contest = {
   start_at: string; end_at: string; timezone?: string; status: string; org_id: string;
   scoring_type: string; allowed_languages: string[];
   plugin_type?: string; plugin_config?: string;
+  results_visible_at?: string | null;
 };
 
 type Question = {
@@ -917,7 +918,7 @@ export default function ContestDetailPage() {
           <StudentsTab contestId={id} />
         )}
         {tab === "leaderboard" && contest && (
-          <LeaderboardTab contestId={id} contestStatus={contest.status} />
+          <LeaderboardTab contestId={id} contestStatus={contest.status} contest={contest} />
         )}
         {tab === "live" && (
           <LiveMonitorTab contestId={id} />
@@ -1286,8 +1287,17 @@ function LiveTable<T>({
   );
 }
 
-function LeaderboardTab({ contestId, contestStatus }: { contestId: string; contestStatus: string }) {
+function LeaderboardTab({
+  contestId,
+  contestStatus,
+  contest,
+}: {
+  contestId: string;
+  contestStatus: string;
+  contest: Contest;
+}) {
   const [board, setBoard] = useState<LeaderboardResponse | null>(null);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -1296,12 +1306,24 @@ function LeaderboardTab({ contestId, contestStatus }: { contestId: string; conte
   const [submissionsBusy, setSubmissionsBusy] = useState(false);
   const [submissionsErr, setSubmissionsErr] = useState<string | null>(null);
 
+  // Drag-and-drop state
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [orderDirty, setOrderDirty] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [orderSaved, setOrderSaved] = useState(false);
+
+  // Per-row delete confirmation: null | "confirm1" | "confirm2"
+  const [deleteConfirm, setDeleteConfirm] = useState<{ sessionId: string; step: 1 | 2 } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const loadBoard = useCallback(async () => {
     setBusy(true);
     setErr(null);
     try {
       const data = await apiFetch<LeaderboardResponse>(`/api/org/contests/${contestId}/leaderboard`);
       setBoard(data);
+      setEntries(data.entries);
+      setOrderDirty(false);
       setSelectedSessionId((current) => current ?? data.entries[0]?.session_id ?? null);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Unable to load leaderboard.");
@@ -1325,9 +1347,7 @@ function LeaderboardTab({ contestId, contestStatus }: { contestId: string; conte
     }
   }, [contestId]);
 
-  useEffect(() => {
-    void loadBoard();
-  }, [loadBoard]);
+  useEffect(() => { void loadBoard(); }, [loadBoard]);
 
   useEffect(() => {
     if (contestStatus !== "ACTIVE") return;
@@ -1343,8 +1363,59 @@ function LeaderboardTab({ contestId, contestStatus }: { contestId: string; conte
     return () => clearInterval(timer);
   }, [contestStatus, loadSubmissions, selectedSessionId, showSubmissions]);
 
+  // ── Drag-and-drop handlers ──────────────────────────────────────────────────
+  function onDragStart(index: number) { setDragIndex(index); }
+  function onDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === index) return;
+    setEntries((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIndex, 1);
+      next.splice(index, 0, moved);
+      return next.map((entry, i) => ({ ...entry, rank: i + 1 }));
+    });
+    setDragIndex(index);
+    setOrderDirty(true);
+    setOrderSaved(false);
+  }
+  function onDragEnd() { setDragIndex(null); }
+
+  async function saveOrder() {
+    setSavingOrder(true);
+    try {
+      await apiFetch(`/api/org/contests/${contestId}/leaderboard/order`, {
+        method: "PUT",
+        body: JSON.stringify({ order: entries.map((e) => e.session_id) }),
+      });
+      setOrderDirty(false);
+      setOrderSaved(true);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save order.");
+    } finally {
+      setSavingOrder(false);
+    }
+  }
+
+  // ── Delete from leaderboard ─────────────────────────────────────────────────
+  async function confirmDelete(sessionId: string) {
+    if (!deleteConfirm || deleteConfirm.step !== 2) return;
+    setDeleting(true);
+    try {
+      await apiFetch(
+        `/api/org/contests/${contestId}/leaderboard/sessions/${sessionId}/exclude`,
+        { method: "DELETE" }
+      );
+      setDeleteConfirm(null);
+      await loadBoard();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to remove candidate.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const selectedEntry =
-    board?.entries.find((entry) => entry.session_id === selectedSessionId) ?? board?.entries[0] ?? null;
+    entries.find((entry) => entry.session_id === selectedSessionId) ?? entries[0] ?? null;
 
   return (
     <>
@@ -1354,10 +1425,29 @@ function LeaderboardTab({ contestId, contestStatus }: { contestId: string; conte
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Contest standings</p>
             <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Leaderboard</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Proper rank ordering with live updates as submissions are judged.
+              Drag rows to reorder. Click the trash icon to remove a candidate (hidden from all leaderboard views).
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {orderDirty && (
+              <button
+                type="button"
+                onClick={() => void saveOrder()}
+                disabled={savingOrder}
+                className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+              >
+                {savingOrder ? "Saving…" : orderSaved ? "Saved!" : "Save Order"}
+              </button>
+            )}
+            {orderDirty && (
+              <button
+                type="button"
+                onClick={() => { setEntries(board?.entries ?? []); setOrderDirty(false); setOrderSaved(false); }}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                Reset
+              </button>
+            )}
             <button
               type="button"
               onClick={() => void loadBoard()}
@@ -1367,10 +1457,7 @@ function LeaderboardTab({ contestId, contestStatus }: { contestId: string; conte
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (!selectedEntry) return;
-                setShowSubmissions(true);
-              }}
+              onClick={() => { if (!selectedEntry) return; setShowSubmissions(true); }}
               disabled={!selectedEntry}
               className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-medium text-purple-700 transition hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1379,11 +1466,23 @@ function LeaderboardTab({ contestId, contestStatus }: { contestId: string; conte
           </div>
         </div>
 
+        {/* Results visibility banner */}
+        {contest.results_visible_at && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <Lock className="h-4 w-4 shrink-0 text-amber-500" />
+            <span>
+              Results visible to candidates after{" "}
+              <strong>{new Date(contest.results_visible_at).toLocaleString()}</strong>.
+              Edit in Settings to change.
+            </span>
+          </div>
+        )}
+
         {err ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{err}</div>
         ) : busy && !board ? (
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">Loading leaderboard…</div>
-        ) : !board || board.entries.length === 0 ? (
+        ) : !board || entries.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
             No ranked submissions yet.
           </div>
@@ -1408,9 +1507,10 @@ function LeaderboardTab({ contestId, contestStatus }: { contestId: string; conte
             ) : null}
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[840px] text-left text-sm">
+              <table className="w-full min-w-[920px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.14em] text-slate-400">
+                    <th className="w-6 px-1 py-3" />
                     <th className="px-3 py-3 font-semibold">Rank</th>
                     <th className="px-3 py-3 font-semibold">Candidate</th>
                     <th className="px-3 py-3 font-semibold">Score</th>
@@ -1421,19 +1521,31 @@ function LeaderboardTab({ contestId, contestStatus }: { contestId: string; conte
                         Q{question.order_index + 1}
                       </th>
                     ))}
+                    <th className="px-2 py-3 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {board.entries.map((entry) => {
+                  {entries.map((entry, index) => {
                     const active = entry.session_id === selectedSessionId;
+                    const isConfirming = deleteConfirm?.sessionId === entry.session_id;
                     return (
                       <tr
                         key={entry.session_id}
-                        onClick={() => setSelectedSessionId(entry.session_id)}
+                        draggable
+                        onDragStart={() => onDragStart(index)}
+                        onDragOver={(e) => onDragOver(e, index)}
+                        onDragEnd={onDragEnd}
+                        onClick={() => {
+                          if (!isConfirming) setSelectedSessionId(entry.session_id);
+                        }}
                         className={`cursor-pointer border-b border-slate-100 transition hover:bg-slate-50 ${
                           active ? "bg-purple-50/70" : "bg-white"
-                        }`}
+                        } ${dragIndex === index ? "opacity-50" : ""}`}
                       >
+                        {/* Drag handle */}
+                        <td className="px-1 py-3 text-slate-300">
+                          <GripVertical className="h-4 w-4 cursor-grab active:cursor-grabbing" />
+                        </td>
                         <td className="px-3 py-3 font-semibold text-slate-900">#{entry.rank}</td>
                         <td className="px-3 py-3">
                           <div className="font-medium text-slate-900">{entry.candidate_name}</div>
@@ -1453,6 +1565,56 @@ function LeaderboardTab({ contestId, contestStatus }: { contestId: string; conte
                             </td>
                           );
                         })}
+                        {/* Delete actions */}
+                        <td className="px-2 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          {isConfirming && deleteConfirm.step === 1 ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <span className="text-xs text-slate-600">Remove?</span>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm({ sessionId: entry.session_id, step: 2 })}
+                                className="rounded border border-red-300 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                              >
+                                Yes
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm(null)}
+                                className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : isConfirming && deleteConfirm.step === 2 ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <span className="text-xs font-semibold text-red-700">Confirm remove?</span>
+                              <button
+                                type="button"
+                                disabled={deleting}
+                                onClick={() => void confirmDelete(entry.session_id)}
+                                className="rounded border border-red-400 bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                              >
+                                {deleting ? "…" : "Remove"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm(null)}
+                                className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              title="Remove from leaderboard"
+                              onClick={() => setDeleteConfirm({ sessionId: entry.session_id, step: 1 })}
+                              className="rounded p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -2660,6 +2822,9 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
   const [startAt, setStartAt]       = useState(toDateTimeLocalValue(contest.start_at));
   const [endAt, setEndAt]           = useState(toDateTimeLocalValue(contest.end_at));
   const [timezone, setTimezone]     = useState(contest.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+  const [resultsVisibleAt, setResultsVisibleAt] = useState(
+    contest.results_visible_at ? toDateTimeLocalValue(contest.results_visible_at) : ""
+  );
   const [status, setStatus]         = useState(contest.status);
   const [scoringType, setScoringType] = useState(contest.scoring_type ?? "ICPC");
   const [allowedLangs, setAllowedLangs] = useState<string[]>(contest.allowed_languages ?? ["C++17", "Python3", "Java17"]);
@@ -2679,6 +2844,7 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
     setStartAt(toDateTimeLocalValue(contest.start_at));
     setEndAt(toDateTimeLocalValue(contest.end_at));
     setTimezone(contest.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    setResultsVisibleAt(contest.results_visible_at ? toDateTimeLocalValue(contest.results_visible_at) : "");
     setStatus(contest.status);
     setScoringType(contest.scoring_type ?? "ICPC");
     setAllowedLangs(contest.allowed_languages ?? ["C++17", "Python3", "Java17"]);
@@ -2712,6 +2878,7 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
           start_at: new Date(startAt).toISOString(),
           end_at: new Date(endAt).toISOString(),
           timezone,
+          results_visible_at: resultsVisibleAt ? new Date(resultsVisibleAt).toISOString() : undefined,
           status,
           scoring_type: scoringType,
           allowed_languages: allowedLangs,
@@ -2814,6 +2981,19 @@ function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
             className={fieldClass}
             placeholder="Asia/Kolkata"
           />
+        </div>
+        <div className="mt-4">
+          <label className={labelClass}>Results visible to candidates after</label>
+          <input
+            type="datetime-local"
+            value={resultsVisibleAt}
+            onChange={(e) => setResultsVisibleAt(e.target.value)}
+            className={fieldClass}
+            style={{ colorScheme: "light" }}
+          />
+          <p className="mt-1 text-xs text-slate-400">
+            Defaults to end time + 48 h. Candidates see the full leaderboard and their own breakdown only after this time.
+          </p>
         </div>
       </div>
 
