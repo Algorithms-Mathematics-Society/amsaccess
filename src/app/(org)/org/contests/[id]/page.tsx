@@ -495,16 +495,27 @@ export default function ContestDetailPage() {
   // Compute auto-stop visibility + idle reminder.
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [showIdleNudge, setShowIdleNudge] = useState(false);
+  const [showComputeHelp, setShowComputeHelp] = useState(false);
+  // Two-state guard so Stop Compute can't tear down the fleet mid-contest by accident.
+  const [confirmStop, setConfirmStop] = useState(false);
   const lastActivityRef = useRef(Date.now());
   const idleSnoozeUntilRef = useRef(0);
   const expiryRefreshedRef = useRef<string | null>(null);
 
-  async function controlJudge(action: "start" | "stop") {
+  async function controlJudge(action: "start" | "stop", opts?: { force?: boolean }) {
     setJudgeBusy(true);
     setJudgeError(null);
     try {
-      const data = await apiFetch<JudgeCapacity>(`/api/org/judge-capacity/${action}`, { method: "POST" });
+      // Start: tell the judge which contest this is for, so the auto-stop timer
+      // covers the contest. Stop: pass force after the operator confirms.
+      const payload =
+        action === "start" ? { contest_id: id } : { force: opts?.force ?? false };
+      const data = await apiFetch<JudgeCapacity>(`/api/org/judge-capacity/${action}`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
       setJudge(data);
+      setConfirmStop(false);
       if (action === "start") {
         // Reset the idle clock so the 30-min reminder counts from when compute
         // actually came up, not from page load.
@@ -512,10 +523,27 @@ export default function ContestDetailPage() {
         idleSnoozeUntilRef.current = 0;
       }
     } catch (e) {
-      setJudgeError(e instanceof Error ? e.message : `Unable to ${action} judge capacity.`);
+      const code = (e as { code?: string })?.code;
+      if (action === "stop" && code === "CONTEST_ACTIVE" && !opts?.force) {
+        // Live contest — surface a confirm affordance instead of a hard failure.
+        setConfirmStop(true);
+        setJudgeError("A contest is live — stopping compute will fail in-progress submissions.");
+      } else {
+        setJudgeError(e instanceof Error ? e.message : `Unable to ${action} judge capacity.`);
+      }
     } finally {
       setJudgeBusy(false);
     }
+  }
+
+  // Stop click: when a contest is live, require an explicit second confirm before forcing.
+  function handleStopCompute() {
+    if (contest?.status === "ACTIVE" && !confirmStop) {
+      setConfirmStop(true);
+      setJudgeError("A contest is live — stopping compute will fail in-progress submissions.");
+      return;
+    }
+    void controlJudge("stop", { force: confirmStop });
   }
 
   // Tick once a minute while a manual override is in effect so the "auto-stops
@@ -647,14 +675,23 @@ export default function ContestDetailPage() {
                     {judge ? judgeLabel : "Unknown"}
                   </span>
                 </div>
-                <button
-                  onClick={() => void loadJudge()}
-                  disabled={judgeBusy}
-                  title="Refresh judge status"
-                  className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${judgeBusy ? "animate-spin" : ""}`} />
-                </button>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => setShowComputeHelp(true)}
+                    title="When to start & stop compute"
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => void loadJudge()}
+                    disabled={judgeBusy}
+                    title="Refresh judge status"
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${judgeBusy ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
               </div>
               {judge && (
                 <p className="mt-1 text-[11px] text-slate-500">
@@ -694,12 +731,13 @@ export default function ContestDetailPage() {
                 )}
                 {judgePhase === "ready" && (
                   <button
-                    onClick={() => void controlJudge("stop")}
+                    onClick={handleStopCompute}
                     disabled={judgeBusy}
+                    title={confirmStop ? "Stopping will fail any in-progress submissions" : undefined}
                     className="ams-btn ams-btn-danger ams-btn-sm flex-1 justify-center"
                   >
                     <Square className="h-3.5 w-3.5" />
-                    Stop Compute
+                    {confirmStop ? "Stop anyway?" : "Stop Compute"}
                   </button>
                 )}
                 {(judgePhase === "starting" || judgePhase === "stopping") && (
@@ -756,6 +794,69 @@ export default function ContestDetailPage() {
                   >
                     Dismiss
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {showComputeHelp ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-6 backdrop-blur-sm"
+            onClick={() => setShowComputeHelp(false)}
+          >
+            <div
+              className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <Cpu className="h-4 w-4 text-purple-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Using compute efficiently</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Compute runs the judge that grades submissions — it bills only while running.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowComputeHelp(false)}
+                  className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-4 overflow-y-auto p-5 text-sm text-slate-600">
+                <div>
+                  <p className="flex items-center gap-1.5 font-semibold text-slate-900">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    Testing questions (jury validation)
+                  </p>
+                  <p className="mt-1 text-[13px] leading-relaxed">
+                    <span className="font-medium text-slate-700">Start Compute</span> before you run
+                    validation on your questions, validate, then <span className="font-medium text-slate-700">Stop Compute</span> as
+                    soon as you&apos;re done. Idle compute keeps billing, so stopping promptly is the
+                    biggest cost saver. If you forget, an ad-hoc session auto-stops on its own after a
+                    short safety window.
+                  </p>
+                </div>
+                <div>
+                  <p className="flex items-center gap-1.5 font-semibold text-slate-900">
+                    <Activity className="h-3.5 w-3.5 text-purple-500" />
+                    Running a contest
+                  </p>
+                  <p className="mt-1 text-[13px] leading-relaxed">
+                    <span className="font-medium text-slate-700">Start Compute about 1 hour before</span> the
+                    contest begins so the judge is warm and ready. Leave it running for the whole
+                    contest (e.g. ~3 hours). When you start it for a scheduled contest, the auto-stop
+                    timer is set to a little after the contest&apos;s end — but it&apos;s best to
+                    <span className="font-medium text-slate-700"> Stop Compute</span> yourself once it
+                    finishes.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
+                  <span className="font-semibold">Heads up:</span> Stop Compute is blocked while a
+                  contest is live (it would fail in-progress submissions). You can still force it if
+                  you&apos;re sure. The card shows running instances, mode, and the auto-stop countdown.
                 </div>
               </div>
             </div>

@@ -15,9 +15,12 @@ export async function POST(request: NextRequest) {
     }
     const auth = await requireOrgUser();
     if (auth.error || !auth.uid) return apiError(auth.error ?? "Sign in required.", auth.status ?? 401, "UNAUTHORIZED");
+    // Forward the optional body (force) so the operator can override the
+    // live-contest stop guard after confirming.
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     let res;
     try {
-      res = await callGoApi("POST", "/org/judge-capacity/stop", {}, auth.uid);
+      res = await callGoApi("POST", "/org/judge-capacity/stop", body, auth.uid);
     } catch {
       return apiError("Judge capacity service unavailable.", 503, "SERVER_ERROR");
     }
