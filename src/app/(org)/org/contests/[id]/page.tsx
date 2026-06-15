@@ -7,7 +7,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
   X, Sparkles, Monitor, Play, Square, RefreshCw,
   Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle, Clock,
-  Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle, GripVertical, Lock
+  Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle, GripVertical, Lock, LifeBuoy
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
@@ -41,7 +41,7 @@ type Invite = {
   id: string; email: string; status: string; created_at: string;
 };
 
-type Tab = "questions" | "invites" | "students" | "leaderboard" | "live" | "settings";
+type Tab = "questions" | "invites" | "students" | "leaderboard" | "live" | "incidents" | "settings";
 
 type ContestDetailResponse = {
   contest: Contest;
@@ -867,13 +867,14 @@ export default function ContestDetailPage() {
         <LaunchChecklistPanel items={launchChecklist} state={launchState} />
 
         {/* Tabs */}
-        <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid-cols-6">
+        <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid-cols-7">
           {([
             ["questions", "Questions", questions.length, Code2],
             ["invites", "Invites", invites.length, Mail],
             ["students", "Students", null, Users],
             ["leaderboard", "Leaderboard", null, BarChart2],
             ["live", "Live", null, Activity],
+            ["incidents", "Incidents", null, LifeBuoy],
             ["settings", "Settings", null, Settings],
           ] as const).map(([key, label, count, Icon]) => (
             <button
@@ -923,6 +924,9 @@ export default function ContestDetailPage() {
         {tab === "live" && (
           <LiveMonitorTab contestId={id} />
         )}
+        {tab === "incidents" && (
+          <IncidentsTab contestId={id} />
+        )}
         {tab === "settings" && (
           <SettingsTab
             contest={contest}
@@ -933,6 +937,172 @@ export default function ContestDetailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+type SupportIncident = {
+  id: string;
+  contest_id: string | null;
+  session_id: string | null;
+  candidate_email: string;
+  kind: string;
+  summary: string;
+  details: Record<string, unknown> | null;
+  status: "OPEN" | "RESOLVED";
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+};
+
+const INCIDENT_KIND_LABEL: Record<string, string> = {
+  LOGIN: "Sign-in",
+  READINESS: "Device readiness",
+  POLICY_BLOCK: "Entry blocked",
+  DISCONNECT: "Disconnect / rejoin",
+  OTHER: "Other",
+};
+
+function IncidentsTab({ contestId }: { contestId: string }) {
+  const [items, setItems] = useState<SupportIncident[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [resolving, setResolving] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const data = await apiFetch<{ items: SupportIncident[] }>(
+        `/api/org/contests/${contestId}/incidents`
+      );
+      setItems(data.items ?? []);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Unable to load incidents.");
+    } finally {
+      setBusy(false);
+    }
+  }, [contestId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function resolve(id: string) {
+    setResolving(id);
+    try {
+      await apiFetch(`/api/org/contests/${contestId}/incidents/${id}/resolve`, { method: "POST" });
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Unable to resolve incident.");
+    } finally {
+      setResolving(null);
+    }
+  }
+
+  const openCount = items.filter((i) => i.status === "OPEN").length;
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+            Candidate help requests
+          </p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">
+            Incidents
+            {openCount > 0 && (
+              <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                {openCount} open
+              </span>
+            )}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Raised by candidates from the login, device-check, and rejoin screens.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {err ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{err}</div>
+      ) : busy && items.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+          Loading incidents…
+        </div>
+      ) : items.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+          No help requests. Candidates who get stuck will appear here.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {items.map((incident) => {
+            const isOpen = incident.status === "OPEN";
+            const isExpanded = expanded === incident.id;
+            return (
+              <div
+                key={incident.id}
+                className={`rounded-xl border ${isOpen ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"}`}
+              >
+                <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold ${
+                          isOpen
+                            ? "border-red-200 bg-red-50 text-red-700"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        {isOpen ? "Open" : "Resolved"}
+                      </span>
+                      <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                        {INCIDENT_KIND_LABEL[incident.kind] ?? incident.kind}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {new Date(incident.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-sm font-medium text-slate-900">{incident.summary}</p>
+                    <p className="text-xs text-slate-500">{incident.candidate_email}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(isExpanded ? null : incident.id)}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300"
+                    >
+                      {isExpanded ? "Hide details" : "Details"}
+                    </button>
+                    {isOpen && (
+                      <button
+                        type="button"
+                        disabled={resolving === incident.id}
+                        onClick={() => void resolve(incident.id)}
+                        className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+                      >
+                        {resolving === incident.id ? "…" : "Mark resolved"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {isExpanded && (
+                  <pre className="overflow-x-auto border-t border-slate-200 bg-slate-950 px-4 py-3 text-xs leading-5 text-slate-200">
+{JSON.stringify(incident.details ?? {}, null, 2)}
+                  </pre>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
