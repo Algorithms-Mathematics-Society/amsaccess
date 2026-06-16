@@ -14,6 +14,7 @@ import { apiFetch } from "@/lib/client/apiClient";
 import { extractMath } from "@/lib/katex-render";
 import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
 import MarkovEditor, { type MarkovChain, normalizeChain } from "@/components/MarkovEditor";
+import { Modal } from "@/components/Modal";
 
 // ─── Types ───────────────────────────────────────────────────
 type Contest = {
@@ -822,27 +823,26 @@ export default function ContestDetailPage() {
           </div>
         ) : null}
 
-        {showComputeHelp ? (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-6 backdrop-blur-sm"
-            onClick={() => setShowComputeHelp(false)}
-          >
-            <div
-              className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
+        <Modal
+          open={showComputeHelp}
+          onClose={() => setShowComputeHelp(false)}
+          labelledBy="compute-help-title"
+          describedBy="compute-help-desc"
+          cardClassName="max-w-lg"
+        >
               <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
                 <div className="flex items-center gap-2">
                   <Cpu className="h-4 w-4 text-purple-600" />
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Using compute efficiently</p>
-                    <p className="mt-0.5 text-xs text-slate-500">Compute runs the judge that grades submissions — it bills only while running.</p>
+                    <p id="compute-help-title" className="text-sm font-semibold text-slate-900">Using compute efficiently</p>
+                    <p id="compute-help-desc" className="mt-0.5 text-xs text-slate-500">Compute runs the judge that grades submissions — it bills only while running.</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowComputeHelp(false)}
-                  className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                  aria-label="Close"
+                  className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -881,9 +881,7 @@ export default function ContestDetailPage() {
                   you&apos;re sure. The card shows running instances, mode, and the auto-stop countdown.
                 </div>
               </div>
-            </div>
-          </div>
-        ) : null}
+        </Modal>
 
         <LaunchChecklistPanel items={launchChecklist} state={launchState} />
 
@@ -1535,6 +1533,11 @@ function LeaderboardTab({
   const [deleteConfirm, setDeleteConfirm] = useState<{ sessionId: string; step: 1 | 2 } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Client-side filter by candidate name / email. While a filter is active,
+  // drag-reorder is disabled (the rendered subset would corrupt index-based
+  // reordering); the hint and the off-state make that explicit.
+  const [query, setQuery] = useState("");
+
   const loadBoard = useCallback(async () => {
     setBusy(true);
     setErr(null);
@@ -1646,6 +1649,52 @@ function LeaderboardTab({
   const selectedEntry =
     entries.find((entry) => entry.session_id === selectedSessionId) ?? entries[0] ?? null;
 
+  const trimmedQuery = query.trim().toLowerCase();
+  const filtering = trimmedQuery.length > 0;
+  const visibleEntries = filtering
+    ? entries.filter(
+        (entry) =>
+          entry.candidate_name.toLowerCase().includes(trimmedQuery) ||
+          entry.candidate_email.toLowerCase().includes(trimmedQuery)
+      )
+    : entries;
+
+  // Build a CSV from the full board (not the filtered view) and trigger a
+  // client-side download. Fields are quote-escaped so commas/quotes in names
+  // can't break columns.
+  function exportCsv() {
+    if (!board) return;
+    const esc = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const header = [
+      "Rank",
+      "Candidate",
+      "Email",
+      "Score",
+      "Solved",
+      "Penalty (seconds)",
+      ...board.questions.map((q) => `Q${q.order_index + 1}`),
+    ];
+    const rows = entries.map((entry) => [
+      entry.rank,
+      entry.candidate_name,
+      entry.candidate_email,
+      entry.total_score,
+      entry.solved_count,
+      entry.penalty_seconds,
+      ...board.questions.map((q) => entry.problems.find((p) => p.question_id === q.id)?.verdict ?? "UNATTEMPTED"),
+    ]);
+    const csv = [header, ...rows].map((row) => row.map(esc).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `leaderboard-${contestId}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1688,15 +1737,24 @@ function LeaderboardTab({
             <button
               type="button"
               onClick={() => void loadBoard()}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
             >
               Refresh
             </button>
             <button
               type="button"
+              onClick={exportCsv}
+              disabled={!board || entries.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+            >
+              <Upload className="h-3.5 w-3.5 rotate-180" />
+              Export CSV
+            </button>
+            <button
+              type="button"
               onClick={() => { if (!selectedEntry) return; setShowSubmissions(true); }}
               disabled={!selectedEntry}
-              className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-medium text-purple-700 transition hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-medium text-purple-700 transition hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
             >
               View Submissions
             </button>
@@ -1750,6 +1808,40 @@ function LeaderboardTab({
               </div>
             ) : null}
 
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-xs">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Filter by name or email"
+                  aria-label="Filter candidates by name or email"
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-8 text-sm text-slate-900 placeholder:text-slate-400 focus:border-purple-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    aria-label="Clear filter"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 transition hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {filtering && (
+                <p className="text-xs text-slate-400">
+                  {visibleEntries.length} of {entries.length} shown · reordering paused while filtering
+                </p>
+              )}
+            </div>
+
+            {filtering && visibleEntries.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                No candidates match &ldquo;{query.trim()}&rdquo;.
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[920px] text-left text-sm">
                 <thead>
@@ -1769,13 +1861,13 @@ function LeaderboardTab({
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry, index) => {
+                  {visibleEntries.map((entry, index) => {
                     const active = entry.session_id === selectedSessionId;
                     const isConfirming = deleteConfirm?.sessionId === entry.session_id;
                     return (
                       <tr
                         key={entry.session_id}
-                        draggable
+                        draggable={!filtering}
                         onDragStart={() => onDragStart(index)}
                         onDragOver={(e) => onDragOver(e, index)}
                         onDragEnd={onDragEnd}
@@ -1795,15 +1887,17 @@ function LeaderboardTab({
                           active ? "bg-purple-50/70" : "bg-white"
                         } ${dragIndex === index ? "opacity-50" : ""}`}
                       >
-                        {/* Drag handle — appears on row hover, full-cell grab target */}
+                        {/* Drag handle — appears on row hover, full-cell grab target. Hidden while filtering (reordering is paused). */}
                         <td className="px-1 py-3">
-                          <span
-                            className="flex h-7 w-6 items-center justify-center rounded text-slate-300 opacity-0 transition cursor-grab hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100"
-                            title="Drag to reorder"
-                            aria-hidden="true"
-                          >
-                            <GripVertical className="h-4 w-4" />
-                          </span>
+                          {!filtering && (
+                            <span
+                              className="flex h-7 w-6 items-center justify-center rounded text-slate-300 opacity-0 transition cursor-grab hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100"
+                              title="Drag to reorder"
+                              aria-hidden="true"
+                            >
+                              <GripVertical className="h-4 w-4" />
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-3 font-semibold text-slate-900">#{entry.rank}</td>
                         <td className="px-3 py-3">
@@ -1887,26 +1981,33 @@ function LeaderboardTab({
                 </tbody>
               </table>
             </div>
+            )}
           </>
         )}
       </section>
 
-      {showSubmissions && selectedEntry ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-6 backdrop-blur-sm">
-          <div className="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+      {selectedEntry ? (
+        <Modal
+          open={showSubmissions}
+          onClose={() => setShowSubmissions(false)}
+          labelledBy="submission-history-title"
+          describedBy="submission-history-desc"
+          cardClassName="max-w-5xl"
+        >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
-                <p className="text-sm font-semibold text-slate-900">
+                <p id="submission-history-title" className="text-sm font-semibold text-slate-900">
                   {selectedEntry.candidate_name} · Submission history
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p id="submission-history-desc" className="mt-1 text-xs text-slate-500">
                   Historical solutions with verdicts across all questions.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowSubmissions(false)}
-                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                aria-label="Close"
+                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1958,8 +2059,7 @@ function LeaderboardTab({
                 </div>
               )}
             </div>
-          </div>
-        </div>
+        </Modal>
       ) : null}
     </>
   );
