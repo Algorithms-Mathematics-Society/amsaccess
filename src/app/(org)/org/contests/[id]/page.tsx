@@ -7,7 +7,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
   X, Sparkles, Monitor, Play, Square, RefreshCw,
   Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle, Clock,
-  Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle, GripVertical, Lock, LifeBuoy,
+  Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle, GripVertical, Lock,
   MessageSquare, ListChecks, Share2, ChevronDown
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
@@ -44,7 +44,7 @@ type Invite = {
   id: string; email: string; status: string; created_at: string;
 };
 
-type Tab = "questions" | "invites" | "students" | "leaderboard" | "live" | "incidents" | "settings";
+type Tab = "questions" | "participants" | "leaderboard" | "monitor" | "settings";
 
 type ContestDetailResponse = {
   contest: Contest;
@@ -517,6 +517,8 @@ export default function ContestDetailPage() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [showIdleNudge, setShowIdleNudge] = useState(false);
   const [showComputeHelp, setShowComputeHelp] = useState(false);
+  // Compute panel is collapsed to a quiet status row by default; expand for controls.
+  const [computeExpanded, setComputeExpanded] = useState(false);
   // Two-state guard so Stop Compute can't tear down the fleet mid-contest by accident.
   const [confirmStop, setConfirmStop] = useState(false);
   const lastActivityRef = useRef(Date.now());
@@ -661,17 +663,17 @@ export default function ContestDetailPage() {
   return (
     <div className="light min-h-screen bg-slate-50 text-slate-900 selection:bg-purple-200 selection:text-purple-900" style={{ fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
       <div id="contest-page-container" className="relative mx-auto max-w-5xl px-6 py-8">
-        {/* Back */}
+        {/* Back — slim breadcrumb leading the header band */}
         <Link
           href="/org/dashboard"
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-950"
+          className="mb-3 inline-flex items-center gap-1.5 rounded text-xs font-medium text-slate-400 transition hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           Dashboard
         </Link>
 
-        {/* Contest header */}
-        <div className="mb-6 flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-start">
+        {/* Contest header — a page header on the background, not a boxed card */}
+        <div className="mb-6 flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{contest.title}</h1>
@@ -688,20 +690,31 @@ export default function ContestDetailPage() {
           </div>
           <div className="flex flex-col items-start gap-2 lg:items-end">
             {/* Judge status card */}
-            <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 lg:w-auto lg:min-w-[240px]">
+            <div className="w-full rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:w-auto lg:min-w-[240px]">
+              {/* Status row — click to expand controls */}
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setComputeExpanded((v) => !v)}
+                  aria-expanded={computeExpanded}
+                  className="flex min-w-0 items-center gap-2 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                >
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${judgeDotClass} ${judgePhase === "starting" || judgePhase === "ready" ? "animate-pulse" : ""}`} />
                   <span className="text-sm font-semibold text-slate-900">
                     {judge ? judgeLabel : "Unknown"}
                   </span>
-                </div>
+                  {judge && (
+                    <span className="truncate text-[11px] text-slate-400">
+                      · {judge.running_instances ?? 0}/{judge.total_instances ?? 0} · {judge.mode ?? "AUTO"}
+                    </span>
+                  )}
+                </button>
                 <div className="flex items-center gap-0.5">
                   <button
                     onClick={() => setShowComputeHelp(true)}
                     title="When to start & stop compute"
                     aria-label="When to start and stop compute"
-                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                   >
                     <HelpCircle className="h-3.5 w-3.5" />
                   </button>
@@ -710,26 +723,28 @@ export default function ContestDetailPage() {
                     disabled={judgeBusy}
                     title="Refresh judge status"
                     aria-label="Refresh judge status"
-                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${judgeBusy ? "animate-spin" : ""}`} />
                   </button>
+                  <button
+                    onClick={() => setComputeExpanded((v) => !v)}
+                    aria-expanded={computeExpanded}
+                    aria-label={computeExpanded ? "Collapse compute controls" : "Expand compute controls"}
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                  >
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${computeExpanded ? "rotate-180" : ""}`} />
+                  </button>
                 </div>
               </div>
-              {judge && (
-                <p className="mt-1 text-[11px] text-slate-500">
-                  <Cpu className="mb-0.5 mr-1 inline h-3 w-3" />
-                  {judge.running_instances ?? 0} / {judge.total_instances ?? 0} instances · target {judge.target_size} · <span className="font-medium text-slate-700">{judge.mode ?? "AUTO"}</span>
-                </p>
-              )}
-              {/* AUTO mode billing warning */}
+
+              {/* Cost signals — always visible so a billing risk is never hidden by collapse */}
               {judge?.mode === "AUTO" && (judge.running_instances ?? 0) > 0 && (
                 <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1">
                   <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
                   <span className="text-[10px] font-medium text-amber-700">AUTO mode — instances may be billing</span>
                 </div>
               )}
-              {/* MANUAL_ON countdown */}
               {judge?.mode === "MANUAL_ON" && judge.manual_until && (
                 <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1">
                   <Clock className="h-3 w-3 shrink-0 text-amber-500" />
@@ -740,46 +755,57 @@ export default function ContestDetailPage() {
                   </span>
                 </div>
               )}
-              {/* Contextual action buttons */}
-              <div className="mt-2.5 flex items-center gap-1.5">
-                {(judgePhase === "stopped" || judgePhase === "unknown") && (
-                  <button
-                    onClick={() => void controlJudge("start")}
-                    disabled={judgeBusy}
-                    className="ams-btn ams-btn-success ams-btn-sm flex-1 justify-center"
-                  >
-                    <Play className="h-3.5 w-3.5" />
-                    Start Compute
-                  </button>
-                )}
-                {judgePhase === "ready" && (
-                  <button
-                    onClick={handleStopCompute}
-                    disabled={judgeBusy}
-                    title={confirmStop ? "Stopping will fail any in-progress submissions" : undefined}
-                    className="ams-btn ams-btn-danger ams-btn-sm flex-1 justify-center"
-                  >
-                    <Square className="h-3.5 w-3.5" />
-                    {confirmStop ? "Stop anyway?" : "Stop Compute"}
-                  </button>
-                )}
-                {(judgePhase === "starting" || judgePhase === "stopping") && (
-                  <div className="flex w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-500">
-                    <RefreshCw className="h-3 w-3 animate-spin text-purple-500" />
-                    {judgePhase === "starting" ? "Starting…" : "Stopping…"}
+
+              {/* Details + controls — on demand; auto-shown while a start/stop is in flight */}
+              {(computeExpanded || judgePhase === "starting" || judgePhase === "stopping") && (
+                <>
+                  {judge && (
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      <Cpu className="mb-0.5 mr-1 inline h-3 w-3" />
+                      {judge.running_instances ?? 0} / {judge.total_instances ?? 0} instances · target {judge.target_size} · <span className="font-medium text-slate-700">{judge.mode ?? "AUTO"}</span>
+                    </p>
+                  )}
+                  <div className="mt-2.5 flex items-center gap-1.5">
+                    {(judgePhase === "stopped" || judgePhase === "unknown") && (
+                      <button
+                        onClick={() => void controlJudge("start")}
+                        disabled={judgeBusy}
+                        className="ams-btn ams-btn-success ams-btn-sm flex-1 justify-center"
+                      >
+                        <Play className="h-3.5 w-3.5" />
+                        Start Compute
+                      </button>
+                    )}
+                    {judgePhase === "ready" && (
+                      <button
+                        onClick={handleStopCompute}
+                        disabled={judgeBusy}
+                        title={confirmStop ? "Stopping will fail any in-progress submissions" : undefined}
+                        className="ams-btn ams-btn-danger ams-btn-sm flex-1 justify-center"
+                      >
+                        <Square className="h-3.5 w-3.5" />
+                        {confirmStop ? "Stop anyway?" : "Stop Compute"}
+                      </button>
+                    )}
+                    {(judgePhase === "starting" || judgePhase === "stopping") && (
+                      <div className="flex w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-500">
+                        <RefreshCw className="h-3 w-3 animate-spin text-purple-500" />
+                        {judgePhase === "starting" ? "Starting…" : "Stopping…"}
+                      </div>
+                    )}
+                    {judgePhase === "ready" && (
+                      <button
+                        onClick={() => void controlJudge("start")}
+                        disabled={judgeBusy}
+                        title="Restart compute"
+                        className="ams-btn ams-btn-secondary ams-btn-sm"
+                      >
+                        <Play className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
-                )}
-                {judgePhase === "ready" && (
-                  <button
-                    onClick={() => void controlJudge("start")}
-                    disabled={judgeBusy}
-                    title="Restart compute"
-                    className="ams-btn ams-btn-secondary ams-btn-sm"
-                  >
-                    <Play className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
+                </>
+              )}
             </div>
             {judgeError ? <p className="text-[11px] text-red-600">{judgeError}</p> : null}
           </div>
@@ -885,15 +911,13 @@ export default function ContestDetailPage() {
 
         <LaunchChecklistPanel items={launchChecklist} state={launchState} />
 
-        {/* Tabs — horizontally scrollable on narrow screens, 7-up grid from sm */}
-        <div className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid sm:grid-cols-7 sm:overflow-visible">
+        {/* Tabs — horizontally scrollable on narrow screens, 5-up grid from sm */}
+        <div className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid sm:grid-cols-5 sm:overflow-visible">
           {([
             ["questions", "Questions", questions.length, Code2],
-            ["invites", "Invites", invites.length, Mail],
-            ["students", "Students", null, Users],
+            ["participants", "Participants", invites.length, Users],
             ["leaderboard", "Leaderboard", null, BarChart2],
-            ["live", "Live", null, Activity],
-            ["incidents", "Incidents", null, LifeBuoy],
+            ["monitor", "Monitor", null, Activity],
             ["settings", "Settings", null, Settings],
           ] as const).map(([key, label, count, Icon]) => (
             <button
@@ -915,8 +939,8 @@ export default function ContestDetailPage() {
                   {count}
                 </span>
               )}
-              {key === "incidents" && incidentsOpenCount > 0 && (
-                <span className="rounded-full bg-red-100 px-1.5 text-xs font-semibold text-red-700" title={`${incidentsOpenCount} open`}>
+              {key === "monitor" && incidentsOpenCount > 0 && (
+                <span className="rounded-full bg-red-100 px-1.5 text-xs font-semibold text-red-700" title={`${incidentsOpenCount} open incident${incidentsOpenCount === 1 ? "" : "s"}`}>
                   {incidentsOpenCount}
                 </span>
               )}
@@ -933,24 +957,18 @@ export default function ContestDetailPage() {
             onRefresh={load}
           />
         )}
-        {tab === "invites" && (
-          <InvitesTab
+        {tab === "participants" && (
+          <ParticipantsTab
             contestId={id}
             invites={invites}
             onRefresh={load}
           />
         )}
-        {tab === "students" && (
-          <StudentsTab contestId={id} />
-        )}
         {tab === "leaderboard" && contest && (
           <LeaderboardTab contestId={id} contestStatus={contest.status} contest={contest} onGoToSettings={() => setTab("settings")} />
         )}
-        {tab === "live" && (
-          <LiveMonitorTab contestId={id} />
-        )}
-        {tab === "incidents" && (
-          <IncidentsTab contestId={id} />
+        {tab === "monitor" && (
+          <MonitorTab contestId={id} openIncidentCount={incidentsOpenCount} />
         )}
         {tab === "settings" && (
           <SettingsTab
@@ -2932,6 +2950,101 @@ type SessionCode = {
   is_active: boolean;
   created_at: string;
 };
+
+// ─── Sub-tab navigation ──────────────────────────────────────
+// Segmented control used to host two related panels under one primary tab
+// (Participants = Invited/Students, Monitor = Activity/Incidents). Keeps the
+// primary tab bar short without losing any destination.
+function SegmentedNav<T extends string>({
+  items,
+  value,
+  onChange,
+}: {
+  items: { key: T; label: string; badge?: number; badgeTone?: "neutral" | "alert" }[];
+  value: T;
+  onChange: (key: T) => void;
+}) {
+  return (
+    <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+      {items.map((it) => {
+        const active = value === it.key;
+        const showBadge = it.badge !== undefined && it.badge > 0;
+        return (
+          <button
+            key={it.key}
+            type="button"
+            onClick={() => onChange(it.key)}
+            aria-current={active ? "page" : undefined}
+            className={`flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+              active
+                ? "border border-purple-200 bg-purple-50 text-purple-700"
+                : "border border-transparent text-slate-500 hover:bg-white hover:text-slate-900"
+            }`}
+          >
+            {it.label}
+            {showBadge && (
+              <span
+                className={`rounded-full px-1.5 text-xs font-semibold ${
+                  it.badgeTone === "alert"
+                    ? "bg-red-100 text-red-700"
+                    : active
+                    ? "bg-purple-100 text-purple-700"
+                    : "bg-slate-200 text-slate-600"
+                }`}
+              >
+                {it.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Participants = the people taking the contest. Invited list + enrolled students.
+function ParticipantsTab({ contestId, invites, onRefresh }: {
+  contestId: string; invites: Invite[]; onRefresh: () => void;
+}) {
+  const [sub, setSub] = useState<"invited" | "students">("invited");
+  return (
+    <div>
+      <SegmentedNav
+        items={[
+          { key: "invited", label: "Invited", badge: invites.length },
+          { key: "students", label: "Students" },
+        ]}
+        value={sub}
+        onChange={setSub}
+      />
+      {sub === "invited"
+        ? <InvitesTab contestId={contestId} invites={invites} onRefresh={onRefresh} />
+        : <StudentsTab contestId={contestId} />}
+    </div>
+  );
+}
+
+// Monitor = watching the contest run. Live activity + candidate help requests.
+function MonitorTab({ contestId, openIncidentCount }: {
+  contestId: string; openIncidentCount: number;
+}) {
+  const [sub, setSub] = useState<"activity" | "incidents">("activity");
+  return (
+    <div>
+      <SegmentedNav
+        items={[
+          { key: "activity", label: "Activity" },
+          { key: "incidents", label: "Incidents", badge: openIncidentCount, badgeTone: "alert" },
+        ]}
+        value={sub}
+        onChange={setSub}
+      />
+      {sub === "activity"
+        ? <LiveMonitorTab contestId={contestId} />
+        : <IncidentsTab contestId={contestId} />}
+    </div>
+  );
+}
 
 function InvitesTab({ contestId, invites, onRefresh }: {
   contestId: string; invites: Invite[]; onRefresh: () => void;

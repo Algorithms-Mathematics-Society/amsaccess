@@ -86,7 +86,7 @@ export default function OrgDashboardPage() {
             { label: "Scheduled", value: stats.scheduled },
             { label: "Total Invites", value: stats.invites },
           ].map(({ label, value }) => (
-            <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-purple-200 hover:shadow-md">
+            <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-medium text-slate-500">{label}</p>
               <p className="mt-4 text-3xl font-semibold tracking-tight text-slate-950">
                 {loading ? "-" : value}

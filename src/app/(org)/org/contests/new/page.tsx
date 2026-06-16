@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar } from "lucide-react";
+import { Calendar, ChevronDown } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import { OrgPortalShell } from "@/components/OrgPortalShell";
 
@@ -17,6 +17,7 @@ export default function NewContestPage() {
   const [timezone] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -128,53 +129,74 @@ export default function NewContestPage() {
             </Field>
 
             {pluginType === "CP" ? (
-              <>
-                <Field label="Scoring type">
-                  <div className="flex gap-3">
-                    {(["IOI", "ICPC", "CF"] as const).map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setScoringType(s)}
-                        className={`rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
-                          scoringType === s
-                            ? "bg-purple-50 border border-purple-200 text-purple-700"
-                            : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
+              <div className="rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced((v) => !v)}
+                  aria-expanded={showAdvanced}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-slate-700">Advanced options</span>
+                    {!showAdvanced && (
+                      <span className="mt-0.5 block truncate text-xs text-slate-400">
+                        {scoringType} · {allowedLanguages.join(", ") || "no languages selected"}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+                </button>
 
-                <Field label="Allowed languages">
-                  <div className="flex flex-wrap gap-2">
-                    {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
-                      const active = allowedLanguages.includes(lang);
-                      return (
-                        <button
-                          key={lang}
-                          type="button"
-                          onClick={() =>
-                            setAllowedLanguages(
-                              active ? allowedLanguages.filter((l) => l !== lang) : [...allowedLanguages, lang]
-                            )
-                          }
-                          aria-pressed={active}
-                          className={`rounded-md px-3 py-1 text-xs font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
-                            active
-                              ? "bg-purple-50 border border-purple-200 text-purple-700"
-                              : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
-                          }`}
-                        >
-                          {lang}
-                        </button>
-                      );
-                    })}
+                {showAdvanced && (
+                  <div className="space-y-5 border-t border-slate-200 px-4 py-4">
+                    <Field label="Scoring type">
+                      <div className="flex gap-3">
+                        {(["IOI", "ICPC", "CF"] as const).map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setScoringType(s)}
+                            className={`rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+                              scoringType === s
+                                ? "bg-purple-50 border border-purple-200 text-purple-700"
+                                : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </Field>
+
+                    <Field label="Allowed languages">
+                      <div className="flex flex-wrap gap-2">
+                        {(["C++17", "Python3", "Java17", "Go", "Rust"] as const).map((lang) => {
+                          const active = allowedLanguages.includes(lang);
+                          return (
+                            <button
+                              key={lang}
+                              type="button"
+                              onClick={() =>
+                                setAllowedLanguages(
+                                  active ? allowedLanguages.filter((l) => l !== lang) : [...allowedLanguages, lang]
+                                )
+                              }
+                              aria-pressed={active}
+                              className={`rounded-md px-3 py-1 text-xs font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+                                active
+                                  ? "bg-purple-50 border border-purple-200 text-purple-700"
+                                  : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+                              }`}
+                            >
+                              {lang}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Field>
                   </div>
-                </Field>
-              </>
+                )}
+              </div>
             ) : (
               <Field label="Plugin config (JSON)" hint="Used for CHESS runtime/session behavior">
                 <textarea
