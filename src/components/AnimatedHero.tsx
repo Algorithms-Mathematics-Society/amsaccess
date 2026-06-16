@@ -44,7 +44,7 @@ export function AnimatedHero() {
         <div
           className="mt-8 flex flex-col justify-center gap-4 md:flex-row"
         >
-          <Link href="/#download" className="w-full md:w-auto">
+          <Link href="/download" className="w-full md:w-auto">
             <ShimmerButton className="w-full md:w-auto shadow-[0_12px_40px_rgba(255,255,255,0.08)] group hover:shadow-[0_0_30px_rgba(139,92,246,0.5)]">
               <span className="relative z-10 flex items-center gap-2 text-sm font-semibold text-white">
                 Download AMS Access

@@ -46,7 +46,7 @@ export default function RootLayout({
                 "prerender": [
                   {
                     "source": "list",
-                    "urls": ["/pricing", "/docs", "/download", "/changelog", "/contact"]
+                    "urls": ["/pricing", "/docs", "/changelog", "/contact"]
                   }
                 ]
               }
