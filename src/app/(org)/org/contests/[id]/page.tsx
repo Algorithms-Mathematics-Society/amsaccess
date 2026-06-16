@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,6 +15,7 @@ import { extractMath } from "@/lib/katex-render";
 import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
 import MarkovEditor, { type MarkovChain, normalizeChain } from "@/components/MarkovEditor";
 import { Modal } from "@/components/Modal";
+import { Skeleton } from "@/components/Skeleton";
 
 // ─── Types ───────────────────────────────────────────────────
 type Contest = {
@@ -615,11 +616,7 @@ export default function ContestDetailPage() {
   }, [judge?.mode]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-purple-500" />
-      </div>
-    );
+    return <ContestDetailSkeleton />;
   }
 
   if (error || !contest) {
@@ -1148,6 +1145,61 @@ function IncidentsTab({ contestId }: { contestId: string }) {
     </section>
   );
 }
+
+// Skeleton that mirrors the real contest workspace layout (breadcrumb, header
+// band, launch checklist, 5-tab bar, content) so the page resolves into place
+// without a spinner flash or layout jump. Memoized + prop-less so the parent's
+// state churn during load (judge fetch, etc.) never re-renders this tree — it
+// mounts once, shimmers (paint-only, disabled under reduced-motion), then
+// unmounts the instant data arrives, leaving zero steady-state cost.
+const ContestDetailSkeleton = memo(function ContestDetailSkeleton() {
+  return (
+    <div className="light min-h-screen bg-slate-50 text-slate-900" style={{ fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div className="mx-auto max-w-5xl px-6 py-8">
+        {/* Breadcrumb */}
+        <Skeleton className="mb-3 h-3 w-20" />
+
+        {/* Header band */}
+        <div className="mb-6 flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
+          <div className="space-y-2.5">
+            <Skeleton className="h-7 w-64" />
+            <Skeleton className="h-3 w-44" />
+          </div>
+          <Skeleton className="h-12 w-full rounded-xl lg:w-60" />
+        </div>
+
+        {/* Launch checklist card */}
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-5 w-52" />
+            </div>
+            <Skeleton className="h-6 w-24 rounded-md" />
+          </div>
+        </div>
+
+        {/* Tab bar */}
+        <div className="mb-6 grid grid-cols-5 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 rounded-xl" />
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-9 w-32 rounded-lg" />
+          </div>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+});
 
 function LaunchChecklistPanel({
   items,
