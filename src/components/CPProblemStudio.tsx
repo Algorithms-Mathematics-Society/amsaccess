@@ -34,7 +34,9 @@ import {
   ArrowRight,
   ShieldAlert,
   PlaySquare,
-  Cpu
+  Cpu,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface CPProblemStudioProps {
@@ -214,6 +216,9 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
   initialGeneratorScript,
 }, ref) {
   const [activeTab, setActiveTab] = useState<StudioTab>("statement");
+  // Collapse the desktop step rail to an icon strip (step icons + status dots
+  // stay visible) so the editor/preview gets the reclaimed width.
+  const [navCollapsed, setNavCollapsed] = useState(false);
   const [pipelineSubTab, setPipelineSubTab] = useState<"generators" | "tests" | "validation">("generators");
 
   // --- IO / Stream Styles (Advanced Settings maintained locally in studio) ---
@@ -1414,10 +1419,10 @@ int main() {
         {/* WORKSPACE AREA */}
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-[480px]">
           
-          {/* SIDEBAR NAVIGATION */}
-          <div className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-white/[0.05] bg-[#0c0c0e] p-4 flex flex-row md:flex-col justify-between items-center md:items-stretch gap-4 md:gap-0 overflow-x-auto md:overflow-x-visible">
+          {/* SIDEBAR NAVIGATION — collapses to an icon strip on desktop */}
+          <div className={`w-full shrink-0 border-b md:border-b-0 md:border-r border-white/[0.05] bg-[#0c0c0e] p-4 flex flex-row md:flex-col justify-between items-center md:items-stretch gap-4 md:gap-0 overflow-x-auto md:overflow-x-visible transition-[width] duration-200 ${navCollapsed ? "md:w-16 md:p-2" : "md:w-56"}`}>
             <div className="flex flex-row md:flex-col gap-2 md:gap-1 w-full md:space-y-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
-              <p className="hidden md:block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest px-2 mb-3">
+              <p className={`text-[10px] font-semibold text-zinc-500 uppercase tracking-widest px-2 mb-3 ${navCollapsed ? "hidden" : "hidden md:block"}`}>
                 Problem Setup
               </p>
                 {[
@@ -1436,23 +1441,47 @@ int main() {
                   <button
                     key={t.id}
                     onClick={() => setActiveTab(t.id as StudioTab)}
-                    className={`whitespace-nowrap flex items-center gap-2 md:gap-3 px-3 py-2 md:py-2.5 rounded-lg text-xs font-medium border transition ${
+                    title={t.label}
+                    className={`relative whitespace-nowrap flex items-center gap-2 md:gap-3 px-3 py-2 md:py-2.5 rounded-lg text-xs font-medium border transition ${
+                      navCollapsed ? "md:justify-center md:gap-0 md:px-2" : ""
+                    } ${
                       isActive
                         ? "bg-white/[0.08] border-white/[0.2] text-white font-bold"
                         : "bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]"
                     }`}
                   >
-                    <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-zinc-500"}`} />
-                    {t.label}
+                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-white" : "text-zinc-500"}`} />
+                    <span className={navCollapsed ? "md:hidden" : ""}>{t.label}</span>
                     {t.id === "pipeline" && !questionId ? (
-                      <Lock className="ml-auto h-3 w-3 text-zinc-500" aria-label="Unlocks after the question is saved" />
+                      <Lock className={`ml-auto h-3 w-3 text-zinc-500 ${navCollapsed ? "md:absolute md:right-1 md:top-1 md:ml-0" : ""}`} aria-label="Unlocks after the question is saved" />
                     ) : (
-                      <span className={`ml-auto h-1.5 w-1.5 rounded-full ${workflowMap[t.id] ? "bg-green-400" : "bg-zinc-600"}`} />
+                      <span className={`ml-auto h-1.5 w-1.5 rounded-full ${workflowMap[t.id] ? "bg-green-400" : "bg-zinc-600"} ${navCollapsed ? "md:absolute md:right-1 md:top-1 md:ml-0" : ""}`} />
                     )}
                   </button>
                 );
               })}
             </div>
+
+            {/* Collapse toggle (desktop only) */}
+            <button
+              type="button"
+              onClick={() => setNavCollapsed((v) => !v)}
+              aria-expanded={!navCollapsed}
+              aria-label={navCollapsed ? "Expand step rail" : "Collapse step rail"}
+              title={navCollapsed ? "Expand steps" : "Collapse steps"}
+              className={`mt-2 hidden md:flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60 ${
+                navCollapsed ? "justify-center px-2" : "justify-center px-3"
+              }`}
+            >
+              {navCollapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <>
+                  <ChevronLeft className="h-4 w-4" />
+                  Collapse
+                </>
+              )}
+            </button>
           </div>
 
           {/* MAIN FORM CONFIG AREA */}
