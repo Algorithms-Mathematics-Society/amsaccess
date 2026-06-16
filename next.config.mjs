@@ -51,6 +51,24 @@ const nextConfig = {
   experimental: {
     optimizeCss: true
   },
+  webpack: (config, { isServer }) => {
+    // Isolate KaTeX into its own immutable, long-cached chunk so it isn't
+    // re-bundled into every route that previews a statement. Synchronous import
+    // and render path are untouched.
+    if (!isServer && config.optimization?.splitChunks) {
+      config.optimization.splitChunks.cacheGroups = {
+        ...config.optimization.splitChunks.cacheGroups,
+        katex: {
+          test: /[\\/]node_modules[\\/]katex[\\/]/,
+          name: "katex",
+          priority: 40,
+          chunks: "all",
+          reuseExistingChunk: true
+        }
+      };
+    }
+    return config;
+  },
   async headers() {
     return [
       {

@@ -1154,6 +1154,14 @@ a {
   font-weight: 650;
 }
 
+/* KaTeX math in statement previews — inherit the container text colour and let
+   long display equations scroll horizontally instead of overflowing. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0.6rem 0;
+}
+
 @keyframes scaleYInfinite {
   0% { transform: scaleY(0.3); }
   50% { transform: scaleY(1); }

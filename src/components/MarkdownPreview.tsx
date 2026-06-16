@@ -1,3 +1,5 @@
+import { extractMath } from "@/lib/katex-render";
+
 type MarkdownPreviewProps = {
   value: string;
 };
@@ -120,10 +122,13 @@ function renderMarkdown(value: string) {
 }
 
 export function MarkdownPreview({ value }: MarkdownPreviewProps) {
+  // Pull math out before the markdown pass (so `$` survives escaping), then
+  // re-inject the rendered KaTeX into the final HTML.
+  const { masked, reinject } = extractMath(value || "");
   return (
     <div
       className="markdown-preview rounded border border-white/10 bg-black/25 p-4 text-sm leading-relaxed text-white/75"
-      dangerouslySetInnerHTML={{ __html: renderMarkdown(value) }}
+      dangerouslySetInnerHTML={{ __html: reinject(renderMarkdown(masked)) }}
     />
   );
 }

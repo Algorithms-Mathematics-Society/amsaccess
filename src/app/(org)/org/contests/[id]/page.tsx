@@ -10,6 +10,7 @@ import {
   Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle, GripVertical, Lock, LifeBuoy
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
+import { extractMath } from "@/lib/katex-render";
 import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
 import MarkovEditor, { type MarkovChain, normalizeChain } from "@/components/MarkovEditor";
 
@@ -237,8 +238,11 @@ function toDateTimeLocalValue(isoLike: string): string {
 }
 
 function renderMarkdownPreview(md: string): string {
+  // Pull $...$ / $$...$$ math out to KaTeX before the markdown pass, then
+  // re-inject the rendered HTML into the final output (see extractMath).
+  const { masked, reinject } = extractMath(md);
   // Minimal markdown → HTML for problem statement preview
-  let html = md
+  let html = masked
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     // fenced code blocks
     .replace(/```[\s\S]*?```/g, (m) => {
@@ -257,13 +261,12 @@ function renderMarkdownPreview(md: string): string {
     // images — render inline
     .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:6px 0;display:block" />')
     // links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#a855f7;text-decoration:underline">$1</a>')
-    // dollar signs (math notation) — keep as-is but wrap
-    .replace(/\$([^$]+)\$/g, '<span style="font-style:italic;color:#c084fc">$1</span>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#a855f7;text-decoration:underline">$1</a>');
+  // (math is handled by extractMath/KaTeX above — no literal $…$ remain here)
 
   // paragraphs: split by blank lines
   const paras = html.split(/\n{2,}/);
-  return paras
+  const rendered = paras
     .map((p) => {
       p = p.trim();
       if (!p) return "";
@@ -271,6 +274,7 @@ function renderMarkdownPreview(md: string): string {
       return `<p style="margin:6px 0;line-height:1.6;color:#cbd5e1;font-size:13px">${p.replace(/\n/g, "<br/>")}</p>`;
     })
     .join("\n");
+  return reinject(rendered);
 }
 
 function getReviewerCount(pluginConfig?: string): number | null {

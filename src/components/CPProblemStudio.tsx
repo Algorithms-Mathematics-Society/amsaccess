@@ -3,6 +3,7 @@
 import React, { forwardRef, useImperativeHandle, useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/client/apiClient";
 import type { ApiClientError } from "@/lib/client/apiClient";
+import { renderMathHtml } from "@/lib/katex-render";
 import {
   X,
   Plus,
@@ -326,24 +327,6 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
     `# Generator scripts config\ngen_random 100 50 -1000 1000 > $\ngen_extreme 1000 500 > $\ngen_tle_trap 2000 1000 > $`
   );
 
-  const formatLatexLite = (formula: string): string => {
-    return formula
-      .replace(/\\leq?/g, "≤")
-      .replace(/\\geq?/g, "≥")
-      .replace(/\\neq/g, "≠")
-      .replace(/\\times/g, "×")
-      .replace(/\\cdot/g, "·")
-      .replace(/\\dots/g, "…")
-      .replace(/\\ldots/g, "…")
-      .replace(/\\infty/g, "∞")
-      .replace(/\\sqrt\{([^}]*)\}/g, "√($1)")
-      .replace(/\^\{([^}]*)\}/g, "^($1)")
-      .replace(/_\{([^}]*)\}/g, "_($1)")
-      .replace(/\\_/g, "_")
-      .replace(/\\\\/g, "\n")
-      .trim();
-  };
-
   // --- Custom Markdown, LaTeX Math, Image and Interactive Code Parser ---
   const parseInlineFormatting = (line: string): React.ReactNode[] => {
     if (!line) return [];
@@ -376,24 +359,32 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
         return <strong key={pIdx} className="font-bold text-white">{boldText}</strong>;
       }
 
-      // 3. Display math: $$formula$$
+      // 3. Display math: $$formula$$ — rendered with KaTeX (matches contestant view)
       if (part.startsWith("$$") && part.endsWith("$$")) {
-        const formula = formatLatexLite(part.substring(2, part.length - 2));
+        const html = renderMathHtml(part.substring(2, part.length - 2), true);
+        if (html) {
+          return (
+            <div
+              key={pIdx}
+              className="my-2 overflow-x-auto"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          );
+        }
         return (
-          <div key={pIdx} className="my-2 overflow-x-auto rounded border border-white/[0.1] bg-white/[0.02] px-2 py-1 font-mono text-[11px] text-zinc-300 whitespace-pre-wrap">
-            {formula}
+          <div key={pIdx} className="my-2 overflow-x-auto font-mono text-[11px] text-zinc-300 whitespace-pre-wrap">
+            {part.substring(2, part.length - 2)}
           </div>
         );
       }
 
-      // 4. Inline math: $formula$
+      // 4. Inline math: $formula$ — rendered with KaTeX
       if (part.startsWith("$") && part.endsWith("$")) {
-        const formula = formatLatexLite(part.substring(1, part.length - 1));
-        return (
-          <span key={pIdx} className="mx-0.5 inline-block font-mono text-[11px] font-semibold text-zinc-200 bg-white/[0.06] px-1 py-0.5 rounded border border-white/[0.08]">
-            {formula}
-          </span>
-        );
+        const html = renderMathHtml(part.substring(1, part.length - 1), false);
+        if (html) {
+          return <span key={pIdx} dangerouslySetInnerHTML={{ __html: html }} />;
+        }
+        return <span key={pIdx} className="font-mono text-[11px] text-zinc-200">{part.substring(1, part.length - 1)}</span>;
       }
 
       // 5. Regular text chunk
