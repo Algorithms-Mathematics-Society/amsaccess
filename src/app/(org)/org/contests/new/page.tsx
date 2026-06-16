@@ -112,7 +112,7 @@ export default function NewContestPage() {
                     key={mode}
                     type="button"
                     onClick={() => setPluginType(mode)}
-                    className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                    className={`rounded-md px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
                       pluginType === mode
                         ? "bg-purple-50 border border-purple-200 text-purple-700"
                         : "bg-transparent border border-transparent text-slate-500 hover:bg-white hover:text-slate-950"
@@ -136,7 +136,7 @@ export default function NewContestPage() {
                         key={s}
                         type="button"
                         onClick={() => setScoringType(s)}
-                        className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                        className={`rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
                           scoringType === s
                             ? "bg-purple-50 border border-purple-200 text-purple-700"
                             : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
@@ -161,7 +161,8 @@ export default function NewContestPage() {
                               active ? allowedLanguages.filter((l) => l !== lang) : [...allowedLanguages, lang]
                             )
                           }
-                          className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                          aria-pressed={active}
+                          className={`rounded-md px-3 py-1 text-xs font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
                             active
                               ? "bg-purple-50 border border-purple-200 text-purple-700"
                               : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"

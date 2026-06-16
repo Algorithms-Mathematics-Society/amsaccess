@@ -10,7 +10,7 @@ import { OrgPortalShell } from "@/components/OrgPortalShell";
 function statusDotColor(status: string) {
   if (status === "ACTIVE") return "bg-emerald-500";
   if (status === "SCHEDULED") return "bg-purple-500";
-  if (status === "ENDED") return "bg-slate-300";
+  if (status === "ENDED") return "bg-slate-400";
   return "bg-amber-500";
 }
 
@@ -87,10 +87,7 @@ export default function OrgDashboardPage() {
             { label: "Total Invites", value: stats.invites },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-purple-200 hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-500">{label}</p>
-                <span className="h-1.5 w-6 rounded-full bg-slate-200" aria-hidden="true" />
-              </div>
+              <p className="text-sm font-medium text-slate-500">{label}</p>
               <p className="mt-4 text-3xl font-semibold tracking-tight text-slate-950">
                 {loading ? "-" : value}
               </p>
@@ -137,7 +134,7 @@ export default function OrgDashboardPage() {
                   <Link
                     key={c.id}
                     href={`/org/contests/${c.id}`}
-                    className="group flex items-center justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-purple-200 hover:shadow-md"
+                    className="group flex items-center justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-purple-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-3">

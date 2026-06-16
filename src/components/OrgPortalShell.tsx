@@ -63,7 +63,7 @@ export function OrgPortalShell({
         <div className="px-3 pb-4">
           <button
             onClick={signOut}
-            className="flex w-full items-center rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+            className="flex w-full items-center rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
           >
             Sign out
           </button>
@@ -92,7 +92,8 @@ function SideLink({
   return (
     <Link
       href={href}
-      className={`relative flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+      aria-current={active ? "page" : undefined}
+      className={`relative flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
         active
           ? "border-purple-100 bg-purple-50 text-slate-950 shadow-sm"
           : "border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-950"

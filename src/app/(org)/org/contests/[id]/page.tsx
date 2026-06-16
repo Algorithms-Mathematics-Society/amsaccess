@@ -7,7 +7,8 @@ import {
   ArrowLeft, Plus, Trash2, Save, Code2, Mail, UserPlus,
   X, Sparkles, Monitor, Play, Square, RefreshCw,
   Upload, Search, FileSpreadsheet, Eye, Send, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, HelpCircle, Clock,
-  Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle, GripVertical, Lock, LifeBuoy
+  Activity, Users, Settings, Sliders, Info, Calendar, Key, Check, Copy, Zap, BarChart2, Cpu, Puzzle, GripVertical, Lock, LifeBuoy,
+  MessageSquare, ListChecks, Share2, ChevronDown
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
 import { extractMath } from "@/lib/katex-render";
@@ -415,6 +416,10 @@ export default function ContestDetailPage() {
   const [judgeBusy, setJudgeBusy] = useState(false);
   const [judgeError, setJudgeError] = useState<string | null>(null);
   const [modeReconciled, setModeReconciled] = useState(false);
+  // Open-incident count surfaced as a tab badge so unresolved help requests are
+  // visible without opening the Incidents tab. Re-read on tab switches so it
+  // reflects resolutions made inside the tab.
+  const [incidentsOpenCount, setIncidentsOpenCount] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -434,6 +439,16 @@ export default function ContestDetailPage() {
   }, [id]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ items: SupportIncident[] }>(`/api/org/contests/${id}/incidents`)
+      .then((data) => {
+        if (!cancelled) setIncidentsOpenCount((data.items ?? []).filter((i) => i.status === "OPEN").length);
+      })
+      .catch(() => { /* badge is best-effort; ignore fetch errors */ });
+    return () => { cancelled = true; };
+  }, [id, tab]);
 
   useEffect(() => {
     if (!contest || modeReconciled) return;
@@ -684,7 +699,8 @@ export default function ContestDetailPage() {
                   <button
                     onClick={() => setShowComputeHelp(true)}
                     title="When to start & stop compute"
-                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+                    aria-label="When to start and stop compute"
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                   >
                     <HelpCircle className="h-3.5 w-3.5" />
                   </button>
@@ -692,7 +708,8 @@ export default function ContestDetailPage() {
                     onClick={() => void loadJudge()}
                     disabled={judgeBusy}
                     title="Refresh judge status"
-                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40"
+                    aria-label="Refresh judge status"
+                    className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${judgeBusy ? "animate-spin" : ""}`} />
                   </button>
@@ -870,8 +887,8 @@ export default function ContestDetailPage() {
 
         <LaunchChecklistPanel items={launchChecklist} state={launchState} />
 
-        {/* Tabs */}
-        <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid-cols-7">
+        {/* Tabs — horizontally scrollable on narrow screens, 7-up grid from sm */}
+        <div className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid sm:grid-cols-7 sm:overflow-visible">
           {([
             ["questions", "Questions", questions.length, Code2],
             ["invites", "Invites", invites.length, Mail],
@@ -884,7 +901,8 @@ export default function ContestDetailPage() {
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 text-sm font-medium transition ${
+              aria-current={tab === key ? "page" : undefined}
+              className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
                 tab === key
                   ? "border-purple-100 bg-purple-50 text-purple-800 shadow-sm"
                   : "border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-950"
@@ -897,6 +915,11 @@ export default function ContestDetailPage() {
                   className={`rounded px-1.5 text-xs ${tab === key ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}
                 >
                   {count}
+                </span>
+              )}
+              {key === "incidents" && incidentsOpenCount > 0 && (
+                <span className="rounded-full bg-red-100 px-1.5 text-xs font-semibold text-red-700" title={`${incidentsOpenCount} open`}>
+                  {incidentsOpenCount}
                 </span>
               )}
             </button>
@@ -923,7 +946,7 @@ export default function ContestDetailPage() {
           <StudentsTab contestId={id} />
         )}
         {tab === "leaderboard" && contest && (
-          <LeaderboardTab contestId={id} contestStatus={contest.status} contest={contest} />
+          <LeaderboardTab contestId={id} contestStatus={contest.status} contest={contest} onGoToSettings={() => setTab("settings")} />
         )}
         {tab === "live" && (
           <LiveMonitorTab contestId={id} />
@@ -1118,6 +1141,12 @@ function LaunchChecklistPanel({
   state: { label: string; tone: "draft" | "ready" | "live" | "attention" | "ended" };
 }) {
   const completeCount = items.filter((item) => item.state === "complete").length;
+  // A fully-configured contest doesn't need its all-green checklist dominating
+  // the page on every visit — collapse it by default once ready/live/ended, but
+  // leave it open while there's still setup to do (draft/attention).
+  const [collapsed, setCollapsed] = useState(
+    () => state.tone === "ready" || state.tone === "live" || state.tone === "ended"
+  );
   const stateClass =
     state.tone === "ready" || state.tone === "live"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -1129,7 +1158,7 @@ function LaunchChecklistPanel({
 
   return (
     <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="launch-readiness-title">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Launch readiness</p>
           <h2 id="launch-readiness-title" className="mt-1 text-lg font-semibold tracking-tight text-slate-950">
@@ -1139,12 +1168,25 @@ function LaunchChecklistPanel({
             {completeCount} of {items.length} checks complete before launch.
           </p>
         </div>
-        <span className={"inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-semibold " + stateClass}>
-          {state.label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={"inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-semibold " + stateClass}>
+            {state.label}
+          </span>
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-expanded={!collapsed}
+            aria-controls="launch-readiness-items"
+            className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+          >
+            {collapsed ? "Show checks" : "Hide checks"}
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${collapsed ? "" : "rotate-180"}`} />
+          </button>
+        </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {collapsed ? null : (
+      <div id="launch-readiness-items" className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => {
           const complete = item.state === "complete";
           const blocked = item.state === "blocked";
@@ -1168,6 +1210,7 @@ function LaunchChecklistPanel({
           );
         })}
       </div>
+      )}
     </section>
   );
 }
@@ -1465,10 +1508,12 @@ function LeaderboardTab({
   contestId,
   contestStatus,
   contest,
+  onGoToSettings,
 }: {
   contestId: string;
   contestStatus: string;
   contest: Contest;
+  onGoToSettings: () => void;
 }) {
   const [board, setBoard] = useState<LeaderboardResponse | null>(null);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -1607,7 +1652,15 @@ function LeaderboardTab({
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Contest standings</p>
-            <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Leaderboard</h2>
+            <div className="mt-1 flex items-center gap-2">
+              <h2 className="text-lg font-semibold tracking-tight text-slate-950">Leaderboard</h2>
+              {orderDirty && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+                  Unsaved order
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-slate-500">
               Drag rows to reorder. Click the trash icon to remove a candidate (hidden from all leaderboard views).
             </p>
@@ -1656,8 +1709,15 @@ function LeaderboardTab({
             <Lock className="h-4 w-4 shrink-0 text-amber-500" />
             <span>
               Results visible to candidates after{" "}
-              <strong>{new Date(contest.results_visible_at).toLocaleString()}</strong>.
-              Edit in Settings to change.
+              <strong>{new Date(contest.results_visible_at).toLocaleString()}</strong>.{" "}
+              <button
+                type="button"
+                onClick={onGoToSettings}
+                className="font-semibold text-amber-900 underline underline-offset-2 transition hover:text-amber-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              >
+                Edit in Settings
+              </button>{" "}
+              to change.
             </span>
           </div>
         )}
@@ -1722,13 +1782,28 @@ function LeaderboardTab({
                         onClick={() => {
                           if (!isConfirming) setSelectedSessionId(entry.session_id);
                         }}
-                        className={`cursor-pointer border-b border-slate-100 transition hover:bg-slate-50 ${
+                        onKeyDown={(e) => {
+                          if (isConfirming) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedSessionId(entry.session_id);
+                          }
+                        }}
+                        tabIndex={0}
+                        aria-selected={active}
+                        className={`group cursor-pointer border-b border-slate-100 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-400 ${
                           active ? "bg-purple-50/70" : "bg-white"
                         } ${dragIndex === index ? "opacity-50" : ""}`}
                       >
-                        {/* Drag handle */}
-                        <td className="px-1 py-3 text-slate-300">
-                          <GripVertical className="h-4 w-4 cursor-grab active:cursor-grabbing" />
+                        {/* Drag handle — appears on row hover, full-cell grab target */}
+                        <td className="px-1 py-3">
+                          <span
+                            className="flex h-7 w-6 items-center justify-center rounded text-slate-300 opacity-0 transition cursor-grab hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing group-hover:opacity-100 group-focus-within:opacity-100"
+                            title="Drag to reorder"
+                            aria-hidden="true"
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </span>
                         </td>
                         <td className="px-3 py-3 font-semibold text-slate-900">#{entry.rank}</td>
                         <td className="px-3 py-3">
@@ -1743,9 +1818,15 @@ function LeaderboardTab({
                           const verdict = state?.verdict ?? "UNATTEMPTED";
                           return (
                             <td key={`${entry.session_id}:${question.id}`} className="px-2 py-3 text-center">
-                              <span className={`inline-flex min-w-14 items-center justify-center rounded-md border px-2 py-1 text-[11px] font-semibold ${verdictTone(verdict)}`}>
-                                {verdict === "UNATTEMPTED" ? "-" : verdict}
-                              </span>
+                              {verdict === "UNATTEMPTED" ? (
+                                <span className="inline-flex min-w-14 items-center justify-center px-2 py-1 text-[11px] text-slate-300" aria-label="Unattempted">
+                                  –
+                                </span>
+                              ) : (
+                                <span className={`inline-flex min-w-14 items-center justify-center rounded-md border px-2 py-1 text-[11px] font-semibold ${verdictTone(verdict)}`}>
+                                  {verdict}
+                                </span>
+                              )}
                             </td>
                           );
                         })}
@@ -1792,8 +1873,9 @@ function LeaderboardTab({
                             <button
                               type="button"
                               title="Remove from leaderboard"
+                              aria-label={`Remove ${entry.candidate_name} from leaderboard`}
                               onClick={() => setDeleteConfirm({ sessionId: entry.session_id, step: 1 })}
-                              className="rounded p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
+                              className="rounded p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -1933,7 +2015,7 @@ function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
             {questions.length} question{questions.length !== 1 ? "s" : ""}
           </p>
           {questions.length > 1 && !isChessContest && (
-            <p className="text-[11px] text-slate-400">Shown in order — reorder from the backend</p>
+            <p className="text-[11px] text-slate-400">Listed in the order candidates will see them.</p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -2116,15 +2198,24 @@ type FollowUpPart = {
   points: number;
 };
 
-const QUESTION_TYPE_META: Record<"code" | "interactive" | "follow_up" | "markov", { label: string; hint: string }> = {
-  code: { label: "Code submission", hint: "Classic judged problem — statement, tests, validator and checker. Graded automatically by the judge." },
-  interactive: { label: "Interactive", hint: "The student's program converses with your custom checker over stdin/stdout. Requires a custom checker." },
-  follow_up: { label: "Follow Up", hint: "Short-answer parts with expected answers. Total points are the sum of all parts." },
-  markov: { label: "Markov Chain", hint: "The student draws a Markov chain; it is graded against the answer-key chain you build below." },
+const QUESTION_TYPE_META: Record<"code" | "interactive" | "follow_up" | "markov", { label: string; hint: string; icon: React.ComponentType<{ className?: string }> }> = {
+  code: { label: "Code submission", hint: "Classic judged problem — statement, tests, validator and checker. Graded automatically by the judge.", icon: Code2 },
+  interactive: { label: "Interactive", hint: "The student's program converses with your custom checker over stdin/stdout. Requires a custom checker.", icon: MessageSquare },
+  follow_up: { label: "Follow Up", hint: "Short-answer parts with expected answers. Total points are the sum of all parts.", icon: ListChecks },
+  markov: { label: "Markov Chain", hint: "The student draws a Markov chain; it is graded against the answer-key chain you build below.", icon: Share2 },
 };
 
 function normalizeQuestionType(raw: string | undefined): "code" | "interactive" | "follow_up" | "markov" {
   return raw === "interactive" || raw === "follow_up" || raw === "markov" ? raw : "code";
+}
+
+// Section heading for the long question form — matches the uppercase-tracked
+// label style used on the leaderboard/incidents panels so the form reads as a
+// sequence of steps rather than a flat stack.
+function FormSectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{children}</p>
+  );
 }
 
 function parseFollowUpParts(raw: string): FollowUpPart[] {
@@ -2377,53 +2468,57 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</div>
       )}
 
-      {/* Title + points */}
-      <div className="mb-4 flex gap-3">
-        <div className="flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Title</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Build a responsive navbar"
-            className="glass-input text-sm text-slate-950"
-          />
-        </div>
-        {questionType !== "follow_up" && (
-          <div className="w-24">
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">Points</label>
-            <input
-              type="number"
-              min={1}
-              value={points}
-              onChange={(e) => setPoints(Number(e.target.value))}
-              className="glass-input text-sm text-slate-950"
-            />
-          </div>
-        )}
+      {/* ─── Basics ─────────────────────────────────────────── */}
+      <FormSectionHeading>Basics</FormSectionHeading>
+
+      <div className="mb-4">
+        <label className="mb-1.5 block text-xs font-medium text-slate-500">Title</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Build a responsive navbar"
+          className="glass-input text-sm text-slate-950"
+        />
       </div>
 
-      {/* Question type */}
+      {/* Question type — card selector */}
       <div className="mb-4">
-        <label className="mb-1.5 block text-xs font-medium text-slate-500">Question type</label>
-        <div className="inline-flex flex-wrap gap-2">
-          {(["code", "interactive", "follow_up", "markov"] as const).map((qt) => (
-            <button
-              key={qt}
-              type="button"
-              onClick={() => setQuestionType(qt)}
-              aria-pressed={questionType === qt}
-              className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
-                questionType === qt
-                  ? "border-purple-300 bg-purple-50 text-purple-800"
-                  : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
-              }`}
-            >
-              {QUESTION_TYPE_META[qt].label}
-            </button>
-          ))}
+        <label className="mb-2 block text-xs font-medium text-slate-500">Question type</label>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {(["code", "interactive", "follow_up", "markov"] as const).map((qt) => {
+            const meta = QUESTION_TYPE_META[qt];
+            const Icon = meta.icon;
+            const selected = questionType === qt;
+            return (
+              <button
+                key={qt}
+                type="button"
+                onClick={() => setQuestionType(qt)}
+                aria-pressed={selected}
+                className={`flex items-start gap-3 rounded-xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+                  selected
+                    ? "border-purple-300 bg-purple-50 shadow-sm"
+                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
+                    selected ? "border-purple-200 bg-white text-purple-600" : "border-slate-200 bg-slate-50 text-slate-400"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-semibold ${selected ? "text-purple-900" : "text-slate-900"}`}>
+                    {meta.label}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-snug text-slate-500">{meta.hint}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
-        <p className="mt-1.5 text-xs text-slate-500">{QUESTION_TYPE_META[questionType].hint}</p>
         {originalType !== null && questionType !== originalType && (
           <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
             <span className="font-semibold">Heads up:</span> changing the type of an existing question changes how it is
@@ -2434,33 +2529,55 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         )}
       </div>
 
-      {/* Time / memory limits — hidden for follow_up and markov */}
-      {questionType !== "follow_up" && questionType !== "markov" && (
-        <div className="mb-4 flex gap-3">
-          <div className="flex-1">
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">Time limit (ms)</label>
-            <input
-              type="number"
-              min={100}
-              value={timeLimit}
-              onChange={(e) => setTimeLimit(Number(e.target.value))}
-              className="glass-input text-sm text-slate-950"
-            />
-            <p className="mt-1 text-[11px] text-slate-500">Min: 100 ms</p>
-          </div>
-          <div className="flex-1">
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">Memory limit (MB)</label>
-            <input
-              type="number"
-              min={16}
-              value={memoryLimit}
-              onChange={(e) => setMemoryLimit(Number(e.target.value))}
-              className="glass-input text-sm text-slate-950"
-            />
-            <p className="mt-1 text-[11px] text-slate-500">Min: 16 MB</p>
+      {/* ─── Grading & limits ───────────────────────────────── */}
+      {questionType !== "follow_up" && (
+        <div className="mt-6">
+          <FormSectionHeading>Grading &amp; limits</FormSectionHeading>
+          <div className="mb-4 flex flex-wrap gap-3">
+            <div className="w-28">
+              <label className="mb-1.5 block text-xs font-medium text-slate-500">Points</label>
+              <input
+                type="number"
+                min={1}
+                value={points}
+                onChange={(e) => setPoints(Number(e.target.value))}
+                className="glass-input text-sm text-slate-950"
+              />
+            </div>
+            {questionType !== "markov" && (
+              <>
+                <div className="flex-1 min-w-[8rem]">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-500">Time limit (ms)</label>
+                  <input
+                    type="number"
+                    min={100}
+                    value={timeLimit}
+                    onChange={(e) => setTimeLimit(Number(e.target.value))}
+                    className="glass-input text-sm text-slate-950"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">Min: 100 ms</p>
+                </div>
+                <div className="flex-1 min-w-[8rem]">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-500">Memory limit (MB)</label>
+                  <input
+                    type="number"
+                    min={16}
+                    value={memoryLimit}
+                    onChange={(e) => setMemoryLimit(Number(e.target.value))}
+                    className="glass-input text-sm text-slate-950"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">Min: 16 MB</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
+
+      {/* ─── Problem content ────────────────────────────────── */}
+      <div className="mt-6">
+        <FormSectionHeading>Problem content</FormSectionHeading>
+      </div>
 
       {/* Follow Up editor */}
       {questionType === "follow_up" && (
@@ -2536,27 +2653,47 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
       )}
 
       {/* Problem Studio — only for code/interactive */}
-      {questionType !== "follow_up" && questionType !== "markov" && <CPProblemStudio
-        key={existing?.id ?? "new"}
-        ref={studioRef}
-        contestId={contestId}
-        questionId={existing?.id}
-        title={title}
-        setTitle={setTitle}
-        points={points}
-        setPoints={setPoints}
-        description={description}
-        setDescription={setDescription}
-        questionType={questionType as "code" | "interactive"}
-        timeLimit={timeLimit}
-        setTimeLimit={setTimeLimit}
-        memoryLimit={memoryLimit}
-        setMemoryLimit={setMemoryLimit}
-        initialValidatorCode={existing?.validator_code ?? undefined}
-        initialCheckerCode={existing?.checker_code ?? undefined}
-        initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
-        initialGeneratorScript={existing?.generator_script ?? undefined}
-      />}
+      {questionType !== "follow_up" && questionType !== "markov" && (
+        <>
+          {!existing && (
+            <div className="mb-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <div>
+                <p className="text-xs font-semibold text-amber-800">Save the question to unlock tests &amp; validation</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-amber-700/80">
+                  Fill in the statement, checker and validator below, then use <span className="font-medium">Save question</span>.
+                  Once saved you can upload test cases and run jury validation.
+                </p>
+              </div>
+            </div>
+          )}
+          <p className="mb-1 flex items-center gap-1.5 text-[11px] text-slate-400">
+            <Info className="h-3 w-3 shrink-0" />
+            The problem editor below uses a dark theme for code legibility.
+          </p>
+          <CPProblemStudio
+            key={existing?.id ?? "new"}
+            ref={studioRef}
+            contestId={contestId}
+            questionId={existing?.id}
+            title={title}
+            setTitle={setTitle}
+            points={points}
+            setPoints={setPoints}
+            description={description}
+            setDescription={setDescription}
+            questionType={questionType as "code" | "interactive"}
+            timeLimit={timeLimit}
+            setTimeLimit={setTimeLimit}
+            memoryLimit={memoryLimit}
+            setMemoryLimit={setMemoryLimit}
+            initialValidatorCode={existing?.validator_code ?? undefined}
+            initialCheckerCode={existing?.checker_code ?? undefined}
+            initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
+            initialGeneratorScript={existing?.generator_script ?? undefined}
+          />
+        </>
+      )}
 
       {/* Sticky save bar — stays visible while scrolling the long editor above */}
       <div className="sticky bottom-0 z-20 -mx-5 -mb-5 mt-5 flex flex-wrap items-center gap-3 rounded-b-2xl border-t border-slate-200 bg-white/95 px-5 py-3 backdrop-blur">
@@ -2576,10 +2713,11 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
           Cancel
         </button>
         <p className="text-xs text-slate-500">
-          {saving ? "Saving question... please wait."
+          {saving ? "Saving question… please wait."
             : questionType === "follow_up" ? "Points are the sum of all parts."
             : questionType === "markov" ? "Define the correct Markov chain as the answer key."
-            : "Save question first, then upload tests and run validation."}
+            : existing ? "Changes to the statement and grading config apply once you save."
+            : "Save to unlock test uploads and jury validation."}
         </p>
       </div>
     </div>
