@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useImperativeHandle, useState, useEffect, useRef } from "react";
+import React, { forwardRef, useImperativeHandle, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { apiFetch } from "@/lib/client/apiClient";
 import type { ApiClientError } from "@/lib/client/apiClient";
 import { renderMathHtml } from "@/lib/katex-render";
@@ -196,6 +196,17 @@ function composeStatementMarkdown(f: {
   ].filter(Boolean).join("\n\n");
 }
 
+// Returns a copy of `value` that only updates after `delayMs` of quiet — used to
+// keep the expensive KaTeX/markdown preview off the per-keystroke path.
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(function CPProblemStudio({
   contestId,
   questionId,
@@ -333,7 +344,9 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
   );
 
   // --- Custom Markdown, LaTeX Math, Image and Interactive Code Parser ---
-  const parseInlineFormatting = (line: string): React.ReactNode[] => {
+  // Pure (only reads its arg + the module-level renderMathHtml), so it's stable
+  // and its outputs can be memoized against debounced inputs below.
+  const parseInlineFormatting = useCallback((line: string): React.ReactNode[] => {
     if (!line) return [];
     // Split by Markdown bold (**text**), LaTeX ($...$/$$...$$), and Markdown image (![alt](url))
     const parts = line.split(/(\!\[.*?\]\(.*?\))|(\*\*.*?\*\*)|(\$\$[\s\S]*?\$\$)|(\$[^$\n]+\$)/g);
@@ -395,9 +408,9 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
       // 5. Regular text chunk
       return <span key={pIdx}>{part}</span>;
     });
-  };
+  }, []);
 
-  const renderStatementHtml = (text: string) => {
+  const renderStatementHtml = useCallback((text: string) => {
     if (!text) return null;
 
     // Split text by <code> and </code> to isolate interactive micro-widgets
@@ -476,7 +489,20 @@ const CPProblemStudio = forwardRef<CPProblemStudioHandle, CPProblemStudioProps>(
         </div>
       );
     });
-  };
+  }, [parseInlineFormatting]);
+
+  // The preview runs KaTeX per math span, so keep it off the per-keystroke path:
+  // render from debounced field copies and memoize the result. Typing stays
+  // instant (the textareas are still live-controlled); the preview catches up
+  // ~250ms after a pause.
+  const dvDescBody = useDebouncedValue(descBody, 250);
+  const dvInputFormat = useDebouncedValue(inputFormatText, 250);
+  const dvOutputFormat = useDebouncedValue(outputFormatText, 250);
+  const dvNote = useDebouncedValue(noteText, 250);
+  const previewDescNodes = useMemo(() => renderStatementHtml(dvDescBody), [dvDescBody, renderStatementHtml]);
+  const previewInputNodes = useMemo(() => renderStatementHtml(dvInputFormat), [dvInputFormat, renderStatementHtml]);
+  const previewOutputNodes = useMemo(() => renderStatementHtml(dvOutputFormat), [dvOutputFormat, renderStatementHtml]);
+  const previewNoteNodes = useMemo(() => renderStatementHtml(dvNote), [dvNote, renderStatementHtml]);
 
   // --- Checker State — seeded from DB value when editing an existing question ---
   // initialCheckerType controls whether we start in custom mode.
@@ -1591,25 +1617,25 @@ int main() {
  
                     <div className="space-y-4 text-xs text-zinc-300 leading-relaxed font-sans">
                       {/* Description output */}
-                      {descBody.trim() ? (
+                      {dvDescBody.trim() ? (
                         <div className="space-y-2">
-                          {renderStatementHtml(descBody)}
+                          {previewDescNodes}
                         </div>
                       ) : (
                         <p className="text-[11px] italic text-zinc-600">Start typing the problem description to see it rendered here.</p>
                       )}
 
-                      {inputFormatText.trim() && (
+                      {dvInputFormat.trim() && (
                         <div className="space-y-1">
                           <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px]">Input Format</h4>
-                          <div className="text-zinc-300">{renderStatementHtml(inputFormatText)}</div>
+                          <div className="text-zinc-300">{previewInputNodes}</div>
                         </div>
                       )}
 
-                      {outputFormatText.trim() && (
+                      {dvOutputFormat.trim() && (
                         <div className="space-y-1">
                           <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px]">Output Format</h4>
-                          <div className="text-zinc-300">{renderStatementHtml(outputFormatText)}</div>
+                          <div className="text-zinc-300">{previewOutputNodes}</div>
                         </div>
                       )}
 
@@ -1632,10 +1658,10 @@ int main() {
                         <p className="text-[11px] italic text-zinc-600">Add a sample input/output pair to preview the Sample Tests block.</p>
                       )}
 
-                      {noteText && (
+                      {dvNote && (
                         <div className="border-l-2 border-white/[0.3] pl-3 py-1 bg-white/[0.02] space-y-1">
                           <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px]">Note</h4>
-                          <div className="italic text-zinc-400">{renderStatementHtml(noteText)}</div>
+                          <div className="italic text-zinc-400">{previewNoteNodes}</div>
                         </div>
                       )}
                     </div>

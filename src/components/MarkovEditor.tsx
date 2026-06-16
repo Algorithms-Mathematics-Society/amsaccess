@@ -5,27 +5,13 @@ import React, {
   useRef,
   useState,
 } from "react";
+import type { MarkovState, MarkovTransition, MarkovChain } from "@/lib/markov";
 
-// ─── Types ────────────────────────────────────────────────────
-export interface MarkovState {
-  id: string;   // "q0", "q1", …
-  x: number;
-  y: number;
-  isInitial: boolean;
-  isAccepting: boolean;
-}
-
-export interface MarkovTransition {
-  id: string;
-  from: string;
-  to: string;
-  probability: string; // "0.5" or "1/3"
-}
-
-export interface MarkovChain {
-  states: MarkovState[];
-  transitions: MarkovTransition[];
-}
+// Types + normalizeChain now live in @/lib/markov (dependency-free) so callers
+// can use them without importing this component. Re-exported here for callers
+// that import them alongside the editor.
+export type { MarkovState, MarkovTransition, MarkovChain } from "@/lib/markov";
+export { normalizeChain } from "@/lib/markov";
 
 const RADIUS = 28;
 const ARROW_HEAD = 10;
@@ -97,6 +83,10 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
   const [drawFrom, setDrawFrom] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ type: "state" | "transition"; id: string } | null>(null);
   const [dragging, setDragging] = useState<{ id: string; ox: number; oy: number } | null>(null);
+  // Live position of the state being dragged. Kept local so a drag re-renders
+  // only this editor (cheap SVG), not the parent form + its KaTeX preview. The
+  // move is committed to `onChange` once, on mouse-up.
+  const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null);
   const [editingProb, setEditingProb] = useState<{ id: string; val: string } | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -165,17 +155,23 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
     const pos = svgCoords(e);
     setMousePos(pos);
     if (!dragging || readOnly) return;
-    onChange({
-      ...value,
-      states: value.states.map((s) =>
-        s.id === dragging.id
-          ? { ...s, x: Math.max(RADIUS, Math.min(CANVAS_W - RADIUS, pos.x - dragging.ox)), y: Math.max(RADIUS, Math.min(CANVAS_H - RADIUS, pos.y - dragging.oy)) }
-          : s
-      ),
-    });
+    const x = Math.max(RADIUS, Math.min(CANVAS_W - RADIUS, pos.x - dragging.ox));
+    const y = Math.max(RADIUS, Math.min(CANVAS_H - RADIUS, pos.y - dragging.oy));
+    // Update local position only — no parent onChange on every pixel.
+    setDragPos({ id: dragging.id, x, y });
   }
 
   function handleSvgMouseUp() {
+    // Commit the final dragged position to the parent exactly once.
+    if (dragging && dragPos) {
+      onChange({
+        ...value,
+        states: value.states.map((s) =>
+          s.id === dragPos.id ? { ...s, x: dragPos.x, y: dragPos.y } : s
+        ),
+      });
+    }
+    setDragPos(null);
     setDragging(null);
   }
 
@@ -251,7 +247,12 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
   }, []);
 
   // ── Render ──────────────────────────────────────────────────
-  const selState = selected?.type === "state" ? value.states.find((s) => s.id === selected.id) : null;
+  // Apply the in-progress drag position so nodes/edges follow the cursor without
+  // a parent update. Identical to value.states when not dragging.
+  const renderStates = dragPos
+    ? value.states.map((s) => (s.id === dragPos.id ? { ...s, x: dragPos.x, y: dragPos.y } : s))
+    : value.states;
+  const selState = selected?.type === "state" ? renderStates.find((s) => s.id === selected.id) : null;
 
   return (
     <div style={{ fontFamily: "inherit" }}>
@@ -347,7 +348,7 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
 
         {/* Ghost arrow while drawing */}
         {drawFrom && mousePos && (() => {
-          const src = value.states.find((s) => s.id === drawFrom);
+          const src = renderStates.find((s) => s.id === drawFrom);
           if (!src) return null;
           return (
             <line
@@ -362,7 +363,7 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
           const isSel = selected?.type === "transition" && selected.id === t.id;
           if (t.from === t.to) {
             // self-loop
-            const src = value.states.find((s) => s.id === t.from);
+            const src = renderStates.find((s) => s.id === t.from);
             if (!src) return null;
             const mid = selfLoopMidPoint(src.x, src.y);
             return (
@@ -390,7 +391,7 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
             );
           }
 
-          const pts = edgePoints(value.states, value.transitions, t);
+          const pts = edgePoints(renderStates, value.transitions, t);
           const d = `M ${pts.x1} ${pts.y1} Q ${pts.cx} ${pts.cy} ${pts.x2} ${pts.y2}`;
           const lx = 0.5 * pts.x1 + 0.5 * pts.cx * 0.5 + 0.25 * pts.x2 + 0.5 * 0.25 * pts.cx;
           const ly = 0.5 * pts.y1 + 0.5 * pts.cy * 0.5 + 0.25 * pts.y2 + 0.5 * 0.25 * pts.cy;
@@ -425,7 +426,7 @@ export default function MarkovEditor({ value, onChange, readOnly = false }: Prop
         })}
 
         {/* States */}
-        {value.states.map((s) => {
+        {renderStates.map((s) => {
           const isSel = selected?.type === "state" && selected.id === s.id;
           const isDrawSrc = drawFrom === s.id;
           return (
@@ -570,13 +571,6 @@ function ValidationHint({ chain }: { chain: MarkovChain }) {
 }
 
 /** Returns a copy of the chain with x/y stripped from states (for storage/display). */
-export function normalizeChain(chain: MarkovChain): { states: Omit<MarkovState, "x" | "y">[]; transitions: MarkovTransition[] } {
-  return {
-    states: chain.states.map(({ id, isInitial, isAccepting }) => ({ id, isInitial, isAccepting })),
-    transitions: chain.transitions,
-  };
-}
-
 function parseProb(s: string): number {
   s = s.trim();
   const slash = s.indexOf("/");

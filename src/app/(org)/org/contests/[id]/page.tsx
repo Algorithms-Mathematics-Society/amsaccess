@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,11 +11,17 @@ import {
   MessageSquare, ListChecks, Share2, ChevronDown
 } from "lucide-react";
 import { apiFetch } from "@/lib/client/apiClient";
-import { extractMath } from "@/lib/katex-render";
-import CPProblemStudio, { type CPProblemStudioHandle } from "@/components/CPProblemStudio";
-import MarkovEditor, { type MarkovChain, normalizeChain } from "@/components/MarkovEditor";
+import type { CPProblemStudioHandle } from "@/components/CPProblemStudio";
+import { type MarkovChain, normalizeChain } from "@/lib/markov";
 import { Modal } from "@/components/Modal";
 import { Skeleton } from "@/components/Skeleton";
+
+// Heavy editors are code-split so they don't ship in the contest page's initial
+// JS — and so the KaTeX they pull stays out of the initial bundle too. React.lazy
+// (not next/dynamic) is required for CPProblemStudio because it's driven by an
+// imperative ref, which lazy forwards to its forwardRef default export.
+const CPProblemStudio = lazy(() => import("@/components/CPProblemStudio"));
+const MarkovQuestionEditor = lazy(() => import("@/components/MarkovQuestionEditor"));
 
 // ─── Types ───────────────────────────────────────────────────
 type Contest = {
@@ -222,6 +228,32 @@ function verdictTone(verdict: string): string {
   }
 }
 
+// Memoized so a 2s leaderboard poll only re-renders cells whose verdict string
+// actually changed, not every badge on the board.
+const VerdictBadge = memo(function VerdictBadge({ verdict }: { verdict: string }) {
+  if (verdict === "UNATTEMPTED") {
+    return (
+      <span className="inline-flex min-w-14 items-center justify-center px-2 py-1 text-[11px] text-slate-300" aria-label="Unattempted">
+        –
+      </span>
+    );
+  }
+  return (
+    <span className={`inline-flex min-w-14 items-center justify-center rounded-md border px-2 py-1 text-[11px] font-semibold ${verdictTone(verdict)}`}>
+      {verdict}
+    </span>
+  );
+});
+
+// Tab panels are memoized so the parent's periodic re-renders (judge poll, the
+// 30s compute clock) don't re-render the active tab when its props are unchanged.
+// (The *Impl declarations are hoisted, so referencing them here is safe.)
+const QuestionsTab = memo(QuestionsTabImpl);
+const ParticipantsTab = memo(ParticipantsTabImpl);
+const LeaderboardTab = memo(LeaderboardTabImpl);
+const MonitorTab = memo(MonitorTabImpl);
+const SettingsTab = memo(SettingsTabImpl);
+
 function statusClass(s: string) {
   if (s === "ACTIVE") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (s === "SCHEDULED") return "border-purple-200 bg-purple-50 text-purple-700";
@@ -238,46 +270,6 @@ function toDateTimeLocalValue(isoLike: string): string {
   const hh = String(d.getHours()).padStart(2, "0");
   const mi = String(d.getMinutes()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
-}
-
-function renderMarkdownPreview(md: string): string {
-  // Pull $...$ / $$...$$ math out to KaTeX before the markdown pass, then
-  // re-inject the rendered HTML into the final output (see extractMath).
-  const { masked, reinject } = extractMath(md);
-  // Minimal markdown → HTML for problem statement preview
-  let html = masked
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    // fenced code blocks
-    .replace(/```[\s\S]*?```/g, (m) => {
-      const inner = m.slice(3, -3).replace(/^\w*\n/, "");
-      return `<pre style="background:#0f172a;border-radius:6px;padding:8px 12px;overflow-x:auto;font-size:12px;color:#94a3b8;margin:8px 0">${inner}</pre>`;
-    })
-    // headers
-    .replace(/^### (.+)$/gm, '<h3 style="font-size:14px;font-weight:600;margin:10px 0 4px;color:#e2e8f0">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 style="font-size:16px;font-weight:600;margin:12px 0 4px;color:#e2e8f0">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 style="font-size:18px;font-weight:700;margin:14px 0 4px;color:#f1f5f9">$1</h1>')
-    // inline code
-    .replace(/`([^`]+)`/g, '<code style="background:#1e293b;border-radius:3px;padding:1px 5px;font-size:12px;color:#c084fc;font-family:monospace">$1</code>')
-    // bold / italic
-    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#e2e8f0">$1</strong>')
-    .replace(/_(.+?)_/g, '<em>$1</em>')
-    // images — render inline
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:6px 0;display:block" />')
-    // links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#a855f7;text-decoration:underline">$1</a>');
-  // (math is handled by extractMath/KaTeX above — no literal $…$ remain here)
-
-  // paragraphs: split by blank lines
-  const paras = html.split(/\n{2,}/);
-  const rendered = paras
-    .map((p) => {
-      p = p.trim();
-      if (!p) return "";
-      if (p.startsWith("<h") || p.startsWith("<pre") || p.startsWith("<img")) return p;
-      return `<p style="margin:6px 0;line-height:1.6;color:#cbd5e1;font-size:13px">${p.replace(/\n/g, "<br/>")}</p>`;
-    })
-    .join("\n");
-  return reinject(rendered);
 }
 
 function getReviewerCount(pluginConfig?: string): number | null {
@@ -442,6 +434,14 @@ export default function ContestDetailPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Stable handlers so the memoized tab components don't re-render on every
+  // parent tick (judge poll / nowMs clock) just from a fresh inline closure.
+  const goToSettings = useCallback(() => setTab("settings"), []);
+  const goToDashboard = useCallback(() => router.push("/org/dashboard"), [router]);
+
+  // Refresh the open-incident badge on mount and whenever the Monitor tab is
+  // opened/closed (resolutions happen there) — NOT on every unrelated tab switch.
+  const onMonitorTab = tab === "monitor";
   useEffect(() => {
     let cancelled = false;
     apiFetch<{ items: SupportIncident[] }>(`/api/org/contests/${id}/incidents`)
@@ -450,7 +450,7 @@ export default function ContestDetailPage() {
       })
       .catch(() => { /* badge is best-effort; ignore fetch errors */ });
     return () => { cancelled = true; };
-  }, [id, tab]);
+  }, [id, onMonitorTab]);
 
   useEffect(() => {
     if (!contest || modeReconciled) return;
@@ -962,7 +962,7 @@ export default function ContestDetailPage() {
           />
         )}
         {tab === "leaderboard" && contest && (
-          <LeaderboardTab contestId={id} contestStatus={contest.status} contest={contest} onGoToSettings={() => setTab("settings")} />
+          <LeaderboardTab contestId={id} contestStatus={contest.status} contest={contest} onGoToSettings={goToSettings} />
         )}
         {tab === "monitor" && (
           <MonitorTab contestId={id} openIncidentCount={incidentsOpenCount} />
@@ -972,7 +972,7 @@ export default function ContestDetailPage() {
             contest={contest}
             forcedMode={forcedMode}
             onSaved={load}
-            onDeleted={() => router.push("/org/dashboard")}
+            onDeleted={goToDashboard}
           />
         )}
       </div>
@@ -1572,7 +1572,7 @@ function LiveTable<T>({
   );
 }
 
-function LeaderboardTab({
+function LeaderboardTabImpl({
   contestId,
   contestStatus,
   contest,
@@ -1718,6 +1718,17 @@ function LeaderboardTab({
 
   const selectedEntry =
     entries.find((entry) => entry.session_id === selectedSessionId) ?? entries[0] ?? null;
+
+  // O(1) verdict lookup per cell instead of entry.problems.find() on every poll.
+  const verdictByEntry = useMemo(() => {
+    const m = new Map<string, Map<string, string>>();
+    for (const entry of entries) {
+      const inner = new Map<string, string>();
+      for (const p of entry.problems) inner.set(p.question_id, p.verdict);
+      m.set(entry.session_id, inner);
+    }
+    return m;
+  }, [entries]);
 
   const trimmedQuery = query.trim().toLowerCase();
   const filtering = trimmedQuery.length > 0;
@@ -1978,19 +1989,10 @@ function LeaderboardTab({
                         <td className="px-3 py-3 text-slate-600">{entry.solved_count}</td>
                         <td className="px-3 py-3 text-slate-600">{formatPenaltySeconds(entry.penalty_seconds)}</td>
                         {board.questions.map((question) => {
-                          const state = entry.problems.find((item) => item.question_id === question.id);
-                          const verdict = state?.verdict ?? "UNATTEMPTED";
+                          const verdict = verdictByEntry.get(entry.session_id)?.get(question.id) ?? "UNATTEMPTED";
                           return (
                             <td key={`${entry.session_id}:${question.id}`} className="px-2 py-3 text-center">
-                              {verdict === "UNATTEMPTED" ? (
-                                <span className="inline-flex min-w-14 items-center justify-center px-2 py-1 text-[11px] text-slate-300" aria-label="Unattempted">
-                                  –
-                                </span>
-                              ) : (
-                                <span className={`inline-flex min-w-14 items-center justify-center rounded-md border px-2 py-1 text-[11px] font-semibold ${verdictTone(verdict)}`}>
-                                  {verdict}
-                                </span>
-                              )}
+                              <VerdictBadge verdict={verdict} />
                             </td>
                           );
                         })}
@@ -2136,7 +2138,7 @@ function LeaderboardTab({
 }
 
 // ─── Questions tab ───────────────────────────────────────────
-function QuestionsTab({ contestId, pluginType, questions, onRefresh }: {
+function QuestionsTabImpl({ contestId, pluginType, questions, onRefresh }: {
   contestId: string; pluginType: string; questions: Question[]; onRefresh: () => void;
 }) {
   const isChessContest = String(pluginType ?? "").toUpperCase() === "CHESS";
@@ -2754,72 +2756,16 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
         <FollowUpEditor parts={followUpParts} onChange={setFollowUpParts} />
       )}
 
-      {/* Markov editor — problem statement + answer key chain */}
+      {/* Markov editor — lazy-loaded (keeps its KaTeX + canvas out of the initial bundle) */}
       {questionType === "markov" && (
-        <div className="mb-4">
-          {/* Problem statement + live preview */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-500">Problem Statement</label>
-              <textarea
-                rows={8}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the Markov chain problem the student must solve…"
-                className="glass-input w-full text-sm font-mono"
-                style={{ resize: "vertical", minHeight: 160 }}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-500">Preview</label>
-              <div
-                style={{
-                  minHeight: 160,
-                  background: "rgba(7,17,36,0.7)",
-                  border: "1px solid rgba(100,116,139,0.18)",
-                  borderRadius: 8,
-                  padding: "10px 14px",
-                  overflowY: "auto",
-                  maxHeight: 320,
-                }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(description) || '<span style="color:#475569;font-size:12px">Preview will appear here…</span>' }}
-              />
-            </div>
-          </div>
-
-          {/* Answer key editor + live JSON */}
-          <label className="mb-1 block text-xs font-medium text-slate-500">
-            Answer Key — build the correct Markov chain below
-          </label>
-          <p className="mb-2 text-[11px] text-slate-400">
-            Double-click canvas to add state · Drag to move · Right-click state to toggle initial/accepting · Click arrow label to edit probability
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 12, alignItems: "start" }}>
-            <MarkovEditor value={markovChain} onChange={setMarkovChain} />
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-500">Live JSON</label>
-              <pre
-                style={{
-                  background: "#0a0f1e",
-                  border: "1px solid rgba(168,85,247,0.18)",
-                  borderRadius: 8,
-                  padding: "10px 12px",
-                  fontSize: 10.5,
-                  color: "#94a3b8",
-                  overflowY: "auto",
-                  maxHeight: 460,
-                  margin: 0,
-                  fontFamily: "monospace",
-                  lineHeight: 1.5,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-all",
-                }}
-              >
-                {JSON.stringify(normalizeChain(markovChain), null, 2)}
-              </pre>
-            </div>
-          </div>
-        </div>
+        <Suspense fallback={<div className="mb-4 h-72 animate-pulse rounded-xl border border-slate-200 bg-slate-50" />}>
+          <MarkovQuestionEditor
+            description={description}
+            setDescription={setDescription}
+            markovChain={markovChain}
+            setMarkovChain={setMarkovChain}
+          />
+        </Suspense>
       )}
 
       {/* Problem Studio — only for code/interactive */}
@@ -2841,27 +2787,29 @@ function QuestionForm({ contestId, existing, nextIndex, onSaved, onCancel, savin
             <Info className="h-3 w-3 shrink-0" />
             The problem editor below uses a dark theme for code legibility.
           </p>
-          <CPProblemStudio
-            key={existing?.id ?? "new"}
-            ref={studioRef}
-            contestId={contestId}
-            questionId={existing?.id}
-            title={title}
-            setTitle={setTitle}
-            points={points}
-            setPoints={setPoints}
-            description={description}
-            setDescription={setDescription}
-            questionType={questionType as "code" | "interactive"}
-            timeLimit={timeLimit}
-            setTimeLimit={setTimeLimit}
-            memoryLimit={memoryLimit}
-            setMemoryLimit={setMemoryLimit}
-            initialValidatorCode={existing?.validator_code ?? undefined}
-            initialCheckerCode={existing?.checker_code ?? undefined}
-            initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
-            initialGeneratorScript={existing?.generator_script ?? undefined}
-          />
+          <Suspense fallback={<div className="my-5 h-64 animate-pulse rounded-2xl border border-slate-200 bg-slate-50" />}>
+            <CPProblemStudio
+              key={existing?.id ?? "new"}
+              ref={studioRef}
+              contestId={contestId}
+              questionId={existing?.id}
+              title={title}
+              setTitle={setTitle}
+              points={points}
+              setPoints={setPoints}
+              description={description}
+              setDescription={setDescription}
+              questionType={questionType as "code" | "interactive"}
+              timeLimit={timeLimit}
+              setTimeLimit={setTimeLimit}
+              memoryLimit={memoryLimit}
+              setMemoryLimit={setMemoryLimit}
+              initialValidatorCode={existing?.validator_code ?? undefined}
+              initialCheckerCode={existing?.checker_code ?? undefined}
+              initialCheckerType={existing?.checker_type === "custom" ? "custom" : undefined}
+              initialGeneratorScript={existing?.generator_script ?? undefined}
+            />
+          </Suspense>
         </>
       )}
 
@@ -3055,7 +3003,7 @@ function SegmentedNav<T extends string>({
 }
 
 // Participants = the people taking the contest. Invited list + enrolled students.
-function ParticipantsTab({ contestId, invites, onRefresh }: {
+function ParticipantsTabImpl({ contestId, invites, onRefresh }: {
   contestId: string; invites: Invite[]; onRefresh: () => void;
 }) {
   const [sub, setSub] = useState<"invited" | "students">("invited");
@@ -3077,7 +3025,7 @@ function ParticipantsTab({ contestId, invites, onRefresh }: {
 }
 
 // Monitor = watching the contest run. Live activity + candidate help requests.
-function MonitorTab({ contestId, openIncidentCount }: {
+function MonitorTabImpl({ contestId, openIncidentCount }: {
   contestId: string; openIncidentCount: number;
 }) {
   const [sub, setSub] = useState<"activity" | "incidents">("activity");
@@ -3401,7 +3349,7 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 }
 
 // ─── Settings tab ────────────────────────────────────────────
-function SettingsTab({ contest, forcedMode, onSaved, onDeleted }: {
+function SettingsTabImpl({ contest, forcedMode, onSaved, onDeleted }: {
   contest: Contest; forcedMode: "CHESS" | null; onSaved: () => void; onDeleted: () => void;
 }) {
   const [title, setTitle]           = useState(contest.title);
