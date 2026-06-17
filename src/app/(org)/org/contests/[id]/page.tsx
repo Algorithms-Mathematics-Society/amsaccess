@@ -51,7 +51,7 @@ type Invite = {
   id: string; email: string; status: string; created_at: string;
 };
 
-type Tab = "questions" | "participants" | "leaderboard" | "monitor" | "settings";
+type Tab = "questions" | "participants" | "leaderboard" | "requests" | "monitor" | "settings";
 
 type ContestDetailResponse = {
   contest: Contest;
@@ -171,6 +171,26 @@ type HistoricalSubmission = {
   created_at: string;
   started_at?: string | null;
   finished_at?: string | null;
+};
+
+type ResumeRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CONSUMED";
+
+type ResumeRequestRow = {
+  id: string;
+  contest_id: string;
+  session_id: string;
+  candidate_name: string;
+  candidate_email: string;
+  device_id?: string | null;
+  reason?: string | null;
+  status: ResumeRequestStatus;
+  review_note?: string | null;
+  reviewed_by?: string | null;
+  requested_at: string;
+  reviewed_at?: string | null;
+  expires_at?: string | null;
+  consumed_at?: string | null;
+  session_latest_seen_at: string;
 };
 
 type ReadinessState = "complete" | "pending" | "blocked";
@@ -414,6 +434,7 @@ export default function ContestDetailPage() {
   // visible without opening the Incidents tab. Re-read on tab switches so it
   // reflects resolutions made inside the tab.
   const [incidentsOpenCount, setIncidentsOpenCount] = useState(0);
+  const [resumePendingCount, setResumePendingCount] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -506,6 +527,25 @@ export default function ContestDetailPage() {
   }, []);
 
   useEffect(() => { void loadJudge(); }, [loadJudge]);
+  const loadResumePendingCount = useCallback(async () => {
+    try {
+      const data = await apiFetch<{ items: ResumeRequestRow[] }>(`/api/org/contests/${id}/resume-requests`);
+      setResumePendingCount((data.items ?? []).filter((item) => item.status === "PENDING").length);
+    } catch {
+      // Keep the tab badge best-effort so the page remains usable if the queue endpoint is unavailable.
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void loadResumePendingCount();
+  }, [loadResumePendingCount]);
+
+  useEffect(() => {
+    if (contest?.status !== "ACTIVE") return;
+    const timer = setInterval(() => void loadResumePendingCount(), 5000);
+    return () => clearInterval(timer);
+  }, [contest?.status, loadResumePendingCount]);
+
   useEffect(() => {
     if (!judge) return;
     if (judge.phase === "starting" || judge.phase === "stopping") {
@@ -908,12 +948,12 @@ export default function ContestDetailPage() {
 
         <LaunchChecklistPanel items={launchChecklist} state={launchState} />
 
-        {/* Tabs — horizontally scrollable on narrow screens, 5-up grid from sm */}
-        <div className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid sm:grid-cols-5 sm:overflow-visible">
+        <div className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:grid sm:grid-cols-6 sm:overflow-visible">
           {([
             ["questions", "Questions", questions.length, Code2],
             ["participants", "Participants", invites.length, Users],
             ["leaderboard", "Leaderboard", null, BarChart2],
+            ["requests", "Requests", resumePendingCount, UserPlus],
             ["monitor", "Monitor", null, Activity],
             ["settings", "Settings", null, Settings],
           ] as const).map(([key, label, count, Icon]) => (
@@ -966,6 +1006,13 @@ export default function ContestDetailPage() {
         )}
         {tab === "monitor" && (
           <MonitorTab contestId={id} openIncidentCount={incidentsOpenCount} />
+        )}
+        {tab === "requests" && contest && (
+          <ResumeRequestsTab
+            contestId={id}
+            contestStatus={contest.status}
+            onPendingCountChange={setResumePendingCount}
+          />
         )}
         {tab === "settings" && (
           <SettingsTab
@@ -1569,6 +1616,177 @@ function LiveTable<T>({
         )}
       </div>
     </div>
+  );
+}
+
+function resumeStatusTone(status: ResumeRequestStatus): string {
+  switch (status) {
+    case "PENDING":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "APPROVED":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "REJECTED":
+      return "border-red-200 bg-red-50 text-red-700";
+    case "EXPIRED":
+      return "border-slate-200 bg-slate-100 text-slate-500";
+    case "CONSUMED":
+      return "border-purple-200 bg-purple-50 text-purple-700";
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-500";
+  }
+}
+
+function ResumeRequestsTab({
+  contestId,
+  contestStatus,
+  onPendingCountChange,
+}: {
+  contestId: string;
+  contestStatus: string;
+  onPendingCountChange: (count: number) => void;
+}) {
+  const [items, setItems] = useState<ResumeRequestRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+
+  const loadRequests = useCallback(async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const data = await apiFetch<{ items: ResumeRequestRow[] }>(`/api/org/contests/${contestId}/resume-requests`);
+      const nextItems = data.items ?? [];
+      setItems(nextItems);
+      onPendingCountChange(nextItems.filter((item) => item.status === "PENDING").length);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Unable to load rejoin requests.");
+    } finally {
+      setBusy(false);
+    }
+  }, [contestId, onPendingCountChange]);
+
+  const reviewRequest = useCallback(async (requestId: string, decision: "approve" | "reject") => {
+    setActingId(requestId);
+    try {
+      await apiFetch(`/api/org/contests/${contestId}/resume-requests/${requestId}/${decision}`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      await loadRequests();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : `Unable to ${decision} request.`);
+    } finally {
+      setActingId(null);
+    }
+  }, [contestId, loadRequests]);
+
+  useEffect(() => {
+    void loadRequests();
+  }, [loadRequests]);
+
+  useEffect(() => {
+    if (contestStatus !== "ACTIVE") return;
+    const timer = setInterval(() => void loadRequests(), 3000);
+    return () => clearInterval(timer);
+  }, [contestStatus, loadRequests]);
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Contest control</p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Rejoin Requests</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Contestants who reconnect mid-contest stay blocked until an organizer explicitly allows them back in.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void loadRequests()}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {err ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{err}</div>
+      ) : busy && items.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">Loading rejoin requests…</div>
+      ) : items.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+          No rejoin requests yet.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs uppercase tracking-[0.14em] text-slate-400">
+                <th className="px-3 py-3 font-semibold">Candidate</th>
+                <th className="px-3 py-3 font-semibold">Requested</th>
+                <th className="px-3 py-3 font-semibold">Reason</th>
+                <th className="px-3 py-3 font-semibold">Device</th>
+                <th className="px-3 py-3 font-semibold">Last Seen</th>
+                <th className="px-3 py-3 font-semibold">Status</th>
+                <th className="px-3 py-3 text-right font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => {
+                const pending = item.status === "PENDING";
+                const busyAction = actingId === item.id;
+                return (
+                  <tr key={item.id} className={`border-b border-slate-100 ${pending ? "bg-amber-50/40" : "bg-white"}`}>
+                    <td className="px-3 py-3">
+                      <div className="font-medium text-slate-900">{item.candidate_name || "Unknown candidate"}</div>
+                      <div className="text-xs text-slate-500">{item.candidate_email}</div>
+                      <div className="mt-1 font-mono text-[11px] text-slate-400">{item.session_id.slice(0, 8)}</div>
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      <div>{new Date(item.requested_at).toLocaleString()}</div>
+                      <div className="mt-1 text-xs text-slate-400">
+                        {Math.max(0, Math.round((Date.now() - new Date(item.requested_at).getTime()) / 60000))}m ago
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      <div>{item.reason || "app_rejoin"}</div>
+                      {item.review_note ? <div className="mt-1 text-xs text-slate-400">{item.review_note}</div> : null}
+                    </td>
+                    <td className="px-3 py-3 font-mono text-[12px] text-slate-500">{item.device_id || "unknown"}</td>
+                    <td className="px-3 py-3 text-slate-600">{new Date(item.session_latest_seen_at).toLocaleString()}</td>
+                    <td className="px-3 py-3">
+                      <span className={`inline-flex rounded-md border px-2 py-1 text-[11px] font-semibold ${resumeStatusTone(item.status)}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          disabled={!pending || busyAction}
+                          onClick={() => void reviewRequest(item.id, "approve")}
+                          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Allow
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!pending || busyAction}
+                          onClick={() => void reviewRequest(item.id, "reject")}
+                          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
