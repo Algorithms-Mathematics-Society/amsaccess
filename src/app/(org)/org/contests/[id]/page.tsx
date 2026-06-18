@@ -3694,10 +3694,9 @@ function StudentsTab({ contestId }: { contestId: string }) {
     <div class="header">Contest Access Onboarding Portal</div>
     <p>Hello <strong>{{name}}</strong>,</p>
     <p>You have been provisioned access to register for the assessment round.</p>
-    <p>Your unique access credentials are generated below:</p>
+    <p>To join, follow the sign-in steps below:</p>
     <div class="cred-box">
-      <strong>Login Username:</strong> {{username}}<br/>
-      <strong>Password:</strong> {{password}}<br/>
+      <strong>How to sign in:</strong> open the AMS Access secure app and enter <strong>your email address</strong> — we'll email you a 6-digit code to sign in. There is no password.<br/>
       <strong>Access Contest Code:</strong> <span class="code">{{contestcode}}</span>
     </div>
     <p>Please launch your secure Proctor client and enter the Access Contest Code above to enter onboarding.</p>
@@ -3736,10 +3735,9 @@ function StudentsTab({ contestId }: { contestId: string }) {
     <div class="header">Contest Access Onboarding Portal</div>
     <p>Hello <strong>{{name}}</strong>,</p>
     <p>You have been provisioned access to register for the assessment round.</p>
-    <p>Your unique access credentials are generated below:</p>
+    <p>To join, follow the sign-in steps below:</p>
     <div class="cred-box">
-      <strong>Login Username:</strong> {{username}}<br/>
-      <strong>Password:</strong> {{password}}<br/>
+      <strong>How to sign in:</strong> open the AMS Access secure app and enter <strong>your email address</strong> — we'll email you a 6-digit code to sign in. There is no password.<br/>
       <strong>Access Contest Code:</strong> <span class="code">{{contestcode}}</span>
     </div>
     <p>Please launch your secure Proctor client and enter the Access Contest Code above to enter onboarding.</p>
@@ -3769,8 +3767,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
     <p>Your secure session credentials are set to expire shortly. Please log in immediately using the credentials below:</p>
     <div class="cred-box">
       <strong>Access Code:</strong> <span class="code">{{contestcode}}</span><br/>
-      <strong>Username:</strong> {{username}}<br/>
-      <strong>Password:</strong> {{password}}
+      <strong>How to sign in:</strong> enter your email address and the 6-digit code we email you — no password required.
     </div>
     <p>Ensure your camera, microphone, and platform environment are fully validated before opening.</p>
   </div>
@@ -3919,8 +3916,6 @@ function StudentsTab({ contestId }: { contestId: string }) {
   function getPreviewHTML() {
     let html = bodyTemplate;
     html = html.replace(/{{name}}/g, "Jane Doe");
-    html = html.replace(/{{username}}/g, "janedoe@amsaccess.com");
-    html = html.replace(/{{password}}/g, "xYz97531!#$");
     html = html.replace(/{{contestcode}}/g, sessionCode || "RESOLVING...");
     return html;
   }
@@ -3962,8 +3957,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
               </h3>
               <p className="text-xs text-slate-500">
                 Provide a CSV containing columns <code className="text-purple-600">name</code> and{" "}
-                <code className="text-purple-600">email</code>. We will generate unique{" "}
-                <code className="text-purple-600">@amsaccess.com</code> login credentials for each student.
+                <code className="text-purple-600">email</code>. Each student signs in with their own email address — we email them a 6-digit code at contest time. No usernames or passwords to distribute.
               </p>
 
               <div className="flex items-center gap-3">
@@ -4070,7 +4064,6 @@ function StudentsTab({ contestId }: { contestId: string }) {
                     <th className="py-2.5 px-3">Name</th>
                     <th className="py-2.5 px-3">Registered Email</th>
                     <th className="py-2.5 px-3">Generated User</th>
-                    <th className="py-2.5 px-3">Generated Password</th>
                     <th className="py-2.5 px-3">Invite Status</th>
                     <th className="py-2.5 px-3">Provision Date</th>
                   </tr>
@@ -4078,7 +4071,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
                 <tbody className="divide-y divide-slate-100">
                   {students.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-4 text-center text-slate-400">
+                      <td colSpan={5} className="py-4 text-center text-slate-400">
                         No students provisioned yet.
                       </td>
                     </tr>
@@ -4088,7 +4081,6 @@ function StudentsTab({ contestId }: { contestId: string }) {
                         <td className="py-3 px-3 font-semibold text-slate-950">{st.name}</td>
                         <td className="py-3 px-3 text-slate-500">{st.email}</td>
                         <td className="py-3 px-3 font-mono text-purple-600">{st.generated_username}</td>
-                        <td className="py-3 px-3 font-mono text-slate-500">{st.generated_password}</td>
                         <td className="py-3 px-3">
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-medium border ${
