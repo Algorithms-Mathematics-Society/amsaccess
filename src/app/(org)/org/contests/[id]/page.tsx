@@ -3764,7 +3764,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
   <div class="card">
     <div class="header">Final Verification Required</div>
     <p>Hi <strong>{{name}}</strong>,</p>
-    <p>Your secure session credentials are set to expire shortly. Please log in immediately using the credentials below:</p>
+    <p>Your secure session is expiring shortly. Please sign in immediately using your email address — instructions are below:</p>
     <div class="cred-box">
       <strong>Access Code:</strong> <span class="code">{{contestcode}}</span><br/>
       <strong>How to sign in:</strong> enter your email address and the 6-digit code we email you — no password required.
