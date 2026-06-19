@@ -3059,6 +3059,20 @@ function InvitesTab({ contestId, invites, onRefresh }: {
   const [removing, setRemoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Read an uploaded CSV and append its raw text to the recipients box. We don't
+  // parse columns here — addInvites already splits each line by comma and keeps
+  // the cells containing "@", so headers and name/university columns drop out.
+  async function handleCsvUpload(file: File) {
+    setError(null);
+    try {
+      const text = await file.text();
+      setEmailInput((prev) => (prev.trim() ? `${prev.trim()}\n${text}` : text));
+    } catch {
+      setError("Could not read that file. Make sure it's a .csv text file.");
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -3122,13 +3136,21 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 
     setSaving(true);
     try {
-      const result = await apiFetch<{ invited: number; emailsSent: number }>(`/api/org/contests/${contestId}/invites`, {
+      const result = await apiFetch<{ invited: number; emailsSent: number; failed?: string[] }>(`/api/org/contests/${contestId}/invites`, {
         method: "POST",
         body: JSON.stringify({ emails, subject, body: template })
       });
 
-      setEmailInput("");
+      const failed = result.failed ?? [];
       setSuccess(`Invited ${result.invited} candidate${result.invited !== 1 ? "s" : ""}${result.emailsSent ? ` and sent ${result.emailsSent} email${result.emailsSent !== 1 ? "s" : ""}` : ""}.`);
+      if (failed.length > 0) {
+        // Surface exactly who didn't receive it (e.g. daily quota hit) and keep
+        // those addresses in the box so they can be retried without re-uploading.
+        setError(`${failed.length} email${failed.length !== 1 ? "s" : ""} did not send (likely a sending limit). Retry these later:\n${failed.join("\n")}`);
+        setEmailInput(failed.join("\n"));
+      } else {
+        setEmailInput("");
+      }
       onRefresh();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save invites.");
@@ -3195,7 +3217,7 @@ function InvitesTab({ contestId, invites, onRefresh }: {
           </p>
 
           {error && (
-            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+            <div className="mb-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
           )}
           {success && (
             <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</div>
@@ -3203,9 +3225,30 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 
           <div className="mb-1.5 flex items-center justify-between">
             <label className="text-xs font-semibold text-slate-700">Recipients</label>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${parsedEmailCount > 0 ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
-              {parsedEmailCount} email{parsedEmailCount !== 1 ? "s" : ""}
-            </span>
+            <div className="flex items-center gap-2">
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleCsvUpload(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => csvInputRef.current?.click()}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                <FileSpreadsheet className="h-3 w-3" />
+                Upload CSV
+              </button>
+              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${parsedEmailCount > 0 ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
+                {parsedEmailCount} email{parsedEmailCount !== 1 ? "s" : ""}
+              </span>
+            </div>
           </div>
           <textarea
             rows={4}
