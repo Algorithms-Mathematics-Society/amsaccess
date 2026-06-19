@@ -61,36 +61,56 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     let emailsSent = 0;
+    const failed: string[] = [];
     if (subjectTemplate && bodyTemplate && process.env.RESEND_API_KEY) {
       const fromName = typeof settings.email_from_name === "string" && settings.email_from_name.trim() !== ""
         ? settings.email_from_name.trim()
         : "Access by AMS";
       const from = process.env.RESEND_FROM_EMAIL ?? `${fromName} <onboarding@resend.dev>`;
-      await Promise.all(
-        emails.map(async (email) => {
-          const subject = renderInviteTemplate(subjectTemplate, { email });
-          const text = renderInviteTemplate(bodyTemplate, { email });
-          const resendRes = await fetch("https://api.resend.com/emails", {
+
+      // Resend's batch endpoint sends up to 100 messages in a single request, so a
+      // 150-recipient list goes out in ~2 calls. This keeps us under the per-second
+      // rate limit and well inside the function timeout, unlike firing N parallel
+      // requests. A chunk that fails (e.g. daily quota exceeded) is reported back
+      // with its recipients so the caller knows exactly who didn't receive it.
+      for (const chunk of chunkEmails(emails, 100)) {
+        const messages = chunk.map((email) => ({
+          from,
+          to: email,
+          subject: renderInviteTemplate(subjectTemplate, { email }),
+          text: renderInviteTemplate(bodyTemplate, { email }),
+        }));
+        try {
+          const resendRes = await fetch("https://api.resend.com/emails/batch", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              from,
-              to: email,
-              subject,
-              text,
-            }),
+            body: JSON.stringify(messages),
           });
-          if (resendRes.ok) emailsSent += 1;
-        }),
-      );
+          if (resendRes.ok) {
+            emailsSent += chunk.length;
+          } else {
+            failed.push(...chunk);
+          }
+        } catch {
+          failed.push(...chunk);
+        }
+      }
     }
 
     const data = res.data as { inserted: number };
-    return apiOk({ invited: data.inserted, emailsSent });
+    return apiOk({ invited: data.inserted, emailsSent, failed });
   });
+}
+
+function chunkEmails(emails: string[], size: number): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < emails.length; i += size) {
+    chunks.push(emails.slice(i, i + size));
+  }
+  return chunks;
 }
 
 function renderInviteTemplate(template: string, values: { email: string }) {

@@ -3277,6 +3277,20 @@ function InvitesTab({ contestId, invites, onRefresh }: {
   const [removing, setRemoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Read an uploaded CSV and append its raw text to the recipients box. We don't
+  // parse columns here — addInvites already splits each line by comma and keeps
+  // the cells containing "@", so headers and name/university columns drop out.
+  async function handleCsvUpload(file: File) {
+    setError(null);
+    try {
+      const text = await file.text();
+      setEmailInput((prev) => (prev.trim() ? `${prev.trim()}\n${text}` : text));
+    } catch {
+      setError("Could not read that file. Make sure it's a .csv text file.");
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -3340,13 +3354,21 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 
     setSaving(true);
     try {
-      const result = await apiFetch<{ invited: number; emailsSent: number }>(`/api/org/contests/${contestId}/invites`, {
+      const result = await apiFetch<{ invited: number; emailsSent: number; failed?: string[] }>(`/api/org/contests/${contestId}/invites`, {
         method: "POST",
         body: JSON.stringify({ emails, subject, body: template })
       });
 
-      setEmailInput("");
+      const failed = result.failed ?? [];
       setSuccess(`Invited ${result.invited} candidate${result.invited !== 1 ? "s" : ""}${result.emailsSent ? ` and sent ${result.emailsSent} email${result.emailsSent !== 1 ? "s" : ""}` : ""}.`);
+      if (failed.length > 0) {
+        // Surface exactly who didn't receive it (e.g. daily quota hit) and keep
+        // those addresses in the box so they can be retried without re-uploading.
+        setError(`${failed.length} email${failed.length !== 1 ? "s" : ""} did not send (likely a sending limit). Retry these later:\n${failed.join("\n")}`);
+        setEmailInput(failed.join("\n"));
+      } else {
+        setEmailInput("");
+      }
       onRefresh();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save invites.");
@@ -3413,7 +3435,7 @@ function InvitesTab({ contestId, invites, onRefresh }: {
           </p>
 
           {error && (
-            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+            <div className="mb-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
           )}
           {success && (
             <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</div>
@@ -3421,9 +3443,30 @@ function InvitesTab({ contestId, invites, onRefresh }: {
 
           <div className="mb-1.5 flex items-center justify-between">
             <label className="text-xs font-semibold text-slate-700">Recipients</label>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${parsedEmailCount > 0 ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
-              {parsedEmailCount} email{parsedEmailCount !== 1 ? "s" : ""}
-            </span>
+            <div className="flex items-center gap-2">
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleCsvUpload(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => csvInputRef.current?.click()}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                <FileSpreadsheet className="h-3 w-3" />
+                Upload CSV
+              </button>
+              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${parsedEmailCount > 0 ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
+                {parsedEmailCount} email{parsedEmailCount !== 1 ? "s" : ""}
+              </span>
+            </div>
           </div>
           <textarea
             rows={4}
@@ -3912,10 +3955,9 @@ function StudentsTab({ contestId }: { contestId: string }) {
     <div class="header">Contest Access Onboarding Portal</div>
     <p>Hello <strong>{{name}}</strong>,</p>
     <p>You have been provisioned access to register for the assessment round.</p>
-    <p>Your unique access credentials are generated below:</p>
+    <p>To join, follow the sign-in steps below:</p>
     <div class="cred-box">
-      <strong>Login Username:</strong> {{username}}<br/>
-      <strong>Password:</strong> {{password}}<br/>
+      <strong>How to sign in:</strong> open the AMS Access secure app and enter <strong>your email address</strong> — we'll email you a 6-digit code to sign in. There is no password.<br/>
       <strong>Access Contest Code:</strong> <span class="code">{{contestcode}}</span>
     </div>
     <p>Please launch your secure Proctor client and enter the Access Contest Code above to enter onboarding.</p>
@@ -3954,10 +3996,9 @@ function StudentsTab({ contestId }: { contestId: string }) {
     <div class="header">Contest Access Onboarding Portal</div>
     <p>Hello <strong>{{name}}</strong>,</p>
     <p>You have been provisioned access to register for the assessment round.</p>
-    <p>Your unique access credentials are generated below:</p>
+    <p>To join, follow the sign-in steps below:</p>
     <div class="cred-box">
-      <strong>Login Username:</strong> {{username}}<br/>
-      <strong>Password:</strong> {{password}}<br/>
+      <strong>How to sign in:</strong> open the AMS Access secure app and enter <strong>your email address</strong> — we'll email you a 6-digit code to sign in. There is no password.<br/>
       <strong>Access Contest Code:</strong> <span class="code">{{contestcode}}</span>
     </div>
     <p>Please launch your secure Proctor client and enter the Access Contest Code above to enter onboarding.</p>
@@ -3984,11 +4025,10 @@ function StudentsTab({ contestId }: { contestId: string }) {
   <div class="card">
     <div class="header">Final Verification Required</div>
     <p>Hi <strong>{{name}}</strong>,</p>
-    <p>Your secure session credentials are set to expire shortly. Please log in immediately using the credentials below:</p>
+    <p>Your secure session is expiring shortly. Please sign in immediately using your email address — instructions are below:</p>
     <div class="cred-box">
       <strong>Access Code:</strong> <span class="code">{{contestcode}}</span><br/>
-      <strong>Username:</strong> {{username}}<br/>
-      <strong>Password:</strong> {{password}}
+      <strong>How to sign in:</strong> enter your email address and the 6-digit code we email you — no password required.
     </div>
     <p>Ensure your camera, microphone, and platform environment are fully validated before opening.</p>
   </div>
@@ -4137,8 +4177,6 @@ function StudentsTab({ contestId }: { contestId: string }) {
   function getPreviewHTML() {
     let html = bodyTemplate;
     html = html.replace(/{{name}}/g, "Jane Doe");
-    html = html.replace(/{{username}}/g, "janedoe@amsaccess.com");
-    html = html.replace(/{{password}}/g, "xYz97531!#$");
     html = html.replace(/{{contestcode}}/g, sessionCode || "RESOLVING...");
     return html;
   }
@@ -4180,8 +4218,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
               </h3>
               <p className="text-xs text-slate-500">
                 Provide a CSV containing columns <code className="text-purple-600">name</code> and{" "}
-                <code className="text-purple-600">email</code>. We will generate unique{" "}
-                <code className="text-purple-600">@amsaccess.com</code> login credentials for each student.
+                <code className="text-purple-600">email</code>. Each student signs in with their own email address — we email them a 6-digit code at contest time. No usernames or passwords to distribute.
               </p>
 
               <div className="flex items-center gap-3">
@@ -4288,7 +4325,6 @@ function StudentsTab({ contestId }: { contestId: string }) {
                     <th className="py-2.5 px-3">Name</th>
                     <th className="py-2.5 px-3">Registered Email</th>
                     <th className="py-2.5 px-3">Generated User</th>
-                    <th className="py-2.5 px-3">Generated Password</th>
                     <th className="py-2.5 px-3">Invite Status</th>
                     <th className="py-2.5 px-3">Provision Date</th>
                   </tr>
@@ -4296,7 +4332,7 @@ function StudentsTab({ contestId }: { contestId: string }) {
                 <tbody className="divide-y divide-slate-100">
                   {students.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-4 text-center text-slate-400">
+                      <td colSpan={5} className="py-4 text-center text-slate-400">
                         No students provisioned yet.
                       </td>
                     </tr>
@@ -4306,7 +4342,6 @@ function StudentsTab({ contestId }: { contestId: string }) {
                         <td className="py-3 px-3 font-semibold text-slate-950">{st.name}</td>
                         <td className="py-3 px-3 text-slate-500">{st.email}</td>
                         <td className="py-3 px-3 font-mono text-purple-600">{st.generated_username}</td>
-                        <td className="py-3 px-3 font-mono text-slate-500">{st.generated_password}</td>
                         <td className="py-3 px-3">
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-medium border ${

@@ -14,3 +14,6 @@ pnpm-debug.log*
 tmp.txt
 GEMINI.md
 .env.local.example
+# Participant lists / exports (PII — never commit)
+ams-posterior-ranklist/
+*.participants.csv
