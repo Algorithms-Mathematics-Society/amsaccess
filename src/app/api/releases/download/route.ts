@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { fetchLatestRelease } from "@/lib/releases";
 import type { ReleaseAsset } from "@/lib/releases";
-import { requireOrgUser } from "@/lib/server/auth";
+import { requireSubject } from "@/lib/server/session";
 import { apiRateLimited } from "@/lib/server/http";
 import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 
@@ -24,8 +24,8 @@ function isAssetType(value: string | null): value is AssetType {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireOrgUser();
-  if (auth.error || !auth.uid) {
+  const subject = await requireSubject();
+  if (!subject) {
     const loginUrl = new URL("/org/login", request.url);
     loginUrl.searchParams.set("next", "/download");
     const response = NextResponse.redirect(loginUrl);

@@ -22,16 +22,15 @@ export default function OrgLoginPage() {
 
     setLoading(true);
     try {
-      const result = await apiFetch<{ redirectTo: string }>("/api/auth/login", {
+      await apiFetch<{ user: unknown }>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({
-          scope: "org",
-          email: email.trim(),
-          password,
-        }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
-      router.push(result.redirectTo);
+      // `next` lets a redirect-to-login return you where you were.
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next && next.startsWith("/") ? next : "/org/dashboard");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed.");
     } finally {
