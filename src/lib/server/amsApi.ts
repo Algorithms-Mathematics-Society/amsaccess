@@ -191,3 +191,74 @@ export async function uploadToAmsApi<T = unknown>(
     : ((await res.text()) as unknown as T);
   return { ok: res.ok, status: res.status, data, requestId };
 }
+
+/** Stream a file response through from ams-api.
+ *
+ * `callAmsApi` parses JSON, which a CSV export is not. This keeps the auth
+ * headers in one place rather than hand-rolling `fetch` at each download
+ * route — the duplication that motivated it was already drifting.
+ *
+ * The body is passed through as text with the upstream's own
+ * Content-Disposition, so the filename the API chose is the one the browser
+ * uses.
+ */
+export async function downloadFromAmsApi(
+  path: string,
+  subject: string | null,
+  fallbackFilename = "download",
+  timeoutMs = 60_000,
+): Promise<NextResponse> {
+  const secret = process.env.AMS_INTERNAL_API_SECRET ?? "";
+  if (!secret) {
+    return NextResponse.json({ error: "Server is not configured." }, { status: 503 });
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${secret}`,
+    "X-Request-ID": crypto.randomUUID(),
+  };
+  if (subject) headers["X-Auth-Subject"] = subject;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl()}${path}`, {
+      headers,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+  } catch {
+    const aborted = controller.signal.aborted;
+    return NextResponse.json(
+      { error: aborted ? "The export timed out." : "Cannot reach the API." },
+      { status: aborted ? 504 : 502 },
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!res.ok) {
+    // Surface the upstream's reason where it gave one — "not a member of this
+    // organization" is more use than "could not export".
+    const body = await res.text();
+    let message = "Could not produce the export.";
+    try {
+      message = (JSON.parse(body) as { detail?: string }).detail ?? message;
+    } catch {
+      /* not JSON; keep the generic message */
+    }
+    return NextResponse.json({ error: message }, { status: res.status });
+  }
+
+  return new NextResponse(await res.text(), {
+    status: 200,
+    headers: {
+      "Content-Type": res.headers.get("content-type") ?? "text/csv; charset=utf-8",
+      "Content-Disposition":
+        res.headers.get("content-disposition") ?? `attachment; filename="${fallbackFilename}"`,
+      "Cache-Control": "no-store",
+    },
+  });
+}
