@@ -6,6 +6,7 @@ import { ArrowLeft, Copy, Check, Plus, Activity } from "lucide-react";
 import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClass } from "@/lib/contestTypes";
+import { ParticipantsPanel } from "./ParticipantsPanel";
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -23,7 +24,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
   const [contest, setContest] = useState<Contest | null>(null);
   const [submissions, setSubmissions] = useState<ContestSubmission[]>([]);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"problems" | "submissions">("problems");
+  const [tab, setTab] = useState<"problems" | "participants" | "submissions">("problems");
 
   const loadContest = useCallback(async () => {
     try {
@@ -125,7 +126,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
 
       <div className="border-b border-slate-200 bg-white px-8">
         <nav className="flex gap-6">
-          {(["problems", "submissions"] as const).map((t) => (
+          {(["problems", "participants", "submissions"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -150,6 +151,8 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
       <div className="px-8 py-6">
         {tab === "problems" ? (
           <ProblemsTab contest={contest} onChange={loadContest} />
+        ) : tab === "participants" ? (
+          <ParticipantsPanel contestUid={contest.uid} contestTitle={contest.title} />
         ) : (
           <SubmissionsTab submissions={submissions} counts={counts} pending={pending} />
         )}
