@@ -1,5 +1,12 @@
-type ApiSuccess<T> = { ok: true; data: T };
-type ApiFailure = { ok: false; error: { code: string; message: string } };
+// The response shape ams-api's routes actually return: the body itself on
+// success, `{ error, code? }` on failure.
+//
+// This used to expect an envelope — `{ok:true,data}` / `{ok:false,error:{…}}`
+// — which was the retired Go API's convention. Nothing returns it any more,
+// so *every* call through here failed, including successful ones: `payload.ok`
+// was undefined, the failure branch ran, and reading `.code` off a string
+// error threw "can't access property 'code'".
+type ApiFailure = { error?: string; code?: string; detail?: string };
 export type ApiClientError = Error & { code?: string };
 
 const DEFAULT_API_TIMEOUT_MS = 20000;
@@ -48,16 +55,19 @@ export async function apiFetch<T>(input: RequestInfo | URL, init: RequestInit & 
     timeout.cleanup();
   }
 
-  const payload = (await response.json().catch(() => null)) as ApiSuccess<T> | ApiFailure | null;
+  const payload = (await response.json().catch(() => null)) as (T & ApiFailure) | null;
 
-  if (!response.ok || !payload || !payload.ok) {
-    const code = payload && !payload.ok ? payload.error.code : undefined;
-    const message = payload && !payload.ok ? payload.error.message : "Request failed. Please try again.";
+  if (!response.ok) {
+    // `error` is ours; `detail` is FastAPI's when a response passes straight
+    // through. Preferring the specific one keeps "Incorrect email or
+    // password" from being flattened into "Request failed".
+    const message =
+      payload?.error ?? payload?.detail ?? "Request failed. Please try again.";
     const error = new Error(message) as ApiClientError;
-    if (code) error.code = code;
+    if (payload?.code) error.code = payload.code;
     error.name = response.status === 429 ? "RateLimitError" : "ApiError";
     throw error;
   }
 
-  return payload.data;
+  return payload as T;
 }

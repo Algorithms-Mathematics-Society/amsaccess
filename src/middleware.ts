@@ -72,23 +72,29 @@ async function verifyAmsAdminToken(token: string): Promise<boolean> {
   }
 }
 
-// Decode the exp claim from a Firebase session cookie (a signed JWT) without
-// verifying the signature — this is intentionally a UX check only, not a
-// security check. The authoritative verification happens in requireOrgUser()
-// → verifySessionCookie(cookie, true) in every API route handler. Checking
-// exp here just lets us redirect at the page level so users don't see a
-// blank dashboard waiting for 401s from every API call on an expired session.
+// Read the expiry out of an `ams_session` cookie: `<subject>.<exp>.<sig>`,
+// where exp is epoch seconds. See mintSessionValue in lib/server/session.ts,
+// which is the canonical implementation — this is a second, deliberately
+// minimal parser because middleware runs on the edge runtime and cannot
+// import the `next/headers` code path.
+//
+// Intentionally a UX check only, not a security one: the signature is
+// verified in readSessionValue on every API call. This exists so an expired
+// session redirects at the page level instead of showing a blank dashboard
+// waiting for 401s.
+//
+// It previously decoded the cookie as a Firebase JWT — base64 JSON with an
+// `exp` claim. The Cognito-era cookie is not that shape, so the parse always
+// failed, every session looked expired, and signing in bounced straight back
+// to the login page in a loop.
 function isSessionCookieExpired(cookie: string): boolean {
-  try {
-    const parts = cookie.split(".");
-    if (parts.length < 2) return true;
-    const padded = parts[1] + "=".repeat((4 - (parts[1].length % 4)) % 4);
-    const json = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
-    const payload = JSON.parse(json) as { exp?: unknown };
-    return typeof payload.exp !== "number" || payload.exp * 1000 < Date.now();
-  } catch {
-    return true;
-  }
+  const parts = cookie.split(".");
+  if (parts.length !== 3) return true;
+
+  const expiresAt = Number(parts[1]);
+  if (!Number.isFinite(expiresAt)) return true;
+
+  return expiresAt * 1000 < Date.now();
 }
 
 export async function middleware(request: NextRequest) {
@@ -113,7 +119,11 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (pathname === "/access-admin-only" || pathname === "/org/login" || pathname === "/org/setup") {
+  if (
+    pathname === "/access-admin-only" ||
+    pathname === "/org/login" ||
+    pathname === "/org/signup"
+  ) {
     return response;
   }
 

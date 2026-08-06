@@ -7,7 +7,14 @@ import type {
   Scoreboard,
   Submission,
 } from "@/lib/contestTypes";
-import { verdictClass, VERDICT_LABELS } from "@/lib/contestTypes";
+import {
+  verdictClass,
+  VERDICT_LABELS,
+  TEST_KIND_LABELS,
+  TEST_KIND_HINTS,
+  type Testcase,
+} from "@/lib/contestTypes";
+import { MarkdownPreview } from "@/components/MarkdownPreview";
 
 type Tab = "problem" | "submissions" | "scoreboard";
 
@@ -325,11 +332,27 @@ function ProblemPane({
           </div>
         </dl>
 
-        <div className="mt-5 rounded-md border border-ams-border bg-ams-field p-4 text-sm text-ams-muted">
-          The full statement ships inside the problem package. Open the
-          attachment your organiser provided, or read it in the contest
-          briefing.
-        </div>
+        {problem.statement_md ? (
+          <div className="mt-5">
+            <MarkdownPreview value={problem.statement_md} />
+          </div>
+        ) : (
+          <div className="mt-5 rounded-md border border-ams-border bg-ams-field p-4 text-sm text-ams-muted">
+            This problem&apos;s package carries no statement. Ask the organiser
+            for the question paper.
+          </div>
+        )}
+
+        {problem.samples.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-ams-heading">Examples</h3>
+            <div className="mt-2 space-y-3">
+              {problem.samples.map((sample, index) => (
+                <Sample key={sample.label || index} sample={sample} index={index} />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col rounded-lg border border-ams-border bg-ams-surface">
@@ -449,17 +472,7 @@ function SubmissionsPane({ submissions }: { submissions: Submission[] }) {
                         </pre>
                       )}
                       {s.testcases.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {s.testcases.map((tc) => (
-                            <span
-                              key={tc.testcase_no}
-                              title={`#${tc.testcase_no} ${tc.verdict} · ${tc.runtime_ms} ms${tc.checker_message ? ` · ${tc.checker_message}` : ""}`}
-                              className={`rounded border px-2 py-0.5 font-mono text-xs ${verdictClass(tc.verdict)}`}
-                            >
-                              {tc.testcase_no}
-                            </span>
-                          ))}
-                        </div>
+                        <TestcaseBreakdown testcases={s.testcases} />
                       ) : (
                         !s.compile_output && (
                           <p className="text-xs text-ams-muted">No per-test detail.</p>
@@ -567,6 +580,130 @@ function ScoreboardPane({
           Nobody has joined yet.
         </p>
       )}
+    </div>
+  );
+}
+
+/** One worked example, with its input and expected output side by side.
+ *
+ * `whitespace-pre` rather than a paragraph: trailing spaces and blank lines
+ * are part of the data, and a contestant comparing their own output against
+ * this needs to see exactly what the judge will.
+ */
+function Sample({
+  sample,
+  index,
+}: {
+  sample: { label?: string; input: string; output: string };
+  index: number;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyInput() {
+    try {
+      await navigator.clipboard.writeText(sample.input);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard blocked; the text is selectable on screen anyway.
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-ams-border bg-ams-field">
+      <div className="flex items-center justify-between border-b border-ams-border px-3 py-1.5">
+        <span className="text-xs font-medium text-ams-muted">
+          Example {sample.label || index + 1}
+        </span>
+        <button
+          type="button"
+          onClick={copyInput}
+          className="text-xs text-ams-muted transition hover:text-ams-ink"
+        >
+          {copied ? "Copied" : "Copy input"}
+        </button>
+      </div>
+      <div className="grid gap-px sm:grid-cols-2">
+        <div className="p-3">
+          <p className="mb-1 text-[11px] uppercase tracking-wide text-ams-muted">Input</p>
+          <pre className="overflow-x-auto whitespace-pre font-mono text-xs text-ams-ink">
+            {sample.input}
+          </pre>
+        </div>
+        <div className="p-3 sm:border-l sm:border-ams-border">
+          <p className="mb-1 text-[11px] uppercase tracking-wide text-ams-muted">Output</p>
+          <pre className="overflow-x-auto whitespace-pre font-mono text-xs text-ams-ink">
+            {sample.output}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Per-testcase detail, grouped by what was actually being checked.
+ *
+ * cxxprobe runs three independent families and a problem may use any
+ * combination. A flat row of numbered chips cannot express that: "2/6" tells
+ * a setter nothing about whether the output was wrong, a behaviour assertion
+ * broke, or the source used a construct the problem forbids.
+ */
+function TestcaseBreakdown({ testcases }: { testcases: Testcase[] }) {
+  // Preserve cxxprobe's own ordering within each family.
+  const families = ["io", "behavior", "symbolic"] as const;
+  const groups = families
+    .map((kind) => ({ kind, cases: testcases.filter((tc) => (tc.kind ?? "io") === kind) }))
+    .filter((g) => g.cases.length > 0);
+
+  return (
+    <div className="space-y-3">
+      {groups.map(({ kind, cases }) => {
+        const passed = cases.filter((c) => c.verdict === "AC").length;
+        return (
+          <div key={kind}>
+            <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2">
+              <span className="text-xs font-medium text-ams-heading">
+                {TEST_KIND_LABELS[kind] ?? kind}
+              </span>
+              <span
+                className={`font-mono text-xs ${
+                  passed === cases.length ? "text-emerald-400" : "text-rose-400"
+                }`}
+              >
+                {passed}/{cases.length}
+              </span>
+              <span className="text-[11px] text-ams-muted">{TEST_KIND_HINTS[kind]}</span>
+            </div>
+
+            <div className="space-y-1">
+              {cases.map((tc) => (
+                <div
+                  key={`${kind}-${tc.testcase_no}`}
+                  className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded border border-ams-border bg-ams-bg px-2 py-1"
+                >
+                  <span
+                    className={`rounded border px-1.5 font-mono text-[11px] ${verdictClass(tc.verdict)}`}
+                  >
+                    {tc.verdict}
+                  </span>
+                  {/* A GTest name or a rule pattern says more than an index. */}
+                  <span className="font-mono text-xs text-ams-ink">
+                    {tc.label || `#${tc.testcase_no}`}
+                  </span>
+                  {tc.runtime_ms > 0 && (
+                    <span className="text-[11px] text-ams-muted">{tc.runtime_ms} ms</span>
+                  )}
+                  {tc.checker_message && (
+                    <p className="w-full whitespace-pre-wrap font-mono text-[11px] text-amber-300/80">
+                      {tc.checker_message}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

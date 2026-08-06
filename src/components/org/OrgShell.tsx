@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, FileCode2, LayoutDashboard, BookOpen } from "lucide-react";
+import { CalendarDays, FileCode2, LayoutDashboard, BookOpen, Users } from "lucide-react";
 
 const NAV = [
   { href: "/org/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/org/problems", label: "Problems", icon: FileCode2 },
   { href: "/org/contests", label: "Contests", icon: CalendarDays },
+  { href: "/org/participants", label: "Participants", icon: Users },
   { href: "/org/docs", label: "Problemsetting Guide", icon: BookOpen },
 ] as const;
 

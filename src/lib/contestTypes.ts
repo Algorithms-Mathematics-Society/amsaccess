@@ -9,6 +9,8 @@ export type ContestProblem = {
   title: string;
   time_limit_ms: number;
   memory_limit_mb: number;
+  statement_md: string;
+  samples: { label?: string; input: string; output: string }[];
 };
 
 export type Contest = {
@@ -27,7 +29,25 @@ export type Contest = {
   frozen: boolean;
 };
 
+/** Which of cxxprobe's three checks a row came from. */
+export type TestKind = "io" | "behavior" | "symbolic";
+
+export const TEST_KIND_LABELS: Record<string, string> = {
+  io: "Input / output",
+  behavior: "Behaviour (GTest)",
+  symbolic: "Source rules",
+};
+
+/** What each family actually verifies — a setter reading a failure needs to
+ * know whether the output was wrong or the code broke a rule. */
+export const TEST_KIND_HINTS: Record<string, string> = {
+  io: "The program was run and its output compared.",
+  behavior: "Compiled against the submission's own API and asserted on.",
+  symbolic: "The source was checked for required or forbidden constructs.",
+};
+
 export type Testcase = {
+  kind: TestKind;
   testcase_no: number;
   label: string;
   verdict: string;

@@ -1,8 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Upload, Plus, CheckCircle2, AlertTriangle, Loader2, FileArchive } from "lucide-react";
+import {
+  Upload,
+  Plus,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
+  FileArchive,
+  Trash2,
+} from "lucide-react";
 import type { PackageInspection, Problem } from "@/lib/orgTypes";
+import { TopicPicker } from "./TopicPicker";
 import { formatWhen } from "@/lib/orgTypes";
 
 async function json<T>(res: Response): Promise<T> {
@@ -139,11 +148,25 @@ function ProblemCard({ problem, onChange }: { problem: Problem; onChange: () => 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-slate-950">{problem.title}</h3>
           <p className="mt-0.5 font-mono text-xs text-slate-400">{problem.slug}</p>
+          <div className="mt-2">
+            <TopicPicker
+              problemUid={problem.uid}
+              selected={problem.tags ?? []}
+              onSaved={onChange}
+            />
+          </div>
         </div>
-        <PackageUploader problemUid={problem.uid} onUploaded={onChange} />
+        <div className="flex items-start gap-2">
+          <PackageUploader problemUid={problem.uid} onUploaded={onChange} />
+          <DeleteButton
+            label={`Delete “${problem.title}”`}
+            url={`/api/org/problems/${problem.uid}`}
+            onDone={onChange}
+          />
+        </div>
       </div>
 
       {problem.versions.length === 0 ? (
@@ -169,6 +192,12 @@ function ProblemCard({ problem, onChange }: { problem: Problem; onChange: () => 
                 {v.memory_limit_mb ? `${v.memory_limit_mb} MB` : "default memory"}
               </span>
               <span className="ml-auto text-xs text-slate-400">{formatWhen(v.created_at)}</span>
+              <DeleteButton
+                label={`Delete v${v.version}`}
+                url={`/api/org/problems/${problem.uid}/versions/${v.uid}`}
+                onDone={onChange}
+                compact
+              />
               {v.notes && (
                 <p className="w-full text-xs text-amber-700" title={v.notes}>
                   {v.notes}
@@ -339,5 +368,89 @@ function Fact({ label, value }: { label: string; value: string }) {
       <dt className="text-slate-400">{label}</dt>
       <dd className="font-medium text-slate-700">{value}</dd>
     </>
+  );
+}
+
+
+/** Destructive actions confirm in place rather than through `window.confirm`.
+ *
+ * The server refuses anything still in use and says why, so the danger here
+ * is a mis-click rather than data loss — a two-step button is proportionate,
+ * and the refusal message is worth showing rather than swallowing.
+ */
+function DeleteButton({
+  label,
+  url,
+  onDone,
+  compact = false,
+}: {
+  label: string;
+  url: string;
+  onDone: () => void;
+  compact?: boolean;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function remove() {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(url, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error ?? "Could not delete.");
+      }
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete.");
+      setArmed(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (error) {
+    return (
+      <span className="max-w-xs text-xs text-amber-700" title={error}>
+        {error}
+      </span>
+    );
+  }
+
+  if (!armed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setArmed(true)}
+        title={label}
+        className={`rounded text-slate-400 transition hover:bg-red-50 hover:text-red-600 ${
+          compact ? "p-1" : "p-2"
+        }`}
+      >
+        <Trash2 className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
+      </button>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        onClick={remove}
+        disabled={busy}
+        className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-40"
+      >
+        {busy ? "Deleting…" : "Confirm"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setArmed(false)}
+        className="rounded px-1.5 py-1 text-xs text-slate-500"
+      >
+        Cancel
+      </button>
+    </span>
   );
 }

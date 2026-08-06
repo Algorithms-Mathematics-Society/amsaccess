@@ -15,12 +15,38 @@ export type ProblemVersion = {
   created_at: string;
 };
 
+/** A person in the directory — one row however many contests they enter. */
+export type Student = {
+  uid: string;
+  display_name: string;
+  username: string;
+  status: string;
+  college: string;
+  branch: string;
+  graduation_year: number | null;
+  linkedin_url: string;
+  github_url: string;
+  resume_url: string;
+  has_resume_file: boolean;
+  contact_email: string;
+  phone: string;
+  location: string;
+  external_ref: string;
+  notes: string;
+  contests_entered: number;
+  problems_solved: number;
+};
+
+export type Topic = { slug: string; label: string };
+export type TopicGroup = { name: string; topics: Topic[] };
+
 export type Problem = {
   uid: string;
   title: string;
   slug: string;
   visibility: string;
   created_at: string;
+  tags: string[];
   versions: ProblemVersion[];
 };
 

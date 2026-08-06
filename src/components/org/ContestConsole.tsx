@@ -2,7 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy, Check, Plus, Activity } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  Check,
+  Plus,
+  Activity,
+  Send,
+  Loader2,
+  CalendarClock,
+  RefreshCw,
+  Download,
+  Trash2,
+} from "lucide-react";
 import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClass } from "@/lib/contestTypes";
@@ -117,14 +129,30 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-slate-500">
-              {formatWhen(contest.starts_at)} → {formatWhen(contest.ends_at)}{" "}
-              <span className="text-slate-400">({relativeWhen(contest.starts_at)})</span>
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+              <span>
+                {formatWhen(contest.starts_at)} → {formatWhen(contest.ends_at)}{" "}
+                <span className="text-slate-400">({relativeWhen(contest.starts_at)})</span>
+              </span>
+              <Reschedule contest={contest} onChanged={loadContest} />
+            </div>
           </div>
 
-          {contest.invite_code && <InviteCode code={contest.invite_code} />}
+          <div className="flex items-center gap-3">
+            {contest.status === "draft" && (
+              <PublishButton contestUid={contest.uid} onPublished={loadContest} />
+            )}
+            {contest.invite_code && <InviteCode code={contest.invite_code} />}
+          </div>
         </div>
+
+        {contest.status === "draft" && (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+            This contest is a <strong>draft</strong>. Nobody can join with the invite code until
+            you publish it
+            {contest.problems.length === 0 && " — and it needs at least one problem first"}.
+          </p>
+        )}
       </header>
 
       <div className="border-b border-slate-200 bg-white px-8">
@@ -151,6 +179,24 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
         </nav>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-8 py-3">
+        <RejudgeButton contestUid={contest.uid} onDone={loadSubmissions} />
+        <a
+          href={`/api/org/contests/${contest.uid}/export?kind=standings`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Standings CSV
+        </a>
+        <a
+          href={`/api/org/contests/${contest.uid}/export?kind=submissions`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Submissions CSV
+        </a>
+      </div>
+
       <div className="px-8 py-6">
         {tab === "problems" ? (
           <ProblemsTab contest={contest} onChange={loadContest} />
@@ -162,6 +208,176 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
           <InvigilationPanel contestUid={contest.uid} />
         )}
       </div>
+    </div>
+  );
+}
+
+/** Move the contest window.
+ *
+ * Reached for constantly while testing: a contest created with tomorrow's
+ * default start cannot be exercised today, and without this the only remedy
+ * is creating another one — orphaning the invite code, the roster, and any
+ * problems already attached.
+ */
+function Reschedule({ contest, onChanged }: { contest: Contest; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [starts, setStarts] = useState(toLocalInput(contest.starts_at));
+  const [ends, setEnds] = useState(toLocalInput(contest.ends_at));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const invalid = new Date(ends) <= new Date(starts);
+
+  async function save(startISO: string, endISO: string) {
+    setBusy(true);
+    setError("");
+    try {
+      await json(
+        await fetch(`/api/org/contests/${contest.uid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ starts_at: startISO, ends_at: endISO }),
+        }),
+      );
+      setOpen(false);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reschedule.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+      >
+        <CalendarClock className="h-3.5 w-3.5" />
+        Reschedule
+      </button>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-md rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs text-slate-600">
+          Starts
+          <input
+            type="datetime-local"
+            value={starts}
+            onChange={(e) => setStarts(e.target.value)}
+            className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1 text-xs"
+          />
+        </label>
+        <label className="text-xs text-slate-600">
+          Ends
+          <input
+            type="datetime-local"
+            value={ends}
+            onChange={(e) => setEnds(e.target.value)}
+            className={`mt-0.5 w-full rounded border px-2 py-1 text-xs ${
+              invalid ? "border-red-400" : "border-slate-300"
+            }`}
+          />
+        </label>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => save(new Date(starts).toISOString(), new Date(ends).toISOString())}
+          disabled={busy || invalid}
+          className="rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+        {/* The reason this control exists: making a contest testable now. */}
+        <button
+          type="button"
+          onClick={() => {
+            const now = new Date();
+            save(
+              new Date(now.getTime() - 60_000).toISOString(),
+              new Date(now.getTime() + 3 * 60 * 60_000).toISOString(),
+            );
+          }}
+          disabled={busy}
+          className="rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-700 disabled:opacity-40"
+        >
+          Start now (3h)
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded px-2 py-1 text-xs text-slate-500"
+        >
+          Cancel
+        </button>
+      </div>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+/** `datetime-local` wants local wall-clock, not an ISO instant. */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Draft → live.
+ *
+ * A contest is created as a draft on purpose: problems are added before
+ * anyone can get in. But that only works if there is a way out of draft, and
+ * without this the invite code silently refused everyone with "contest has
+ * not been published yet".
+ */
+function PublishButton({
+  contestUid,
+  onPublished,
+}: {
+  contestUid: string;
+  onPublished: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function publish() {
+    setBusy(true);
+    setError("");
+    try {
+      await json(
+        await fetch(`/api/org/contests/${contestUid}/schedule`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        }),
+      );
+      onPublished();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not publish.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="text-right">
+      <button
+        type="button"
+        onClick={publish}
+        disabled={busy}
+        className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-40"
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        {busy ? "Publishing…" : "Publish"}
+      </button>
+      {error && <p className="mt-1 max-w-xs text-xs text-red-600">{error}</p>}
     </div>
   );
 }
@@ -242,6 +458,7 @@ function ProblemsTab({ contest, onChange }: { contest: Contest; onChange: () => 
                 <th className="px-4 py-2.5">Title</th>
                 <th className="px-4 py-2.5">Limits</th>
                 <th className="px-4 py-2.5 text-right">Score</th>
+                <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -254,6 +471,9 @@ function ProblemsTab({ contest, onChange }: { contest: Contest; onChange: () => 
                     {p.memory_limit_mb ? `${p.memory_limit_mb} MB` : "default"}
                   </td>
                   <td className="px-4 py-3 text-right text-slate-700">{p.score}</td>
+                  <td className="px-4 py-3 text-right">
+                    <RemoveProblem contestUid={contest.uid} cpUid={p.uid} onDone={onChange} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -468,5 +688,145 @@ function SubmissionsTab({
         </table>
       </div>
     </div>
+  );
+}
+
+
+/** Re-run judging.
+ *
+ * Defaults to `SE` only, because that is the case worth repairing: a
+ * System Error is the judge having failed, not the contestant. Re-running
+ * an entire contest disturbs results that were already correct, so the
+ * broader option is deliberately one click further away.
+ */
+function RejudgeButton({ contestUid, onDone }: { contestUid: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState("");
+
+  async function run(verdict: string) {
+    setBusy(true);
+    setResult("");
+    try {
+      const query = verdict ? `?verdict=${verdict}` : "";
+      const res = await fetch(`/api/org/contests/${contestUid}/rejudge${query}`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        queued?: number;
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? "Could not rejudge.");
+      setResult(
+        data.queued ? `${data.queued} queued — verdicts update as they finish` : "nothing matched",
+      );
+      setOpen(false);
+      onDone();
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : "Could not rejudge.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
+      >
+        <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
+        Rejudge
+      </button>
+
+      {open && (
+        <span className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => run("SE")}
+            disabled={busy}
+            className="rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
+          >
+            Failed only (SE)
+          </button>
+          <button
+            type="button"
+            onClick={() => run("")}
+            disabled={busy}
+            className="rounded border border-amber-400 px-2.5 py-1 text-xs text-amber-800 disabled:opacity-40"
+          >
+            Everything
+          </button>
+        </span>
+      )}
+
+      {result && <span className="text-xs text-slate-500">{result}</span>}
+    </span>
+  );
+}
+
+function RemoveProblem({
+  contestUid,
+  cpUid,
+  onDone,
+}: {
+  contestUid: string;
+  cpUid: string;
+  onDone: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [error, setError] = useState("");
+
+  async function remove() {
+    setError("");
+    try {
+      const res = await fetch(`/api/org/contests/${contestUid}/problems/${cpUid}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not remove.");
+      onDone();
+    } catch (err) {
+      // The server refuses once anyone has submitted, and the reason is the
+      // useful part — showing it beats a generic failure.
+      setError(err instanceof Error ? err.message : "Could not remove.");
+      setArmed(false);
+    }
+  }
+
+  if (error) return <span className="text-xs text-amber-700">{error}</span>;
+
+  if (!armed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setArmed(true)}
+        title="Remove from this contest"
+        className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    );
+  }
+
+  return (
+    <span className="inline-flex gap-1">
+      <button
+        type="button"
+        onClick={remove}
+        className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white"
+      >
+        Remove
+      </button>
+      <button
+        type="button"
+        onClick={() => setArmed(false)}
+        className="rounded px-1.5 text-xs text-slate-500"
+      >
+        Cancel
+      </button>
+    </span>
   );
 }

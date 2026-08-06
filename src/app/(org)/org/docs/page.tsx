@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, Terminal, CheckCircle2, ShieldCheck, Copy, Check } from "lucide-react";
-import { OrgPortalShell } from "@/components/OrgPortalShell";
+import { OrgShell } from "@/components/org/OrgShell";
 
 export default function ProblemsettingDocsPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "generators" | "validators" | "scripts">("overview");
@@ -78,7 +78,7 @@ gen_array -n 100000 -max_val 1000000000 > $
 gen_array -n 100000 -max_val 1000000000 > $`;
 
   return (
-    <OrgPortalShell active="docs">
+    <OrgShell>
       {/* Header */}
       <header className="flex items-center justify-between border-b border-slate-200 bg-white/80 px-8 py-6 backdrop-blur-xl">
         <div>
@@ -239,6 +239,6 @@ gen_array -n 100000 -max_val 1000000000 > $`;
           </div>
         )}
       </div>
-    </OrgPortalShell>
+    </OrgShell>
   );
 }
