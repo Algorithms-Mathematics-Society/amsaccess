@@ -12,7 +12,12 @@ export async function GET() {
       ok: env.ok,
       service: "ams-access-web",
       checks: {
-        env: env.ok ? "ok" : "invalid"
+        env: env.ok ? "ok" : "invalid",
+        // Named, so a failing deployment says which variable to set rather
+        // than only that something is wrong.
+        missing: env.missing,
+        invalid: env.invalid,
+        degraded: env.degraded
       }
     },
     {
