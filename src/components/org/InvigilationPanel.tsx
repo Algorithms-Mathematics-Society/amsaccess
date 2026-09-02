@@ -104,38 +104,43 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try {
-      const base = `/api/org/contests/${contestUid}/invigilation`;
-      const [r, o, i, q, live] = await Promise.all([
-        json<ReadinessRow[]>(
-          await fetch(`${base}?view=readiness`, { cache: "no-store" }),
-        ),
-        json<Override[]>(
-          await fetch(`${base}?view=overrides`, { cache: "no-store" }),
-        ),
-        json<Incident[]>(
-          await fetch(`${base}?view=incidents`, { cache: "no-store" }),
-        ),
-        json<ResumeRequest[]>(
-          await fetch(`${base}?view=resume-requests`, { cache: "no-store" }),
-        ),
-        json<SessionRow[]>(
-          await fetch(`${base}?view=sessions`, { cache: "no-store" }),
-        ),
-      ]);
-      setReadiness(r);
-      setOverrides(o);
-      setIncidents(i);
-      setResumes(q);
-      setSessions(live);
-      setError("");
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not load invigilation data.",
-      );
+    const base = `/api/org/contests/${contestUid}/invigilation`;
+
+    // Each view is fetched independently and failures are per-section, not
+    // per-panel. Promise.all here meant one endpoint hiccuping blanked all
+    // five, so an invigilator mid-contest could lose the help-request list
+    // because the roster was briefly unhappy — and a view the deployed API
+    // does not yet serve took the whole screen down with it.
+    async function view<T>(name: string): Promise<T | null> {
+      try {
+        return await json<T>(
+          await fetch(`${base}?view=${name}`, { cache: "no-store" }),
+        );
+      } catch {
+        return null;
+      }
     }
+
+    const [r, o, i, q, live] = await Promise.all([
+      view<ReadinessRow[]>("readiness"),
+      view<Override[]>("overrides"),
+      view<Incident[]>("incidents"),
+      view<ResumeRequest[]>("resume-requests"),
+      view<SessionRow[]>("sessions"),
+    ]);
+
+    if (r) setReadiness(r);
+    if (o) setOverrides(o);
+    if (i) setIncidents(i);
+    if (q) setResumes(q);
+    if (live) setSessions(live);
+
+    // Only complain when nothing at all came back — that is a signed-out or
+    // unreachable console, which is worth interrupting somebody for. A single
+    // missing view is not, and holding the last good data beats replacing a
+    // working screen with an error during a contest.
+    const missing = [r, o, i, q, live].filter((value) => value === null).length;
+    setError(missing === 5 ? "Could not load invigilation data." : "");
   }, [contestUid]);
 
   useEffect(() => {
