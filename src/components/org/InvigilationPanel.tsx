@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Check, LifeBuoy, Loader2, MonitorCheck, ShieldOff } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  DoorOpen,
+  LifeBuoy,
+  Loader2,
+  MonitorCheck,
+  ShieldOff,
+  Users,
+  X,
+} from "lucide-react";
 
 type ReadinessRow = {
   uid: string;
@@ -35,13 +45,52 @@ type Incident = {
   login_id: string;
 };
 
+type ResumeRequest = {
+  uid: string;
+  status: string;
+  reason: string;
+  device_fingerprint: string;
+  created_at: string;
+  session_uid: string;
+  display_name: string;
+  login_id: string;
+  resume_count: number;
+};
+
+type SessionRow = {
+  uid: string;
+  login_id: string;
+  display_name: string;
+  status: string;
+  started_at: string | null;
+  last_seen_at: string | null;
+  violation_count: number;
+  resume_count: number;
+  // Computed by the API against its own clock, never here — a console laptop
+  // an hour out would otherwise paint the whole room as stalled.
+  idle_seconds: number | null;
+  resume_pending: boolean;
+};
+
+/** How long a session may go unheard from before it is worth looking at. */
+const QUIET_AFTER_SECONDS = 120;
+
+function idleLabel(seconds: number | null): string {
+  if (seconds === null) return "never checked in";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
+}
+
 // Staff watch this during a contest, so it must be current — but it is one
 // screen among several, so not aggressively so.
 const POLL_MS = 10_000;
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
+  if (!res.ok)
+    throw new Error((data as { error?: string }).error ?? "Request failed.");
   return data as T;
 }
 
@@ -49,23 +98,43 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
   const [readiness, setReadiness] = useState<ReadinessRow[]>([]);
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [resumes, setResumes] = useState<ResumeRequest[]>([]);
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const base = `/api/org/contests/${contestUid}/invigilation`;
-      const [r, o, i] = await Promise.all([
-        json<ReadinessRow[]>(await fetch(`${base}?view=readiness`, { cache: "no-store" })),
-        json<Override[]>(await fetch(`${base}?view=overrides`, { cache: "no-store" })),
-        json<Incident[]>(await fetch(`${base}?view=incidents`, { cache: "no-store" })),
+      const [r, o, i, q, live] = await Promise.all([
+        json<ReadinessRow[]>(
+          await fetch(`${base}?view=readiness`, { cache: "no-store" }),
+        ),
+        json<Override[]>(
+          await fetch(`${base}?view=overrides`, { cache: "no-store" }),
+        ),
+        json<Incident[]>(
+          await fetch(`${base}?view=incidents`, { cache: "no-store" }),
+        ),
+        json<ResumeRequest[]>(
+          await fetch(`${base}?view=resume-requests`, { cache: "no-store" }),
+        ),
+        json<SessionRow[]>(
+          await fetch(`${base}?view=sessions`, { cache: "no-store" }),
+        ),
       ]);
       setReadiness(r);
       setOverrides(o);
       setIncidents(i);
+      setResumes(q);
+      setSessions(live);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load invigilation data.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not load invigilation data.",
+      );
     }
   }, [contestUid]);
 
@@ -98,6 +167,12 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
   const openIncidents = incidents.filter((i) => i.status !== "resolved");
   const blocked = readiness.filter((r) => !r.passed);
   const liveOverrides = overrides.filter((o) => !o.revoked);
+  const waiting = resumes.filter((r) => r.status === "pending");
+  const quiet = sessions.filter(
+    (row) =>
+      (row.status === "active" || row.status === "pending") &&
+      (row.idle_seconds === null || row.idle_seconds >= QUIET_AFTER_SECONDS),
+  );
 
   return (
     <div className="space-y-8">
@@ -105,6 +180,100 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
+      )}
+
+      {/* Waiting to resume, above everything: a candidate is locked out of an
+          exam that is still running, and only a person can let them back in. */}
+      {waiting.length > 0 && (
+        <section>
+          <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <DoorOpen className="h-4 w-4" />
+            Waiting to resume
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+              {waiting.length}
+            </span>
+          </h3>
+          <p className="mb-3 text-xs text-slate-500">
+            Their app closed mid-exam. Approving issues a 15-minute window to
+            rejoin — it does not reopen a session that has already been
+            submitted, and it does not give extra time.
+          </p>
+
+          <div className="space-y-2">
+            {waiting.map((request) => (
+              <div
+                key={request.uid}
+                className="rounded-xl border border-red-300 bg-white p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900">
+                      {request.display_name || "Unknown"}{" "}
+                      <span className="font-mono text-xs text-slate-400">
+                        {request.login_id}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-sm text-slate-700">
+                      {request.reason || "No reason given."}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {new Date(request.created_at).toLocaleTimeString()}
+                      {request.device_fingerprint && (
+                        <>
+                          {" "}
+                          ·{" "}
+                          <span className="font-mono">
+                            {request.device_fingerprint}
+                          </span>
+                        </>
+                      )}
+                      {/* Someone on their fourth reopen is a different
+                          conversation from someone on their first. */}
+                      {request.resume_count > 0 &&
+                        ` · reopened ${request.resume_count}× already`}
+                    </p>
+                  </div>
+                  <div className="flex flex-shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        act(
+                          request.uid,
+                          `${base}?action=approve-resume&uid=${request.uid}`,
+                          {},
+                        )
+                      }
+                      disabled={busy === request.uid}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40"
+                    >
+                      {busy === request.uid ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                      Let them back in
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        act(
+                          request.uid,
+                          `${base}?action=reject-resume&uid=${request.uid}`,
+                          {},
+                        )
+                      }
+                      disabled={busy === request.uid}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Refuse
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Help requests first: someone is waiting. */}
@@ -138,9 +307,13 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-slate-900">
                       {incident.display_name || "Unknown"}{" "}
-                      <span className="font-mono text-xs text-slate-400">{incident.login_id}</span>
+                      <span className="font-mono text-xs text-slate-400">
+                        {incident.login_id}
+                      </span>
                     </p>
-                    <p className="mt-1 text-sm text-slate-700">{incident.message}</p>
+                    <p className="mt-1 text-sm text-slate-700">
+                      {incident.message}
+                    </p>
                     <p className="mt-1 text-xs text-slate-500">
                       {incident.category}
                       {incident.contact && ` · ${incident.contact}`} ·{" "}
@@ -151,7 +324,10 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                     <button
                       type="button"
                       onClick={() =>
-                        act(incident.uid, `${base}?action=resolve-incident&uid=${incident.uid}`)
+                        act(
+                          incident.uid,
+                          `${base}?action=resolve-incident&uid=${incident.uid}`,
+                        )
                       }
                       disabled={busy === incident.uid}
                       className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
@@ -173,6 +349,97 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
         )}
       </section>
 
+      {/* The room. Nothing else says who is actually sitting this contest, so
+          a session going quiet used to be invisible until the candidate found
+          somebody to tell — and the reaper marked rows nobody could see. */}
+      <section>
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <Users className="h-4 w-4" />
+          Live sessions
+          {quiet.length > 0 && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+              {quiet.length} quiet
+            </span>
+          )}
+        </h3>
+        <p className="mb-3 text-xs text-slate-500">
+          Sorted so the ones needing a person come first. A row whose last
+          contact keeps climbing is a candidate whose machine stopped talking to
+          us — worth a look before they find you.
+        </p>
+
+        {sessions.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-slate-500">
+            Nobody has started this contest yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2.5">Candidate</th>
+                  <th className="px-4 py-2.5">State</th>
+                  <th className="px-4 py-2.5">Last contact</th>
+                  <th className="px-4 py-2.5 text-right">Flags</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sessions.map((row) => {
+                  const running =
+                    row.status === "active" || row.status === "pending";
+                  const isQuiet =
+                    running &&
+                    (row.idle_seconds === null ||
+                      row.idle_seconds >= QUIET_AFTER_SECONDS);
+                  return (
+                    <tr
+                      key={row.uid}
+                      className={isQuiet ? "bg-amber-50/60" : undefined}
+                    >
+                      <td className="px-4 py-2.5">
+                        <span className="font-medium text-slate-900">
+                          {row.display_name || "Unknown"}
+                        </span>{" "}
+                        <span className="font-mono text-xs text-slate-400">
+                          {row.login_id}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-700">
+                        {row.status}
+                        {row.resume_pending && (
+                          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+                            waiting on you
+                          </span>
+                        )}
+                      </td>
+                      <td
+                        className={`px-4 py-2.5 ${isQuiet ? "font-medium text-amber-800" : "text-slate-500"}`}
+                      >
+                        {/* Only meaningful while a session is meant to be
+                            live. After the bell, a long silence is just a
+                            candidate who finished and closed their laptop. */}
+                        {running ? idleLabel(row.idle_seconds) : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs text-slate-500">
+                        {row.violation_count > 0 && (
+                          <span className="mr-2 inline-flex items-center gap-1 text-amber-700">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            {row.violation_count}
+                          </span>
+                        )}
+                        {row.resume_count > 0 && (
+                          <span>reopened {row.resume_count}×</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* Devices that failed their own readiness check. */}
       <section>
         <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
@@ -180,9 +447,9 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
           Entry-gate reports
         </h3>
         <p className="mb-3 text-xs text-slate-500">
-          What each device reported about itself. The proctor app enforces these locally — the
-          platform records them. Waive a check to let a candidate through when a detector
-          misfires.
+          What each device reported about itself. The proctor app enforces these
+          locally — the platform records them. Waive a check to let a candidate
+          through when a detector misfires.
         </p>
 
         {readiness.length === 0 ? (
@@ -203,12 +470,16 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
               <tbody className="divide-y divide-slate-100">
                 {readiness.map((row) => (
                   <tr key={row.uid}>
-                    <td className="px-4 py-2.5 text-slate-700">{row.display_name || "—"}</td>
+                    <td className="px-4 py-2.5 text-slate-700">
+                      {row.display_name || "—"}
+                    </td>
                     <td className="px-4 py-2.5">
                       <span className="font-mono text-xs text-slate-600">
                         {row.device_fingerprint.slice(0, 20)}
                       </span>
-                      <span className="ml-2 text-xs text-slate-400">{row.os_name}</span>
+                      <span className="ml-2 text-xs text-slate-400">
+                        {row.os_name}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5">
                       {row.passed ? (
@@ -271,20 +542,30 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {overrides.map((grant) => (
-                  <tr key={grant.uid} className={grant.revoked ? "opacity-50" : undefined}>
-                    <td className="px-4 py-2.5 font-medium text-slate-900">{grant.check_kind}</td>
+                  <tr
+                    key={grant.uid}
+                    className={grant.revoked ? "opacity-50" : undefined}
+                  >
+                    <td className="px-4 py-2.5 font-medium text-slate-900">
+                      {grant.check_kind}
+                    </td>
                     <td className="px-4 py-2.5 font-mono text-xs text-slate-600">
                       {grant.device_fingerprint.slice(0, 20)}
                     </td>
                     <td className="px-4 py-2.5 text-slate-500">
-                      {grant.revoked ? "—" : new Date(grant.expires_at).toLocaleTimeString()}
+                      {grant.revoked
+                        ? "—"
+                        : new Date(grant.expires_at).toLocaleTimeString()}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       {!grant.revoked && (
                         <button
                           type="button"
                           onClick={() =>
-                            act(grant.uid, `${base}?action=revoke-override&uid=${grant.uid}`)
+                            act(
+                              grant.uid,
+                              `${base}?action=revoke-override&uid=${grant.uid}`,
+                            )
                           }
                           disabled={busy === grant.uid}
                           className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
