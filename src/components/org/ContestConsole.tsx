@@ -20,6 +20,7 @@ import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClass } from "@/lib/contestTypes";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { InvigilationPanel } from "./InvigilationPanel";
+import { FleetPanel } from "./FleetPanel";
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -38,7 +39,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
   const [submissions, setSubmissions] = useState<ContestSubmission[]>([]);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<
-    "problems" | "participants" | "submissions" | "invigilation"
+    "problems" | "participants" | "submissions" | "invigilation" | "judging"
   >("problems");
 
   const loadContest = useCallback(async () => {
@@ -157,7 +158,9 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
 
       <div className="border-b border-slate-200 bg-white px-8">
         <nav className="flex gap-6">
-          {(["problems", "participants", "submissions", "invigilation"] as const).map((t) => (
+          {(
+            ["problems", "participants", "submissions", "invigilation", "judging"] as const
+          ).map((t) => (
             <button
               key={t}
               type="button"
@@ -204,8 +207,10 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
           <ParticipantsPanel contestUid={contest.uid} contestTitle={contest.title} />
         ) : tab === "submissions" ? (
           <SubmissionsTab submissions={submissions} counts={counts} pending={pending} />
-        ) : (
+        ) : tab === "invigilation" ? (
           <InvigilationPanel contestUid={contest.uid} />
+        ) : (
+          <FleetPanel />
         )}
       </div>
     </div>
