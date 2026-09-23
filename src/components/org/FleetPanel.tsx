@@ -10,7 +10,9 @@ import {
   PowerOff,
   RefreshCw,
   Server,
+  Stethoscope,
   Undo2,
+  Zap,
 } from "lucide-react";
 import { formatWhen, relativeWhen } from "@/lib/orgTypes";
 
@@ -58,6 +60,22 @@ type FleetState = {
   // The controller has stopped reporting. The fleet may still be running;
   // nothing is steering it, which instance counts alone cannot show.
   stale: boolean;
+};
+
+type FleetRun = {
+  uid: string;
+  kind: "probe" | "bench" | string;
+  status: "running" | "completed" | "failed" | string;
+  total: number;
+  completed: number;
+  failed: number;
+  started_at: string | null;
+  finished_at: string | null;
+  note: string;
+  last_error: string;
+  requested_by: string;
+  throughput: number | null;
+  latency_ms: Record<string, number>;
 };
 
 type Upcoming = {
@@ -109,6 +127,16 @@ function workerStatusClass(status: string): string {
   return WORKER_STATUS_STYLES[status] ?? WORKER_STATUS_STYLES.offline;
 }
 
+const RUN_STATUS_STYLES: Record<string, string> = {
+  running: "border-sky-200 bg-sky-50 text-sky-700",
+  completed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  failed: "border-red-200 bg-red-50 text-red-700",
+};
+
+function runStatusClass(status: string): string {
+  return RUN_STATUS_STYLES[status] ?? RUN_STATUS_STYLES.running;
+}
+
 function idleLabel(seconds: number | null): string {
   if (seconds === null) return "never checked in";
   if (seconds < 60) return `${seconds}s ago`;
@@ -117,15 +145,26 @@ function idleLabel(seconds: number | null): string {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m ago`;
 }
 
-export function FleetPanel() {
+export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
   const [fleet, setFleet] = useState<Fleet | null>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [runs, setRuns] = useState<FleetRun[]>([]);
+  const [benchCount, setBenchCount] = useState(100);
 
   const load = useCallback(async () => {
     try {
-      setFleet(await json<Fleet>(await fetch("/api/org/fleet", { cache: "no-store" })));
+      // Two independent fetches: a runs endpoint the deployed API does not
+      // serve yet must not take the whole screen down with it.
+      const [f, r] = await Promise.all([
+        json<Fleet>(await fetch("/api/org/fleet", { cache: "no-store" })),
+        fetch("/api/org/fleet/runs", { cache: "no-store" })
+          .then((res) => json<FleetRun[]>(res))
+          .catch(() => null),
+      ]);
+      setFleet(f);
+      if (r) setRuns(r);
       setError("");
     } catch (err) {
       // Deliberately does not blank the table: a fleet view that vanishes on
@@ -181,13 +220,34 @@ export function FleetPanel() {
 
   const release = () => act("clear", () => fetch("/api/org/fleet", { method: "DELETE" }));
 
+  /** Probe and bench return a run rather than the fleet, so they refresh
+   * rather than replacing state. */
+  async function run(key: string, url: string, body?: unknown) {
+    setBusy(key);
+    setError("");
+    try {
+      await json(
+        await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        }),
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start the run.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const backlog = fleet?.queue_waiting ?? fleet?.queued_jobs ?? 0;
   // Nothing alive but work waiting is the one state that always needs
   // attention — it is what a crash-looping fleet looks like from here.
   const stalled = Boolean(fleet && fleet.live === 0 && backlog > 0);
 
   return (
-    <div className="space-y-8">
+    <div className={inset ? "space-y-8 px-8 py-6" : "space-y-8"}>
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -418,6 +478,122 @@ export function FleetPanel() {
               )}
               Stand down
             </button>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <Stethoscope className="h-4 w-4" />
+          Test bench
+        </h3>
+        <p className="mb-3 text-xs text-slate-500">
+          A <strong>probe</strong> is one synthetic submission through the real judging path — the
+          only check that catches a fleet whose instances are up but whose workers are not judging.
+          A <strong>load test</strong> is the same thing many times over. Neither ever becomes a
+          real submission, so nothing reaches a scoreboard.
+        </p>
+
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => run("probe", "/api/org/fleet?action=probe")}
+            disabled={busy !== null}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
+          >
+            {busy === "probe" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Stethoscope className="h-3.5 w-3.5" />
+            )}
+            Probe once
+          </button>
+
+          <span className="ml-2 text-xs text-slate-400">|</span>
+
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            Load test
+            <input
+              type="number"
+              min={1}
+              max={2000}
+              value={benchCount}
+              onChange={(e) => setBenchCount(Number(e.target.value))}
+              className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs tabular-nums"
+            />
+            submissions
+          </label>
+          <button
+            type="button"
+            onClick={() =>
+              run("bench", "/api/org/fleet?action=bench", { count: benchCount })
+            }
+            disabled={busy !== null || benchCount < 1}
+            title="Refused while a contest is running or about to start"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40"
+          >
+            {busy === "bench" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Zap className="h-3.5 w-3.5" />
+            )}
+            Run it
+          </button>
+        </div>
+
+        {runs.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-6 text-center text-sm text-slate-500">
+            Nothing has been run against the fleet yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2.5">Run</th>
+                  <th className="px-4 py-2.5">Result</th>
+                  <th className="px-4 py-2.5 text-right">Throughput</th>
+                  <th className="px-4 py-2.5 text-right">p50 / p90</th>
+                  <th className="px-4 py-2.5">When</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {runs.map((r) => (
+                  <tr key={r.uid} className={r.status === "failed" ? "bg-red-50/40" : undefined}>
+                    <td className="px-4 py-2.5">
+                      <span className="capitalize text-slate-900">{r.kind}</span>
+                      <span className="ml-2 text-xs text-slate-500">{r.total} job{r.total === 1 ? "" : "s"}</span>
+                      {r.note && <p className="text-xs text-slate-400">{r.note}</p>}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className={`rounded-full border px-2 py-0.5 text-xs ${runStatusClass(r.status)}`}>
+                        {r.status}
+                      </span>
+                      {r.failed > 0 && (
+                        <span className="ml-2 text-xs text-red-600">{r.failed} failed</span>
+                      )}
+                      {r.last_error && (
+                        <p className="mt-0.5 max-w-xs truncate text-xs text-slate-400">
+                          {r.last_error}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
+                      {r.throughput === null ? "—" : `${r.throughput}/s`}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
+                      {r.latency_ms.p50 === undefined
+                        ? "—"
+                        : `${r.latency_ms.p50} / ${r.latency_ms.p90} ms`}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-500">
+                      {r.started_at ? relativeWhen(r.started_at) : "—"}
+                      {r.requested_by && <span className="text-slate-400"> · {r.requested_by}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
