@@ -2,15 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  CalendarDays,
-  FileCode2,
-  LayoutDashboard,
-  BookOpen,
-  Cpu,
-  Mail,
-  Users,
-} from "lucide-react";
+import { CalendarDays, Cpu, FileCode2, LayoutDashboard, Mail, Users } from "lucide-react";
 
 const NAV = [
   { href: "/org/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -19,7 +11,6 @@ const NAV = [
   { href: "/org/participants", label: "Participants", icon: Users },
   { href: "/org/mails", label: "Mails", icon: Mail },
   { href: "/org/fleet", label: "Judging", icon: Cpu },
-  { href: "/org/docs", label: "Problemsetting Guide", icon: BookOpen },
 ] as const;
 
 export function OrgShell({ children }: { children: React.ReactNode }) {

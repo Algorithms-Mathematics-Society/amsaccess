@@ -1,35 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  CalendarClock,
-  Cpu,
-  Flame,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Clock,
   Loader2,
+  Moon,
   PowerOff,
   RefreshCw,
-  Server,
   Stethoscope,
-  Undo2,
   Zap,
 } from "lucide-react";
 import { formatWhen, relativeWhen } from "@/lib/orgTypes";
 
 /**
- * What is judging, right now.
+ * Judging, for someone running a contest.
  *
- * The question this answers is narrow and specific: *are the judges alive,
- * and is anything waiting on them?* It exists because on 2026-09-18 a fleet
- * of workers crash-looped for twenty minutes while every signal anyone could
- * see said healthy — the instances were running, the scaling group was at
- * its target, and nothing was being judged. A count of instances is not a
- * count of judges.
+ * This screen answers exactly one question — **are judges ready?** — and
+ * offers only the actions that are relevant to the answer. Everything else
+ * (which regions, which workers, past load tests) is operator detail and
+ * lives behind Details, because on a contest morning the person looking at
+ * this needs a verdict, not a dashboard.
  *
- * So the two numbers that matter here are **live workers** (heartbeating
- * within the last half-minute, as the API reckons it) and **backlog**. Both
- * are reported by the API against its own clock; a console laptop an hour
- * out would otherwise paint the whole fleet as stalled.
+ * The judges normally look after themselves: they start before a contest
+ * opens and stop afterwards. So the default state of this page is "nothing
+ * to do", and it says so.
  */
 
 type FleetWorker = {
@@ -57,25 +55,7 @@ type FleetState = {
   last_error: string;
   last_scaled_at: string | null;
   reported_at: string | null;
-  // The controller has stopped reporting. The fleet may still be running;
-  // nothing is steering it, which instance counts alone cannot show.
   stale: boolean;
-};
-
-type FleetRun = {
-  uid: string;
-  kind: "probe" | "bench" | string;
-  status: "running" | "completed" | "failed" | string;
-  total: number;
-  completed: number;
-  failed: number;
-  started_at: string | null;
-  finished_at: string | null;
-  note: string;
-  last_error: string;
-  requested_by: string;
-  throughput: number | null;
-  latency_ms: Record<string, number>;
 };
 
 type Upcoming = {
@@ -106,8 +86,21 @@ type Fleet = {
   ceiling: number;
 };
 
-// Staff watch this while a contest is sitting, so it must be current — but
-// it is one screen among several, so not aggressively so.
+type FleetRun = {
+  uid: string;
+  kind: string;
+  status: string;
+  total: number;
+  completed: number;
+  failed: number;
+  started_at: string | null;
+  note: string;
+  last_error: string;
+  requested_by: string;
+  throughput: number | null;
+  latency_ms: Record<string, number>;
+};
+
 const POLL_MS = 10_000;
 
 async function json<T>(res: Response): Promise<T> {
@@ -116,41 +109,95 @@ async function json<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-const WORKER_STATUS_STYLES: Record<string, string> = {
-  online: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  busy: "border-sky-200 bg-sky-50 text-sky-700",
-  draining: "border-amber-200 bg-amber-50 text-amber-700",
-  offline: "border-red-200 bg-red-50 text-red-700",
+/**
+ * The whole screen in one value.
+ *
+ * Deliberately a small set of named situations rather than a pile of
+ * booleans in the JSX — there are only ever five things worth saying, and
+ * naming them keeps the wrong combination from being renderable.
+ */
+type Situation = {
+  tone: "good" | "warn" | "bad" | "idle";
+  headline: string;
+  detail: string;
 };
 
-function workerStatusClass(status: string): string {
-  return WORKER_STATUS_STYLES[status] ?? WORKER_STATUS_STYLES.offline;
+function situationOf(fleet: Fleet | null): Situation {
+  if (!fleet) return { tone: "idle", headline: "Checking…", detail: "" };
+
+  const waiting = fleet.queue_waiting ?? fleet.queued_jobs ?? 0;
+
+  // Work with nobody to do it. Always the most urgent thing on the page:
+  // instances can be running and still not judging.
+  if (fleet.live === 0 && waiting > 0) {
+    return {
+      tone: "bad",
+      headline: "Submissions are waiting and no judge is answering",
+      detail: `${waiting} waiting. Judges may be starting up — if this does not clear in a couple of minutes, something is wrong.`,
+    };
+  }
+
+  if (fleet.override?.mode === "standdown") {
+    return {
+      tone: "warn",
+      headline: "Judging is switched off",
+      detail: `Nothing will be judged until this is lifted — automatically ${relativeWhen(fleet.override.expires_at)}, or now with the button below.`,
+    };
+  }
+
+  if (fleet.state?.stale) {
+    return {
+      tone: "warn",
+      headline: "Judges are running, but nothing is steering them",
+      detail:
+        "Whatever is already running keeps judging. The fleet will not grow for a rush or stop afterwards until this is fixed.",
+    };
+  }
+
+  if (fleet.live > 0) {
+    const busy = fleet.running_jobs > 0 ? `, ${fleet.running_jobs} judging now` : "";
+    const starting =
+      fleet.desired > fleet.live ? ` (${fleet.desired - fleet.live} more starting up)` : "";
+    return {
+      tone: "good",
+      headline: `Ready — ${fleet.live} judge${fleet.live === 1 ? "" : "s"} available${busy}`,
+      detail: starting.trim() || "Judges will stop on their own when the contest ends.",
+    };
+  }
+
+  if (fleet.upcoming.length > 0) {
+    const next = fleet.upcoming[0];
+    return {
+      tone: "warn",
+      headline: "Judges are starting up",
+      detail: `${next.title} needs ${next.instances}. They take about 90 seconds to be ready.`,
+    };
+  }
+
+  return {
+    tone: "idle",
+    headline: "No judges running",
+    detail: "Nothing is scheduled. They start on their own about half an hour before a contest.",
+  };
 }
 
-const RUN_STATUS_STYLES: Record<string, string> = {
-  running: "border-sky-200 bg-sky-50 text-sky-700",
-  completed: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  failed: "border-red-200 bg-red-50 text-red-700",
+const TONE: Record<Situation["tone"], { box: string; icon: string; Icon: typeof CheckCircle2 }> = {
+  good: {
+    box: "border-emerald-200 bg-emerald-50",
+    icon: "text-emerald-600",
+    Icon: CheckCircle2,
+  },
+  warn: { box: "border-amber-300 bg-amber-50", icon: "text-amber-600", Icon: Clock },
+  bad: { box: "border-red-300 bg-red-50", icon: "text-red-600", Icon: AlertTriangle },
+  idle: { box: "border-slate-200 bg-white", icon: "text-slate-400", Icon: Moon },
 };
-
-function runStatusClass(status: string): string {
-  return RUN_STATUS_STYLES[status] ?? RUN_STATUS_STYLES.running;
-}
-
-function idleLabel(seconds: number | null): string {
-  if (seconds === null) return "never checked in";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m ago`;
-}
 
 export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
   const [fleet, setFleet] = useState<Fleet | null>(null);
-  const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
   const [runs, setRuns] = useState<FleetRun[]>([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const [benchCount, setBenchCount] = useState(100);
 
   const load = useCallback(async () => {
@@ -167,10 +214,9 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
       if (r) setRuns(r);
       setError("");
     } catch (err) {
-      // Deliberately does not blank the table: a fleet view that vanishes on
-      // one failed poll is worse than a slightly stale one, and this screen
-      // is read precisely when things are going wrong.
-      setError(err instanceof Error ? err.message : "Could not load the fleet.");
+      // Deliberately does not blank the page: a stale answer beats no answer
+      // on the screen you read when things are going wrong.
+      setError(err instanceof Error ? err.message : "Could not load judging status.");
     }
   }, []);
 
@@ -180,516 +226,270 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
     return () => clearInterval(id);
   }, [load]);
 
-  async function refresh() {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }
-
-  /** Both of these spend money, so the API gates them on owner/admin and a
-   * 403 comes back as a readable message rather than a silent no-op. */
   async function act(key: string, run: () => Promise<Response>) {
     setBusy(key);
     setError("");
     try {
-      setFleet(await json<Fleet>(await run()));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not change the fleet.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  const warm = (instances: number) =>
-    act("warm", () =>
-      fetch("/api/org/fleet?action=warm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instances, minutes: 240 }),
-      }),
-    );
-
-  const standDown = () =>
-    act("standdown", () =>
-      fetch("/api/org/fleet?action=stand-down", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ minutes: 240 }),
-      }),
-    );
-
-  const release = () => act("clear", () => fetch("/api/org/fleet", { method: "DELETE" }));
-
-  /** Probe and bench return a run rather than the fleet, so they refresh
-   * rather than replacing state. */
-  async function run(key: string, url: string, body?: unknown) {
-    setBusy(key);
-    setError("");
-    try {
-      await json(
-        await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: body === undefined ? undefined : JSON.stringify(body),
-        }),
-      );
+      await run();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start the run.");
+      setError(err instanceof Error ? err.message : "That did not work.");
     } finally {
       setBusy(null);
     }
   }
 
-  const backlog = fleet?.queue_waiting ?? fleet?.queued_jobs ?? 0;
-  // Nothing alive but work waiting is the one state that always needs
-  // attention — it is what a crash-looping fleet looks like from here.
-  const stalled = Boolean(fleet && fleet.live === 0 && backlog > 0);
+  const post = (url: string, body?: unknown) =>
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }).then(async (r) => {
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? "Request failed.");
+      return r;
+    });
+
+  const situation = useMemo(() => situationOf(fleet), [fleet]);
+  const tone = TONE[situation.tone];
+  const standingDown = fleet?.override?.mode === "standdown";
+  const lastProbe = runs.find((r) => r.kind === "probe");
 
   return (
-    <div className={inset ? "space-y-8 px-8 py-6" : "space-y-8"}>
+    <div className={inset ? "max-w-3xl space-y-4 px-8 py-6" : "max-w-3xl space-y-4"}>
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       )}
 
-      {stalled && (
-        <div className="flex gap-3 rounded-xl border border-red-300 bg-red-50 p-4">
-          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
-          <div>
-            <p className="text-sm font-semibold text-red-900">
-              Work is waiting and no judge is answering
+      {/* The answer. Everything else on this page is optional reading. */}
+      <div className={`flex gap-3 rounded-xl border p-5 ${tone.box}`}>
+        <tone.Icon className={`mt-0.5 h-6 w-6 flex-shrink-0 ${tone.icon}`} />
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-slate-900">{situation.headline}</p>
+          {situation.detail && <p className="mt-1 text-sm text-slate-600">{situation.detail}</p>}
+
+          {fleet?.upcoming.length ? (
+            <p className="mt-3 text-sm text-slate-600">
+              Next: <strong className="text-slate-900">{fleet.upcoming[0].title}</strong>
+              {fleet.upcoming[0].reason === "running"
+                ? " is running now"
+                : ` starts ${relativeWhen(fleet.upcoming[0].starts_at)}`}
             </p>
-            <p className="mt-1 text-sm text-red-800">
-              {backlog} submission{backlog === 1 ? "" : "s"} queued with zero live workers.
-              Instances can be running and still not judging — check the fleet controller before
-              assuming capacity is the problem.
-            </p>
-          </div>
+          ) : null}
         </div>
+      </div>
+
+      {/* Only the actions that make sense right now. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {standingDown ? (
+          <button
+            type="button"
+            onClick={() => act("clear", () => fetch("/api/org/fleet", { method: "DELETE" }))}
+            disabled={busy !== null}
+            className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-40"
+          >
+            {busy === "clear" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+            Switch judging back on
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => act("warm", () => post("/api/org/fleet?action=warm", { instances: 8, minutes: 240 }))}
+              disabled={busy !== null}
+              title="Start judges now instead of waiting for the contest. They stop on their own after 4 hours."
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-40"
+            >
+              {busy === "warm" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              Start judges now
+            </button>
+            <button
+              type="button"
+              onClick={() => act("probe", () => post("/api/org/fleet?action=probe"))}
+              disabled={busy !== null}
+              title="Send one test submission through and check it comes back judged."
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:border-slate-900 disabled:opacity-40"
+            >
+              {busy === "probe" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Stethoscope className="h-4 w-4" />
+              )}
+              Test judging
+            </button>
+          </>
+        )}
+
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-900"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Refresh
+        </button>
+      </div>
+
+      {lastProbe && (
+        <p className="text-xs text-slate-500">
+          Last test:{" "}
+          {lastProbe.status === "completed" ? (
+            <span className="text-emerald-700">
+              passed in {lastProbe.latency_ms.p50 ?? "—"} ms
+            </span>
+          ) : lastProbe.status === "running" ? (
+            <span className="text-sky-700">running…</span>
+          ) : (
+            <span className="text-red-700">failed — {lastProbe.last_error || "see details"}</span>
+          )}
+          {lastProbe.started_at && ` · ${relativeWhen(lastProbe.started_at)}`}
+        </p>
       )}
 
-      <section>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <Cpu className="h-4 w-4" />
-            Judging capacity
-          </h3>
-          <button
-            type="button"
-            onClick={refresh}
-            disabled={refreshing}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
-          >
-            {refreshing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-            Refresh
-          </button>
-        </div>
+      {/* Everything an operator might want when the answer above looks wrong. */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowDetails((v) => !v)}
+          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900"
+        >
+          {showDetails ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          Details
+        </button>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Tile
-            label="Live judges"
-            value={fleet ? `${fleet.live} / ${fleet.desired}` : "—"}
-            hint={fleet ? `${fleet.ceiling} max on this account` : ""}
-            tone={fleet && fleet.desired > 0 && fleet.live < fleet.desired ? "warn" : "normal"}
-          />
-          <Tile
-            label="Judging now"
-            value={fleet ? `${fleet.running_jobs}` : "—"}
-            hint="submissions in flight"
-          />
-          <Tile
-            label="Waiting"
-            value={fleet ? `${backlog}` : "—"}
-            hint={fleet?.queue_error ? "queue unreadable" : "in the queue"}
-            tone={backlog > 0 && fleet?.live === 0 ? "warn" : "normal"}
-          />
-          <Tile
-            label="Not responding"
-            value={fleet ? `${fleet.stale}` : "—"}
-            hint="stopped heartbeating"
-            tone={fleet && fleet.stale > 0 ? "warn" : "normal"}
-          />
-        </div>
-
-        {fleet && (
-          <p className="mt-3 text-xs text-slate-500">
-            Wanted: <strong className="text-slate-700">{fleet.desired}</strong>{" "}
-            {fleet.driver && `(${fleet.driver}${fleet.detail ? ` — ${fleet.detail}` : ""})`}
-            {fleet.state?.reported_at && !fleet.state.stale && (
-              <> · controller last spoke {relativeWhen(fleet.state.reported_at)}</>
-            )}
-          </p>
-        )}
-
-        {fleet?.state?.stale && (
-          <div className="mt-3 flex gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
-            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
-            <div>
-              <p className="text-sm font-semibold text-amber-900">
-                Nothing is steering the fleet
-              </p>
-              <p className="mt-1 text-sm text-amber-800">
-                The autoscaler last reported{" "}
-                {fleet.state.reported_at ? relativeWhen(fleet.state.reported_at) : "never"}. Judges
-                already running will keep judging, but the fleet will not grow for a spike or come
-                down afterwards.
-                {fleet.state.last_error && ` Last error: ${fleet.state.last_error}`}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {fleet?.queue_error && (
-          <p className="mt-3 text-xs text-amber-700">
-            The queue itself could not be read ({fleet.queue_error}), so &ldquo;waiting&rdquo;
-            falls back to the job table. These two disagreeing is itself worth investigating.
-          </p>
-        )}
-      </section>
-
-      <section>
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <CalendarClock className="h-4 w-4" />
-          Coming up
-        </h3>
-        <p className="mb-3 text-xs text-slate-500">
-          Judges start on their own before a contest opens — there is nothing to remember on the
-          morning. Practice contests are deliberately excluded.
-        </p>
-
-        {fleet === null ? (
-          <p className="text-sm text-slate-500">Loading…</p>
-        ) : fleet.upcoming.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-6 text-center text-sm text-slate-500">
-            No contest is running or about to start, so no judges are being held.
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-2.5">Contest</th>
-                  <th className="px-4 py-2.5">Starts</th>
-                  <th className="px-4 py-2.5 text-right">On the roster</th>
-                  <th className="px-4 py-2.5 text-right">Judges held</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {fleet.upcoming.map((c) => (
-                  <tr key={c.contest_uid}>
-                    <td className="px-4 py-2.5">
-                      <span className="font-medium text-slate-900">{c.title}</span>
-                      <span className="ml-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500">
-                        {c.reason}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">
-                      {formatWhen(c.starts_at)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
-                      {c.participants}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-900">
-                      {c.instances}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section>
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <Flame className="h-4 w-4" />
-          Override
-        </h3>
-        <p className="mb-3 text-xs text-slate-500">
-          For a rehearsal, or a contest scheduled by mistake. Owner and admin only — these spend
-          money. Every override expires on its own, in both directions.
-        </p>
-
-        {fleet?.override ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3">
-            <div>
-              <p className="text-sm text-slate-900">
-                {fleet.override.mode === "standdown" ? (
-                  <>
-                    Stood down — <strong>no judges</strong> even if a contest wants them
-                  </>
-                ) : (
-                  <>
-                    Held warm at <strong>{fleet.override.instances}</strong> judges
-                  </>
-                )}
-              </p>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Lapses {relativeWhen(fleet.override.expires_at)} ·{" "}
-                {formatWhen(fleet.override.expires_at)}
-                {fleet.override.reason && ` · ${fleet.override.reason}`}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={release}
-              disabled={busy !== null}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
-            >
-              {busy === "clear" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Undo2 className="h-3.5 w-3.5" />
-              )}
-              Back to the schedule
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => warm(8)}
-              disabled={busy !== null}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40"
-            >
-              {busy === "warm" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Flame className="h-3.5 w-3.5" />
-              )}
-              Warm 8 judges for 4 hours
-            </button>
-            <button
-              type="button"
-              onClick={standDown}
-              disabled={busy !== null}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
-            >
-              {busy === "standdown" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <PowerOff className="h-3.5 w-3.5" />
-              )}
-              Stand down
-            </button>
-          </div>
-        )}
-      </section>
-
-      <section>
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <Stethoscope className="h-4 w-4" />
-          Test bench
-        </h3>
-        <p className="mb-3 text-xs text-slate-500">
-          A <strong>probe</strong> is one synthetic submission through the real judging path — the
-          only check that catches a fleet whose instances are up but whose workers are not judging.
-          A <strong>load test</strong> is the same thing many times over. Neither ever becomes a
-          real submission, so nothing reaches a scoreboard.
-        </p>
-
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => run("probe", "/api/org/fleet?action=probe")}
-            disabled={busy !== null}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
-          >
-            {busy === "probe" ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Stethoscope className="h-3.5 w-3.5" />
-            )}
-            Probe once
-          </button>
-
-          <span className="ml-2 text-xs text-slate-400">|</span>
-
-          <label className="flex items-center gap-2 text-xs text-slate-600">
-            Load test
-            <input
-              type="number"
-              min={1}
-              max={2000}
-              value={benchCount}
-              onChange={(e) => setBenchCount(Number(e.target.value))}
-              className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs tabular-nums"
+        {showDetails && fleet && (
+          <div className="mt-3 space-y-5 rounded-xl border border-slate-200 bg-white p-5">
+            <Row label="Judges running" value={`${fleet.live} of ${fleet.desired} wanted`} />
+            <Row label="Most we can run" value={`${fleet.ceiling}`} />
+            <Row
+              label="Waiting to be judged"
+              value={fleet.queue_error ? "unknown" : `${fleet.queue_waiting ?? fleet.queued_jobs}`}
             />
-            submissions
-          </label>
-          <button
-            type="button"
-            onClick={() =>
-              run("bench", "/api/org/fleet?action=bench", { count: benchCount })
-            }
-            disabled={busy !== null || benchCount < 1}
-            title="Refused while a contest is running or about to start"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40"
-          >
-            {busy === "bench" ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Zap className="h-3.5 w-3.5" />
+            {fleet.state && (
+              <Row
+                label="Autoscaler last spoke"
+                value={
+                  fleet.state.reported_at
+                    ? `${relativeWhen(fleet.state.reported_at)}${fleet.state.stale ? " — stalled" : ""}`
+                    : "never"
+                }
+              />
             )}
-            Run it
-          </button>
-        </div>
+            {fleet.override && (
+              <Row
+                label="Manual override"
+                value={`${fleet.override.mode === "standdown" ? "judging off" : `held at ${fleet.override.instances}`} until ${formatWhen(fleet.override.expires_at)}`}
+              />
+            )}
+            {fleet.state?.last_error && <Row label="Last error" value={fleet.state.last_error} />}
 
-        {runs.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-6 text-center text-sm text-slate-500">
-            Nothing has been run against the fleet yet.
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-2.5">Run</th>
-                  <th className="px-4 py-2.5">Result</th>
-                  <th className="px-4 py-2.5 text-right">Throughput</th>
-                  <th className="px-4 py-2.5 text-right">p50 / p90</th>
-                  <th className="px-4 py-2.5">When</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {runs.map((r) => (
-                  <tr key={r.uid} className={r.status === "failed" ? "bg-red-50/40" : undefined}>
-                    <td className="px-4 py-2.5">
-                      <span className="capitalize text-slate-900">{r.kind}</span>
-                      <span className="ml-2 text-xs text-slate-500">{r.total} job{r.total === 1 ? "" : "s"}</span>
-                      {r.note && <p className="text-xs text-slate-400">{r.note}</p>}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className={`rounded-full border px-2 py-0.5 text-xs ${runStatusClass(r.status)}`}>
-                        {r.status}
+            {!standingDown && (
+              <div className="border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() =>
+                    act("standdown", () =>
+                      post("/api/org/fleet?action=stand-down", { minutes: 240 }),
+                    )
+                  }
+                  disabled={busy !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
+                >
+                  {busy === "standdown" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <PowerOff className="h-3.5 w-3.5" />
+                  )}
+                  Switch judging off
+                </button>
+                <span className="ml-2 text-xs text-slate-400">
+                  Stops all judging for 4 hours. Only for a contest scheduled by mistake.
+                </span>
+              </div>
+            )}
+
+            <div className="border-t border-slate-100 pt-4">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                Load test
+              </p>
+              <p className="mb-2 text-xs text-slate-400">
+                Sends many test submissions at once to see how fast judging keeps up. Refused
+                while a contest needs the judges.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={2000}
+                  value={benchCount}
+                  onChange={(e) => setBenchCount(Number(e.target.value))}
+                  className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs tabular-nums"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    act("bench", () => post("/api/org/fleet?action=bench", { count: benchCount }))
+                  }
+                  disabled={busy !== null || benchCount < 1}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
+                >
+                  {busy === "bench" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="h-3.5 w-3.5" />
+                  )}
+                  Run load test
+                </button>
+              </div>
+              {runs.length > 0 && (
+                <ul className="mt-3 space-y-1">
+                  {runs.slice(0, 5).map((r) => (
+                    <li key={r.uid} className="flex items-baseline justify-between gap-3 text-xs">
+                      <span className="text-slate-600">
+                        {r.kind} · {r.total} job{r.total === 1 ? "" : "s"}
                       </span>
-                      {r.failed > 0 && (
-                        <span className="ml-2 text-xs text-red-600">{r.failed} failed</span>
-                      )}
-                      {r.last_error && (
-                        <p className="mt-0.5 max-w-xs truncate text-xs text-slate-400">
-                          {r.last_error}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
-                      {r.throughput === null ? "—" : `${r.throughput}/s`}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
-                      {r.latency_ms.p50 === undefined
-                        ? "—"
-                        : `${r.latency_ms.p50} / ${r.latency_ms.p90} ms`}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">
-                      {r.started_at ? relativeWhen(r.started_at) : "—"}
-                      {r.requested_by && <span className="text-slate-400"> · {r.requested_by}</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <span className={r.status === "failed" ? "text-red-600" : "text-slate-500"}>
+                        {r.status}
+                        {r.throughput !== null && ` · ${r.throughput}/s`}
+                        {r.latency_ms.p50 !== undefined && ` · p50 ${r.latency_ms.p50}ms`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {fleet.workers.length > 0 && (
+              <div className="border-t border-slate-100 pt-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Workers
+                </p>
+                <ul className="space-y-1">
+                  {fleet.workers.map((w) => (
+                    <li key={w.hostname} className="flex items-baseline justify-between gap-3 text-xs">
+                      <span className="truncate font-mono text-slate-700">{w.hostname}</span>
+                      <span className={w.status === "offline" ? "text-red-600" : "text-slate-500"}>
+                        {w.status}
+                        {w.running_jobs > 0 && ` · ${w.running_jobs} judging`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
-      </section>
-
-      <section>
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <Server className="h-4 w-4" />
-          Workers
-        </h3>
-        <p className="mb-3 text-xs text-slate-500">
-          A worker is shown offline once it stops heartbeating, whatever it last reported about
-          itself.
-        </p>
-
-        {fleet === null ? (
-          <p className="text-sm text-slate-500">Loading…</p>
-        ) : fleet.workers.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-slate-500">
-            No judges have registered. The always-on worker and the contest-day fleet both appear
-            here once they start.
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-2.5">Worker</th>
-                  <th className="px-4 py-2.5">Pool</th>
-                  <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5 text-right">Judging</th>
-                  <th className="px-4 py-2.5">Last heard from</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {fleet.workers.map((w) => {
-                  const offline = w.status === "offline";
-                  return (
-                    <tr key={w.hostname} className={offline ? "bg-red-50/40" : undefined}>
-                      <td className="px-4 py-2.5">
-                        <span className="font-mono text-xs text-slate-900">{w.hostname}</span>
-                        {w.version && (
-                          <span className="ml-2 text-xs text-slate-400">{w.version}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">{w.pool}</td>
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs ${workerStatusClass(w.status)}`}
-                        >
-                          {w.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
-                        {w.running_jobs}
-                      </td>
-                      <td className="px-4 py-2.5 text-xs text-slate-500">
-                        {idleLabel(w.idle_seconds)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      </div>
     </div>
   );
 }
 
-function Tile({
-  label,
-  value,
-  hint,
-  tone = "normal",
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  tone?: "normal" | "warn";
-}) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      className={`rounded-xl border bg-white px-4 py-3 ${
-        tone === "warn" ? "border-amber-300" : "border-slate-200"
-      }`}
-    >
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p
-        className={`mt-1 text-2xl font-semibold tabular-nums ${
-          tone === "warn" ? "text-amber-700" : "text-slate-900"
-        }`}
-      >
-        {value}
-      </p>
-      {hint && <p className="mt-0.5 text-xs text-slate-400">{hint}</p>}
+    <div className="flex items-baseline justify-between gap-4 text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className="text-right text-slate-900">{value}</span>
     </div>
   );
 }
