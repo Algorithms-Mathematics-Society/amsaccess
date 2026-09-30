@@ -2,11 +2,19 @@ import { NextResponse } from "next/server";
 import { callAmsApi, errorMessage } from "@/lib/server/amsApi";
 import { requireSubject } from "@/lib/server/session";
 
-export async function GET() {
+export async function GET(request: Request) {
   const subject = await requireSubject();
   if (!subject) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
-  const res = await callAmsApi("GET", "/contests", null, subject);
+  // Archived contests are off the list by default, and fetched only when the
+  // page explicitly asks — otherwise filing one would achieve nothing.
+  const archived = new URL(request.url).searchParams.get("archived") === "1";
+  const res = await callAmsApi(
+    "GET",
+    archived ? "/contests?include_archived=true" : "/contests",
+    null,
+    subject,
+  );
   if (!res.ok) return NextResponse.json({ error: errorMessage(res.data) }, { status: res.status });
   return NextResponse.json(res.data);
 }
