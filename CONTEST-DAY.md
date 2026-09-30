@@ -1,5 +1,25 @@
 # Running a contest
 
+> ## ⚠ Current limit: the judging fleet cannot scale
+>
+> **As of 2026-09-30 the AWS account is blocked from launching EC2 instances**
+> — `This account is currently blocked and not recognized as a valid account`,
+> on every region, needing an
+> [account-verification support case](https://support.console.aws.amazon.com/support/home#/case/create?issueType=customer-service&serviceCode=account-management&categoryCode=account-verification).
+> It began between 18:05 and 18:25 UTC on 2026-09-29.
+>
+> Everything else works: the API, the portal, the proctoring, and the one
+> always-on worker on `ams-app`, which judges at **~1.3 submissions/second**
+> (measured, 1,000 jobs, 2026-09-30).
+>
+> **So until the block is lifted:** a contest up to roughly **50 people** runs
+> normally. Anything larger will queue — at 1.3/s, 1,000 submissions take about
+> 13 minutes, not the ~60 seconds the capacity table below promises. Every
+> number in *How much judging capacity there is* assumes instances can launch.
+>
+> The Judging page will show AWS's own refusal in red while this lasts. Delete
+> this block once `gh` shows launches succeeding again.
+
 Everything here happens at **amsaccess.com/org** as owner or admin. Nothing
 needs a terminal, and nothing needs you to touch AWS.
 
@@ -165,5 +185,6 @@ Costs about $0.10.
 | Credentials issued but nobody got an email | roster rows had no `email` column |
 | Judging page green, submissions stay queued | check the probe, not the instance count |
 | Load test refused | a contest is live or starts within 30 min |
+| Judging page red, "account is currently blocked" | the EC2 block above — only the always-on worker is judging |
 | "Windows protected your PC" | the client is unsigned; *More info* → Run |
 | Practice contest never pre-warms judges | by design — practice contests are excluded |
