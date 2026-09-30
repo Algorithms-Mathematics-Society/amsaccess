@@ -446,8 +446,14 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
                 <ul className="mt-3 space-y-1">
                   {runs.slice(0, 5).map((r) => (
                     <li key={r.uid} className="flex items-baseline justify-between gap-3 text-xs">
-                      <span className="text-slate-600">
+                      <span className="min-w-0 truncate text-slate-600">
                         {r.kind} · {r.total} job{r.total === 1 ? "" : "s"}
+                        {r.started_at && (
+                          <span className="text-slate-400">
+                            {" · "}
+                            {relativeWhen(r.started_at)}
+                          </span>
+                        )}
                       </span>
                       <span className={r.status === "failed" ? "text-red-600" : "text-slate-500"}>
                         {r.status}
@@ -488,8 +494,12 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-right text-slate-900">{value}</span>
+      <span className="flex-shrink-0 text-slate-500">{label}</span>
+      {/* AWS error strings run to several hundred characters. Without
+          min-w-0 and a wrap they overflow the card and the interesting end of
+          the message — which region, which permission — is the part that
+          disappears. */}
+      <span className="min-w-0 break-words text-right text-slate-900">{value}</span>
     </div>
   );
 }
