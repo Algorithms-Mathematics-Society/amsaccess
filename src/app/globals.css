@@ -1,4 +1,25 @@
-@tailwind base;
+/*
+ * Cascade layer order, declared before any layered rule so it holds on every
+ * page whichever stylesheet loads next:
+ *   reset         Astryx prose defaults (src/theme/orgTheme.css), lowest.
+ *   tw-preflight  Tailwind 3 preflight, wrapped below.
+ *   astryx-base   Astryx component styles (@astryxdesign/core/astryx.css).
+ *   astryx-theme  Org theme overrides (src/theme/orgTheme.css).
+ * Astryx CSS itself is imported only by src/components/org/OrgAstryxTheme.tsx,
+ * so pages that do not render it never load it.
+ *
+ * Why this leaves other pages unchanged: preflight was already the lowest
+ * rule on every page (first in this file, element and universal selectors
+ * only, no overlap with the earlier katex/font CSS). Every other site rule,
+ * component class and utility stays unlayered and still beats all layers.
+ * Moving preflight under the Astryx layers only stops it from flattening
+ * Astryx buttons, inputs and headings.
+ */
+@layer reset, tw-preflight, astryx-base, astryx-theme;
+
+@layer tw-preflight {
+  @tailwind base;
+}
 @tailwind components;
 @tailwind utilities;
 
@@ -89,11 +110,13 @@ body {
   overflow-x: hidden;
 }
 
-button,
-input,
-textarea,
-select,
-a {
+/* Same specificity as a bare element selector; the :not(:where()) clause
+   leaves Astryx components (inside the Theme wrapper div) to their own font. */
+button:not(:where(div[data-astryx-theme] *)),
+input:not(:where(div[data-astryx-theme] *)),
+textarea:not(:where(div[data-astryx-theme] *)),
+select:not(:where(div[data-astryx-theme] *)),
+a:not(:where(div[data-astryx-theme] *)) {
   font: inherit;
 }
 
