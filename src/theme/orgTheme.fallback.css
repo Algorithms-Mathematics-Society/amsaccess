@@ -440,10 +440,15 @@
     --color-error: var(--color-text-red);
 }
 :where([data-astryx-theme="org"]:not(html)) .astryx-card {
+    border-color: var(--color-border);
     --astryx-card-padding: var(--spacing-3);
 }
 :where([data-astryx-theme="org"]:not(html)) .astryx-section {
     --astryx-section-padding: var(--spacing-3);
+}
+:where([data-astryx-theme="org"]:not(html)) .astryx-calendar-day.selected {
+    background-color: var(--color-background-inverted);
+    color: var(--color-background-card);
 }
 :where([data-astryx-theme="org"]:not(html)) .astryx-text.primary { color: var(--color-text-primary);
 }

@@ -83,6 +83,17 @@ export const orgTheme = defineTheme({
     "--font-size-sm": "0.75rem",
   },
   components: {
+    // Calm cards: the hairline border, not the emphasized one Astryx defaults to.
+    card: {
+      base: { borderColor: "var(--color-border)" },
+    },
+    // A picked calendar day is black like a primary button, never a purple fill.
+    "calendar-day": {
+      selected: {
+        backgroundColor: "var(--color-background-inverted)",
+        color: "var(--color-background-card)",
+      },
+    },
     button: {
       "variant:primary": {
         backgroundColor: "var(--color-background-inverted)",
