@@ -100,7 +100,11 @@ export function ContestsCard({
         header: "Status",
         width: proportional(1.4),
         renderCell: (c) => {
-          const s = statusOf(c.status);
+          // Practice is untimed: the backend says "running", the page says "Open", calmly.
+          const s =
+            c.status === "running" && c.is_practice
+              ? { label: "Open", color: "default" as const }
+              : statusOf(c.status);
           return <Token label={s.label} color={s.color} size="sm" />;
         },
       },

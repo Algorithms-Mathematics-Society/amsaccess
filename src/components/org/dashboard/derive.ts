@@ -46,6 +46,16 @@ function endMs(c: Contest): number {
   return new Date(c.ends_at).getTime();
 }
 
+/**
+ * A contest that is live in the timed sense. The backend reports a published
+ * practice contest as "running" for as long as it exists, and judges are not
+ * scheduled for practice, so practice never counts as live here: not in
+ * Needs attention, not for judging, not in Running now, not in the Live filter.
+ */
+export function isLive(c: Contest): boolean {
+  return c.status === "running" && !c.is_practice;
+}
+
 export function hasPackage(p: Problem): boolean {
   return p.versions.some((v) => v.has_package);
 }
@@ -67,7 +77,7 @@ export type Stats = {
 
 export function contestStats(contests: Contest[], now: number): Stats {
   return {
-    running: contests.filter((c) => c.status === "running").length,
+    running: contests.filter(isLive).length,
     next24h: startingWithinDay(contests, now).length,
     drafts: contests.filter((c) => c.status === "draft").length,
   };
@@ -97,7 +107,7 @@ export type JudgingStatus = {
 
 export function judgingStatus(fleet: Fleet, contests: Contest[] | null, now: number): JudgingStatus {
   const situation = situationOf(fleet);
-  const live = (contests ?? []).some((c) => c.status === "running");
+  const live = (contests ?? []).some(isLive);
   const soon = contests ? startingWithinDay(contests, now).length > 0 : false;
   const fleetSoon = fleet.upcoming.some((u) => new Date(u.starts_at).getTime() - now <= DAY);
   const relevant = live || soon || fleetSoon;
@@ -226,7 +236,7 @@ export function attentionItems({
 
   if (contests) {
     for (const c of contests) {
-      if (c.status === "running") {
+      if (isLive(c)) {
         const ends = endMs(c);
         items.push({
           id: `live-${c.uid}`,
@@ -309,16 +319,22 @@ const GROUP: Record<string, number> = {
   running: 0,
   scheduled: 1,
   draft: 2,
-  ended: 3,
+  ended: 4,
 };
 
-/** Running, then scheduled by start, then drafts by start, then ended by most recent end. */
+/** Open practice contests sit after drafts: always available, never urgent. */
+function groupOf(c: Contest): number {
+  if (c.status === "running" && c.is_practice) return 3;
+  return GROUP[c.status] ?? 5;
+}
+
+/** Live, then scheduled by start, then drafts by start, then open practice, then ended by most recent end. */
 export function orderContests(contests: Contest[]): Contest[] {
   return [...contests].sort((a, b) => {
-    const ga = GROUP[a.status] ?? 4;
-    const gb = GROUP[b.status] ?? 4;
+    const ga = groupOf(a);
+    const gb = groupOf(b);
     if (ga !== gb) return ga - gb;
-    if (ga === 3) return endMs(b) - endMs(a);
+    if (ga === 4) return endMs(b) - endMs(a);
     return startMs(a) - startMs(b);
   });
 }
@@ -329,7 +345,7 @@ export function filterContests(
 ): Contest[] {
   switch (filter) {
     case "live":
-      return contests.filter((c) => c.status === "running");
+      return contests.filter(isLive);
     case "upcoming":
       return contests.filter((c) => c.status === "scheduled");
     case "drafts":
