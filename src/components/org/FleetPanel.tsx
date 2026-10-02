@@ -58,7 +58,7 @@ type FleetState = {
   stale: boolean;
 };
 
-type Upcoming = {
+export type Upcoming = {
   contest_uid: string;
   title: string;
   starts_at: string;
@@ -68,7 +68,7 @@ type Upcoming = {
   reason: string;
 };
 
-type Fleet = {
+export type Fleet = {
   workers: FleetWorker[];
   live: number;
   stale: number;
@@ -116,14 +116,16 @@ async function json<T>(res: Response): Promise<T> {
  * booleans in the JSX — there are only ever five things worth saying, and
  * naming them keeps the wrong combination from being renderable.
  */
-type Situation = {
+export type Situation = {
+  /** Which of the named situations this is, for screens that word it themselves. */
+  kind: "checking" | "waiting" | "standdown" | "stale" | "ready" | "starting" | "idle";
   tone: "good" | "warn" | "bad" | "idle";
   headline: string;
   detail: string;
 };
 
-function situationOf(fleet: Fleet | null): Situation {
-  if (!fleet) return { tone: "idle", headline: "Checking…", detail: "" };
+export function situationOf(fleet: Fleet | null): Situation {
+  if (!fleet) return { kind: "checking", tone: "idle", headline: "Checking…", detail: "" };
 
   const waiting = fleet.queue_waiting ?? fleet.queued_jobs ?? 0;
 
@@ -131,6 +133,7 @@ function situationOf(fleet: Fleet | null): Situation {
   // instances can be running and still not judging.
   if (fleet.live === 0 && waiting > 0) {
     return {
+      kind: "waiting",
       tone: "bad",
       headline: "Submissions are waiting and no judge is answering",
       detail: `${waiting} waiting. Judges may be starting up — if this does not clear in a couple of minutes, something is wrong.`,
@@ -139,6 +142,7 @@ function situationOf(fleet: Fleet | null): Situation {
 
   if (fleet.override?.mode === "standdown") {
     return {
+      kind: "standdown",
       tone: "warn",
       headline: "Judging is switched off",
       detail: `Nothing will be judged until this is lifted — automatically ${relativeWhen(fleet.override.expires_at)}, or now with the button below.`,
@@ -147,6 +151,7 @@ function situationOf(fleet: Fleet | null): Situation {
 
   if (fleet.state?.stale) {
     return {
+      kind: "stale",
       tone: "warn",
       headline: "Judges are running, but nothing is steering them",
       detail:
@@ -159,6 +164,7 @@ function situationOf(fleet: Fleet | null): Situation {
     const starting =
       fleet.desired > fleet.live ? ` (${fleet.desired - fleet.live} more starting up)` : "";
     return {
+      kind: "ready",
       tone: "good",
       headline: `Ready — ${fleet.live} judge${fleet.live === 1 ? "" : "s"} available${busy}`,
       detail: starting.trim() || "Judges will stop on their own when the contest ends.",
@@ -168,6 +174,7 @@ function situationOf(fleet: Fleet | null): Situation {
   if (fleet.upcoming.length > 0) {
     const next = fleet.upcoming[0];
     return {
+      kind: "starting",
       tone: "warn",
       headline: "Judges are starting up",
       detail: `${next.title} needs ${next.instances}. They take about 90 seconds to be ready.`,
@@ -175,6 +182,7 @@ function situationOf(fleet: Fleet | null): Situation {
   }
 
   return {
+    kind: "idle",
     tone: "idle",
     headline: "No judges running",
     detail: "Nothing is scheduled. They start on their own about half an hour before a contest.",
