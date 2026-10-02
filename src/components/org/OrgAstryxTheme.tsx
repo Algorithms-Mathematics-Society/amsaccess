@@ -15,11 +15,15 @@
  *   inherit}`) skips elements inside the Theme wrapper div.
  * - The theme's @scope rules exclude <html> (see scripts/build-org-theme.mjs),
  *   so the org shell around this subtree keeps its current look.
+ * - orgTheme.fallback.css repeats the scoped rules under a plain wrapper
+ *   selector for browsers without @scope (Firefox ESR 140).
  * - The built theme (`theme:build`) is static CSS, so there is no runtime
  *   style injection and no flash on hydration.
  * - mode is fixed to "light": the org portal has no dark theme.
  */
 import "@astryxdesign/core/astryx.css";
+// Fallback first: where @scope works, orgTheme.css below wins every tie.
+import "@/theme/orgTheme.fallback.css";
 import "@/theme/orgTheme.css";
 import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
