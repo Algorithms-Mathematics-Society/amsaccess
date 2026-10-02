@@ -1,14 +1,9 @@
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { ArrowRight, Download } from "lucide-react";
 import { PlatformLogo } from "@/components/PlatformLogo";
 import { MarketingNavLinks } from "@/components/MarketingNavLinks";
 import { MarketingFooter } from "@/components/MarketingFooter";
-
-const MobileNav = dynamic(
-  () => import("@/components/MobileNav").then(m => ({ default: m.MobileNav })),
-  { ssr: false }
-);
+import { MobileNavLazy as MobileNav } from "@/components/MobileNavLazy";
 
 export function MarketingHeader() {
   return (

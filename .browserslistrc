@@ -7,3 +7,7 @@ last 2 Safari versions
 last 2 Edge versions
 not IE 11
 not dead
+# Next 15.5 (SWC) ships its dev overlay in production bundles (+237 kB
+# shared JS) when every target is this new. Firefox ESR keeps one older
+# engine in the set, which avoids that; CSS output is unchanged.
+Firefox ESR
