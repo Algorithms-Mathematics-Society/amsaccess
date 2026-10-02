@@ -12,62 +12,16 @@ import { Text } from "@astryxdesign/core/Text";
 import { Banner } from "@astryxdesign/core/Banner";
 import type { Contest, Problem } from "@/lib/orgTypes";
 import { relativeWhen } from "@/lib/orgTypes";
-import { situationOf, type Fleet } from "@/components/org/FleetPanel";
-import { hasPackage, nextContest } from "./derive";
+import type { Fleet } from "@/components/org/FleetPanel";
+import { hasPackage, judgingStatus, nextContest, type JudgingSeverity } from "./derive";
 
-type DotVariant = "success" | "warning" | "error" | "neutral";
-
-/** Dashboard wording for each of FleetPanel's named situations. */
-function judgingSummary(
-  fleet: Fleet,
-  liveContest: boolean,
-): { dot: DotVariant; headline: string; detail: string } {
-  const s = situationOf(fleet);
-  switch (s.kind) {
-    case "waiting": {
-      const waiting = fleet.queue_waiting ?? fleet.queued_jobs ?? 0;
-      return {
-        dot: "error",
-        headline: "Submissions are waiting",
-        detail: `${waiting} waiting and no judge is answering.`,
-      };
-    }
-    case "standdown":
-      return {
-        dot: "warning",
-        headline: "Judging is switched off",
-        detail: "Nothing is judged until it is turned back on.",
-      };
-    case "stale":
-      return {
-        dot: "warning",
-        headline: "Judges are not being steered",
-        detail:
-          "They keep judging, but will not scale up or stop on their own.",
-      };
-    case "ready":
-      return {
-        dot: "success",
-        headline: `Ready · ${fleet.live} ${fleet.live === 1 ? "judge" : "judges"} available`,
-        detail:
-          fleet.running_jobs > 0
-            ? `${fleet.running_jobs} ${fleet.running_jobs === 1 ? "submission" : "submissions"} being judged now.`
-            : "Judges stop on their own after a contest.",
-      };
-    case "starting":
-      return {
-        dot: liveContest ? "warning" : "neutral",
-        headline: "Judges are starting up",
-        detail: "They take about 90 seconds to be ready.",
-      };
-    default:
-      return {
-        dot: "neutral",
-        headline: "No judges running",
-        detail: "They start on their own about half an hour before a contest.",
-      };
-  }
-}
+/** The dot for each judging severity; the verdict itself comes from derive.ts. */
+const JUDGING_DOT: Record<JudgingSeverity, "success" | "warning" | "error" | "neutral"> = {
+  error: "error",
+  warning: "warning",
+  ok: "success",
+  quiet: "neutral",
+};
 
 export function JudgingCard({
   fleet,
@@ -83,7 +37,6 @@ export function JudgingCard({
   onRetry: () => void;
 }) {
   const now = Date.now();
-  const live = (contests ?? []).some((c) => c.status === "running");
   const next = contests ? nextContest(contests, now) : null;
   const nextLine = next
     ? { title: next.title, when: relativeWhen(next.starts_at) }
@@ -102,11 +55,11 @@ export function JudgingCard({
         </Heading>
         {fleet ? (
           (() => {
-            const j = judgingSummary(fleet, live);
+            const j = judgingStatus(fleet, contests, now);
             return (
               <VStack gap={1} role="status">
                 <HStack gap={2} align="center">
-                  <StatusDot variant={j.dot} label={j.headline} />
+                  <StatusDot variant={JUDGING_DOT[j.severity]} label={j.headline} />
                   <Text weight="medium">{j.headline}</Text>
                 </HStack>
                 <Text type="supporting">{j.detail}</Text>

@@ -21,7 +21,7 @@ import type { Fleet } from "@/components/org/FleetPanel";
 import type { Contest, Problem } from "@/lib/orgTypes";
 import { ContestsCard } from "./dashboard/ContestsCard";
 import { JudgingCard, ProblemsCard } from "./dashboard/RailCards";
-import { ScheduleCard } from "./dashboard/ScheduleCard";
+import { ScheduleCard, ScheduleUnavailable } from "./dashboard/ScheduleCard";
 import {
   attentionItems,
   contestStats,
@@ -165,7 +165,9 @@ function Dashboard() {
                 <ScheduleCard contests={contests.data} />
               ) : contests.loading ? (
                 <RailSkeleton title="Schedule" />
-              ) : null}
+              ) : (
+                <ScheduleUnavailable loading={contests.loading} onRetry={() => void contests.reload()} />
+              )}
               <ProblemsCard
                 problems={problems.data}
                 error={problems.error}

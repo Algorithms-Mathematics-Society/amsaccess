@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Calendar, type ISODateString } from "@astryxdesign/core/Calendar";
 import { Card } from "@astryxdesign/core/Card";
@@ -159,6 +160,25 @@ export function ScheduleCard({ contests }: { contests: Contest[] }) {
         <Text type="supporting">
           Dates and times are in your local time zone.
         </Text>
+      </VStack>
+    </Card>
+  );
+}
+
+/** Shown in place of the calendar when the contests read failed and there is nothing to draw. */
+export function ScheduleUnavailable({ loading, onRetry }: { loading: boolean; onRetry: () => void }) {
+  return (
+    <Card padding={4} aria-labelledby="dash-schedule-heading">
+      <VStack gap={3}>
+        <Heading level={4} accessibilityLevel={2} id="dash-schedule-heading">
+          Schedule
+        </Heading>
+        <Banner
+          status="error"
+          title="Schedule did not load"
+          description="It comes from the contest list."
+          endContent={<Button label="Retry" size="sm" onClick={onRetry} isLoading={loading} />}
+        />
       </VStack>
     </Card>
   );

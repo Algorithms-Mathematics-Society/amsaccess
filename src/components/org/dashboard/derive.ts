@@ -74,89 +74,138 @@ export function contestStats(contests: Contest[], now: number): Stats {
 }
 
 /**
- * Judging items. Submissions waiting with nobody to judge them is real
- * breakage and always shows. The softer situations only matter while a
- * contest is live or about to start; otherwise they are not worth a line.
+ * One judging verdict for the whole page. The Judging card and Needs
+ * attention both read this, so their tone and wording can never disagree.
+ *
+ * - `error`: submissions are queued and no judge is live. Always shown,
+ *   whatever the schedule: someone is submitting and nothing answers.
+ * - `warning`: something that will bite while a contest is live or about
+ *   to start (switched off, unsteered, no judge ready during a live contest).
+ * - `ok`: judges are ready.
+ * - `quiet`: nothing worth flagging right now.
  */
-function judgingItems(
-  fleet: Fleet,
-  situation: Situation,
-  contests: Contest[] | null,
-  now: number,
-): AttentionItem[] {
-  const running = (contests ?? []).filter((c) => c.status === "running");
-  const soon = contests ? startingWithinDay(contests, now) : [];
-  const fleetSoon = fleet.upcoming.some(
-    (u) => new Date(u.starts_at).getTime() - now <= DAY,
-  );
-  const relevant = running.length > 0 || soon.length > 0 || fleetSoon;
-  const base = { href: "/org/fleet", action: "Open Judging" };
+export type JudgingSeverity = "error" | "warning" | "ok" | "quiet";
 
-  switch (situation.kind) {
+export type JudgingStatus = {
+  kind: Situation["kind"];
+  severity: JudgingSeverity;
+  headline: string;
+  detail: string;
+  /** Present only when the state belongs in Needs attention. */
+  attention: { title: string; detail: string } | null;
+};
+
+export function judgingStatus(fleet: Fleet, contests: Contest[] | null, now: number): JudgingStatus {
+  const situation = situationOf(fleet);
+  const live = (contests ?? []).some((c) => c.status === "running");
+  const soon = contests ? startingWithinDay(contests, now).length > 0 : false;
+  const fleetSoon = fleet.upcoming.some((u) => new Date(u.starts_at).getTime() - now <= DAY);
+  const relevant = live || soon || fleetSoon;
+  const kind = situation.kind;
+
+  switch (kind) {
     case "waiting": {
       const waiting = fleet.queue_waiting ?? fleet.queued_jobs ?? 0;
-      return [
-        {
-          ...base,
-          id: "judging-waiting",
-          severity: "error",
+      return {
+        kind,
+        severity: "error",
+        headline: "Submissions are waiting",
+        detail: `${waiting} waiting and no judge is answering.`,
+        attention: {
           title: "Submissions are waiting and no judge is answering",
           detail: `${waiting} waiting. Judges may still be starting. If this does not clear in a few minutes, open Judging.`,
         },
-      ];
+      };
     }
     case "standdown":
-      return relevant
-        ? [
-            {
-              ...base,
-              id: "judging-off",
-              severity: "warning",
-              title: "Judging is switched off",
-              detail: "Nothing will be judged until it is turned back on.",
-            },
-          ]
-        : [];
+      return {
+        kind,
+        severity: relevant ? "warning" : "quiet",
+        headline: "Judging is switched off",
+        detail: "Nothing is judged until it is turned back on.",
+        attention: relevant
+          ? { title: "Judging is switched off", detail: "Nothing will be judged until it is turned back on." }
+          : null,
+      };
     case "stale":
-      return relevant
-        ? [
-            {
-              ...base,
-              id: "judging-stale",
-              severity: "warning",
+      return {
+        kind,
+        severity: relevant ? "warning" : "quiet",
+        headline: "Judges are not being steered",
+        detail: "They keep judging, but will not scale up or stop on their own.",
+        attention: relevant
+          ? {
               title: "Judges are running, but nothing is steering them",
-              detail:
-                "They keep judging, but will not grow for a rush or stop afterwards.",
+              detail: "They keep judging, but will not grow for a rush or stop afterwards.",
+            }
+          : null,
+      };
+    case "ready":
+      return {
+        kind,
+        severity: "ok",
+        headline: `Ready · ${fleet.live} ${fleet.live === 1 ? "judge" : "judges"} available`,
+        detail:
+          fleet.running_jobs > 0
+            ? `${fleet.running_jobs} ${fleet.running_jobs === 1 ? "submission" : "submissions"} being judged now.`
+            : "Judges stop on their own after a contest.",
+        attention: null,
+      };
+    case "starting":
+      return live
+        ? {
+            kind,
+            severity: "warning",
+            headline: "Judges are still starting",
+            detail: "A contest is live. Submissions wait until a judge is ready, usually within 90 seconds.",
+            attention: {
+              title: "Judges are still starting during a live contest",
+              detail: "Submissions wait until a judge is ready, usually within 90 seconds.",
             },
-          ]
-        : [];
-    case "idle":
-      return running.length > 0
-        ? [
-            {
-              ...base,
-              id: "judging-idle",
-              severity: "warning",
+          }
+        : {
+            kind,
+            severity: "quiet",
+            headline: "Judges are starting up",
+            detail: "They take about 90 seconds to be ready.",
+            attention: null,
+          };
+    default:
+      // "idle", plus "checking" which cannot happen once a fleet has loaded.
+      return live
+        ? {
+            kind,
+            severity: "warning",
+            headline: "No judges are running",
+            detail: "A contest is live, so submissions wait until a judge starts.",
+            attention: {
               title: "No judges are running during a live contest",
               detail: "Submissions will wait until a judge starts.",
             },
-          ]
-        : [];
-    case "starting":
-      return running.length > 0
-        ? [
-            {
-              ...base,
-              id: "judging-starting",
-              severity: "info",
-              title: "Judges are still starting",
-              detail: "They take about 90 seconds to be ready.",
-            },
-          ]
-        : [];
-    default:
-      return [];
+          }
+        : {
+            kind,
+            severity: "quiet",
+            headline: "No judges running",
+            detail: "They start on their own about half an hour before a contest.",
+            attention: null,
+          };
   }
+}
+
+function judgingItems(fleet: Fleet, contests: Contest[] | null, now: number): AttentionItem[] {
+  const j = judgingStatus(fleet, contests, now);
+  if (!j.attention || (j.severity !== "error" && j.severity !== "warning")) return [];
+  return [
+    {
+      id: `judging-${j.kind}`,
+      severity: j.severity,
+      title: j.attention.title,
+      detail: j.attention.detail,
+      href: "/org/fleet",
+      action: "Open Judging",
+    },
+  ];
 }
 
 export function attentionItems({
@@ -173,7 +222,7 @@ export function attentionItems({
   const items: AttentionItem[] = [];
 
   if (fleet)
-    items.push(...judgingItems(fleet, situationOf(fleet), contests, now));
+    items.push(...judgingItems(fleet, contests, now));
 
   if (contests) {
     for (const c of contests) {
