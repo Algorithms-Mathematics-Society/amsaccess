@@ -38,6 +38,20 @@ const SEVERITY_ORDER: Record<Severity, number> = {
   info: 3,
 };
 
+/**
+ * Whether judges are wanted now: a contest is running or inside its
+ * verification window. The fleet's `upcoming` list is the backend's own
+ * answer (services/fleet.py demand); the contest's window is a fallback.
+ */
+function judgesWanted(fleet: Fleet, contests: Contest[] | null, now: number): boolean {
+  if (fleet.upcoming.length > 0) return true;
+  return (contests ?? []).some((c) => {
+    if (c.is_practice || c.status !== "scheduled") return false;
+    const windowMin = (c as Contest & { verification_window_minutes?: number }).verification_window_minutes ?? 0;
+    return startMs(c) - windowMin * 60_000 <= now && now < endMs(c);
+  });
+}
+
 function startMs(c: Contest): number {
   return new Date(c.starts_at).getTime();
 }
@@ -165,16 +179,25 @@ function judgingVerdict(fleet: Fleet, contests: Contest[] | null, now: number): 
                 detail: "No judge is running and nothing is steering the fleet. Start judges from Judging before participants submit.",
               },
             }
-          : {
-              kind,
-              severity: "warning",
-              headline: "Judges will not start on their own",
-              detail: "Nothing is steering the judges, so none will start for the next contest.",
-              attention: {
-                title: "Judges will not start on their own",
-                detail: "Nothing is steering the judges. Start them from Judging before the next contest begins.",
-              },
-            };
+          : judgesWanted(fleet, contests, now)
+            ? {
+                kind,
+                severity: "warning",
+                headline: "Judges will not start on their own",
+                detail: "A contest is about to open and nothing is steering the judges, so none will start.",
+                attention: {
+                  title: "Judges will not start on their own",
+                  detail: "A contest is about to open and nothing is steering the judges. Start them from Judging before it begins.",
+                },
+              }
+            : {
+                // Nothing wants judges yet, so this is a note, not an alarm.
+                kind,
+                severity: "quiet",
+                headline: "Judges are not being steered",
+                detail: "No judges are running. Until this is fixed they will not start on their own before a contest.",
+                attention: null,
+              };
       return {
         kind,
         severity: relevant ? "warning" : "quiet",
