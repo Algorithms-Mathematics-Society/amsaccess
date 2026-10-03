@@ -10,7 +10,6 @@ import { Grid } from "@astryxdesign/core/Grid";
 import { Heading } from "@astryxdesign/core/Heading";
 import { Icon } from "@astryxdesign/core/Icon";
 import { Link, LinkProvider } from "@astryxdesign/core/Link";
-import { List, ListItem } from "@astryxdesign/core/List";
 import { Divider } from "@astryxdesign/core/Divider";
 import { Skeleton } from "@astryxdesign/core/Skeleton";
 import { HStack, VStack } from "@astryxdesign/core/Stack";
@@ -29,12 +28,39 @@ import {
   type AttentionItem,
   type Severity,
 } from "./dashboard/derive";
+import { useNow, useWidthRem } from "./dashboard/useClock";
 import { useRead } from "./dashboard/useRead";
+
+// Shape checks for the three reads: a body of the wrong shape becomes that
+// section's error instead of crashing the page.
+const isArray = (d: unknown) => Array.isArray(d);
+const isFleet = (d: unknown) =>
+  typeof d === "object" && d !== null && Array.isArray((d as Fleet).upcoming);
+
+const ATTENTION_SKELETON_CSS = `
+[data-dash-attention-skeleton] {
+  container-type: inline-size;
+  --dash-attention-skeleton-h: calc(var(--spacing-10) * 5 + var(--spacing-5));
+}
+@container (min-width: 40rem) {
+  [data-dash-attention-skeleton] > * { --dash-attention-skeleton-h: calc(var(--spacing-10) * 3 + var(--spacing-5)); }
+}`;
+
+/** Below this container width (rem) an error banner puts its action under the text. */
+const BANNER_STACK_REM = 30;
+/**
+ * At a glance is two pairs of tiles. A pair sits beside the other once both
+ * fit (four in a row), otherwise they stack (two by two), so the tiles never
+ * split three and one. Pure CSS, so the server render already has the final
+ * layout. Grid takes this minimum in px; it is written in rem.
+ */
+const GLANCE_PAIR_MIN_PX = 16 * 16;
 
 /**
  * The organizer's front page. It answers, in order: does anything need me,
  * what is happening, and what is coming up. It reads three GET routes once
- * (plus Refresh) and never writes or polls.
+ * (plus Refresh and Retry) and never writes or polls. A one-minute clock
+ * tick keeps relative times current without fetching.
  */
 export function DashboardView() {
   return (
@@ -48,9 +74,11 @@ export function DashboardView() {
 
 function Dashboard() {
   const router = useRouter();
-  const contests = useRead<Contest[]>("/api/org/contests");
-  const problems = useRead<Problem[]>("/api/org/problems");
-  const fleet = useRead<Fleet>("/api/org/fleet");
+  const contests = useRead<Contest[]>("/api/org/contests", isArray);
+  const problems = useRead<Problem[]>("/api/org/problems", isArray);
+  const fleet = useRead<Fleet>("/api/org/fleet", isFleet);
+  // A clock tick, not a poll: it re-renders time text and the "today" date.
+  const now = useNow();
 
   const loading = contests.loading || problems.loading || fleet.loading;
   const refresh = useCallback(() => {
@@ -125,6 +153,7 @@ function Dashboard() {
                 contests={contests.data}
                 problems={problems.data}
                 fleet={fleet.data}
+                now={now}
                 loading={
                   loading &&
                   (contests.data === null ||
@@ -138,6 +167,7 @@ function Dashboard() {
               <AtAGlance
                 contests={contests.data}
                 problems={problems.data}
+                now={now}
                 contestsPending={contests.loading}
                 problemsPending={problems.loading}
               />
@@ -145,6 +175,7 @@ function Dashboard() {
                 contests={contests.data}
                 error={contests.error}
                 loading={contests.loading}
+                now={now}
                 onRetry={() => void contests.reload()}
               />
             </VStack>
@@ -159,14 +190,15 @@ function Dashboard() {
                 error={fleet.error}
                 loading={fleet.loading}
                 contests={contests.data}
+                now={now}
                 onRetry={() => void fleet.reload()}
               />
               {contests.data ? (
-                <ScheduleCard contests={contests.data} />
+                <ScheduleCard contests={contests.data} now={now} />
               ) : contests.loading ? (
                 <RailSkeleton title="Schedule" />
               ) : (
-                <ScheduleUnavailable loading={contests.loading} onRetry={() => void contests.reload()} />
+                <ScheduleUnavailable />
               )}
               <ProblemsCard
                 problems={problems.data}
@@ -195,34 +227,37 @@ function NeedsAttention({
   contests,
   problems,
   fleet,
+  now,
   loading,
   incomplete,
 }: {
   contests: Contest[] | null;
   problems: Problem[] | null;
   fleet: Fleet | null;
+  now: number;
   loading: boolean;
   incomplete: boolean;
 }) {
-  const now = Date.now();
   const items = useMemo(
     () => attentionItems({ contests, problems, fleet, now }),
-    // `now` is read per render on purpose; the list only changes with data.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [contests, problems, fleet],
+    [contests, problems, fleet, now],
   );
+  const [measureRef, widthRem] = useWidthRem<HTMLDivElement>();
+  const stackActions = widthRem !== null && widthRem < BANNER_STACK_REM;
 
-  if (loading && items.length === 0) {
+  // Until every read has answered once, a partial list would grow item by
+  // item and push the page down, so the placeholder stays.
+  if (loading) {
+    // Roughly the size of a heading and a two-item list (taller when narrow,
+    // where the text wraps), so the page below does not jump on load.
     return (
-      <VStack gap={2} aria-hidden="true">
-        <Skeleton width="30%" height="var(--spacing-5)" radius={1} />
-        <Skeleton
-          width="100%"
-          height="var(--spacing-12)"
-          radius={2}
-          index={1}
-        />
-      </VStack>
+      <div data-dash-attention-skeleton="" aria-hidden="true">
+        <style>{ATTENTION_SKELETON_CSS}</style>
+        <VStack gap={3}>
+          <Skeleton width="30%" height="var(--spacing-5)" radius={1} />
+          <Skeleton width="100%" height="var(--dash-attention-skeleton-h)" radius={2} index={1} />
+        </VStack>
+      </div>
     );
   }
 
@@ -250,15 +285,34 @@ function NeedsAttention({
       <Heading level={4} accessibilityLevel={2} id="dash-attention-heading">
         Needs attention
       </Heading>
-      {errors.map((item) => (
-        <Banner
-          key={item.id}
-          status="error"
-          title={item.title}
-          description={item.detail}
-          endContent={<ActionLink item={item} />}
-        />
-      ))}
+      <div ref={measureRef}>
+        <VStack gap={3}>
+          {errors.map((item) =>
+            stackActions ? (
+              // Narrow: the action goes under the text so the text keeps the full width.
+              <Banner
+                key={item.id}
+                status="error"
+                title={item.title}
+                description={
+                  <VStack gap={2} align="start">
+                    <span>{item.detail}</span>
+                    <ActionLink item={item} />
+                  </VStack>
+                }
+              />
+            ) : (
+              <Banner
+                key={item.id}
+                status="error"
+                title={item.title}
+                description={item.detail}
+                endContent={<ActionLink item={item} />}
+              />
+            ),
+          )}
+        </VStack>
+      </div>
       {rest.length > 0 && (
         <Card padding={4}>
           <VStack as="ul" gap={3} aria-label="Items that need attention" style={{ margin: 0, padding: 0, listStyle: "none" }}>
@@ -308,15 +362,17 @@ function ActionLink({ item }: { item: AttentionItem }) {
 function AtAGlance({
   contests,
   problems,
+  now,
   contestsPending,
   problemsPending,
 }: {
   contests: Contest[] | null;
   problems: Problem[] | null;
+  now: number;
   contestsPending: boolean;
   problemsPending: boolean;
 }) {
-  const stats = contests ? contestStats(contests, Date.now()) : null;
+  const stats = contests ? contestStats(contests, now) : null;
   const ready = problems ? problems.filter(hasPackage).length : null;
 
   const tiles: { label: string; value: string | null; pending: boolean; of?: string }[] = [
@@ -341,27 +397,31 @@ function AtAGlance({
         <Heading level={4} accessibilityLevel={2} id="dash-glance-heading">
           At a glance
         </Heading>
-        <Grid columns={{ minWidth: 128, repeat: "fit" }} gap={4}>
-          {tiles.map((t) => (
-            <VStack key={t.label} gap={1}>
-              <Text type="supporting">{t.label}</Text>
-              {t.value === null && !t.pending ? (
-                <Text type="supporting">Not loaded</Text>
-              ) : t.value === null ? (
-                <Skeleton
-                  width="var(--spacing-10)"
-                  height="var(--spacing-6)"
-                  radius={1}
-                />
-              ) : (
-                <HStack gap={1} style={{ alignItems: "baseline" }}>
-                  <Text type="inherit" size="2xl" weight="semibold" hasTabularNumbers>
-                    {t.value}
-                  </Text>
-                  {t.of && <Text type="supporting">{t.of}</Text>}
-                </HStack>
-              )}
-            </VStack>
+        <Grid columns={{ minWidth: GLANCE_PAIR_MIN_PX, max: 2, repeat: "fit" }} gap={4}>
+          {[tiles.slice(0, 2), tiles.slice(2)].map((pair) => (
+            <Grid key={pair[0].label} columns={2} gap={4}>
+              {pair.map((t) => (
+                <VStack key={t.label} gap={1}>
+                  <Text type="supporting">{t.label}</Text>
+                  {t.value === null && !t.pending ? (
+                    <Text type="supporting">Not loaded</Text>
+                  ) : t.value === null ? (
+                    <Skeleton
+                      width="var(--spacing-10)"
+                      height="calc(var(--spacing-8) + var(--spacing-1))"
+                      radius={1}
+                    />
+                  ) : (
+                    <HStack gap={1} style={{ alignItems: "baseline" }}>
+                      <Text type="inherit" size="2xl" weight="semibold" hasTabularNumbers>
+                        {t.value}
+                      </Text>
+                      {t.of && <Text type="supporting">{t.of}</Text>}
+                    </HStack>
+                  )}
+                </VStack>
+              ))}
+            </Grid>
           ))}
         </Grid>
       </VStack>
@@ -376,7 +436,7 @@ function RailSkeleton({ title }: { title: string }) {
         <Skeleton width="40%" height="var(--spacing-5)" radius={1} />
         <Skeleton
           width="100%"
-          height="calc(var(--spacing-10) * 6)"
+          height="calc(var(--spacing-10) * 11)"
           radius={2}
           index={1}
         />
@@ -394,8 +454,8 @@ function GettingStarted({
 }) {
   const steps = [
     {
-      label: "Create a problem and upload its cxxprobe package",
-      description: "A problem is ready once its package is in.",
+      label: "Create a problem",
+      description: "Upload its cxxprobe package. A problem is ready once its package is in.",
       done: problems > 0,
       href: "/org/problems",
       action: "Open problems",
@@ -434,31 +494,44 @@ function GettingStarted({
             Four steps, in this order. This page fills in as you go.
           </Text>
         </VStack>
-        <List
-          listStyle="decimal"
-          hasDividers
+        {/* Plain text rows, not ListItem: every step must wrap in full, never truncate. */}
+        <VStack
+          as="ol"
+          gap={3}
           aria-label="Getting started steps"
+          style={{ margin: 0, padding: 0, listStyle: "none" }}
         >
-          {steps.map((s) => (
-            <ListItem
-              key={s.label}
-              label={s.label}
-              description={s.description}
-              endContent={
-                s.done ? (
-                  <HStack gap={1} align="center">
-                    <Icon icon="success" size="sm" color="success" />
-                    <Text type="supporting">Done</Text>
-                  </HStack>
-                ) : s.href ? (
-                  <Link href={s.href} color="primary" hasUnderline isStandalone>
-                    {s.action}
-                  </Link>
-                ) : undefined
-              }
-            />
+          {steps.map((s, idx) => (
+            <li key={s.label}>
+              {idx > 0 && <Divider />}
+              <HStack
+                gap={3}
+                align="start"
+                style={{ paddingBlockStart: idx > 0 ? "var(--spacing-3)" : 0 }}
+              >
+                <Text type="supporting" hasTabularNumbers aria-hidden="true">
+                  {idx + 1}.
+                </Text>
+                <HStack gap={2} justify="between" align="center" wrap="wrap" style={{ flex: 1, minWidth: 0 }}>
+                  <VStack gap={0.5} style={{ flex: "1 1 calc(var(--spacing-10) * 6)", minWidth: 0 }}>
+                    <Text weight="medium">{s.label}</Text>
+                    <Text type="supporting">{s.description}</Text>
+                  </VStack>
+                  {s.done ? (
+                    <HStack gap={1} align="center">
+                      <Icon icon="success" size="sm" color="success" />
+                      <Text type="supporting">Done</Text>
+                    </HStack>
+                  ) : s.href ? (
+                    <Link href={s.href} color="primary" hasUnderline isStandalone>
+                      {s.action}
+                    </Link>
+                  ) : null}
+                </HStack>
+              </HStack>
+            </li>
           ))}
-        </List>
+        </VStack>
       </VStack>
     </Card>
   );

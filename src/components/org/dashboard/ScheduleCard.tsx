@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Calendar, type ISODateString } from "@astryxdesign/core/Calendar";
 import { Card } from "@astryxdesign/core/Card";
@@ -33,12 +32,23 @@ const STATUS_WORD: Record<string, string> = {
  * day button's `data-date`. The agenda list below is the accessible source
  * of the same information.
  */
-export function ScheduleCard({ contests }: { contests: Contest[] }) {
+export function ScheduleCard({ contests, now }: { contests: Contest[]; now: number }) {
   const router = useRouter();
-  const [selected, setSelected] = useState<ISODateString>(() =>
-    localDateKey(new Date()),
-  );
+  const today = localDateKey(new Date(now));
+  const [selected, setSelected] = useState<ISODateString>(today);
   const [focus, setFocus] = useState<ISODateString>(selected);
+
+  // When the date rolls over on an open tab, follow it, unless the organizer
+  // has picked another day.
+  const lastToday = useRef(today);
+  useEffect(() => {
+    if (lastToday.current === today) return;
+    if (selected === lastToday.current) {
+      setSelected(today);
+      setFocus(today);
+    }
+    lastToday.current = today;
+  }, [today, selected]);
 
   const schedule = useMemo(
     () =>
@@ -75,7 +85,6 @@ export function ScheduleCard({ contests }: { contests: Contest[] }) {
     : "";
 
   const dayEvents = schedule.filter((e) => e.day === selected);
-  const now = Date.now();
   const next = schedule.find((e) => e.startsAt.getTime() >= now);
   const selectedLabel = new Intl.DateTimeFormat(undefined, {
     weekday: "short",
@@ -171,20 +180,21 @@ export function ScheduleCard({ contests }: { contests: Contest[] }) {
   );
 }
 
-/** Shown in place of the calendar when the contests read failed and there is nothing to draw. */
-export function ScheduleUnavailable({ loading, onRetry }: { loading: boolean; onRetry: () => void }) {
+/**
+ * Shown in place of the calendar when the contests read failed and there is
+ * nothing to draw. The Contests card carries the one error and its Retry, so
+ * this stays quiet and points there.
+ */
+export function ScheduleUnavailable() {
   return (
     <Card padding={4} aria-labelledby="dash-schedule-heading">
       <VStack gap={3}>
         <Heading level={4} accessibilityLevel={2} id="dash-schedule-heading">
           Schedule
         </Heading>
-        <Banner
-          status="error"
-          title="Schedule did not load"
-          description="It comes from the contest list."
-          endContent={<Button label="Retry" size="sm" onClick={onRetry} isLoading={loading} />}
-        />
+        <Text type="supporting">
+          Shown once the contest list loads. See Contests to retry.
+        </Text>
       </VStack>
     </Card>
   );

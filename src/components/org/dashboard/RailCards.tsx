@@ -28,23 +28,26 @@ export function JudgingCard({
   error,
   loading,
   contests,
+  now,
   onRetry,
 }: {
   fleet: Fleet | null;
   error: string;
   loading: boolean;
   contests: Contest[] | null;
+  now: number;
   onRetry: () => void;
 }) {
-  const now = Date.now();
   const next = contests ? nextContest(contests, now) : null;
+  // The fleet's list also holds contests that are already running; "Next"
+  // only ever means one that has not started.
+  const upcoming = fleet?.upcoming
+    .filter((u) => new Date(u.starts_at).getTime() > now)
+    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0];
   const nextLine = next
     ? { title: next.title, when: relativeWhen(next.starts_at) }
-    : fleet?.upcoming[0]
-      ? {
-          title: fleet.upcoming[0].title,
-          when: relativeWhen(fleet.upcoming[0].starts_at),
-        }
+    : upcoming
+      ? { title: upcoming.title, when: relativeWhen(upcoming.starts_at) }
       : null;
 
   return (
@@ -74,6 +77,13 @@ export function JudgingCard({
               height="var(--spacing-3)"
               radius={1}
               index={1}
+            />
+            {/* Where the next contest line goes, so the card does not grow on load. */}
+            <Skeleton
+              width="60%"
+              height="calc(var(--spacing-10) + var(--spacing-8))"
+              radius={1}
+              index={2}
             />
           </VStack>
         ) : (
@@ -162,6 +172,12 @@ export function ProblemsCard({
                 height="var(--spacing-3)"
                 radius={1}
                 index={2}
+              />
+              <Skeleton
+                width="100%"
+                height="var(--spacing-12)"
+                radius={1}
+                index={3}
               />
             </VStack>
           ) : null
