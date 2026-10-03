@@ -108,7 +108,13 @@ export function ScheduleCard({ contests }: { contests: Contest[] }) {
         </HStack>
 
         {markerCss && <style>{markerCss}</style>}
-        <div data-dash-schedule="" style={{ overflowX: "auto", minWidth: 0 }}>
+        <VStack
+          as="section"
+          gap={0}
+          aria-label="Calendar month"
+          data-dash-schedule=""
+          style={{ overflowX: "auto", minWidth: 0 }}
+        >
           <Calendar
             mode="single"
             value={selected}
@@ -118,7 +124,7 @@ export function ScheduleCard({ contests }: { contests: Contest[] }) {
             aria-label="Contest start dates"
             style={{ width: "100%", minWidth: 0, padding: 0 }}
           />
-        </div>
+        </VStack>
 
         <VStack
           as="section"

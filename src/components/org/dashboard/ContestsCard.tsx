@@ -170,22 +170,24 @@ export function ContestsCard({
           <Heading level={4} accessibilityLevel={2} id="dash-contests-heading">
             Contests
           </Heading>
-<div style={{ maxWidth: "100%", overflowX: "auto" }}>
-          <SegmentedControl
-            label="Show contests"
-            value={filter}
-            onChange={(v) => setFilter(v as ContestFilter)}
-            size="sm"
+          <HStack
+            style={{ maxWidth: "100%", overflowX: "auto" }}
           >
-            {FILTERS.map((f) => (
-              <SegmentedControlItem
-                key={f.value}
-                value={f.value}
-                label={f.label}
-              />
-            ))}
-          </SegmentedControl>
-</div>
+            <SegmentedControl
+              label="Show contests"
+              value={filter}
+              onChange={(v) => setFilter(v as ContestFilter)}
+              size="sm"
+            >
+              {FILTERS.map((f) => (
+                <SegmentedControlItem
+                  key={f.value}
+                  value={f.value}
+                  label={f.label}
+                />
+              ))}
+            </SegmentedControl>
+          </HStack>
         </HStack>
 
         {error && (

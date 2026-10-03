@@ -255,11 +255,8 @@ function NeedsAttention({
           key={item.id}
           status="error"
           title={item.title}
-          description={
-            <>
-              {item.detail} <ActionLink item={item} />
-            </>
-          }
+          description={item.detail}
+          endContent={<ActionLink item={item} />}
         />
       ))}
       {rest.length > 0 && (
