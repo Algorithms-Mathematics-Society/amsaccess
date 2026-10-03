@@ -21,6 +21,7 @@ import { verdictClass } from "@/lib/contestTypes";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { InvigilationPanel } from "./InvigilationPanel";
 import { FleetPanel } from "./FleetPanel";
+import { ContestScale } from "./ContestScale";
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
@@ -182,23 +183,29 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
         </nav>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-8 py-3">
-        <RejudgeButton contestUid={contest.uid} onDone={loadSubmissions} />
-        <a
-          href={`/api/org/contests/${contest.uid}/export?kind=standings`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Standings CSV
-        </a>
-        <a
-          href={`/api/org/contests/${contest.uid}/export?kind=submissions`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Submissions CSV
-        </a>
-      </div>
+      {/* Rejudge and the exports belong to submissions, and used to sit pinned
+          above every tab — so the Problems tab offered to download a
+          submissions CSV, and Rejudge was one stray click away at all times
+          from a screen that has nothing to do with it. */}
+      {tab === "submissions" && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-8 py-3">
+          <RejudgeButton contestUid={contest.uid} onDone={loadSubmissions} />
+          <a
+            href={`/api/org/contests/${contest.uid}/export?kind=standings`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Standings CSV
+          </a>
+          <a
+            href={`/api/org/contests/${contest.uid}/export?kind=submissions`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Submissions CSV
+          </a>
+        </div>
+      )}
 
       <div className="px-8 py-6">
         {tab === "problems" ? (
@@ -210,7 +217,10 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
         ) : tab === "invigilation" ? (
           <InvigilationPanel contestUid={contest.uid} />
         ) : (
-          <FleetPanel />
+          <div className="space-y-4">
+            <ContestScale contestUid={contest.uid} isPractice={contest.is_practice} />
+            <FleetPanel />
+          </div>
         )}
       </div>
     </div>
