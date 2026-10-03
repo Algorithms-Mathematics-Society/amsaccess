@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, Cpu, FileCode2, LayoutDashboard, Mail, Users } from "lucide-react";
@@ -14,21 +14,82 @@ const NAV = [
   { href: "/org/fleet", label: "Judging", icon: Cpu },
 ] as const;
 
+/** Purple keyboard focus ring, the same token as the Astryx content (#7c3aed). */
+const FOCUS =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600";
+
 export function OrgShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const headerRef = useRef<HTMLElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
 
+  // Center the active link by scrolling only the nav itself. scrollIntoView
+  // would also move the browser's sequential focus starting point, so the
+  // first Tab would skip the links before the active one.
   useEffect(() => {
-    mobileNavRef.current
-      ?.querySelector('[aria-current="page"]')
-      ?.scrollIntoView({ block: "nearest", inline: "center" });
+    const nav = mobileNavRef.current;
+    const active = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!nav || !active) return;
+    nav.scrollLeft = active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
   }, [pathname]);
+
+  // Fade the edge the nav can still scroll toward, so hidden sections show.
+  useEffect(() => {
+    const nav = mobileNavRef.current;
+    if (!nav) return;
+    const update = () => {
+      const max = nav.scrollWidth - nav.clientWidth;
+      setEdges({ start: nav.scrollLeft > 1, end: nav.scrollLeft < max - 1 });
+    };
+    update();
+    nav.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(nav);
+    return () => {
+      nav.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, []);
+
+  // Below lg the header is sticky: keep focused and scrolled-to elements out
+  // from under it by padding the scroll root with its measured height (0 when
+  // the header is hidden at lg and up).
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const root = document.documentElement;
+    const update = () => {
+      root.style.scrollPaddingTop = `${header.offsetHeight}px`;
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(header);
+    return () => {
+      ro.disconnect();
+      root.style.scrollPaddingTop = "";
+    };
+  }, []);
+
+  const fade = "1.5rem";
+  const navMask =
+    edges.start || edges.end
+      ? `linear-gradient(to right, ${edges.start ? `transparent, black ${fade}` : "black"}, ${
+          edges.end ? `black calc(100% - ${fade}), transparent` : "black"
+        })`
+      : undefined;
 
   const isActive = (href: (typeof NAV)[number]["href"]) =>
     href === "/org/dashboard" ? pathname === href : pathname.startsWith(href);
 
   return (
     <div className="light flex min-h-screen min-w-0 flex-col bg-slate-50 text-slate-900 lg:flex-row">
+      <a
+        href="#org-main"
+        className={`sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-900 focus:shadow ${FOCUS}`}
+      >
+        Skip to content
+      </a>
       <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
         <div className="px-5 py-6">
           <p className="text-sm font-semibold tracking-tight text-slate-950">AMS Access</p>
@@ -45,7 +106,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${FOCUS} ${
                   active
                     ? "bg-slate-900 font-medium text-white"
                     : "text-slate-600 hover:bg-slate-100"
@@ -63,16 +124,18 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white lg:hidden">
+      <header ref={headerRef} className="sticky top-0 z-30 border-b border-slate-200 bg-white lg:hidden">
         <div className="flex h-12 items-center px-4">
           <p className="text-sm font-semibold tracking-tight text-slate-950">
-            AMS Access <span className="font-normal text-slate-400">· Organization</span>
+            AMS Access <span className="font-normal text-slate-500">· Organization</span>
           </p>
         </div>
         <nav
           ref={mobileNavRef}
           aria-label="Organization"
-          className="flex gap-1 overflow-x-auto px-2 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          // pt-1 leaves room for the focus ring, which the scroller would clip.
+          className="flex gap-1 overflow-x-auto px-2 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={navMask ? { maskImage: navMask, WebkitMaskImage: navMask } : undefined}
         >
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = isActive(href);
@@ -81,7 +144,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-10 flex-none items-center gap-2 rounded-lg px-3 text-sm transition ${
+                className={`flex min-h-10 flex-none items-center gap-2 rounded-lg px-3 text-sm transition ${FOCUS} ${
                   active
                     ? "bg-slate-900 font-medium text-white"
                     : "text-slate-600 hover:bg-slate-100"
@@ -95,7 +158,9 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
 
-      <main className="min-w-0 w-full flex-1">{children}</main>
+      <main id="org-main" tabIndex={-1} className="min-w-0 w-full flex-1 outline-none">
+        {children}
+      </main>
     </div>
   );
 }
