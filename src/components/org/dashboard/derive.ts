@@ -106,7 +106,20 @@ export type JudgingStatus = {
 };
 
 export function judgingStatus(fleet: Fleet, contests: Contest[] | null, now: number): JudgingStatus {
-  const situation = situationOf(fleet);
+  const status = judgingVerdict(fleet, contests, now);
+  // The queue depth could not be read. Say so quietly; never guess a count.
+  if (fleet.queue_waiting == null)
+    return { ...status, detail: `${status.detail} The submission queue could not be read.` };
+  return status;
+}
+
+function judgingVerdict(fleet: Fleet, contests: Contest[] | null, now: number): JudgingStatus {
+  // `queued_jobs` still counts job rows whose queue message expired long ago
+  // (ams-api api/routes/fleet.py), so it must never raise "submissions are
+  // waiting". Only the real queue depth can; when it is unknown, so is waiting.
+  const situation = situationOf(
+    fleet.queue_waiting == null ? { ...fleet, queued_jobs: 0 } : fleet,
+  );
   const live = (contests ?? []).some(isLive);
   const soon = contests ? startingWithinDay(contests, now).length > 0 : false;
   const fleetSoon = fleet.upcoming.some((u) => new Date(u.starts_at).getTime() - now <= DAY);
@@ -115,7 +128,7 @@ export function judgingStatus(fleet: Fleet, contests: Contest[] | null, now: num
 
   switch (kind) {
     case "waiting": {
-      const waiting = fleet.queue_waiting ?? fleet.queued_jobs ?? 0;
+      const waiting = fleet.queue_waiting ?? 0;
       return {
         kind,
         severity: "error",
@@ -138,6 +151,30 @@ export function judgingStatus(fleet: Fleet, contests: Contest[] | null, now: num
           : null,
       };
     case "stale":
+      // Nothing is steering the fleet, so with no judge up none will start:
+      // the first submission of a live contest would wait forever.
+      if (fleet.live === 0)
+        return live
+          ? {
+              kind,
+              severity: "error",
+              headline: "No judges, and none will start on their own",
+              detail: "A contest is live and nothing is steering the judges. Start judges from Judging.",
+              attention: {
+                title: "A contest is live and judges will not start on their own",
+                detail: "No judge is running and nothing is steering the fleet. Start judges from Judging before participants submit.",
+              },
+            }
+          : {
+              kind,
+              severity: "warning",
+              headline: "Judges will not start on their own",
+              detail: "Nothing is steering the judges, so none will start for the next contest.",
+              attention: {
+                title: "Judges will not start on their own",
+                detail: "Nothing is steering the judges. Start them from Judging before the next contest begins.",
+              },
+            };
       return {
         kind,
         severity: relevant ? "warning" : "quiet",
@@ -255,8 +292,23 @@ export function attentionItems({
       if (c.is_practice || (c.status !== "draft" && c.status !== "scheduled"))
         continue;
       const s = startMs(c);
-      if (!(s > now && s - now <= SOON_MS)) continue;
       const empty = c.problems.length === 0;
+      // A draft whose window has opened can never be joined, so it stays here
+      // until it is published or its window closes.
+      if (c.status === "draft" && s <= now && now < endMs(c)) {
+        items.push({
+          id: `draft-${c.uid}`,
+          severity: "warning",
+          title: `${c.title} started without being published`,
+          detail: empty
+            ? `It started ${relativeWhen(c.starts_at)} and is still a draft with no problems, so participants cannot join.`
+            : `It started ${relativeWhen(c.starts_at)} and is still a draft, so participants cannot join. Publish it now.`,
+          href: `/org/contests/${c.uid}`,
+          action: "Open contest",
+        });
+        continue;
+      }
+      if (!(s > now && s - now <= SOON_MS)) continue;
       const when = `Starts ${relativeWhen(c.starts_at)}.`;
       if (c.status === "draft") {
         items.push({
