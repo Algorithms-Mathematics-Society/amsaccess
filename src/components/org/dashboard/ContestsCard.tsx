@@ -243,7 +243,9 @@ export function ContestsCard({
           {/* Room around the control so its focus ring is never clipped. */}
           <HStack
             style={{
-              maxWidth: "100%",
+              // The padding sits outside the 100% box, so the control keeps
+              // its full width and never scrolls just for its ring.
+              maxWidth: "calc(100% + var(--spacing-1) * 2)",
               overflowX: "auto",
               padding: "var(--spacing-1)",
               margin: "calc(var(--spacing-1) * -1)",

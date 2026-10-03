@@ -52,15 +52,17 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Below lg the header is sticky: keep focused and scrolled-to elements out
-  // from under it by padding the scroll root with its measured height (0 when
-  // the header is hidden at lg and up).
+  // Below lg the header is sticky: keep focused and scrolled-to elements, and
+  // their focus ring (2px plus 2px offset), out from under it by padding the
+  // scroll root with its measured height plus a ring allowance. Nothing when
+  // the header is hidden at lg and up.
   useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
     const root = document.documentElement;
     const update = () => {
-      root.style.scrollPaddingTop = `${header.offsetHeight}px`;
+      const h = header.offsetHeight;
+      root.style.scrollPaddingTop = h > 0 ? `calc(${h}px + 0.5rem)` : "0px";
     };
     update();
     const ro = new ResizeObserver(update);

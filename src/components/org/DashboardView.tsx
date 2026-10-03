@@ -154,12 +154,11 @@ function Dashboard() {
                 problems={problems.data}
                 fleet={fleet.data}
                 now={now}
-                loading={
-                  loading &&
-                  (contests.data === null ||
-                    problems.data === null ||
-                    fleet.data === null)
-                }
+                // Only the first load: a read that has answered once (with data
+                // or an error) keeps its items on screen while it reloads.
+                loading={[contests, problems, fleet].some(
+                  (r) => r.data === null && !r.error,
+                )}
                 incomplete={Boolean(
                   contests.error || problems.error || fleet.error,
                 )}
@@ -497,6 +496,8 @@ function GettingStarted({
         {/* Plain text rows, not ListItem: every step must wrap in full, never truncate. */}
         <VStack
           as="ol"
+          // Explicit role: an unstyled list loses its semantics in Safari.
+          role="list"
           gap={3}
           aria-label="Getting started steps"
           style={{ margin: 0, padding: 0, listStyle: "none" }}
