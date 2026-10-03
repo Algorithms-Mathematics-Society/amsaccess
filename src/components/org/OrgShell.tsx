@@ -146,7 +146,10 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-10 flex-none items-center gap-2 rounded-lg px-3 text-sm transition ${FOCUS} ${
+                onFocus={(event) =>
+                  event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" })
+                }
+                className={`scroll-mx-2 flex min-h-10 flex-none items-center gap-2 rounded-lg px-3 text-sm transition ${FOCUS} ${
                   active
                     ? "bg-slate-900 font-medium text-white"
                     : "text-slate-600 hover:bg-slate-100"

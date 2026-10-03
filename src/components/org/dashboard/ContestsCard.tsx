@@ -23,7 +23,7 @@ import { Text } from "@astryxdesign/core/Text";
 import { Token } from "@astryxdesign/core/Token";
 import type { Contest } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen } from "@/lib/orgTypes";
-import { filterContests, orderContests, type ContestFilter } from "./derive";
+import { dashboardContestStatus, filterContests, orderContests, type ContestFilter } from "./derive";
 import { useWidthRem } from "./useClock";
 
 /** Rows shown before "View all contests" takes over. */
@@ -136,10 +136,10 @@ export function ContestsCard({
   const [measureRef, widthRem] = useWidthRem<HTMLDivElement>();
   const layout = layoutFor(widthRem);
 
-  const ordered = useMemo(() => orderContests(contests ?? []), [contests]);
+  const ordered = useMemo(() => orderContests(contests ?? [], now), [contests, now]);
   const filtered = useMemo(
-    () => filterContests(ordered, filter),
-    [ordered, filter],
+    () => filterContests(ordered, filter, now),
+    [ordered, filter, now],
   );
   const visible = filtered.slice(0, CAP);
 
@@ -176,10 +176,11 @@ export function ContestsCard({
       width: col(MIN_REM.status),
       renderCell: (c) => {
         // Practice is untimed: the backend says "running", the page says "Open", calmly.
+        const status = dashboardContestStatus(c, now);
         const s =
-          c.status === "running" && c.is_practice
+          status === "running" && c.is_practice
             ? { label: "Open", color: "default" as const }
-            : statusOf(c.status);
+            : statusOf(status);
         return <Token label={s.label} color={s.color} size="sm" />;
       },
     };

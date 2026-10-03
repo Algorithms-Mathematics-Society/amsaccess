@@ -88,6 +88,7 @@ export type Contest = {
   problems: ContestProblem[];
   joined: boolean;
   frozen: boolean;
+  verification_window_minutes: number;
 };
 
 export type ContestSubmission = {

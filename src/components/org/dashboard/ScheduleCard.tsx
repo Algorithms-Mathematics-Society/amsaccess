@@ -12,6 +12,7 @@ import { HStack, VStack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { VisuallyHidden } from "@astryxdesign/core/VisuallyHidden";
 import type { Contest } from "@/lib/orgTypes";
+import { dashboardContestStatus } from "./derive";
 
 /** Calendar days and agenda times both use the browser's local time zone. */
 function localDateKey(date: Date): ISODateString {
@@ -150,7 +151,7 @@ export function ScheduleCard({ contests, now }: { contests: Contest[]; now: numb
                   style={{ paddingInline: 0, minWidth: 0 }}
                   onClick={() => router.push(`/org/contests/${contest.uid}`)}
                   label={contest.title}
-                  description={`${timeFormat.format(startsAt)} · ${STATUS_WORD[contest.status] ?? contest.status}`}
+                  description={`${timeFormat.format(startsAt)} · ${STATUS_WORD[dashboardContestStatus(contest, now)] ?? dashboardContestStatus(contest, now)}`}
                   startContent={<VisuallyHidden>Open contest: </VisuallyHidden>}
                   endContent={
                     <Icon icon="chevronRight" size="sm" color="secondary" />

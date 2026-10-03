@@ -87,11 +87,12 @@ supabase/migrations/
 
 ## Requirements
 
-- Node.js 20 or newer
-- npm
+- Node.js 22.13 or newer (`nvm use` selects the validated version)
+- pnpm 9.15.9
 - A Supabase project
 
-The repository uses `package-lock.json`, so prefer `npm ci` for reproducible installs.
+The repository's package manager is pinned in `package.json`; use the committed
+`pnpm-lock.yaml` for reproducible installs.
 
 ## Environment
 
@@ -166,13 +167,21 @@ Then visit `/access-admin-only` and sign in.
 Install dependencies:
 
 ```bash
-npm ci
+nvm use
+pnpm install --frozen-lockfile
+```
+
+Regenerate the committed Astryx organization theme after changing
+`src/theme/orgTheme.ts`:
+
+```bash
+pnpm run theme:build
 ```
 
 Start the dev server:
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 Open:
@@ -184,13 +193,13 @@ http://localhost:3000
 Build for production:
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 Run lint:
 
 ```bash
-npm run lint
+pnpm run lint
 ```
 
 ## Candidate Flow
@@ -280,10 +289,11 @@ For a high-stakes production deployment, consider adding server-side session tok
 
 | Command | Description |
 | --- | --- |
-| `npm run dev` | Start the Next.js development server |
-| `npm run build` | Build the production app |
-| `npm run start` | Start the production server after a build |
-| `npm run lint` | Run Next.js linting |
+| `pnpm run dev` | Start the Next.js development server |
+| `pnpm run build` | Build the production app |
+| `pnpm run start` | Start the production server after a build |
+| `pnpm run lint` | Run Next.js linting |
+| `pnpm run theme:build` | Regenerate the committed Astryx organization theme |
 
 ## Deployment
 

@@ -46,8 +46,8 @@ const SEVERITY_ORDER: Record<Severity, number> = {
 function judgesWanted(fleet: Fleet, contests: Contest[] | null, now: number): boolean {
   if (fleet.upcoming.length > 0) return true;
   return (contests ?? []).some((c) => {
-    if (c.is_practice || c.status !== "scheduled") return false;
-    const windowMin = (c as Contest & { verification_window_minutes?: number }).verification_window_minutes ?? 0;
+    if (c.is_practice || dashboardContestStatus(c, now) !== "scheduled") return false;
+    const windowMin = c.verification_window_minutes;
     return startMs(c) - windowMin * 60_000 <= now && now < endMs(c);
   });
 }
@@ -66,8 +66,20 @@ function endMs(c: Contest): number {
  * scheduled for practice, so practice never counts as live here: not in
  * Needs attention, not for judging, not in Running now, not in the Live filter.
  */
-export function isLive(c: Contest): boolean {
-  return c.status === "running" && !c.is_practice;
+export function dashboardContestStatus(c: Contest, now: number): string {
+  if (c.status === "draft" || c.status === "archived") return c.status;
+  if (c.is_practice) return "running";
+
+  const starts = startMs(c);
+  const ends = endMs(c);
+  if (Number.isNaN(starts) || Number.isNaN(ends)) return c.status;
+  if (now < starts) return "scheduled";
+  if (now < ends) return "running";
+  return "ended";
+}
+
+export function isLive(c: Contest, now: number): boolean {
+  return dashboardContestStatus(c, now) === "running" && !c.is_practice;
 }
 
 export function hasPackage(p: Problem): boolean {
@@ -77,7 +89,7 @@ export function hasPackage(p: Problem): boolean {
 /** Scheduled, timed contests that open within the next 24 hours. */
 export function startingWithinDay(contests: Contest[], now: number): Contest[] {
   return contests.filter((c) => {
-    if (c.status !== "scheduled" || c.is_practice) return false;
+    if (dashboardContestStatus(c, now) !== "scheduled" || c.is_practice) return false;
     const s = startMs(c);
     return s > now && s - now <= DAY;
   });
@@ -91,9 +103,9 @@ export type Stats = {
 
 export function contestStats(contests: Contest[], now: number): Stats {
   return {
-    running: contests.filter(isLive).length,
+    running: contests.filter((c) => isLive(c, now)).length,
     next24h: startingWithinDay(contests, now).length,
-    drafts: contests.filter((c) => c.status === "draft").length,
+    drafts: contests.filter((c) => dashboardContestStatus(c, now) === "draft").length,
   };
 }
 
@@ -134,7 +146,17 @@ function judgingVerdict(fleet: Fleet, contests: Contest[] | null, now: number): 
   const situation = situationOf(
     fleet.queue_waiting == null ? { ...fleet, queued_jobs: 0 } : fleet,
   );
-  const live = (contests ?? []).some(isLive);
+  const fleetHasLiveDemand = fleet.upcoming.some((u) => {
+    if (u.reason === "running") return true;
+    const starts = new Date(u.starts_at).getTime();
+    const ends = new Date(u.ends_at).getTime();
+    return starts <= now && now < ends;
+  });
+  // The contest list is capped and may be retained after a failed reload,
+  // while fleet demand is the backend's current answer for active judging.
+  const live =
+    fleetHasLiveDemand ||
+    (contests?.some((c) => isLive(c, now)) ?? false);
   const soon = contests ? startingWithinDay(contests, now).length > 0 : false;
   const fleetSoon = fleet.upcoming.some((u) => new Date(u.starts_at).getTime() - now <= DAY);
   const relevant = live || soon || fleetSoon;
@@ -296,7 +318,7 @@ export function attentionItems({
 
   if (contests) {
     for (const c of contests) {
-      if (isLive(c)) {
+      if (isLive(c, now)) {
         const ends = endMs(c);
         items.push({
           id: `live-${c.uid}`,
@@ -312,13 +334,14 @@ export function attentionItems({
         continue;
       }
 
-      if (c.is_practice || (c.status !== "draft" && c.status !== "scheduled"))
+      const status = dashboardContestStatus(c, now);
+      if (c.is_practice || (status !== "draft" && status !== "scheduled"))
         continue;
       const s = startMs(c);
       const empty = c.problems.length === 0;
       // A draft whose window has opened can never be joined, so it stays here
       // until it is published or its window closes.
-      if (c.status === "draft" && s <= now && now < endMs(c)) {
+      if (status === "draft" && s <= now && now < endMs(c)) {
         items.push({
           id: `draft-${c.uid}`,
           severity: "warning",
@@ -333,7 +356,7 @@ export function attentionItems({
       }
       if (!(s > now && s - now <= SOON_MS)) continue;
       const when = `Starts ${relativeWhen(c.starts_at)}.`;
-      if (c.status === "draft") {
+      if (status === "draft") {
         items.push({
           id: `draft-${c.uid}`,
           severity: "warning",
@@ -398,16 +421,17 @@ const GROUP: Record<string, number> = {
 };
 
 /** Open practice contests sit after drafts: always available, never urgent. */
-function groupOf(c: Contest): number {
-  if (c.status === "running" && c.is_practice) return 3;
-  return GROUP[c.status] ?? 5;
+function groupOf(c: Contest, now: number): number {
+  const status = dashboardContestStatus(c, now);
+  if (status === "running" && c.is_practice) return 3;
+  return GROUP[status] ?? 5;
 }
 
 /** Live, then scheduled by start, then drafts by start, then open practice, then ended by most recent end. */
-export function orderContests(contests: Contest[]): Contest[] {
+export function orderContests(contests: Contest[], now: number): Contest[] {
   return [...contests].sort((a, b) => {
-    const ga = groupOf(a);
-    const gb = groupOf(b);
+    const ga = groupOf(a, now);
+    const gb = groupOf(b, now);
     if (ga !== gb) return ga - gb;
     if (ga === 4) return endMs(b) - endMs(a);
     return startMs(a) - startMs(b);
@@ -417,18 +441,20 @@ export function orderContests(contests: Contest[]): Contest[] {
 export function filterContests(
   contests: Contest[],
   filter: ContestFilter,
+  now: number,
 ): Contest[] {
   switch (filter) {
     case "live":
-      return contests.filter(isLive);
+      return contests.filter((c) => isLive(c, now));
     case "upcoming":
-      return contests.filter((c) => c.status === "scheduled");
+      return contests.filter((c) => dashboardContestStatus(c, now) === "scheduled");
     case "drafts":
-      return contests.filter((c) => c.status === "draft");
+      return contests.filter((c) => dashboardContestStatus(c, now) === "draft");
     case "ended":
-      return contests.filter(
-        (c) => c.status === "ended" || c.status === "archived",
-      );
+      return contests.filter((c) => {
+        const status = dashboardContestStatus(c, now);
+        return status === "ended" || status === "archived";
+      });
     default:
       return contests;
   }
@@ -439,7 +465,10 @@ export function nextContest(contests: Contest[], now: number): Contest | null {
   return (
     contests
       .filter(
-        (c) => c.status === "scheduled" && !c.is_practice && startMs(c) > now,
+        (c) =>
+          dashboardContestStatus(c, now) === "scheduled" &&
+          !c.is_practice &&
+          startMs(c) > now,
       )
       .sort((a, b) => startMs(a) - startMs(b))[0] ?? null
   );

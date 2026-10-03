@@ -33,9 +33,59 @@ import { useRead } from "./dashboard/useRead";
 
 // Shape checks for the three reads: a body of the wrong shape becomes that
 // section's error instead of crashing the page.
-const isArray = (d: unknown) => Array.isArray(d);
-const isFleet = (d: unknown) =>
-  typeof d === "object" && d !== null && Array.isArray((d as Fleet).upcoming);
+const isRecord = (d: unknown): d is Record<string, unknown> =>
+  typeof d === "object" && d !== null;
+
+const isContest = (d: unknown): d is Contest =>
+  isRecord(d) &&
+  typeof d.uid === "string" &&
+  typeof d.title === "string" &&
+  typeof d.status === "string" &&
+  typeof d.starts_at === "string" &&
+  typeof d.ends_at === "string" &&
+  typeof d.is_practice === "boolean" &&
+  (typeof d.invite_code === "string" || d.invite_code === null) &&
+  Array.isArray(d.problems) &&
+  typeof d.verification_window_minutes === "number";
+
+const isProblem = (d: unknown): d is Problem =>
+  isRecord(d) &&
+  typeof d.uid === "string" &&
+  typeof d.title === "string" &&
+  Array.isArray(d.versions) &&
+  d.versions.every(
+    (version) => isRecord(version) && typeof version.has_package === "boolean",
+  );
+
+const isContestList = (d: unknown): d is Contest[] =>
+  Array.isArray(d) && d.every(isContest);
+
+const isProblemList = (d: unknown): d is Problem[] =>
+  Array.isArray(d) && d.every(isProblem);
+
+const isFleet = (d: unknown): d is Fleet =>
+  isRecord(d) &&
+  typeof d.live === "number" &&
+  typeof d.running_jobs === "number" &&
+  typeof d.queued_jobs === "number" &&
+  typeof d.desired === "number" &&
+  (d.queue_waiting === null || typeof d.queue_waiting === "number") &&
+  (d.override === null ||
+    (isRecord(d.override) &&
+      typeof d.override.mode === "string" &&
+      typeof d.override.expires_at === "string")) &&
+  (d.state === null ||
+    (isRecord(d.state) && typeof d.state.stale === "boolean")) &&
+  Array.isArray(d.upcoming) &&
+  d.upcoming.every(
+    (item) =>
+      isRecord(item) &&
+      typeof item.title === "string" &&
+      typeof item.starts_at === "string" &&
+      typeof item.ends_at === "string" &&
+      typeof item.instances === "number" &&
+      typeof item.reason === "string",
+  );
 
 const ATTENTION_SKELETON_CSS = `
 [data-dash-attention-skeleton] {
@@ -74,8 +124,8 @@ export function DashboardView() {
 
 function Dashboard() {
   const router = useRouter();
-  const contests = useRead<Contest[]>("/api/org/contests", isArray);
-  const problems = useRead<Problem[]>("/api/org/problems", isArray);
+  const contests = useRead<Contest[]>("/api/org/contests", isContestList);
+  const problems = useRead<Problem[]>("/api/org/problems", isProblemList);
   const fleet = useRead<Fleet>("/api/org/fleet", isFleet);
   // A clock tick, not a poll: it re-renders time text and the "today" date.
   const now = useNow();
@@ -86,11 +136,17 @@ function Dashboard() {
   }, [contests, problems, fleet]);
 
   // Brand new organisation: nothing to monitor yet, so show the way in.
+  // Wait for every read and keep the normal dashboard if any read failed,
+  // because that is where its error and Retry control live.
   const isEmpty =
     contests.data !== null &&
     problems.data !== null &&
+    fleet.data !== null &&
     contests.data.length === 0 &&
-    problems.data.length === 0;
+    problems.data.length === 0 &&
+    !contests.error &&
+    !problems.error &&
+    !fleet.error;
 
   return (
     <VStack gap={0}>
