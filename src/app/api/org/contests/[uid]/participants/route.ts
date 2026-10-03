@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { callAmsApi, errorMessage } from "@/lib/server/amsApi";
 import { requireSubject } from "@/lib/server/session";
+import { parseRosterLine } from "@/lib/roster";
 
 // One provisioning call per contest is normal; 2000 is the API's own cap.
 const MAX_PER_BATCH = 2000;
@@ -21,7 +22,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ uid: strin
 
   const { uid } = await ctx.params;
 
-  let body: { names?: string[]; participants?: { display_name: string; external_ref?: string }[] };
+  let body: {
+    names?: string[];
+    participants?: { display_name: string; email?: string; external_ref?: string }[];
+  };
   try {
     body = await request.json();
   } catch {
@@ -29,13 +33,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ uid: strin
   }
 
   // The UI pastes a roster as lines; accept either that or the structured form.
-  const participants =
-    body.participants ??
-    (body.names ?? []).map((line) => {
-      // "Asha Rao, ROLL-101" — the reference is optional and comma-separated.
-      const [name, ref] = line.split(",");
-      return { display_name: (name ?? "").trim(), external_ref: (ref ?? "").trim() };
-    });
+  const participants = body.participants ?? (body.names ?? []).map(parseRosterLine);
 
   const cleaned = participants.filter((p) => p.display_name.length > 0);
   if (cleaned.length === 0) {

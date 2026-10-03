@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { parseRoster, mailableCount } from "@/lib/roster";
 import {
   AlertTriangle,
   Check,
@@ -216,14 +217,11 @@ function AddParticipants({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const names = useMemo(
-    () =>
-      text
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean),
-    [text],
-  );
+  // Parsed with the same function the proxy uses, so the preview below is not
+  // a second opinion about what these lines mean.
+  const entries = useMemo(() => parseRoster(text), [text]);
+  const mailable = useMemo(() => mailableCount(entries), [entries]);
+  const missing = entries.length - mailable;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -235,7 +233,7 @@ function AddParticipants({
           await fetch(`/api/org/contests/${contestUid}/participants`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ names }),
+            body: JSON.stringify({ participants: entries }),
           }),
         ),
       );
@@ -250,29 +248,68 @@ function AddParticipants({
     <form onSubmit={submit} className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
       <label className="block text-sm font-medium text-slate-700">Roster</label>
       <p className="mb-2 text-xs text-slate-500">
-        One person per line. Add a comma and your own reference — a roll number, say — to
-        reconcile results later:{" "}
-        <code className="rounded bg-slate-100 px-1">Asha Rao, ROLL-101</code>
+        One person per line: <code className="rounded bg-slate-100 px-1">Name, email, your own reference</code>.
+        Order after the name does not matter — whichever part has an{" "}
+        <code className="rounded bg-slate-100 px-1">@</code> is taken as the address.
+      </p>
+      <p className="mb-2 text-xs text-amber-700">
+        Include the email. Without one a participant cannot be sent their own login, and
+        somebody has to read it to them. It is also how the same person in two contests
+        stays one record.
       </p>
       <textarea
         value={text}
         onChange={(event) => setText(event.target.value)}
         rows={8}
         autoFocus
-        placeholder={"Asha Rao, ROLL-101\nBen Ortiz, ROLL-102\nChen Wei, ROLL-103"}
+        placeholder={
+          "Asha Rao, asha@example.edu, ROLL-101\n" +
+          "Ben Ortiz, ben@example.edu, ROLL-102\n" +
+          "Chen Wei, chen@example.edu, ROLL-103"
+        }
         className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm outline-none focus:border-slate-900"
       />
+
+      {entries.length > 0 && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <p className="mb-2 text-xs font-medium text-slate-600">
+            {entries.length} participant{entries.length === 1 ? "" : "s"} ·{" "}
+            <span className={missing > 0 ? "text-amber-700" : "text-emerald-700"}>
+              {mailable} mailable
+            </span>
+            {missing > 0 && <span className="text-amber-700">{` · ${missing} without an email`}</span>}
+          </p>
+          <ul className="max-h-36 space-y-0.5 overflow-y-auto text-xs">
+            {entries.slice(0, 50).map((entry, i) => (
+              <li key={i} className="flex flex-wrap items-baseline gap-x-2">
+                <span className="font-medium text-slate-800">{entry.display_name}</span>
+                {entry.email ? (
+                  <span className="font-mono text-slate-500">{entry.email}</span>
+                ) : (
+                  <span className="text-amber-700">no email — cannot be sent a login</span>
+                )}
+                {entry.external_ref && (
+                  <span className="font-mono text-slate-400">{entry.external_ref}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {entries.length > 50 && (
+            <p className="mt-1 text-xs text-slate-400">…and {entries.length - 50} more</p>
+          )}
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={busy || names.length === 0}
+          disabled={busy || entries.length === 0}
           className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
         >
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
           {busy
             ? "Issuing…"
-            : `Issue ${names.length || ""} credential${names.length === 1 ? "" : "s"}`}
+            : `Issue ${entries.length || ""} credential${entries.length === 1 ? "" : "s"}`}
         </button>
         <button
           type="button"
