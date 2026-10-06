@@ -34,6 +34,12 @@ export type Student = {
   external_ref: string;
   notes: string;
   contests_entered: number;
+  /** The address credentials are sent to — `users.email`, not the profile's
+   *  `contact_email`. The two can differ, and only this one is mailed. */
+  email?: string;
+  mailable?: boolean;
+  /** Which contests, not just how many. */
+  contests?: { uid: string; title: string; starts_at: string; status: string; is_practice: boolean }[];
   problems_solved: number;
 };
 

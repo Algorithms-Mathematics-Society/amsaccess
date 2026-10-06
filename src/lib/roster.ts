@@ -49,3 +49,20 @@ export function parseRoster(text: string): RosterEntry[] {
 export function mailableCount(entries: RosterEntry[]): number {
   return entries.filter((e) => e.email.includes("@")).length;
 }
+
+/**
+ * Drop a header row if the file has one.
+ *
+ * A header is a first line with no `@` whose cells read like column names.
+ * Testing for the missing `@` alone would eat a real person from a roster that
+ * carries no addresses at all — names and roll numbers is a legitimate roster —
+ * so the word check is what makes this safe.
+ */
+export function stripHeaderRow(text: string): string {
+  const lines = text.split("\n");
+  const first = (lines[0] ?? "").toLowerCase();
+  const looksLikeHeader =
+    !first.includes("@") &&
+    /\b(name|email|e-mail|roll|reference|ref|college|external)\b/.test(first);
+  return looksLikeHeader ? lines.slice(1).join("\n") : text;
+}

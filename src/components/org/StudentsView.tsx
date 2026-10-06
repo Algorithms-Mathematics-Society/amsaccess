@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { statusClass } from "@/lib/orgTypes";
 import {
   Upload,
   Plus,
@@ -316,6 +318,34 @@ function StudentDetail({ student, onChange }: { student: Student; onChange: () =
           <RemoveStudent studentUid={student.uid} onDone={onChange} />
         </span>
       </div>
+
+      {/* Which contests, not just how many. "Has this person sat anything with
+          us" is the question the directory exists to answer, and a count
+          cannot answer it. */}
+      {(student.contests?.length ?? 0) > 0 && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <p className="mb-1.5 text-xs font-medium text-slate-500">Contests</p>
+          <ul className="flex flex-wrap gap-1.5">
+            {student.contests!.map((contest) => (
+              <li key={contest.uid}>
+                <Link
+                  href={`/org/contests/${contest.uid}`}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition hover:border-slate-400 ${statusClass(contest.status)}`}
+                >
+                  <span className="max-w-[16rem] truncate font-medium">{contest.title}</span>
+                  {contest.is_practice && <span className="opacity-60">practice</span>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {student.email && !student.mailable && (
+        <p className="mt-2 text-xs text-amber-700">
+          No email on record — this person cannot be sent their login.
+        </p>
+      )}
 
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </div>

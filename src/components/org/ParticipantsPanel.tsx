@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { parseRoster, mailableCount } from "@/lib/roster";
+import { parseRoster, mailableCount, stripHeaderRow } from "@/lib/roster";
+import { AddFromAccess } from "./AddFromAccess";
 import {
   AlertTriangle,
   Check,
@@ -13,6 +14,7 @@ import {
   Mail,
   Plus,
   Printer,
+  Upload,
   Ban,
   Users,
 } from "lucide-react";
@@ -83,6 +85,7 @@ export function ParticipantsPanel({
   const [roster, setRoster] = useState<Participant[] | null>(null);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
+  const [pickingFromAccess, setPickingFromAccess] = useState(false);
 
   // The credentials from the most recent provisioning call. These exist
   // nowhere else — not in the database, not retrievable by any endpoint — so
@@ -159,6 +162,14 @@ export function ParticipantsPanel({
           )}
           <button
             type="button"
+            onClick={() => setPickingFromAccess(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-900"
+          >
+            <Users className="h-4 w-4" />
+            Add from Access
+          </button>
+          <button
+            type="button"
             onClick={() => setAdding((v) => !v)}
             className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
           >
@@ -168,8 +179,26 @@ export function ParticipantsPanel({
         </div>
       </div>
 
+      {pickingFromAccess && (
+        <AddFromAccess
+          contestUid={contestUid}
+          // The roster's own user uids, so people already here are not offered
+          // again — adding them twice is harmless but looks like a mistake.
+          alreadyOnRoster={new Set((roster ?? []).map((row) => row.user_uid))}
+          onAdded={(rows) => {
+            setPickingFromAccess(false);
+            // Anyone who already held a passphrase keeps it and comes back with
+            // none, so only show the one-time screen if there is something on it.
+            const withPasswords = rows.filter((row) => row.password);
+            if (withPasswords.length > 0) setIssued(withPasswords);
+            void load();
+          }}
+          onClose={() => setPickingFromAccess(false)}
+        />
+      )}
+
       {adding && (
-        <AddParticipants
+        <ImportCsv
           contestUid={contestUid}
           onIssued={(rows) => {
             setAdding(false);
@@ -204,7 +233,18 @@ export function ParticipantsPanel({
   );
 }
 
-function AddParticipants({
+/**
+ * A roster from a CSV file.
+ *
+ * This was a free-text textarea, which made every roster a fresh typing job
+ * and a fresh chance to mistype an address. Participants come from one of two
+ * places now, both of which reuse something that already exists: the Access
+ * directory, or a file the organiser already has.
+ *
+ * Parsing is `lib/roster.ts`, shared with the proxy that submits it, so the
+ * preview is produced by the code that actually runs.
+ */
+function ImportCsv({
   contestUid,
   onIssued,
   onCancel,
@@ -214,17 +254,25 @@ function AddParticipants({
   onCancel: () => void;
 }) {
   const [text, setText] = useState("");
+  const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  // Parsed with the same function the proxy uses, so the preview below is not
-  // a second opinion about what these lines mean.
-  const entries = useMemo(() => parseRoster(text), [text]);
+  const entries = useMemo(() => parseRoster(stripHeaderRow(text)), [text]);
   const mailable = useMemo(() => mailableCount(entries), [entries]);
   const missing = entries.length - mailable;
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  async function readFile(file: File) {
+    setError("");
+    setFileName(file.name);
+    try {
+      setText(await file.text());
+    } catch {
+      setError("That file could not be read.");
+    }
+  }
+
+  async function submit() {
     setBusy(true);
     setError("");
     try {
@@ -245,30 +293,31 @@ function AddParticipants({
   }
 
   return (
-    <form onSubmit={submit} className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
-      <label className="block text-sm font-medium text-slate-700">Roster</label>
-      <p className="mb-2 text-xs text-slate-500">
-        One person per line: <code className="rounded bg-slate-100 px-1">Name, email, your own reference</code>.
-        Order after the name does not matter — whichever part has an{" "}
-        <code className="rounded bg-slate-100 px-1">@</code> is taken as the address.
+    <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
+      <p className="text-sm font-medium text-slate-700">Import a CSV</p>
+      <p className="mb-3 text-xs text-slate-500">
+        One person per row:{" "}
+        <code className="rounded bg-slate-100 px-1">Name, email, your own reference</code>. A header
+        row is skipped. Order after the name does not matter — whichever column holds an{" "}
+        <code className="rounded bg-slate-100 px-1">@</code> is the address.
       </p>
-      <p className="mb-2 text-xs text-amber-700">
-        Include the email. Without one a participant cannot be sent their own login, and
-        somebody has to read it to them. It is also how the same person in two contests
-        stays one record.
-      </p>
-      <textarea
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        rows={8}
-        autoFocus
-        placeholder={
-          "Asha Rao, asha@example.edu, ROLL-101\n" +
-          "Ben Ortiz, ben@example.edu, ROLL-102\n" +
-          "Chen Wei, chen@example.edu, ROLL-103"
-        }
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm outline-none focus:border-slate-900"
-      />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:border-slate-900">
+          <Upload className="h-4 w-4" />
+          Choose file
+          <input
+            type="file"
+            accept=".csv,text/csv,text/plain"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void readFile(file);
+            }}
+          />
+        </label>
+        {fileName && <span className="font-mono text-xs text-slate-500">{fileName}</span>}
+      </div>
 
       {entries.length > 0 && (
         <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -277,11 +326,13 @@ function AddParticipants({
             <span className={missing > 0 ? "text-amber-700" : "text-emerald-700"}>
               {mailable} mailable
             </span>
-            {missing > 0 && <span className="text-amber-700">{` · ${missing} without an email`}</span>}
+            {missing > 0 && (
+              <span className="text-amber-700">{` · ${missing} without an email`}</span>
+            )}
           </p>
-          <ul className="max-h-36 space-y-0.5 overflow-y-auto text-xs">
-            {entries.slice(0, 50).map((entry, i) => (
-              <li key={i} className="flex flex-wrap items-baseline gap-x-2">
+          <ul className="max-h-40 space-y-0.5 overflow-y-auto text-xs">
+            {entries.slice(0, 50).map((entry, index) => (
+              <li key={index} className="flex flex-wrap items-baseline gap-x-2">
                 <span className="font-medium text-slate-800">{entry.display_name}</span>
                 {entry.email ? (
                   <span className="font-mono text-slate-500">{entry.email}</span>
@@ -300,9 +351,12 @@ function AddParticipants({
         </div>
       )}
 
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
-          type="submit"
+          type="button"
+          onClick={() => void submit()}
           disabled={busy || entries.length === 0}
           className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
         >
@@ -322,19 +376,10 @@ function AddParticipants({
           Passwords are shown once and cannot be recovered.
         </span>
       </div>
-
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-    </form>
+    </div>
   );
 }
 
-/** The one-time view of issued passwords.
- *
- * Deliberately blocking: it replaces the roster rather than appearing beside
- * it, and will not dismiss until the operator has saved or printed. These
- * passwords are stored nowhere — losing this screen means reissuing every
- * credential on it.
- */
 function IssuedCredentials({
   rows,
   contestTitle,

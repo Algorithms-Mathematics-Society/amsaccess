@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { parseRosterLine, parseRoster, mailableCount } from "./roster.ts";
+import { parseRosterLine, parseRoster, mailableCount, stripHeaderRow } from "./roster.ts";
 
 // The field order after the name is deliberately not fixed: a roster typed or
 // pasted by a human never is. These pin that, and pin the older two-column
@@ -52,4 +52,28 @@ test("mailable counts only real addresses", () => {
   const rows = parseRoster("A, a@x.com\nB, ROLL-2\nC, c@x.com");
   assert.equal(rows.length, 3);
   assert.equal(mailableCount(rows), 2);
+});
+
+// ── CSV header rows ───────────────────────────────────────────────────────
+//
+// Dropping the first line whenever it has no "@" would eat a real person from
+// a roster of names and roll numbers. The word check is what makes it safe.
+
+
+
+test("a header row is dropped", () => {
+  const csv = "Name,Email,Roll\nAsha Rao,asha@x.edu,R-1";
+  assert.equal(parseRoster(stripHeaderRow(csv)).length, 1);
+});
+
+test("a first row that is a real person is kept, even with no email", () => {
+  const csv = "Asha Rao,R-101\nBen Ortiz,R-102";
+  const rows = parseRoster(stripHeaderRow(csv));
+  assert.equal(rows.length, 2, "a header check must not eat a real participant");
+  assert.equal(rows[0].display_name, "Asha Rao");
+});
+
+test("a first row with an address is never treated as a header", () => {
+  const csv = "Name Person,name@x.edu\nOther,other@x.edu";
+  assert.equal(parseRoster(stripHeaderRow(csv)).length, 2);
 });
