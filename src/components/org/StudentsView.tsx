@@ -145,7 +145,15 @@ function StudentCard({
         onClick={onToggle}
         className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left"
       >
-        <span className="min-w-[10rem] font-medium text-slate-900">{student.display_name}</span>
+        {/* The name opens the profile; the row still expands from anywhere
+            else, so the accordion keeps working for a quick look. */}
+        <Link
+          href={`/org/participants/${student.username}`}
+          onClick={(event) => event.stopPropagation()}
+          className="min-w-[10rem] font-medium text-slate-900 hover:underline"
+        >
+          {student.display_name}
+        </Link>
 
         <span className="text-sm text-slate-500">
           {student.college || <span className="text-slate-300">no college</span>}
