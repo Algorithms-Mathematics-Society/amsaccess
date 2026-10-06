@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { parseRoster, mailableCount, stripHeaderRow } from "@/lib/roster";
+import { extractEmails } from "@/lib/roster";
 import { AddFromAccess } from "./AddFromAccess";
 import {
   AlertTriangle,
@@ -234,15 +234,17 @@ export function ParticipantsPanel({
 }
 
 /**
- * A roster from a CSV file.
+ * A contest roster, as a file of email addresses.
  *
- * This was a free-text textarea, which made every roster a fresh typing job
- * and a fresh chance to mistype an address. Participants come from one of two
- * places now, both of which reuse something that already exists: the Access
- * directory, or a file the organiser already has.
+ * Everyone in a contest must already be in Access, because that is where a
+ * person's college, reference and resume live. A CSV that could invent people
+ * made a second, emptier record for someone who may already be in there and
+ * split their contest history across both.
  *
- * Parsing is `lib/roster.ts`, shared with the proxy that submits it, so the
- * preview is produced by the code that actually runs.
+ * So the file is read for addresses only — column order is not assumed and a
+ * header needs no special case — and those are resolved against the directory
+ * *before* anything is issued. Addresses it does not know are shown as work to
+ * do on the Participants page, not provisioned.
  */
 function ImportCsv({
   contestUid,
@@ -253,24 +255,41 @@ function ImportCsv({
   onIssued: (rows: IssuedCredential[]) => void;
   onCancel: () => void;
 }) {
-  const [text, setText] = useState("");
   const [fileName, setFileName] = useState("");
+  const [resolved, setResolved] = useState<Resolved | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const entries = useMemo(() => parseRoster(stripHeaderRow(text)), [text]);
-  const mailable = useMemo(() => mailableCount(entries), [entries]);
-  const missing = entries.length - mailable;
-
   async function readFile(file: File) {
     setError("");
+    setResolved(null);
     setFileName(file.name);
+    setBusy(true);
     try {
-      setText(await file.text());
-    } catch {
-      setError("That file could not be read.");
+      const emails = extractEmails(await file.text());
+      if (emails.length === 0) {
+        setError("No email addresses were found in that file.");
+        return;
+      }
+      setResolved(
+        await json<Resolved>(
+          await fetch(`/api/org/contests/${contestUid}/participants/resolve`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ emails }),
+          }),
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That file could not be read.");
+    } finally {
+      setBusy(false);
     }
   }
+
+  // Already on the roster is not an error and not work: adding them again is
+  // a no-op, so they are counted separately and simply not re-sent.
+  const toAdd = (resolved?.matched ?? []).filter((m) => !m.already_on_roster);
 
   async function submit() {
     setBusy(true);
@@ -278,28 +297,33 @@ function ImportCsv({
     try {
       onIssued(
         await json<IssuedCredential[]>(
-          await fetch(`/api/org/contests/${contestUid}/participants`, {
+          await fetch(`/api/org/contests/${contestUid}/participants/from-directory`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ participants: entries }),
+            body: JSON.stringify({ emails: toAdd.map((m) => m.email) }),
           }),
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add participants.");
+      setError(err instanceof Error ? err.message : "Could not add them.");
     } finally {
       setBusy(false);
     }
   }
 
+  const already = (resolved?.matched ?? []).length - toAdd.length;
+
   return (
     <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
-      <p className="text-sm font-medium text-slate-700">Import a CSV</p>
+      <p className="text-sm font-medium text-slate-700">Import a CSV of emails</p>
       <p className="mb-3 text-xs text-slate-500">
-        One person per row:{" "}
-        <code className="rounded bg-slate-100 px-1">Name, email, your own reference</code>. A header
-        row is skipped. Order after the name does not matter — whichever column holds an{" "}
-        <code className="rounded bg-slate-100 px-1">@</code> is the address.
+        One address per row, or any column that holds one — order does not matter and a header
+        row is ignored. Everyone must already be in{" "}
+        <Link href="/org/participants" className="underline hover:text-slate-900">
+          Participants
+        </Link>
+        ; a contest does not create people, because that is where their college, reference and
+        resume live.
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -317,36 +341,57 @@ function ImportCsv({
           />
         </label>
         {fileName && <span className="font-mono text-xs text-slate-500">{fileName}</span>}
+        {busy && !resolved && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
       </div>
 
-      {entries.length > 0 && (
-        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <p className="mb-2 text-xs font-medium text-slate-600">
-            {entries.length} participant{entries.length === 1 ? "" : "s"} ·{" "}
-            <span className={missing > 0 ? "text-amber-700" : "text-emerald-700"}>
-              {mailable} mailable
-            </span>
-            {missing > 0 && (
-              <span className="text-amber-700">{` · ${missing} without an email`}</span>
-            )}
-          </p>
-          <ul className="max-h-40 space-y-0.5 overflow-y-auto text-xs">
-            {entries.slice(0, 50).map((entry, index) => (
-              <li key={index} className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-medium text-slate-800">{entry.display_name}</span>
-                {entry.email ? (
-                  <span className="font-mono text-slate-500">{entry.email}</span>
-                ) : (
-                  <span className="text-amber-700">no email — cannot be sent a login</span>
-                )}
-                {entry.external_ref && (
-                  <span className="font-mono text-slate-400">{entry.external_ref}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-          {entries.length > 50 && (
-            <p className="mt-1 text-xs text-slate-400">…and {entries.length - 50} more</p>
+      {resolved && (
+        <div className="mt-3 space-y-2">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="mb-2 text-xs font-medium text-slate-600">
+              <span className="text-emerald-700">{toAdd.length} to add</span>
+              {already > 0 && <span className="text-slate-500">{` · ${already} already on the roster`}</span>}
+              {resolved.unknown.length > 0 && (
+                <span className="text-amber-700">{` · ${resolved.unknown.length} not in Access`}</span>
+              )}
+            </p>
+            <ul className="max-h-40 space-y-0.5 overflow-y-auto text-xs">
+              {toAdd.slice(0, 50).map((m) => (
+                <li key={m.uid} className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-medium text-slate-800">{m.display_name}</span>
+                  <span className="font-mono text-slate-500">{m.email}</span>
+                  {m.college && <span className="text-slate-400">{m.college}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {resolved.unknown.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="mb-1 text-xs font-medium text-amber-900">
+                Not in Access — add them on{" "}
+                <Link href="/org/participants" className="underline">
+                  Participants
+                </Link>{" "}
+                first, then import again
+              </p>
+              <ul className="max-h-28 space-y-0.5 overflow-y-auto font-mono text-xs text-amber-800">
+                {resolved.unknown.slice(0, 50).map((email) => (
+                  <li key={email}>{email}</li>
+                ))}
+              </ul>
+              {resolved.unknown.length > 50 && (
+                <p className="mt-1 text-xs text-amber-700">
+                  …and {resolved.unknown.length - 50} more
+                </p>
+              )}
+            </div>
+          )}
+
+          {resolved.invalid.length > 0 && (
+            <p className="text-xs text-slate-500">
+              {resolved.invalid.length} cell{resolved.invalid.length === 1 ? "" : "s"} skipped as
+              not an address.
+            </p>
           )}
         </div>
       )}
@@ -357,13 +402,11 @@ function ImportCsv({
         <button
           type="button"
           onClick={() => void submit()}
-          disabled={busy || entries.length === 0}
+          disabled={busy || toAdd.length === 0}
           className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
         >
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-          {busy
-            ? "Issuing…"
-            : `Issue ${entries.length || ""} credential${entries.length === 1 ? "" : "s"}`}
+          {busy ? "Adding…" : `Add ${toAdd.length || ""}`}
         </button>
         <button
           type="button"
@@ -372,13 +415,23 @@ function ImportCsv({
         >
           Cancel
         </button>
-        <span className="text-xs text-slate-500">
-          Passwords are shown once and cannot be recovered.
-        </span>
       </div>
     </div>
   );
 }
+
+type Resolved = {
+  matched: {
+    email: string;
+    uid: string;
+    display_name: string;
+    college: string;
+    external_ref: string;
+    already_on_roster: boolean;
+  }[];
+  unknown: string[];
+  invalid: string[];
+};
 
 function IssuedCredentials({
   rows,

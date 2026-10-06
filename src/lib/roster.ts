@@ -1,68 +1,31 @@
 /**
- * Turning a pasted roster into participants.
+ * Reading a contest roster file.
  *
- * Shared by the roster form and the proxy route that submits it, so what the
- * organiser is shown as a preview is parsed by the same code that actually
- * runs. A second implementation in the browser would eventually disagree with
- * the one on the server, and the disagreement would show up as participants
- * provisioned differently from how they were previewed.
+ * A contest roster is a list of people who must already exist in the Access
+ * directory, so the only thing worth taking out of the file is the address.
+ * Everything else about a person — their name, college, reference, resume —
+ * lives in the directory, and taking it from a CSV instead would be building a
+ * second, emptier copy of a record that already exists.
  */
-
-export type RosterEntry = {
-  display_name: string;
-  email: string;
-  external_ref: string;
-};
-
 /**
- * One pasted line → one roster entry.
+ * Every address in a pasted or uploaded roster.
  *
- * The field order after the name is not fixed, because a roster typed or
- * pasted by a human never is. Whichever part holds an `@` is the address;
- * whatever remains is the organiser's own reference. So these are equivalent:
+ * Column order is not assumed: a file exported from a spreadsheet puts the
+ * address wherever the sheet happened to have it, and a file that is nothing
+ * but addresses is equally valid. So every cell is examined and the ones that
+ * look like addresses are taken, which also means a "Name,Email,Roll" header
+ * needs no special handling here — none of its cells contain an `@`.
  *
- *     Asha Rao, asha@example.edu, ROLL-101
- *     Asha Rao, ROLL-101, asha@example.edu
- *
- * and the older two-column form, `Asha Rao, ROLL-101`, still parses as it
- * always did.
+ * Duplicates are collapsed, because the same person listed twice is a typo,
+ * not two people.
  */
-export function parseRosterLine(line: string): RosterEntry {
-  const parts = line.split(",").map((part) => part.trim());
-  const display_name = parts.shift() ?? "";
-  const emailAt = parts.findIndex((part) => part.includes("@"));
-  const email = emailAt === -1 ? "" : parts.splice(emailAt, 1)[0];
-  return { display_name, email, external_ref: parts.filter(Boolean).join(" ") };
-}
-
-/** Every non-empty line, parsed. Blank lines are skipped, not errors. */
-export function parseRoster(text: string): RosterEntry[] {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map(parseRosterLine)
-    .filter((entry) => entry.display_name.length > 0);
-}
-
-/** How many of these can actually be sent their login. */
-export function mailableCount(entries: RosterEntry[]): number {
-  return entries.filter((e) => e.email.includes("@")).length;
-}
-
-/**
- * Drop a header row if the file has one.
- *
- * A header is a first line with no `@` whose cells read like column names.
- * Testing for the missing `@` alone would eat a real person from a roster that
- * carries no addresses at all — names and roll numbers is a legitimate roster —
- * so the word check is what makes this safe.
- */
-export function stripHeaderRow(text: string): string {
-  const lines = text.split("\n");
-  const first = (lines[0] ?? "").toLowerCase();
-  const looksLikeHeader =
-    !first.includes("@") &&
-    /\b(name|email|e-mail|roll|reference|ref|college|external)\b/.test(first);
-  return looksLikeHeader ? lines.slice(1).join("\n") : text;
+export function extractEmails(text: string): string[] {
+  const seen = new Set<string>();
+  for (const line of text.split("\n")) {
+    for (const cell of line.split(/[,;\t]/)) {
+      const value = cell.trim().replace(/^["']|["']$/g, "").toLowerCase();
+      if (value.includes("@") && !value.includes(" ")) seen.add(value);
+    }
+  }
+  return [...seen];
 }
