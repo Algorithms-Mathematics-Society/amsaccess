@@ -15,10 +15,6 @@ const config: Config = {
         body: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
       colors: {
-        // The AMS brand palette, lifted verbatim from ams-website so the two
-        // sites cannot drift. Gold is an accent only: it is the one warm
-        // colour here and it stops being an accent the moment it is used
-        // for a surface.
         burgundy: {
           DEFAULT: "#571c24",
           deep: "#3b141a",
@@ -27,14 +23,22 @@ const config: Config = {
           DEFAULT: "#f5f0e4",
           light: "#fffcf5",
         },
-        gold: {
-          DEFAULT: "#a9822f",
-          deep: "#76591f",
-          bright: "#dfbf72",
+        // Derived from the Access mark: a violet gradient running deep
+        // indigo to orchid. Kept pastel and slightly warm so it reads
+        // vintage rather than SaaS, which is what the old purple-on-white
+        // looked like. Every value is a CSS variable so one `.dark` class
+        // flips the whole site; the hexes live in globals.css.
+        paper: "rgb(var(--ac-paper) / <alpha-value>)",
+        surface: "rgb(var(--ac-surface) / <alpha-value>)",
+        ink: "rgb(var(--ac-ink) / <alpha-value>)",
+        muted: "rgb(var(--ac-muted) / <alpha-value>)",
+        line: "rgb(var(--ac-line) / <alpha-value>)",
+        violet: {
+          DEFAULT: "rgb(var(--ac-violet) / <alpha-value>)",
+          deep: "rgb(var(--ac-violet-deep) / <alpha-value>)",
+          soft: "rgb(var(--ac-violet-soft) / <alpha-value>)",
         },
-        espresso: "#242123",
-        ink: "#30292a",
-        paper: "#ede5d5",
+        orchid: "rgb(var(--ac-orchid) / <alpha-value>)",
         ams: {
           /* semantic globals */
           dark:   "rgb(var(--ams-dark)   / <alpha-value>)",

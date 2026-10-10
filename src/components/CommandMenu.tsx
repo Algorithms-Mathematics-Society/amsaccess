@@ -6,8 +6,6 @@ import { ArrowUpRight, Search, X } from "lucide-react";
 
 const commandItems = [
   { label: "Download Access", href: "/download", detail: "Desktop builds for Windows, macOS, and Linux" },
-  { label: "Pricing", href: "/pricing", detail: "Pilot, event, institution, and enterprise paths" },
-  { label: "Docs", href: "/docs", detail: "Deployment notes and operational references" },
   { label: "Contact", href: "/contact", detail: "Sales, support, and security routing" },
   { label: "Changelog", href: "/changelog", detail: "Release notes and maintenance history" }
 ];

@@ -18,18 +18,14 @@ const COLUMNS: { heading: string; links: { label: string; href: string }[] }[] =
   {
     heading: "Product",
     links: [
-      { label: "Overview", href: "/product" },
-      { label: "Controlled round", href: "/controlled-round" },
+      { label: "Overview", href: "/" },
       { label: "Download", href: "/download" },
-      { label: "Pricing", href: "/pricing" },
     ],
   },
   {
     heading: "Resources",
     links: [
-      { label: "Documentation", href: "/docs" },
-      { label: "Chess plugin", href: "/docs/chess-plugin" },
-      { label: "Changelog", href: "/changelog" },
+      { label: "Releases", href: "/download#releases" },
     ],
   },
   {
@@ -44,19 +40,19 @@ const COLUMNS: { heading: string; links: { label: string; href: string }[] }[] =
 
 export function MarketingFooter() {
   return (
-    <footer className="border-t border-ink/10 bg-espresso font-body text-cream/60">
+    <footer className="border-t border-white/10 bg-[#14101b] font-body text-white/60">
       <div className="mx-auto w-full max-w-6xl px-6 py-16 lg:px-8">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_repeat(3,1fr)]">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_repeat(3,1fr)] lg:gap-16">
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/AMS_ACCESS_DARK.png" alt="AMS Access" className="h-7 w-auto" />
-            <p className="mt-5 max-w-xs text-sm leading-6 text-cream/50">
+            <img src="/AMS_ACCESS.svg" alt="AMS Access" className="h-7 w-auto" />
+            <p className="mt-5 max-w-sm text-sm leading-6 text-white/60">
               Proctored contests and assessments. A product of the Algorithms &amp; Mathematics
               Society.
             </p>
             <a
               href="https://amshq.in"
-              className="mt-5 inline-block text-sm text-gold-bright underline-offset-4 hover:underline"
+              className="mt-5 inline-block text-sm text-orchid underline-offset-4 hover:underline"
             >
               amshq.in
             </a>
@@ -64,13 +60,13 @@ export function MarketingFooter() {
 
           {COLUMNS.map((column) => (
             <div key={column.heading}>
-              <h4 className="text-xs font-semibold uppercase tracking-[0.18em] text-cream/40">
+              <h4 className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
                 {column.heading}
               </h4>
               <ul className="mt-4 space-y-3 text-sm">
                 {column.links.map((link) => (
                   <li key={link.label}>
-                    <Link href={link.href} className="transition-colors hover:text-cream">
+                    <Link href={link.href} className="transition-colors hover:text-white">
                       {link.label}
                     </Link>
                   </li>
@@ -80,13 +76,13 @@ export function MarketingFooter() {
           ))}
         </div>
 
-        <div className="mt-14 flex flex-col items-start justify-between gap-3 border-t border-white/10 pt-6 text-xs text-cream/40 sm:flex-row sm:items-center">
+        <div className="mt-14 flex flex-col items-start justify-between gap-3 border-t border-white/10 pt-6 text-xs text-white/40 sm:flex-row sm:items-center">
           <p>&copy; {new Date().getFullYear()} Algorithms &amp; Mathematics Society.</p>
           <div className="flex gap-6">
-            <Link href="/contact" className="transition-colors hover:text-cream">
+            <Link href="/contact" className="transition-colors hover:text-white">
               Privacy
             </Link>
-            <Link href="/contact" className="transition-colors hover:text-cream">
+            <Link href="/contact" className="transition-colors hover:text-white">
               Terms
             </Link>
           </div>

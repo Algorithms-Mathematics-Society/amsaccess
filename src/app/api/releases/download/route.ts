@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { fetchLatestRelease } from "@/lib/releases";
 import type { ReleaseAsset } from "@/lib/releases";
-import { requireSubject } from "@/lib/server/session";
 import { apiRateLimited } from "@/lib/server/http";
 import { checkRequestRateLimit } from "@/lib/server/rateLimit";
 
@@ -24,15 +23,11 @@ function isAssetType(value: string | null): value is AssetType {
 }
 
 export async function GET(request: NextRequest) {
-  const subject = await requireSubject();
-  if (!subject) {
-    const loginUrl = new URL("/org/login", request.url);
-    loginUrl.searchParams.set("next", "/download");
-    const response = NextResponse.redirect(loginUrl);
-    response.headers.set("Cache-Control", "no-store");
-    return response;
-  }
-
+  // Open. The people who need this binary are candidates, and a candidate
+  // has no organization credentials by definition: they sign in to a round
+  // from inside the app, with a code on a slip. Putting the installer
+  // behind the operator login meant the one audience that must have it was
+  // the one audience that could not get it.
   const platform = request.nextUrl.searchParams.get("platform");
   const type = request.nextUrl.searchParams.get("type");
 

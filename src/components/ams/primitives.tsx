@@ -6,10 +6,10 @@ import { useEffect, useRef, useState } from "react";
 /**
  * The AMS public-page kit.
  *
- * Deliberately small and deliberately the same vocabulary as ams-website:
- * burgundy, cream, gold, a serif display and squared-off geometry. Access
- * is an AMS product, and a visitor arriving from amshq.in should not feel
- * they have left.
+ * One vocabulary, taken from the mark: a violet gradient held back to
+ * pastel and warmed slightly, with a serif display and squared geometry.
+ * Every colour is a CSS variable, so the dark theme is the same names with
+ * different values and nothing here branches on it.
  *
  * Nothing here is generic. There is one button with three variants, one
  * easing, one container width, because the alternative is six of each and
@@ -23,13 +23,13 @@ export function Container({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={`mx-auto w-full max-w-6xl px-6 lg:px-8 ${className}`}>{children}</div>;
+  return <div className={`mx-auto w-full max-w-[96rem] px-5 sm:px-8 lg:px-8 ${className}`}>{children}</div>;
 }
 
 /** Small caps label above a heading. One per section, never stacked. */
 export function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="block font-body text-xs font-semibold uppercase tracking-[0.18em] text-gold-deep">
+    <span className="block font-body text-xs font-semibold uppercase tracking-[0.18em] text-violet">
       {children}
     </span>
   );
@@ -52,13 +52,13 @@ export function AmsButton({
 }) {
   const base =
     "inline-flex min-h-11 items-center justify-center gap-2 rounded-control px-5 py-2.5 " +
-    "font-body text-sm font-semibold no-underline transition-colors " +
+    "font-body text-sm font-semibold no-underline transition-all duration-200 active:translate-y-px active:scale-[0.99] " +
     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
   const styles: Record<ButtonVariant, string> = {
-    solid: "bg-burgundy text-cream-light hover:bg-burgundy-deep focus-visible:outline-gold-deep",
+    solid: "bg-violet text-white hover:bg-violet-deep focus-visible:outline-violet",
     outline:
-      "border border-burgundy/50 text-burgundy hover:border-burgundy hover:bg-burgundy/5 focus-visible:outline-gold-deep",
-    inverse: "bg-cream text-burgundy hover:bg-cream-light focus-visible:outline-gold-bright",
+      "border border-line text-ink hover:border-violet hover:bg-violet-soft focus-visible:outline-violet",
+    inverse: "bg-paper text-violet-deep hover:bg-surface focus-visible:outline-orchid",
   };
   const cls = `${base} ${styles[variant]} ${className}`;
 
@@ -155,7 +155,7 @@ export function SectionHeading({
       <h2 className="mt-3 font-display text-[clamp(1.9rem,2.8vw+0.75rem,3.1rem)] leading-[1.08] text-ink">
         {title}
       </h2>
-      {lead && <p className="mt-4 font-body text-base leading-7 text-ink/70">{lead}</p>}
+      {lead && <p className="mt-4 font-body text-base leading-7 text-muted">{lead}</p>}
     </div>
   );
 }
@@ -169,7 +169,7 @@ export function Plate({
   className?: string;
 }) {
   return (
-    <div className={`rounded-panel border border-ink/10 bg-cream-light ${className}`}>
+    <div className={`rounded-panel border border-line bg-surface transition-colors duration-200 hover:border-violet/35 ${className}`}>
       {children}
     </div>
   );

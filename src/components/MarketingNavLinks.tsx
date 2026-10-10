@@ -4,16 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { label: "Product", href: "/product" },
   { label: "Download", href: "/download" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "Docs", href: "/docs" },
-  { label: "Changelog", href: "/changelog" },
   { label: "Contact", href: "/contact" },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
-  if (href === "/docs") return pathname === "/docs" || pathname.startsWith("/docs/");
   return pathname === href;
 }
 
@@ -21,17 +16,17 @@ export function MarketingNavLinks() {
   const pathname = usePathname();
 
   return (
-    <nav className="hidden items-center gap-7 font-body text-sm lg:flex">
+    <nav aria-label="Main" className="ml-auto hidden h-full items-center gap-1 font-body xl:flex">
       {links.map(({ label, href }) => {
         const active = isActive(pathname, href);
         return (
           <Link
             key={href}
             href={href}
-            className={`transition-colors ${
+            className={`inline-flex min-h-11 items-center rounded-control px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream ${
               active
-                ? "font-semibold text-burgundy"
-                : "text-ink/60 hover:text-ink"
+                ? "bg-[#352748] text-[#fffcf5]"
+                : "text-[#fffcf5]/85 hover:bg-[#352748] hover:text-[#fffcf5]"
             }`}
           >
             {label}

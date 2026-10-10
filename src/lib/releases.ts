@@ -1,5 +1,6 @@
 const REPO = "Algorithms-Mathematics-Society/ams-access";
 const GH_API = `https://api.github.com/repos/${REPO}/releases/latest`;
+const GH_LIST = `https://api.github.com/repos/${REPO}/releases?per_page=20`;
 
 interface GHAsset {
   name: string;
@@ -74,5 +75,59 @@ export async function fetchLatestRelease(): Promise<LatestRelease | null> {
     };
   } catch {
     return null;
+  }
+}
+
+
+export interface ReleaseSummary {
+  version: string;
+  name: string;
+  publishedAt: string;
+  releaseUrl: string;
+  /** The release body as GitHub holds it, trimmed. May be empty. */
+  notes: string;
+}
+
+/**
+ * Recent releases, newest first.
+ *
+ * Reads GitHub rather than a hand-written list. The hand-written one said
+ * v0.2.0 in May 2026 while the product shipped v2.3.1, and nothing in the
+ * page could have noticed: a changelog maintained separately from the
+ * releases it describes is a second source of truth that only ever drifts
+ * one way.
+ *
+ * Drafts and prereleases are left out. A draft is not released yet, and
+ * publishing its notes would announce a build nobody can download.
+ */
+export async function fetchReleases(): Promise<ReleaseSummary[]> {
+  try {
+    const res = await fetch(GH_LIST, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(process.env.GITHUB_TOKEN
+          ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+          : {}),
+      },
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return [];
+    const releases = (await res.json()) as (GHRelease & {
+      draft?: boolean;
+      prerelease?: boolean;
+      body?: string;
+    })[];
+    return releases
+      .filter((r) => !r.draft && !r.prerelease)
+      .map((r) => ({
+        version: r.tag_name,
+        name: r.name || r.tag_name,
+        publishedAt: r.published_at,
+        releaseUrl: r.html_url,
+        notes: (r.body ?? "").trim(),
+      }));
+  } catch {
+    return [];
   }
 }

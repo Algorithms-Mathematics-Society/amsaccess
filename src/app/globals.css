@@ -95,6 +95,13 @@ html {
   overscroll-behavior: none;
   background: rgb(var(--ams-bg));
   -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {
@@ -1429,3 +1436,40 @@ input:-webkit-autofill:active {
 }
 
 
+
+/* ── Access public-page palette ───────────────────────────────────────────
+ *
+ * Taken from the mark: a violet gradient, deep indigo through orchid. Held
+ * back to pastel and warmed slightly so it reads vintage rather than SaaS,
+ * which is what the old saturated purple on pure white looked like.
+ *
+ * Scoped to .ac-theme rather than :root, because the org portal and the
+ * contest room have palettes of their own and inheriting this would
+ * repaint both. Dark mode is the same names with different values, so no
+ * component ever branches on the theme.
+ */
+.ac-theme {
+  --ac-paper: 247 244 241;        /* #F7F4F1 warm off-white */
+  --ac-surface: 255 253 251;      /* #FFFDFB raised card */
+  --ac-ink: 33 26 43;             /* #211A2B deep plum, near-black */
+  --ac-muted: 110 100 124;        /* #6E647C secondary text */
+  --ac-line: 226 219 232;         /* #E2DBE8 hairline */
+  --ac-violet: 122 79 208;        /* #7A4FD0 the mark, muted */
+  --ac-violet-deep: 76 47 138;    /* #4C2F8A pressed, and dark-mode text */
+  --ac-violet-soft: 238 232 248;  /* #EEE8F8 tint fill */
+  --ac-orchid: 198 141 232;       /* #C68DE8 the light end of the gradient */
+}
+
+.ac-theme.dark {
+  /* Not inverted: a plum that keeps the warmth, so the two themes are the
+     same room at different times of day rather than two designs. */
+  --ac-paper: 20 16 27;           /* #14101B */
+  --ac-surface: 29 23 38;         /* #1D1726 */
+  --ac-ink: 240 236 246;          /* #F0ECF6 */
+  --ac-muted: 162 152 176;        /* #A298B0 */
+  --ac-line: 52 43 66;            /* #342B42 */
+  --ac-violet: 177 141 240;       /* #B18DF0 lifted, for contrast on plum */
+  --ac-violet-deep: 214 191 250;  /* #D6BFFA */
+  --ac-violet-soft: 42 33 56;     /* #2A2138 */
+  --ac-orchid: 198 141 232;
+}

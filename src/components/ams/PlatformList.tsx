@@ -29,28 +29,28 @@ function size(bytes: number): string {
 
 export function PlatformList({ platforms }: { platforms: PlatformBuild[] }) {
   return (
-    <div className="divide-y divide-ink/10 overflow-hidden rounded-panel border border-ink/10 bg-cream-light">
+    <div className="divide-y divide-ink/10 overflow-hidden rounded-panel border border-line bg-surface">
       {platforms.map((platform) => (
         <div key={platform.os} className="grid gap-4 p-5 sm:grid-cols-[14rem_1fr] sm:p-6">
           <div>
             <h3 className="font-display text-lg text-ink">{platform.os}</h3>
-            <p className="mt-1 text-sm text-ink/55">{platform.requirement}</p>
+            <p className="mt-1 text-sm text-muted">{platform.requirement}</p>
           </div>
 
           {platform.files.length === 0 ? (
-            <p className="self-center text-sm text-ink/45">Not in this release.</p>
+            <p className="self-center text-sm text-muted">Not in this release.</p>
           ) : (
             <ul className="space-y-2">
               {platform.files.map(({ label, asset }) => (
                 <li key={label}>
                   <a
                     href={asset.url}
-                    className="group flex items-center justify-between gap-4 rounded-control border border-ink/10 px-4 py-2.5 transition-colors hover:border-burgundy/40 hover:bg-burgundy/[0.03]"
+                    className="group flex flex-col items-start gap-2 rounded-control border border-line px-4 py-2.5 transition-colors hover:border-violet/50 hover:bg-violet-soft sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                   >
                     <span className="font-body text-sm text-ink">{label}</span>
-                    <span className="flex items-center gap-3">
-                      <span className="font-mono text-xs text-ink/45">{size(asset.size)}</span>
-                      <ArrowDownToLine className="h-4 w-4 text-ink/40 transition-colors group-hover:text-burgundy" />
+                    <span className="flex items-center gap-3 self-stretch sm:self-auto">
+                      <span className="font-mono text-xs text-muted">{size(asset.size)}</span>
+                      <ArrowDownToLine className="h-4 w-4 text-muted transition-colors group-hover:text-violet" />
                     </span>
                   </a>
                 </li>

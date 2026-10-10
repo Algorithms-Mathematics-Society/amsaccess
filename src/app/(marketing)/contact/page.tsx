@@ -87,7 +87,7 @@ export default function ContactPage() {
   }
 
   return (
-    <main className="min-h-screen bg-cream font-body text-ink antialiased">
+    <main className="ac-theme min-h-screen bg-paper font-body text-ink antialiased">
       <MarketingHeader />
 
       <section className="pb-16 pt-28 sm:pt-36">
@@ -97,7 +97,7 @@ export default function ContactPage() {
             <h1 className="mt-3 font-display text-[clamp(2.25rem,3.6vw+0.75rem,3.75rem)] leading-[1.04] text-ink">
               Talk to the people who run it.
             </h1>
-            <p className="mt-5 text-base leading-7 text-ink/70">
+            <p className="mt-5 text-base leading-7 text-muted">
               AMS Access is built and operated by the Algorithms &amp; Mathematics Society. We use
               it for our own contests, which is both why it exists and why the person answering
               your mail has run a round with it.
@@ -109,13 +109,13 @@ export default function ContactPage() {
               <a
                 key={route.title}
                 href={`mailto:${route.email}?subject=${encodeURIComponent(route.subject)}`}
-                className="group rounded-panel border border-ink/10 bg-cream-light p-5 no-underline transition-colors hover:border-burgundy/40"
+                className="group rounded-panel border border-line bg-surface p-5 no-underline transition-colors hover:border-violet/50"
               >
                 <h2 className="font-display text-lg text-ink">{route.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-ink/65">{route.body}</p>
-                <span className="mt-4 flex items-center gap-2 font-mono text-xs text-burgundy">
-                  <Mail className="h-3.5 w-3.5" />
-                  {route.email}
+                <p className="mt-2 text-sm leading-6 text-muted">{route.body}</p>
+                <span className="mt-4 flex min-w-0 items-start gap-2 font-mono text-xs text-violet">
+                  <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="break-all">{route.email}</span>
                 </span>
               </a>
             ))}
@@ -123,7 +123,7 @@ export default function ContactPage() {
         </Container>
       </section>
 
-      <section className="border-t border-ink/10 bg-cream-light py-[clamp(3.75rem,7vw,6.5rem)]">
+      <section className="border-t border-line bg-surface py-[clamp(3.75rem,7vw,6.5rem)]">
         <Container>
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
             <div>
@@ -131,7 +131,7 @@ export default function ContactPage() {
               <h2 className="mt-3 font-display text-[clamp(1.6rem,2vw+0.75rem,2.25rem)] leading-tight text-ink">
                 A student society that kept building its own tools.
               </h2>
-              <p className="mt-4 text-base leading-7 text-ink/70">
+              <p className="mt-4 text-base leading-7 text-muted">
                 We run Derive and Ascent, our own competitive rounds, and Access is the shell we
                 built to run them honestly. It is used by institutions and hiring teams who need
                 the same thing we did: a round whose result holds up when somebody asks how it was
@@ -139,17 +139,17 @@ export default function ContactPage() {
               </p>
               <a
                 href="https://amshq.in"
-                className="mt-5 inline-block text-sm font-semibold text-burgundy underline-offset-4 hover:underline"
+                className="mt-5 inline-block text-sm font-semibold text-violet underline-offset-4 hover:underline"
               >
                 More about AMS
               </a>
             </div>
 
-            <div className="rounded-panel border border-ink/10 bg-cream p-6">
+            <div className="rounded-panel border border-line bg-paper p-6">
               {status === "sent" ? (
                 <div>
                   <h3 className="font-display text-lg text-ink">Sent.</h3>
-                  <p className="mt-2 text-sm leading-6 text-ink/65">
+                  <p className="mt-2 text-sm leading-6 text-muted">
                     We read everything that arrives here. If it is urgent, mail the address above
                     directly.
                   </p>
@@ -160,27 +160,27 @@ export default function ContactPage() {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block">
-                      <span className="text-sm text-ink/70">Name</span>
+                      <span className="text-sm text-muted">Name</span>
                       <input name="name" required className={field} />
                     </label>
                     <label className="block">
-                      <span className="text-sm text-ink/70">Email</span>
+                      <span className="text-sm text-muted">Email</span>
                       <input name="email" type="email" required className={field} />
                     </label>
                   </div>
 
                   <label className="block">
-                    <span className="text-sm text-ink/70">Organization</span>
+                    <span className="text-sm text-muted">Organization</span>
                     <input name="organization" className={field} />
                   </label>
 
                   <fieldset>
-                    <legend className="text-sm text-ink/70">About</legend>
+                    <legend className="text-sm text-muted">About</legend>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {ROUTES.map((route, index) => (
                         <label
                           key={route.title}
-                          className="cursor-pointer rounded-control border border-ink/15 px-3 py-1.5 text-sm text-ink/70 transition-colors has-[:checked]:border-burgundy has-[:checked]:bg-burgundy has-[:checked]:text-cream-light"
+                          className="cursor-pointer rounded-control border border-line px-3 py-1.5 text-sm text-muted transition-colors has-[:checked]:border-violet has-[:checked]:bg-violet has-[:checked]:text-white"
                         >
                           <input
                             type="radio"
@@ -196,7 +196,7 @@ export default function ContactPage() {
                   </fieldset>
 
                   <label className="block">
-                    <span className="text-sm text-ink/70">Message</span>
+                    <span className="text-sm text-muted">Message</span>
                     <textarea name="message" required rows={5} className={field} />
                   </label>
 
@@ -207,7 +207,7 @@ export default function ContactPage() {
                   <button
                     type="submit"
                     disabled={status === "sending"}
-                    className="inline-flex min-h-11 items-center rounded-control bg-burgundy px-5 py-2.5 text-sm font-semibold text-cream-light transition-colors hover:bg-burgundy-deep disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center rounded-control bg-violet px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-deep disabled:opacity-60"
                   >
                     {status === "sending" ? "Sending" : "Send"}
                   </button>
@@ -224,5 +224,5 @@ export default function ContactPage() {
 }
 
 const field =
-  "mt-1.5 w-full rounded-control border border-ink/15 bg-cream-light px-3 py-2 text-sm text-ink " +
-  "focus:border-burgundy focus:outline-none focus:ring-1 focus:ring-burgundy";
+  "mt-1.5 w-full rounded-control border border-line bg-paper px-3 py-2 text-sm text-ink " +
+  "focus:border-violet focus:outline-none focus:ring-1 focus:ring-violet";

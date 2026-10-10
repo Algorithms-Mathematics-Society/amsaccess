@@ -129,15 +129,6 @@ export async function middleware(request: NextRequest) {
 
   const sessionCookie = request.cookies.get("ams_session")?.value;
 
-  if (pathname === "/download") {
-    if (!sessionCookie || isSessionCookieExpired(sessionCookie)) {
-      const loginUrl = new URL("/org/login", request.url);
-      loginUrl.searchParams.set("next", "/download");
-      return noStore(NextResponse.redirect(loginUrl));
-    }
-    return response;
-  }
-
   if (pathname.startsWith("/admin")) {
     if (!sessionCookie || isSessionCookieExpired(sessionCookie)) {
       return noStore(NextResponse.redirect(new URL("/access-admin-only", request.url)));
@@ -156,5 +147,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/access-admin-only", "/download", "/admin/:path*", "/org/:path*", "/amsadmin/:path*"],
+  matcher: ["/access-admin-only", "/admin/:path*", "/org/:path*", "/amsadmin/:path*"],
 };

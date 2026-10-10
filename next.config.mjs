@@ -37,12 +37,10 @@ const immutableAssetHeaders = [
 
 const publicRoutes = [
   "/",
-  "/product",
   "/pricing",
   "/docs",
   "/changelog",
-  "/contact",
-  "/controlled-round"
+  "/contact"
 ];
 
 const nextConfig = {

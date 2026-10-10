@@ -55,12 +55,12 @@ export function PrimaryDownload({
   if (!mounted) {
     // Reserves the same box so the heading below does not jump when the
     // real label arrives.
-    return <div className="h-11 w-56 rounded-control bg-ink/5" aria-hidden />;
+    return <div className="h-11 w-56 rounded-control bg-violet-soft" aria-hidden />;
   }
 
   if (!platform || !href) {
     return (
-      <p className="font-body text-sm text-ink/60">
+      <p className="font-body text-sm text-muted">
         Pick your platform below.
       </p>
     );
@@ -70,13 +70,13 @@ export function PrimaryDownload({
     <div className="flex flex-wrap items-center gap-3">
       <a
         href={href}
-        className="inline-flex min-h-11 items-center gap-2 rounded-control bg-burgundy px-5 py-2.5 font-body text-sm font-semibold text-cream-light no-underline transition-colors hover:bg-burgundy-deep"
+        className="inline-flex min-h-11 items-center gap-2 rounded-control bg-violet px-5 py-2.5 font-body text-sm font-semibold text-white no-underline transition-colors hover:bg-violet-deep"
       >
         <Download className="h-4 w-4" />
         Download for {LABEL[platform]}
       </a>
       {version && (
-        <span className="font-mono text-xs text-ink/50">
+        <span className="font-mono text-xs text-muted">
           {version}
         </span>
       )}

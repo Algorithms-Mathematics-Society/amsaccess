@@ -6,7 +6,7 @@
 - Auth: Supabase Auth through SSR/browser cookies. Admin access is checked against `public.admin_users`; org access uses Supabase RLS on organization tables.
 - Database/storage: Supabase Postgres plus Supabase Storage bucket `question-assets`.
 - API layer: protected high-traffic flows now use Next route handlers under `/api/*` with `no-store`, server-side validation, structured logging, and temporary in-memory rate limits.
-- Public pages: `/`, `/product`, `/pricing`, `/download`, `/docs`, `/changelog`, `/contact`, `/controlled-round`.
+- Public pages: `/`, `/pricing`, `/download`, `/docs`, `/changelog`, `/contact`.
 - Private pages/data: `/admin/*`, `/org/*`, auth state, sessions, answers, reviews, org contests, invites, and question/admin mutations.
 
 ## Public vs Private Routes

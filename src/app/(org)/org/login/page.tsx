@@ -2,10 +2,9 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
 import { MarketingFooter } from "@/components/MarketingFooter";
-import { ProctorNetwork } from "@/components/ProctorNetwork";
 import { apiFetch } from "@/lib/client/apiClient";
 
 export default function OrgLoginPage() {
@@ -39,90 +38,68 @@ export default function OrgLoginPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-white text-slate-900 selection:bg-purple-200 selection:text-purple-900">
+    <main className="ac-theme min-h-screen overflow-hidden bg-paper font-body text-ink selection:bg-violet-soft selection:text-violet-deep">
       <MarketingHeader />
 
-      <section className="relative flex min-h-screen items-center overflow-hidden px-4 pb-20 pt-28 sm:px-6 sm:pt-32">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-purple-50/60 via-transparent to-slate-50/40" />
-        <div className="relative z-10 mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[1fr_26rem] lg:items-center">
+      <section className="relative flex min-h-[calc(100dvh-5rem)] items-center overflow-hidden px-5 pb-16 pt-28 sm:px-8 sm:pb-20 sm:pt-32 lg:px-8 lg:py-24">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgb(var(--ac-violet-soft)/0.8),transparent_34rem)]" />
+        <div className="relative z-10 mx-auto grid w-full max-w-[96rem] gap-10 sm:gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] lg:items-center lg:gap-16 xl:gap-24">
           <div className="max-w-2xl">
-
-            <h1 className="text-4xl font-medium leading-[1.05] tracking-tight text-slate-900 sm:text-5xl md:text-7xl">
-              Sign in to download Access.
+            <p className="font-body text-xs font-semibold uppercase tracking-[0.2em] text-violet">Organization portal</p>
+            <h1 className="mt-5 font-display text-[clamp(2.5rem,5vw,5.5rem)] font-normal leading-[1.05] tracking-[-0.035em] text-ink lg:leading-[1.02]">
+              The control room for serious rounds.
             </h1>
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-              Downloads are reserved for organization admins and operators. Use the same organization credentials you use for the AMS portal.
+            <p className="mt-7 max-w-xl text-lg leading-8 text-muted sm:text-xl">
+              Sign in to manage contests, participants, judging infrastructure, and the desktop release your organization runs on.
             </p>
 
-            <div className="relative mt-8 overflow-hidden rounded-2xl border border-white/10 bg-ams-dark p-5 text-white shadow-2xl shadow-slate-950/20">
-              <div className="pointer-events-none absolute inset-0" />
-              <div className="relative min-h-44 overflow-hidden rounded-xl border border-white/10 bg-black/30 p-5">
-                <ProctorNetwork nodeCount={24} connectDist={120} mouseRadius={140} />
-                <div className="relative z-10 flex h-full flex-col justify-between gap-10">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-purple-300/30 bg-purple-300/10 text-purple-100">
-                      <ShieldCheck className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-white">Protected release access</p>
-                      <p className="mt-1 text-xs text-purple-100/60">Authenticated session required</p>
-                    </div>
-                  </div>
-                  <div className="grid gap-2 text-xs text-purple-100/65 sm:grid-cols-3">
-                    <span className="rounded-full border border-white/10 bg-white/10 px-3 py-2 backdrop-blur-md">Windows</span>
-                    <span className="rounded-full border border-white/10 bg-white/10 px-3 py-2 backdrop-blur-md">macOS</span>
-                    <span className="rounded-full border border-white/10 bg-white/10 px-3 py-2 backdrop-blur-md">Linux</span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-900/5 sm:p-8">
+          <div className="rounded-panel border border-line bg-surface p-6 shadow-xl shadow-slate-950/10 sm:p-9">
             <div className="mb-6">
-              <img src="/AMS_ACCESS_LIGHT(1).svg" alt="AMS Access" className="h-7 w-auto" />
-              <h2 className="mt-6 text-2xl font-semibold tracking-tight text-slate-900">Organization portal</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">Enter your organization credentials to continue.</p>
+              <p className="text-sm font-semibold tracking-tight text-ink">AMS Access <span className="font-normal text-muted">/ Organization</span></p>
+              <h2 className="mt-8 font-display text-3xl text-ink">Welcome back.</h2>
+              <p className="mt-2 text-sm leading-6 text-muted">Enter your organization credentials to continue.</p>
             </div>
 
             {error && (
-              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <div className="mb-5 rounded-control border border-red-300/50 bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-200">
                 {error}
               </div>
             )}
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-600">Email</label>
+                <label className="mb-1.5 block text-xs font-semibold text-ink">Email</label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="org@amsaccess.com"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-purple-500 focus:bg-white focus:ring-4 focus:ring-purple-500/10"
+                    className="w-full rounded-control border border-line bg-paper py-3 pl-10 pr-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-violet focus:bg-surface focus:ring-4 focus:ring-violet/15"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-600">Password</label>
+                <label className="mb-1.5 block text-xs font-semibold text-ink">Password</label>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                   <input
                     type={showPwd ? "text" : "password"}
                     required
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Password"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-3 pl-10 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-purple-500 focus:bg-white focus:ring-4 focus:ring-purple-500/10"
+                    className="w-full rounded-control border border-line bg-paper py-3 pl-10 pr-11 text-sm text-ink outline-none transition placeholder:text-muted focus:border-violet focus:bg-surface focus:ring-4 focus:ring-violet/15"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPwd((value) => !value)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition hover:text-ink"
                     tabIndex={-1}
                     aria-label={showPwd ? "Hide password" : "Show password"}
                   >
@@ -134,14 +111,14 @@ export default function OrgLoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-2 ams-btn ams-btn-primary ams-btn-lg w-full cursor-pointer"
+                className="mt-3 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-control bg-violet px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-violet-deep active:translate-y-px disabled:cursor-wait disabled:opacity-60"
               >
                 {loading ? "Signing in..." : "Sign in"}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </form>
 
-            <p className="mt-6 text-center text-xs leading-5 text-slate-400">
+            <p className="mt-6 text-center text-xs leading-5 text-muted">
               Candidate access happens inside the desktop app.
             </p>
           </div>

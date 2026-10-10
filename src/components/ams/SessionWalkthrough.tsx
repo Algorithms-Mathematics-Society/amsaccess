@@ -52,7 +52,7 @@ export function SessionWalkthrough() {
   }, [paused, reduce]);
 
   return (
-    <div className="rounded-panel border border-ink/10 bg-espresso">
+    <div className="rounded-panel border border-white/10 bg-[#14101b] text-white">
       {/* The frame. A window chrome, so it reads as the application without
           pretending to be a photograph of one. */}
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
@@ -62,7 +62,7 @@ export function SessionWalkthrough() {
         <span className="ml-2 font-body text-xs text-white/40">AMS Access</span>
       </div>
 
-      <div className="relative min-h-[280px] p-6 sm:min-h-[320px] sm:p-8">
+      <div className="relative min-h-[300px] p-6 sm:min-h-[360px] sm:p-10 lg:min-h-[440px] lg:p-12">
         <AnimatePresence mode="wait">
           <motion.div
             key={STAGES[active].key}
@@ -76,7 +76,7 @@ export function SessionWalkthrough() {
         </AnimatePresence>
       </div>
 
-      <div className="border-t border-white/10 p-3">
+      <div className="border-t border-white/10 p-4 sm:p-5">
         <div
           role="tablist"
           aria-label="Session stages"
@@ -99,7 +99,7 @@ export function SessionWalkthrough() {
               >
                 <span
                   className={`block font-body text-xs font-semibold ${
-                    current ? "text-gold-bright" : "text-white/60"
+                    current ? "text-orchid" : "text-white/60"
                   }`}
                 >
                   {stage.label}
@@ -113,7 +113,7 @@ export function SessionWalkthrough() {
                 {current && !paused && !reduce && (
                   <motion.span
                     key={`${stage.key}-bar`}
-                    className="mt-2 block h-px bg-gold-bright/60"
+                    className="mt-2 block h-px bg-violet-bright/60"
                     initial={{ scaleX: 0 }}
                     animate={{ scaleX: 1 }}
                     transition={{ duration: DWELL_MS / 1000, ease: "linear" }}
@@ -147,7 +147,7 @@ function Tick({ ok = true }: { ok?: boolean }) {
   return (
     <span
       className={`font-body text-[11px] font-semibold uppercase tracking-wider ${
-        ok ? "text-emerald-400/80" : "text-gold-bright"
+        ok ? "text-emerald-400/80" : "text-orchid"
       }`}
     >
       {ok ? "ready" : "checking"}
@@ -167,7 +167,7 @@ function Scene({ stage }: { stage: string }) {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 * i, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="flex h-11 w-10 items-center justify-center rounded-control border border-white/15 font-mono text-lg text-cream"
+              className="flex h-11 w-10 items-center justify-center rounded-control border border-white/15 font-mono text-lg text-white"
             >
               {c}
             </motion.span>
