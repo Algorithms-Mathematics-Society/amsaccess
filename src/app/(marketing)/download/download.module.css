@@ -624,3 +624,129 @@
     transition: none;
   }
 }
+
+/* One recommendation leads; the complete catalogue remains available below. */
+.recommendation {
+  padding: 30px;
+  margin-bottom: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-card);
+}
+.recommendationTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 270px);
+  align-items: start;
+  gap: 36px;
+}
+.recommendation h2 {
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+  margin-top: 14px;
+}
+.recommendationDescription {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.8;
+  margin-top: 14px !important;
+  max-width: 590px;
+}
+.fileSummary { font-size: 12px; margin-top: 16px !important; line-height: 1.8; }
+.recommendationActions { display: flex; flex-direction: column; gap: 12px; }
+.otherVersions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 12px;
+  min-height: 44px;
+}
+.helperToggle {
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  min-height: 36px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.downloadHelper { border-top: 1px solid var(--color-border); padding-top: 24px; margin-top: 24px; }
+.downloadHelper[hidden] { display: none; }
+.deviceFields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.deviceField { min-width: 0; }
+.deviceField label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 9px; }
+.deviceField select {
+  width: 100%;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-element);
+  background: var(--color-background-body);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+.deviceField p, .devicePrivacy, .readinessNote {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+.deviceField p { margin-top: 9px !important; }
+.devicePrivacy { margin-top: 18px !important; }
+.readinessNote { margin-top: 24px !important; }
+.page :is(button, select):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+.choicesIntro { scroll-margin-top: 24px; }
+.choicesIntro h2 { font-size: 16px; font-weight: 500; }
+.platforms {
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  /* Leave focus outlines free to extend beyond the frame. */
+}
+.platform { border: 0; border-radius: 0; background: transparent; }
+.platform + .platform { border-left: 1px solid var(--color-border); }
+.platform:first-child { border-radius: var(--radius-container) 0 0 var(--radius-container); }
+.platform:last-child { border-radius: 0 var(--radius-container) var(--radius-container) 0; }
+.platform[data-detected="true"] {
+  background: color-mix(in srgb, var(--color-accent) 3%, var(--color-background-card));
+  box-shadow: none;
+}
+.platform .downloadButton {
+  background: var(--color-background-card);
+  border-color: var(--color-border);
+  color: var(--color-text-primary) !important;
+}
+.platform .downloadButton:hover { background: var(--color-background-surface); }
+.file[data-recommended="true"] .downloadButton { border-color: var(--color-accent); }
+.alternatives a[data-recommended="true"] { border-bottom-color: var(--color-accent); }
+.fileBadge {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-accent);
+  margin-bottom: 6px;
+}
+.alternatives .fileBadge { margin: 4px 0 0; }
+@media (max-width: 1000px) {
+  .deviceFields { gap: 16px; }
+}
+@media (max-width: 760px) {
+  .recommendation { padding: 24px; margin-bottom: 32px; }
+  .recommendationTop { grid-template-columns: 1fr; gap: 24px; }
+  .recommendationActions { align-items: stretch; gap: 6px; }
+  .deviceFields { grid-template-columns: 1fr; gap: 20px; }
+  .platform + .platform { border-left: 0; border-top: 1px solid var(--color-border); }
+  .platform:first-child { border-radius: var(--radius-container) var(--radius-container) 0 0; }
+  .platform:last-child { border-radius: 0 0 var(--radius-container) var(--radius-container); }
+}
+@media (max-width: 380px) {
+  .recommendation { padding: 20px; }
+}

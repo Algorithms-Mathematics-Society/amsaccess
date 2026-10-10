@@ -11,7 +11,30 @@
   line-height: 1.5;
   color: var(--color-text-primary);
   background: var(--color-background-body);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid transparent;
+  transition: background-color var(--duration-fast), border-color var(--duration-fast);
+}
+.header[data-scrolled="true"],
+.header[data-menu-open="true"] {
+  border-bottom-color: var(--color-border);
+}
+/* Solid surface remains the fallback when backdrop filtering is unavailable. */
+@supports ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
+  .header[data-scrolled="true"] {
+    background: color-mix(in srgb, var(--color-background-body) 92%, transparent);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
+  .header[data-scrolled="true"] {
+    background: var(--color-background-body);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header { transition: none; }
 }
 .header [hidden] {
   display: none !important;

@@ -2,10 +2,27 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { MarketingHeader } from "@/components/MarketingEndpointPage";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Divider } from "@astryxdesign/core/Divider";
+import { Field } from "@astryxdesign/core/Field";
+import { HStack, VStack } from "@astryxdesign/core/Stack";
+import { Heading, Text } from "@astryxdesign/core/Text";
+import { List, ListItem } from "@astryxdesign/core/List";
+import { MarketingHeader } from "@/components/MarketingHeader";
 import { MarketingFooter } from "@/components/MarketingFooter";
+import { OrgAstryxTheme } from "@/components/org/OrgAstryxTheme";
+import { ACCESS_APP_URL } from "@/lib/product-links";
 import { apiFetch } from "@/lib/client/apiClient";
+import styles from "./login.module.css";
+
+const workspaceSteps = [
+  { title: "Prepare the round", description: "Set up questions, instructions and the assessment schedule." },
+  { title: "Manage participants", description: "Organize your roster and share candidate access details." },
+  { title: "Review submissions", description: "Open results and examine individual attempts." },
+];
 
 export default function OrgLoginPage() {
   const router = useRouter();
@@ -38,94 +55,119 @@ export default function OrgLoginPage() {
   }
 
   return (
-    <main className="ac-theme min-h-screen overflow-hidden bg-paper font-body text-ink selection:bg-violet-soft selection:text-violet-deep">
+    <div className={styles.page} data-access-marketing data-access-theme>
       <MarketingHeader />
+      <OrgAstryxTheme>
+        <main id="org-login-content" className={styles.content} tabIndex={-1} data-org-login>
+          <VStack as="section" gap={6} className={styles.formRegion} aria-labelledby="org-login-title">
+            <VStack gap={3}>
+              <Text type="supporting" className={styles.eyebrow}>Organization workspace</Text>
+              <Heading level={1} id="org-login-title" className={styles.title}>Organizer sign in</Heading>
+              <Text color="secondary">
+                Use your organization email and password to open your workspace.
+              </Text>
+            </VStack>
 
-      <section className="relative flex min-h-[calc(100dvh-5rem)] items-center overflow-hidden px-5 pb-16 pt-28 sm:px-8 sm:pb-20 sm:pt-32 lg:px-8 lg:py-24">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgb(var(--ac-violet-soft)/0.8),transparent_34rem)]" />
-        <div className="relative z-10 mx-auto grid w-full max-w-[96rem] gap-10 sm:gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] lg:items-center lg:gap-16 xl:gap-24">
-          <div className="max-w-2xl">
-            <p className="font-body text-xs font-semibold uppercase tracking-[0.2em] text-violet">Organization portal</p>
-            <h1 className="mt-5 font-display text-[clamp(2.5rem,5vw,5.5rem)] font-normal leading-[1.05] tracking-[-0.035em] text-ink lg:leading-[1.02]">
-              The control room for serious rounds.
-            </h1>
-            <p className="mt-7 max-w-xl text-lg leading-8 text-muted sm:text-xl">
-              Sign in to manage contests, participants, judging infrastructure, and the desktop release your organization runs on.
-            </p>
+            <form onSubmit={handleLogin} aria-busy={loading} data-org-login-form>
+              <VStack gap={5}>
+                <Field label="Email" inputID="org-email" width="100%">
+                  <HStack className={styles.fieldControl} align="center" gap={0}>
+                    <input
+                      id="org-email"
+                      name="email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="you@organization.com"
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      aria-describedby={error ? "org-login-error" : undefined}
+                      className={styles.fieldInput}
+                    />
+                  </HStack>
+                </Field>
 
-          </div>
+                <Field label="Password" inputID="org-password" width="100%">
+                  <HStack className={styles.fieldControl} align="center" gap={0}>
+                    <input
+                      id="org-password"
+                      name="password"
+                      type={showPwd ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                      aria-describedby={error ? "org-login-error" : undefined}
+                      className={styles.fieldInput}
+                    />
+                    <Button
+                      type="button"
+                      label={showPwd ? "Hide" : "Show"}
+                      aria-label={showPwd ? "Hide password" : "Show password"}
+                      aria-controls="org-password"
+                      aria-pressed={showPwd}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowPwd((value) => !value)}
+                      className={styles.passwordToggle}
+                    />
+                  </HStack>
+                </Field>
 
-          <div className="rounded-panel border border-line bg-surface p-6 shadow-xl shadow-slate-950/10 sm:p-9">
-            <div className="mb-6">
-              <p className="text-sm font-semibold tracking-tight text-ink">AMS Access <span className="font-normal text-muted">/ Organization</span></p>
-              <h2 className="mt-8 font-display text-3xl text-ink">Welcome back.</h2>
-              <p className="mt-2 text-sm leading-6 text-muted">Enter your organization credentials to continue.</p>
-            </div>
+                {error && (
+                  <Banner id="org-login-error" status="error" role="alert" title={error} className={styles.error} />
+                )}
 
-            {error && (
-              <div className="mb-5 rounded-control border border-red-300/50 bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-200">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-ink">Email</label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="org@amsaccess.com"
-                    className="w-full rounded-control border border-line bg-paper py-3 pl-10 pr-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-violet focus:bg-surface focus:ring-4 focus:ring-violet/15"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-ink">Password</label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                  <input
-                    type={showPwd ? "text" : "password"}
-                    required
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Password"
-                    className="w-full rounded-control border border-line bg-paper py-3 pl-10 pr-11 text-sm text-ink outline-none transition placeholder:text-muted focus:border-violet focus:bg-surface focus:ring-4 focus:ring-violet/15"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPwd((value) => !value)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition hover:text-ink"
-                    tabIndex={-1}
-                    aria-label={showPwd ? "Hide password" : "Show password"}
-                  >
-                    {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-3 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-control bg-violet px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-violet-deep active:translate-y-px disabled:cursor-wait disabled:opacity-60"
-              >
-                {loading ? "Signing in..." : "Sign in"}
-                <ArrowRight className="h-4 w-4" />
-              </button>
+                <Button
+                  type="submit"
+                  label={loading ? "Signing in..." : "Sign in"}
+                  variant="primary"
+                  size="lg"
+                  width="100%"
+                  isDisabled={loading}
+                  isLoading={loading}
+                  className={styles.submit}
+                />
+              </VStack>
             </form>
 
-            <p className="mt-6 text-center text-xs leading-5 text-muted">
-              Candidate access happens inside the desktop app.
-            </p>
-          </div>
-        </div>
-      </section>
+            <VStack gap={3}>
+              <Divider />
+              <Text type="supporting" color="secondary">Need help accessing your organization?</Text>
+              <Link href="/contact" className={styles.textLink}>
+                Contact the team <ArrowUpRight size={14} aria-hidden="true" />
+              </Link>
+            </VStack>
+          </VStack>
 
+          <VStack as="aside" gap={6} className={styles.guidance} aria-labelledby="workspace-title">
+            <VStack gap={2}>
+              <Heading level={2} id="workspace-title" className={styles.guidanceTitle}>Your assessment workspace</Heading>
+              <Text color="secondary">From preparing a round to reviewing the work.</Text>
+            </VStack>
+            <List hasDividers density="spacious" listStyle="decimal" aria-label="Organizer workflow">
+              {workspaceSteps.map((step) => (
+                <ListItem key={step.title} label={step.title}
+                  description={<Text type="supporting">{step.description}</Text>}
+                  className={styles.step} />
+              ))}
+            </List>
+            <VStack gap={2} className={styles.candidateHelp}>
+              <Text weight="medium">Taking an assessment?</Text>
+              <Text type="supporting" color="secondary">
+                Candidates sign in inside the Access desktop app using their organizer’s instructions.
+              </Text>
+              <a href={ACCESS_APP_URL} className={styles.textLink}>
+                Download Access <ArrowUpRight size={14} aria-hidden="true" />
+              </a>
+            </VStack>
+          </VStack>
+        </main>
+      </OrgAstryxTheme>
       <MarketingFooter />
-    </main>
+    </div>
   );
 }

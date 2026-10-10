@@ -1,7 +1,10 @@
-import type { LatestRelease, ReleaseAsset } from "@/lib/releases";
+import type { LatestRelease, ReleaseAsset, ReleaseArchitecture } from "@/lib/releases";
 import type { DownloadPlatform } from "@/lib/download-platform";
 
+export type DownloadFormat = "exe" | "msi" | "dmg" | "appimage" | "deb" | "rpm";
 export type DownloadFile = {
+  format: DownloadFormat;
+  architecture?: ReleaseArchitecture;
   label: string;
   detail: string;
   href: string;
@@ -26,7 +29,7 @@ function formatSize(bytes: number) {
 function file(
   asset: ReleaseAsset | undefined,
   platform: DownloadPlatform,
-  type: string,
+  type: DownloadFormat,
   label: string,
   detail: string,
 ): DownloadFile[] {
@@ -36,7 +39,11 @@ function file(
   return [
     {
       label,
-      detail,
+      format: type,
+      architecture: asset.architecture,
+      detail: platform !== "macos" && asset.architecture
+        ? detail + " · " + (asset.architecture === "arm64" ? "ARM64" : asset.architecture === "x64" ? "64-bit Intel / AMD" : "Universal")
+        : detail,
       size: formatSize(asset.size),
       href: "/api/releases/download?" + params.toString(),
     },
@@ -115,7 +122,7 @@ export function downloadOptions(
     {
       id: "linux",
       name: "Linux",
-      requirement: "64-bit · x86_64",
+      requirement: "Check the package and processor below",
       files: file(
         linux?.appimage,
         "linux",

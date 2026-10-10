@@ -69,6 +69,7 @@ function currentPage(pathname: string, href: string) {
 export function MarketingHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState<MenuName | null>(null);
+  const [scrolled, setScrolled] = useState(false);
   const header = useRef<HTMLElement>(null);
   const triggers = useRef<Partial<Record<MenuName, HTMLButtonElement | null>>>(
     {},
@@ -125,6 +126,12 @@ export function MarketingHeader() {
     }, 200);
   }
 
+  useEffect(() => {
+    const updateScroll = () => setScrolled(window.scrollY > 16);
+    updateScroll();
+    window.addEventListener("scroll", updateScroll, { passive: true });
+    return () => window.removeEventListener("scroll", updateScroll);
+  }, []);
   useEffect(() => close(), [pathname, close]);
   useEffect(() => cancelHover, [cancelHover]);
   useEffect(() => {
@@ -214,6 +221,8 @@ export function MarketingHeader() {
       className={styles.header}
       data-access-theme
       data-access-navbar
+      data-scrolled={scrolled}
+      data-menu-open={open !== null}
       onBlur={(event) => {
         if (
           event.relatedTarget &&

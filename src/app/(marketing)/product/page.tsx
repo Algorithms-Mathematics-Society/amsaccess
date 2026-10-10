@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ProductImage } from "@/components/ProductImage";
+import { PlatformLogo } from "@/components/PlatformLogo";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -442,6 +443,25 @@ export default function ProductPage() {
               </dd>
             </div>
           </dl>
+          <div className={styles.desktopAvailability} data-desktop-availability>
+            <div className={styles.availabilityHeading}>
+              <div>
+                <h3>Choose your desktop app.</h3>
+                <p>Get the installer for the computer you’ll use for your assessment.</p>
+              </div>
+              <a className={styles.textLink} href={ACCESS_APP_URL}>
+                Find your download <ArrowUpRight size={15} aria-hidden="true" />
+              </a>
+            </div>
+            <ul className={styles.platformGrid} aria-label="Desktop platforms" role="list">
+              {(["Windows", "macOS", "Linux"] as const).map((platform) => (
+                <li key={platform}>
+                  <PlatformLogo platform={platform} width={30} height={30} />
+                  <span>{platform}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
 
         <section
