@@ -83,10 +83,8 @@ async function verifyAmsAdminToken(token: string): Promise<boolean> {
 // session redirects at the page level instead of showing a blank dashboard
 // waiting for 401s.
 //
-// It previously decoded the cookie as a Firebase JWT — base64 JSON with an
-// `exp` claim. The Cognito-era cookie is not that shape, so the parse always
-// failed, every session looked expired, and signing in bounced straight back
-// to the login page in a loop.
+// The Cognito-backed cookie is a compact signed value, not a JWT. Treating it
+// as base64 JSON would make every session look expired and cause a login loop.
 function isSessionCookieExpired(cookie: string): boolean {
   const parts = cookie.split(".");
   if (parts.length !== 3) return true;
@@ -109,6 +107,13 @@ export async function middleware(request: NextRequest) {
   }
 
   const response = noStore(NextResponse.next());
+
+  // The Firms portal uses the same signed Cognito session as the AWS-backed
+  // organization console. API routes enforce firm roles; middleware ensures
+  // authenticated documents are never cached by a browser or CDN.
+  if (pathname.startsWith("/firms")) {
+    return response;
+  }
 
   if (pathname.startsWith("/amsadmin")) {
     if (pathname === "/amsadmin/login") return response;
@@ -147,5 +152,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/access-admin-only", "/admin/:path*", "/org/:path*", "/amsadmin/:path*"],
+  matcher: ["/access-admin-only", "/admin/:path*", "/org/:path*", "/amsadmin/:path*", "/firms/:path*"],
 };

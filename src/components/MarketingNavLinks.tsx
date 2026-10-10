@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
+  { label: "Firms", href: "/firms/login" },
   { label: "Download", href: "/download" },
   { label: "Contact", href: "/contact" },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
-  return pathname === href;
+  return href === "/firms/login" ? pathname.startsWith("/firms") : pathname === href;
 }
 
 export function MarketingNavLinks() {

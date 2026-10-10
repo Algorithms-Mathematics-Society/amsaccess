@@ -98,6 +98,14 @@ html {
   scroll-behavior: smooth;
 }
 
+/* A slightly more compact desktop canvas without scaling the viewport itself.
+   This preserves fixed navigation, hit targets, and the existing mobile layout. */
+@media (min-width: 1024px) {
+  html {
+    font-size: 85%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -1472,4 +1480,38 @@ input:-webkit-autofill:active {
   --ac-violet-deep: 214 191 250;  /* #D6BFFA */
   --ac-violet-soft: 42 33 56;     /* #2A2138 */
   --ac-orchid: 198 141 232;
+}
+
+/* Firms workspace: the original portal's semantic palette, namespaced so it
+   cannot repaint the public site, organization console, or contest room. */
+.firms-theme {
+  color-scheme: light;
+  --firms-bg: 247 244 241;
+  --firms-surface: 255 253 251;
+  --firms-surface-2: 238 232 248;
+  --firms-border: 226 219 232;
+  --firms-text: 91 80 105;
+  --firms-text-strong: 33 26 43;
+  --firms-accent: 122 79 208;
+  --firms-accent-soft: 238 232 248;
+  --firms-operator: 76 47 138;
+  --firms-positive: 22 130 91;
+  --firms-negative: 190 58 58;
+  /* Shared utility aliases used by the public design tokens. */
+  --ac-paper: var(--firms-bg);
+  --ac-surface: var(--firms-surface);
+  --ac-muted: var(--firms-text);
+}
+
+.firms-theme .ams-font {
+  font-family: var(--font-geist), system-ui, sans-serif;
+}
+
+.firms-theme .ams-mono {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+.firms-theme .ams-hero-wash,
+.firms-theme .ams-grid-faint {
+  background: rgb(var(--firms-bg));
 }

@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import colors from "tailwindcss/colors";
 
 const config: Config = {
   content: [
@@ -15,6 +16,18 @@ const config: Config = {
         body: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
       colors: {
+        bg: "rgb(var(--firms-bg) / <alpha-value>)",
+        "surface-2": "rgb(var(--firms-surface-2) / <alpha-value>)",
+        border: "rgb(var(--firms-border) / <alpha-value>)",
+        text: "rgb(var(--firms-text) / <alpha-value>)",
+        "text-strong": "rgb(var(--firms-text-strong) / <alpha-value>)",
+        gold: "rgb(var(--firms-accent) / <alpha-value>)",
+        "gold-soft": "rgb(var(--firms-accent-soft) / <alpha-value>)",
+        // Preserve Tailwind's numbered scales used by the rest of the app;
+        // the Firms portal additionally uses the semantic DEFAULT shade.
+        blue: { ...colors.blue, DEFAULT: "rgb(var(--firms-operator) / <alpha-value>)" },
+        green: { ...colors.green, DEFAULT: "rgb(var(--firms-positive) / <alpha-value>)" },
+        red: { ...colors.red, DEFAULT: "rgb(var(--firms-negative) / <alpha-value>)" },
         burgundy: {
           DEFAULT: "#571c24",
           deep: "#3b141a",
@@ -74,6 +87,7 @@ const config: Config = {
         glow: "var(--ams-shadow-glow)"
       },
       animation: {
+        "reveal-in": "reveal-in 220ms ease-out both",
         grid: "grid 15s linear infinite",
         "spin-around": "spin-around calc(var(--speed, 2s) * 2) infinite linear",
         slide: "slide var(--speed, 2s) infinite linear",
@@ -82,6 +96,10 @@ const config: Config = {
         aurora: "aurora 60s linear infinite",
       },
       keyframes: {
+        "reveal-in": {
+          "0%": { opacity: "0", transform: "translateY(4px) scale(0.99)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
         grid: {
           "0%": { transform: "translateY(-50%)" },
           "100%": { transform: "translateY(0)" },

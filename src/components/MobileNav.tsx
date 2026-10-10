@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowUpRight, BookOpenText, Clock3, Download, Mail, Menu, Monitor, Tag, X } from "lucide-react";
+import { ArrowUpRight, Building2, Clock3, Download, Mail, Menu, Monitor, X } from "lucide-react";
 import Link from "next/link";
 import { DesktopDownloadNotice } from "@/components/DesktopDownloadNotice";
 
 const navItems = [
+  ["Firms portal", "/firms/login", Building2],
   ["Use cases", "/#use-cases", Monitor],
   ["Desktop details", "/download", Download],
   ["Changelog", "/changelog", Clock3],
