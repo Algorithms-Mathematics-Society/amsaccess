@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { ArrowRight, Download } from "lucide-react";
-import { PlatformLogo } from "@/components/PlatformLogo";
 import { MarketingNavLinks } from "@/components/MarketingNavLinks";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { MobileNavLazy as MobileNav } from "@/components/MobileNavLazy";
 
 export function MarketingHeader() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-ink/10 bg-cream/85 backdrop-blur-md">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6 lg:px-8">
         <Link href="/" aria-label="Access by AMS home">
           <img
             src="/AMS_ACCESS_LIGHT(1).svg"
@@ -21,7 +20,7 @@ export function MarketingHeader() {
 
         <div className="flex items-center gap-3">
           <Link
-            className="!hidden lg:!inline-flex ams-btn ams-btn-primary ams-btn-sm"
+            className="!hidden min-h-9 items-center gap-2 rounded-control bg-burgundy px-4 py-2 font-body text-sm font-semibold text-cream-light no-underline transition-colors hover:bg-burgundy-deep lg:!inline-flex"
             href="/download"
           >
             Download <Download className="h-4 w-4" />
@@ -51,61 +50,43 @@ export function MarketingEndpointPage({
   body,
   items,
   primaryHref = "/download",
-  primaryLabel = "Get Access by AMS"
+  primaryLabel = "Download"
 }: MarketingEndpointPageProps) {
-  const primaryIsDownload = primaryHref === "/download";
-
   return (
-    <main className="min-h-screen overflow-hidden bg-white text-slate-900 selection:bg-purple-200 selection:text-purple-900">
+    <main className="min-h-screen bg-cream font-body text-ink antialiased">
       <MarketingHeader />
 
-      <section className="relative flex min-h-screen items-center overflow-hidden px-4 pb-20 pt-28 sm:px-5 sm:pt-32">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/60 via-transparent to-slate-50/40 pointer-events-none" />
-        <div className="relative z-10 mx-auto grid max-w-6xl gap-10 md:gap-12 md:grid-cols-[0.92fr_1.08fr]">
+      <section className="px-6 pb-20 pt-28 sm:pt-36 lg:px-8">
+        <div className="mx-auto grid w-full max-w-6xl gap-12 lg:grid-cols-[0.95fr_1.05fr]">
           <div>
-            <div className="mb-6 inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-4 py-1.5 text-xs font-medium text-slate-600">
+            {/* A label, not a pill. The bordered capsule read as a status
+                badge and there was no status to report. */}
+            <span className="block font-body text-xs font-semibold uppercase tracking-[0.18em] text-gold-deep">
               {eyebrow}
-            </div>
-            <h1 className="max-w-3xl text-4xl font-medium leading-[1.05] tracking-tight text-slate-900 sm:text-5xl md:text-7xl">
+            </span>
+            <h1 className="mt-3 font-display text-[clamp(2.25rem,3.6vw+0.75rem,3.75rem)] leading-[1.04] text-ink">
               {title}
             </h1>
-            <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg md:text-xl">
-              {body}
-            </p>
+            <p className="mt-5 max-w-xl text-base leading-7 text-ink/65">{body}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                className={`${primaryIsDownload ? "!hidden lg:!inline-flex" : "inline-flex"} ams-btn ams-btn-primary ams-btn-md`}
+                className="inline-flex min-h-11 items-center gap-2 rounded-control bg-burgundy px-5 py-2.5 font-body text-sm font-semibold text-cream-light no-underline transition-colors hover:bg-burgundy-deep"
                 href={primaryHref}
               >
                 {primaryLabel}
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              {primaryIsDownload && (
-                <div className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-5 text-left lg:hidden">
-                  <div className="flex shrink-0 items-center gap-1.5 text-slate-400">
-                    <PlatformLogo platform="Windows" className="h-4 w-4" />
-                    <PlatformLogo platform="macOS" className="h-4 w-4" />
-                    <PlatformLogo platform="Linux" className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Available on desktop</p>
-                    <p className="text-[11px] leading-4 text-slate-400">Windows, macOS, and Linux</p>
-                  </div>
-                </div>
-              )}
-              <Link
-                className="ams-btn ams-btn-secondary ams-btn-md"
-                href="/"
-              >
-                Back to Home
-              </Link>
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm grid content-start gap-3 p-5">
+
+          <div className="grid content-start gap-3">
             {items.map((item) => (
-              <article key={item.title} className="rounded-xl border border-slate-100 bg-slate-50 p-5">
-                <h2 className="text-sm font-semibold tracking-tight text-slate-900">{item.title}</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-500">{item.body}</p>
+              <article
+                key={item.title}
+                className="rounded-panel border border-ink/10 bg-cream-light p-5"
+              >
+                <h2 className="font-display text-base text-ink">{item.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-ink/65">{item.body}</p>
               </article>
             ))}
           </div>

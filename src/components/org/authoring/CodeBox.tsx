@@ -1,10 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
-import CodeMirror from "@uiw/react-codemirror";
+import dynamic from "next/dynamic";
 import { cpp } from "@codemirror/lang-cpp";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
+
+// Loaded in the browser only. CodeMirror reaches for `document` at module
+// scope, so server-rendering it puts the whole editor and its grammars in
+// the server bundle for a component nobody can use without a cursor.
+const CodeMirror = dynamic(() => import("@uiw/react-codemirror"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[260px] animate-pulse rounded-lg border border-slate-200 bg-slate-50" />
+  ),
+});
 
 /**
  * A code editor sized for the pane it sits in.

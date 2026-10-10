@@ -1,243 +1,186 @@
-"use client";
-
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { Download, Maximize2, X } from "lucide-react";
+import type { Metadata } from "next";
 import { MarketingHeader } from "@/components/MarketingEndpointPage";
 import { MarketingFooter } from "@/components/MarketingFooter";
-import { FooterCTASection } from "@/components/FooterCTASection";
+import {
+  AmsButton,
+  Container,
+  Eyebrow,
+  Plate,
+  Reveal,
+  SectionHeading,
+} from "@/components/ams/primitives";
+import { SessionWalkthrough } from "@/components/ams/SessionWalkthrough";
 
-type ZoomImage = {
-  src: string;
-  alt: string;
+export const metadata: Metadata = {
+  title: "AMS Access",
+  description: "Proctored contests and assessments, run by AMS.",
 };
 
+/**
+ * The public landing page, in the AMS house style.
+ *
+ * What came out, and why:
+ *
+ * * Two product screenshots. Both were versions out of date and nobody had
+ *   noticed, which is what happens to a picture of software: it rots
+ *   silently and a visitor cannot tell. The walkthrough is drawn from the
+ *   same tokens as the page, so it cannot show last year's colours.
+ * * The gradient blur behind the frames, the zoom-to-lightbox plumbing, and
+ *   the sentences that described the page rather than the product.
+ *
+ * A server component on purpose. Only the walkthrough is interactive, so
+ * only the walkthrough ships JavaScript.
+ */
 export default function LandingPage() {
-  const [mounted, setMounted] = useState(false);
-  const [zoomImage, setZoomImage] = useState<ZoomImage | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!zoomImage) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setZoomImage(null);
-      }
-    };
-
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [zoomImage]);
-
-  if (!mounted) return null;
-
   return (
-    <main className="min-h-screen bg-white text-slate-900 font-sans selection:bg-purple-200 selection:text-purple-900 overflow-x-hidden">
+    <div className="min-h-screen bg-cream font-body text-ink antialiased">
       <MarketingHeader />
 
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden flex flex-col items-center justify-center min-h-[90vh]">
-        <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-5xl mx-auto">
-          <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-medium tracking-tight text-slate-900 leading-[1.05] mb-6 max-w-4xl mx-auto">
-            Serious online rounds need a controlled shell
-          </h1>
-          <p className="mb-10 max-w-2xl text-base leading-8 text-slate-600 md:text-lg">
-            AMS Access pairs a locked desktop workspace with live integrity signals, candidate timelines, and reviewer-ready evidence for every assessment session.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <Link
-              href="/download"
-              className="ams-btn ams-btn-primary ams-btn-lg"
-            >
-              <Download className="h-4 w-4" /> Download Access
-            </Link>
-            <Link
-              href="/#use-cases"
-              className="ams-btn ams-btn-muted ams-btn-lg"
-            >
-              Explore use cases
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Workspace Section */}
-      <section id="product" className="py-24 md:py-32 bg-white relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            <div className="max-w-md">
-              <h2 className="text-3xl md:text-4xl font-medium tracking-tight text-slate-900 mb-6">
-                AMS Access Workspace
-              </h2>
-              <p className="text-slate-600 leading-relaxed mb-8">
-                The fully-featured, controlled workspace. Complete with the session manager, review timeline, and a deep understanding of your evaluation round.
+      <section className="pb-16 pt-28 sm:pb-24 sm:pt-36">
+        <Container>
+          <div className="max-w-3xl">
+            <Reveal>
+              <h1 className="font-display text-[clamp(2.5rem,4.8vw+0.75rem,4.75rem)] leading-[1.02] text-ink">
+                Run a round nobody has to take on trust.
+              </h1>
+            </Reveal>
+            <Reveal delay={80}>
+              <p className="mt-6 max-w-xl text-lg leading-8 text-ink/70">
+                A locked desktop workspace, the device checks that went with it, and a record of
+                what happened. Built by AMS for our own contests.
               </p>
-              <Link
-                href="#product"
-                className="ams-btn ams-btn-secondary"
-              >
-                Explore Product
-              </Link>
-            </div>
-
-            {/* App screenshot */}
-            <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-blue-500 to-purple-500 rounded-2xl blur opacity-30"></div>
-              <div className="relative rounded-xl overflow-hidden shadow-2xl border border-slate-200">
-                <img
-                  src="/Contestant Hub Demo Page.png"
-                  alt="AMS Access Contestant Hub"
-                  className="w-full h-auto block"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setZoomImage({
-                      src: "/Contestant Hub Demo Page.png",
-                      alt: "AMS Access Contestant Hub",
-                    })
-                  }
-                  className="absolute right-3 top-3 ams-btn ams-btn-overlay-light ams-icon-btn focus:ring-offset-slate-900"
-                  aria-label="View AMS Access Contestant Hub image"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </button>
+            </Reveal>
+            <Reveal delay={140}>
+              <div className="mt-9 flex flex-wrap items-center gap-3">
+                <AmsButton href="/download">Download</AmsButton>
+                <AmsButton href="/product" variant="outline">
+                  See how it works
+                </AmsButton>
               </div>
-            </div>
+            </Reveal>
           </div>
-        </div>
+
+          <Reveal delay={200} className="mt-14">
+            <SessionWalkthrough />
+          </Reveal>
+        </Container>
       </section>
 
-      {/* Contestant Editor Section */}
-      <section className="py-24 md:py-32 bg-slate-50 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-100/40 via-transparent to-orange-100/40 opacity-50"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            <div className="max-w-md order-2 md:order-1">
-              <h2 className="text-3xl md:text-4xl font-medium tracking-tight text-slate-900 mb-6">
-                The controlled contest environment
+      <section className="border-t border-ink/10 bg-cream-light py-[clamp(3.75rem,7vw,6.5rem)]">
+        <Container>
+          <Reveal>
+            <SectionHeading
+              eyebrow="The shell"
+              title="A workspace that closes behind them."
+              lead="Fullscreen, keyboard locked, capture tools detected. It refuses to start if the machine is not in a state you would accept."
+            />
+          </Reveal>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              [
+                "Device checks",
+                "Camera, displays, virtual machines, screen recorders. Reported one by one, so a machine that cannot run a check says which rather than failing everything.",
+              ],
+              [
+                "Session integrity",
+                "Fullscreen posture, focus changes and restricted processes, timestamped against the session clock.",
+              ],
+              [
+                "Real judging",
+                "The same compiler and sandbox as the contest. Code that builds in a run cannot fail to build on submit.",
+              ],
+              [
+                "Evidence after",
+                "Every attempt, every verdict, every event. Enough to answer a question weeks later.",
+              ],
+              [
+                "A dropped connection is not an ended session",
+                "Work stays on the device and reconciles when the network comes back.",
+              ],
+              [
+                "Three platforms",
+                "Windows, macOS and Linux, signed and notarised, from one release.",
+              ],
+            ].map(([title, body], index) => (
+              <Reveal key={title} delay={index * 60}>
+                <Plate className="h-full p-5">
+                  <h3 className="font-display text-lg leading-snug text-ink">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-ink/65">{body}</p>
+                </Plate>
+              </Reveal>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      <section className="py-[clamp(3.75rem,7vw,6.5rem)]">
+        <Container>
+          <div className="grid gap-12 lg:grid-cols-2">
+            <Reveal>
+              <Eyebrow>For evaluators</Eyebrow>
+              <h2 className="mt-3 font-display text-[clamp(1.6rem,2vw+0.75rem,2.25rem)] leading-tight text-ink">
+                Set the problem, not the pipeline.
               </h2>
-              <p className="text-slate-600 leading-relaxed mb-8">
-                Contestants work inside a locked desktop shell — problem statement, code editor, and live output side by side. Every keystroke is captured, every tab switch logged, every fullscreen exit flagged. The session is proctored from the moment it opens.
+              <p className="mt-4 text-base leading-7 text-ink/70">
+                Write a problem in the portal, run the real checks against it on the judge, and
+                publish it when it passes. Statement, tests, validators and checkers in one place,
+                with nothing to package by hand.
               </p>
-              <ul className="space-y-3 text-sm text-slate-500">
-                {[
-                  "Face detection & camera feed throughout the session",
-                  "Key interception prevents external tool usage",
-                  "Real-time integrity timeline for reviewers",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-400" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Editor screenshot */}
-            <div className="order-1 md:order-2 relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-slate-800 rounded-2xl blur opacity-25"></div>
-              <div className="relative rounded-xl overflow-hidden shadow-2xl border border-slate-800/40">
-                <img
-                  src="/App Window - Editor.png"
-                  alt="AMS Access proctored contest editor"
-                  className="w-full h-auto block"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setZoomImage({
-                      src: "/App Window - Editor.png",
-                      alt: "AMS Access proctored contest editor",
-                    })
-                  }
-                  className="absolute right-3 top-3 ams-btn ams-btn-overlay-light ams-icon-btn focus:ring-offset-slate-900"
-                  aria-label="View AMS Access proctored contest editor image"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </button>
+              <div className="mt-6">
+                <AmsButton href="/product" variant="outline">
+                  Problemsetting
+                </AmsButton>
               </div>
-            </div>
+            </Reveal>
+
+            <Reveal delay={80}>
+              <Eyebrow>For organizations</Eyebrow>
+              <h2 className="mt-3 font-display text-[clamp(1.6rem,2vw+0.75rem,2.25rem)] leading-tight text-ink">
+                One roster, every round.
+              </h2>
+              <p className="mt-4 text-base leading-7 text-ink/70">
+                Import a roster once and select from it for each contest. Credentials, mail and
+                the record of who sat what stay attached to the person rather than the event.
+              </p>
+              <div className="mt-6">
+                <AmsButton href="/contact" variant="outline">
+                  Talk to us
+                </AmsButton>
+              </div>
+            </Reveal>
           </div>
-        </div>
+        </Container>
       </section>
 
-      {/* Target Audience Section */}
-      <section id="use-cases" className="py-32 bg-white relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-12 md:gap-24 relative">
-
-            {/* Decorative Brackets background removed as requested */}
-            <div className="absolute inset-0 flex justify-center items-center pointer-events-none opacity-50 scale-150 md:scale-100">
+      <section className="border-t border-ink/10 bg-burgundy py-[clamp(3.75rem,7vw,6.5rem)]">
+        <Container>
+          <div className="flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-center">
+            <div className="max-w-xl">
+              <h2 className="font-display text-[clamp(1.75rem,2.4vw+0.75rem,2.6rem)] leading-tight text-cream-light">
+                Get the desktop app.
+              </h2>
+              <p className="mt-3 text-base leading-7 text-cream/70">
+                Candidates need the app. Everything you run a round with is in the browser.
+              </p>
             </div>
-
-            <div className="flex flex-col items-center text-center p-8 relative z-10 bg-white/60 backdrop-blur-sm rounded-3xl">
-              <div className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full mb-6 border border-slate-200">
-                Available at no charge
-              </div>
-              <h2 className="text-3xl font-medium text-slate-900 mb-2">For evaluators</h2>
-              <h3 className="text-3xl font-medium text-slate-500 mb-8">Achieve new heights</h3>
-              <Link
-                href="/download"
-                className="ams-btn ams-btn-primary ams-btn-md"
-              >
+            <div className="flex flex-wrap gap-3">
+              <AmsButton href="/download" variant="inverse">
                 Download
-              </Link>
-            </div>
-
-            <div className="flex flex-col items-center text-center p-8 relative z-10 bg-white/60 backdrop-blur-sm rounded-3xl">
-              <div className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full mb-6 border border-slate-200">
-                Now Available!
-              </div>
-              <h2 className="text-3xl font-medium text-slate-900 mb-2">For organizations</h2>
-              <h3 className="text-3xl font-medium text-slate-500 mb-8">Level up your entire team</h3>
-              <Link
-                href="/pricing"
-                className="ams-btn ams-btn-muted ams-btn-md"
+              </AmsButton>
+              <AmsButton
+                href="/contact"
+                variant="outline"
+                className="border-cream/40 text-cream hover:border-cream hover:bg-cream/10"
               >
-                Read More
-              </Link>
+                Contact
+              </AmsButton>
             </div>
           </div>
-        </div>
+        </Container>
       </section>
 
-      <FooterCTASection />
       <MarketingFooter />
-
-      {zoomImage && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm sm:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-label={zoomImage.alt}
-          onClick={() => setZoomImage(null)}
-        >
-          <button
-            type="button"
-            onClick={() => setZoomImage(null)}
-            className="absolute right-4 top-4 ams-btn ams-btn-overlay-dark ams-icon-btn"
-            aria-label="Close image viewer"
-          >
-            <X className="h-5 w-5" />
-          </button>
-          <img
-            src={zoomImage.src}
-            alt={zoomImage.alt}
-            className="max-h-[88vh] max-w-[94vw] rounded-lg border border-white/10 object-contain shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          />
-        </div>
-      )}
-    </main>
+    </div>
   );
 }

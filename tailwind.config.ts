@@ -9,8 +9,32 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-geist)", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "monospace"],
+        // The AMS house faces, used by the public pages so Access reads as
+        // part of amshq.in rather than a different company's product.
+        display: ["var(--font-source-serif)", "Georgia", "serif"],
+        body: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
       colors: {
+        // The AMS brand palette, lifted verbatim from ams-website so the two
+        // sites cannot drift. Gold is an accent only: it is the one warm
+        // colour here and it stops being an accent the moment it is used
+        // for a surface.
+        burgundy: {
+          DEFAULT: "#571c24",
+          deep: "#3b141a",
+        },
+        cream: {
+          DEFAULT: "#f5f0e4",
+          light: "#fffcf5",
+        },
+        gold: {
+          DEFAULT: "#a9822f",
+          deep: "#76591f",
+          bright: "#dfbf72",
+        },
+        espresso: "#242123",
+        ink: "#30292a",
+        paper: "#ede5d5",
         ams: {
           /* semantic globals */
           dark:   "rgb(var(--ams-dark)   / <alpha-value>)",
@@ -29,6 +53,17 @@ const config: Config = {
           teal:    "rgb(var(--ams-teal)    / <alpha-value>)",
           amber:   "rgb(var(--ams-amber)   / <alpha-value>)",
         }
+      },
+      borderRadius: {
+        // Institutional geometry: controls stay usable, surfaces stay
+        // precise. Nothing on the public pages is rounder than this.
+        control: "0.25rem",
+        panel: "0.125rem",
+      },
+      transitionTimingFunction: {
+        // One easing for every reveal on the public pages. Several would
+        // read as several hands.
+        reveal: "cubic-bezier(0.22, 1, 0.36, 1)",
       },
       boxShadow: {
         glass: "var(--ams-shadow-glass)",
