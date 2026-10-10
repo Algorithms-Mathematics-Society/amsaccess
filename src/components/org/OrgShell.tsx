@@ -14,12 +14,39 @@ const NAV = [
   { href: "/org/fleet", label: "Judging", icon: Cpu },
 ] as const;
 
+/** Sections an intern has no business in, so the nav does not offer them.
+ *
+ *  Cosmetic. Every one of these refuses an intern server side, and this
+ *  list going stale would show a tab that 403s rather than open a door.
+ *  The point is not to stop anyone, it is to stop the sidebar advertising
+ *  six pages when four of them are closed. */
+const INTERN_HIDDEN: readonly string[] = ["/org/problems", "/org/participants", "/org/mails"];
+
 /** Purple keyboard focus ring, the same token as the Astryx content (#7c3aed). */
 const FOCUS =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600";
 
 export function OrgShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [role, setRole] = useState<string | null>(null);
+
+  // Asked once, and a failure leaves the full nav rather than an empty one.
+  // Guessing "intern" on a network error would lock an admin out of their
+  // own sidebar for the length of a blip.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me) => {
+        if (!cancelled && me && typeof me.role === "string") setRole(me.role);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const nav = role === "intern" ? NAV.filter((i) => !INTERN_HIDDEN.includes(i.href)) : NAV;
   const headerRef = useRef<HTMLElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
   const [edges, setEdges] = useState({ start: false, end: false });
@@ -99,7 +126,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav aria-label="Organization" className="flex-1 space-y-1 px-3">
-          {NAV.map(({ href, label, icon: Icon }) => {
+          {nav.map(({ href, label, icon: Icon }) => {
             // startsWith so a detail page keeps its section highlighted —
             // except the dashboard, which every path would match.
             const active = isActive(href);
@@ -139,7 +166,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
           className="flex gap-1 overflow-x-auto px-2 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={navMask ? { maskImage: navMask, WebkitMaskImage: navMask } : undefined}
         >
-          {NAV.map(({ href, label, icon: Icon }) => {
+          {nav.map(({ href, label, icon: Icon }) => {
             const active = isActive(href);
             return (
               <Link
