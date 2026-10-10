@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { fetchLatestRelease } from "@/lib/releases";
-import type { ReleaseAsset } from "@/lib/releases";
+import type { ReleaseAsset, ReleaseArchitecture } from "@/lib/releases";
 import { apiRateLimited } from "@/lib/server/http";
-import { checkRequestRateLimit } from "@/lib/server/rateLimit";
+import { checkRequestRateLimitAsync } from "@/lib/server/rateLimit";
 
 type Platform = "windows" | "linux" | "macos";
 type AssetType = "msi" | "exe" | "appimage" | "deb" | "rpm" | "dmg";
@@ -19,7 +19,18 @@ function isPlatform(value: string | null): value is Platform {
 }
 
 function isAssetType(value: string | null): value is AssetType {
-  return value === "msi" || value === "exe" || value === "appimage" || value === "deb" || value === "rpm" || value === "dmg";
+  return (
+    value === "msi" ||
+    value === "exe" ||
+    value === "appimage" ||
+    value === "deb" ||
+    value === "rpm" ||
+    value === "dmg"
+  );
+}
+
+function isArchitecture(value: string | null): value is ReleaseArchitecture {
+  return value === "x64" || value === "arm64" || value === "universal";
 }
 
 export async function GET(request: NextRequest) {
@@ -30,12 +41,23 @@ export async function GET(request: NextRequest) {
   // the one audience that could not get it.
   const platform = request.nextUrl.searchParams.get("platform");
   const type = request.nextUrl.searchParams.get("type");
+  const architecture = request.nextUrl.searchParams.get("architecture");
 
-  if (!isPlatform(platform) || !isAssetType(type) || !allowedAssets[platform].includes(type)) {
-    return NextResponse.json({ error: "Unknown download asset." }, { status: 404 });
+  if (
+    !isPlatform(platform) ||
+    !isAssetType(type) ||
+    !allowedAssets[platform].includes(type) ||
+    (architecture !== null && !isArchitecture(architecture))
+  ) {
+    return NextResponse.json(
+      { error: "Unknown download asset." },
+      { status: 404 },
+    );
   }
 
-  const limited = checkRequestRateLimit(request, "privateRead", ["release-download", platform, type]);
+  const limited = await checkRequestRateLimitAsync(request, "publicRead", [
+    "release-download",
+  ]);
   if (limited.limited) return apiRateLimited(limited.retryAfter);
 
   const release = await fetchLatestRelease();
@@ -48,11 +70,20 @@ export async function GET(request: NextRequest) {
     if (type === "deb") asset = release?.linux.deb;
     if (type === "rpm") asset = release?.linux.rpm;
   } else if (type === "dmg") {
-    asset = release?.macos.dmg;
+    asset =
+      architecture && isArchitecture(architecture)
+        ? release?.macos[architecture]
+        : release?.macos.dmg;
   }
 
-  if (!asset?.url) {
-    return NextResponse.json({ error: "Download asset is not available." }, { status: 404 });
+  if (
+    !asset?.url ||
+    (architecture !== null && asset.architecture !== architecture)
+  ) {
+    return NextResponse.json(
+      { error: "Download asset is not available." },
+      { status: 404 },
+    );
   }
 
   const response = NextResponse.redirect(asset.url);

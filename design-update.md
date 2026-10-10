@@ -934,3 +934,21 @@ The shared footer imports its own scoped tokens so it also renders when opened d
 The current download implementation remains, with the reviewed header and plain-language instructions. Raw repository release notes and unsupported signing/update promises are replaced with links to curated public release notes and candidate setup guidance. Unrelated local Learn work and planning files are excluded from this integration.
 
 Integration verification: production build completed on Next.js 15.5.27 / React 19.3.0; all 9 contact tests and 5 existing roster tests passed. The production server passed 81 browser checks, including public routes, responsive layouts, docs search, light styling, shared footer styling on both portal login pages, and separate marketing/portal root typography. Existing lint warnings in unchanged portal and legacy components remain. Artifacts: /tmp/access-main-review/ and /tmp/access-main-build.log.
+
+## 27. App download destination
+
+The app host opens a focused desktop-download page. The marketing website remains the place to understand Access; installation, platform selection, and readiness instructions are collected at app.amsaccess.com. The existing /download path also renders the page.
+
+The page uses the same light Access/Astryx tokens, outline mark, neutral surfaces, 6px controls, 9px containers, and restrained typography. A compact header links to setup guidance. The hierarchy is: download purpose and current release → platform choices → three preparation steps → practical setup questions → organizer/recruiter workspace links. There is no decorative animation or invented application imagery.
+
+Windows, macOS, and Linux choices remain visible at every viewport width. Browser OS detection highlights a matching platform without initiating a download or hiding alternatives. Mobile and tablet browsers receive desktop preparation guidance; viewport width alone does not classify the device. Mac CPU is never inferred from the browser.
+
+Release v2.3.1 was verified to provide Windows x64 EXE/MSI, separate Apple silicon and Intel Mac DMGs, and Linux x86_64 AppImage/DEB/RPM packages. The data layer now preserves architecture; explicit download requests fail if that architecture is unavailable rather than selecting a different binary. macOS 12 is the configured minimum. File sizes and publication date come from the release metadata. Raw release bodies and repository links are not displayed on the page; installer links use the existing download endpoint.
+
+Release fetching is time-limited and metadata is validated. Missing releases and platform builds have honest unavailable states. Preparation copy follows the organizer’s invitation and device requirements without promising automatic account creation, signing/notarization, or compatibility beyond the release evidence.
+
+Routing matches only the exact app.amsaccess.com root and rewrites it to /download while retaining query parameters. Main-site, API, asset, and existing portal routes remain separate. Documentation, legal, and sign-in links target the main website explicitly, so links work from either host.
+
+Verification: production build passed; all 21 download, architecture, detection, and host-routing tests passed. Production browser review passed 42 checks across 320–1440px, including keyboard FAQ use, fixed light styling, seven real installer redirects without downloading binaries, correct Mac destinations, app-host routing, and unchanged main-site homepage. Desktop and mobile layouts were visually inspected. Artifacts: /tmp/access-download-review/ and /tmp/access-download-build.log.
+
+Vercel project amsaccess has accepted the app.amsaccess.com domain. Its Cloudflare DNS still needs the Vercel-recommended CNAME: app → d747ebcc7631d9b3.vercel-dns-017.com, DNS only. Domain verification must be repeated after that record is applied.

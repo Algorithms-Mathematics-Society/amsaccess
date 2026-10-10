@@ -99,6 +99,17 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = request.headers.get("host") ?? "";
 
+  // Keep the public website at the apex/www hosts. The app host opens the
+  // download page without changing its public root URL or query parameters.
+  if (pathname === "/") {
+    if (/^app\.amsaccess\.com(?::[0-9]+)?$/i.test(hostname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/download";
+      return noStore(NextResponse.rewrite(url));
+    }
+    return NextResponse.next();
+  }
+
   // Subdomain routing: org.amsaccess.com → /org/*
   if (hostname.startsWith("org.") && !pathname.startsWith("/org")) {
     const url = request.nextUrl.clone();
@@ -152,5 +163,15 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/access-admin-only", "/admin/:path*", "/org/:path*", "/amsadmin/:path*", "/firms/:path*"],
+  matcher: [
+    {
+      source: "/",
+      has: [{ type: "host", value: "app\\.amsaccess\\.com" }],
+    },
+    "/access-admin-only",
+    "/admin/:path*",
+    "/org/:path*",
+    "/amsadmin/:path*",
+    "/firms/:path*",
+  ],
 };

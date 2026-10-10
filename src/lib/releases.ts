@@ -10,13 +10,16 @@ interface GHAsset {
 
 interface GHRelease {
   tag_name: string;
-  name: string;
+  name: string | null;
   published_at: string;
   html_url: string;
   assets: GHAsset[];
 }
 
+export type ReleaseArchitecture = "x64" | "arm64" | "universal";
+
 export interface ReleaseAsset {
+  architecture?: ReleaseArchitecture;
   url: string;
   size: number;
   label: string;
@@ -29,13 +32,93 @@ export interface LatestRelease {
   releaseUrl: string;
   windows: { msi?: ReleaseAsset; exe?: ReleaseAsset };
   linux: { appimage?: ReleaseAsset; deb?: ReleaseAsset; rpm?: ReleaseAsset };
-  macos: { dmg?: ReleaseAsset };
+  macos: {
+    dmg?: ReleaseAsset;
+    arm64?: ReleaseAsset;
+    x64?: ReleaseAsset;
+    universal?: ReleaseAsset;
+  };
 }
 
-function pickAsset(assets: GHAsset[], ext: string): ReleaseAsset | undefined {
-  const a = assets.find((a) => a.name.toLowerCase().endsWith(ext));
-  if (!a) return undefined;
-  return { url: a.browser_download_url, size: a.size, label: a.name };
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isReleaseUrl(
+  value: unknown,
+  kind: "download" | "tag",
+): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "github.com" &&
+      !url.port &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      url.pathname.startsWith(`/${REPO}/releases/${kind}/`) &&
+      url.pathname.length > `/${REPO}/releases/${kind}/`.length
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isGHRelease(value: unknown): value is GHRelease & {
+  draft?: boolean;
+  prerelease?: boolean;
+  body?: string;
+} {
+  return (
+    isRecord(value) &&
+    typeof value.tag_name === "string" &&
+    value.tag_name.trim().length > 0 &&
+    (typeof value.name === "string" || value.name === null) &&
+    typeof value.published_at === "string" &&
+    Number.isFinite(Date.parse(value.published_at)) &&
+    isReleaseUrl(value.html_url, "tag") &&
+    Array.isArray(value.assets) &&
+    (value.draft === undefined || typeof value.draft === "boolean") &&
+    (value.prerelease === undefined || typeof value.prerelease === "boolean")
+  );
+}
+
+function assetArchitecture(name: string): ReleaseArchitecture | undefined {
+  if (/(?:^|[_.-])(?:aarch64|arm64)(?=[_.-]|$)/i.test(name)) return "arm64";
+  if (/(?:^|[_.-])(?:x86_64|x64|amd64)(?=[_.-]|$)/i.test(name)) return "x64";
+  if (/(?:^|[_.-])universal(?=[_.-]|$)/i.test(name)) return "universal";
+  return undefined;
+}
+
+function pickAsset(
+  assets: unknown[],
+  ext: string,
+  architecture?: ReleaseArchitecture,
+): ReleaseAsset | undefined {
+  for (const candidate of assets) {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.name !== "string" ||
+      !candidate.name.toLowerCase().endsWith(ext) ||
+      !isReleaseUrl(candidate.browser_download_url, "download") ||
+      typeof candidate.size !== "number" ||
+      !Number.isSafeInteger(candidate.size) ||
+      candidate.size < 0
+    )
+      continue;
+    const detected = assetArchitecture(candidate.name);
+    if (architecture && detected !== architecture) continue;
+    return {
+      url: candidate.browser_download_url,
+      size: candidate.size,
+      label: candidate.name,
+      ...(detected ? { architecture: detected } : {}),
+    };
+  }
+  return undefined;
 }
 
 export async function fetchLatestRelease(): Promise<LatestRelease | null> {
@@ -49,15 +132,17 @@ export async function fetchLatestRelease(): Promise<LatestRelease | null> {
           : {}),
       },
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!res.ok) return null;
-    const gh: GHRelease = await res.json();
+    const gh: unknown = await res.json();
+    if (!isGHRelease(gh) || gh.draft || gh.prerelease) return null;
     const { assets } = gh;
 
     return {
       version: gh.tag_name,
-      name: gh.name,
+      name: gh.name || gh.tag_name,
       publishedAt: gh.published_at,
       releaseUrl: gh.html_url,
       windows: {
@@ -71,13 +156,15 @@ export async function fetchLatestRelease(): Promise<LatestRelease | null> {
       },
       macos: {
         dmg: pickAsset(assets, ".dmg"),
+        arm64: pickAsset(assets, ".dmg", "arm64"),
+        x64: pickAsset(assets, ".dmg", "x64"),
+        universal: pickAsset(assets, ".dmg", "universal"),
       },
     };
   } catch {
     return null;
   }
 }
-
 
 export interface ReleaseSummary {
   version: string;
@@ -111,21 +198,20 @@ export async function fetchReleases(): Promise<ReleaseSummary[]> {
           : {}),
       },
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return [];
-    const releases = (await res.json()) as (GHRelease & {
-      draft?: boolean;
-      prerelease?: boolean;
-      body?: string;
-    })[];
+    const releases: unknown = await res.json();
+    if (!Array.isArray(releases)) return [];
     return releases
+      .filter(isGHRelease)
       .filter((r) => !r.draft && !r.prerelease)
       .map((r) => ({
         version: r.tag_name,
         name: r.name || r.tag_name,
         publishedAt: r.published_at,
         releaseUrl: r.html_url,
-        notes: (r.body ?? "").trim(),
+        notes: typeof r.body === "string" ? r.body.trim() : "",
       }));
   } catch {
     return [];

@@ -1,175 +1,224 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { MarketingHeader } from "@/components/MarketingHeader";
-import { MarketingFooter } from "@/components/MarketingFooter";
-import { Container, Eyebrow } from "@/components/ams/primitives";
-import { PrimaryDownload } from "@/components/ams/DownloadHero";
-import {
-  PlatformList,
-  type PlatformBuild,
-} from "@/components/ams/PlatformList";
-import { DesktopDownloadNotice } from "@/components/DesktopDownloadNotice";
+import { ArrowUpRight } from "lucide-react";
 import { fetchLatestRelease } from "@/lib/releases";
+import { DownloadChoices } from "./DownloadChoices";
+import { downloadOptions } from "./download-options";
+import styles from "./download.module.css";
 
+const WEBSITE = "https://www.amsaccess.com";
 export const metadata: Metadata = {
-  title: "Download",
-  description: "AMS Access for Windows, macOS and Linux.",
+  title: "Download Access",
+  description:
+    "Download the Access desktop app for Windows, macOS, or Linux. Choose the right installer and prepare your device for your assessment.",
+  alternates: { canonical: "https://app.amsaccess.com" },
 };
+export const revalidate = 300;
 
-// Keep public installer availability from main. Public notes are curated on
-// /changelog rather than copied from internal release descriptions.
 export default async function DownloadPage() {
   const release = await fetchLatestRelease();
-
-  const windows: PlatformBuild["files"] = [];
-  if (release?.windows.msi)
-    windows.push({ label: "Installer (.msi)", asset: release.windows.msi });
-  if (release?.windows.exe)
-    windows.push({ label: "Setup (.exe)", asset: release.windows.exe });
-
-  const macos: PlatformBuild["files"] = [];
-  if (release?.macos.dmg)
-    macos.push({ label: "Universal (.dmg)", asset: release.macos.dmg });
-
-  const linux: PlatformBuild["files"] = [];
-  if (release?.linux.appimage)
-    linux.push({ label: "AppImage", asset: release.linux.appimage });
-  if (release?.linux.deb)
-    linux.push({ label: "Debian, Ubuntu (.deb)", asset: release.linux.deb });
-  if (release?.linux.rpm)
-    linux.push({ label: "Fedora, RHEL (.rpm)", asset: release.linux.rpm });
-
-  const platforms: PlatformBuild[] = [
-    { os: "Windows", requirement: "Windows 10 or newer", files: windows },
-    {
-      os: "macOS",
-      requirement: "macOS 12 or newer, Apple silicon and Intel",
-      files: macos,
-    },
-    { os: "Linux", requirement: "GNOME, KDE or similar", files: linux },
-  ];
-
-  // The installer, not the portable image: it is what most people want and
-  // the only one that puts the app in a launcher.
-  const preferred = {
-    windows: windows[0]?.asset.url ?? null,
-    macos: macos[0]?.asset.url ?? null,
-    linux: linux[0]?.asset.url ?? null,
-  };
-
+  const published = release?.publishedAt ? new Date(release.publishedAt) : null;
+  const releaseDate =
+    published && Number.isFinite(published.getTime())
+      ? new Intl.DateTimeFormat("en", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC",
+        }).format(published)
+      : null;
   return (
-    <main className="ac-theme min-h-screen bg-paper font-body text-ink antialiased">
-      <MarketingHeader />
-
-      <section className="pb-12 pt-28 sm:pt-36">
-        <Container>
-          <Eyebrow>Download</Eyebrow>
-          <h1 className="mt-3 max-w-2xl font-display text-[clamp(2.25rem,3.6vw+0.75rem,3.75rem)] leading-[1.04] text-ink">
-            AMS Access for the desktop.
-          </h1>
-          <p className="mt-5 max-w-xl text-base leading-7 text-muted">
-            The Access desktop app for taking assessments. Follow your
-            organizer’s instructions to choose and prepare your device.
-          </p>
-
-          <div className="mt-8 hidden xl:block">
-            <PrimaryDownload
-              available={preferred}
-              version={release?.version ?? null}
-            />
-          </div>
-
-          <DesktopDownloadNotice className="mt-8 xl:hidden" />
-
-          {release && (
-            <p className="mt-4 font-mono text-xs text-muted">
-              {release.version} &middot;{" "}
-              {new Date(release.publishedAt).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
+    <div className={styles.page} data-access-download>
+      <a href="#download-content" className={styles.skipLink}>
+        Skip to downloads
+      </a>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <a
+            href={WEBSITE}
+            className={styles.brand}
+            aria-label="Access by AMS website"
+          >
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path
+                d="M3 28 16 4 29 28"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Access</span>
+            <small>by AMS</small>
+          </a>
+          <a
+            href={WEBSITE + "/docs/candidate-setup"}
+            className={styles.headerLink}
+          >
+            Setup guide <ArrowUpRight size={14} aria-hidden="true" />
+          </a>
+        </div>
+      </header>
+      <main id="download-content" tabIndex={-1} className={styles.container}>
+        <section className={styles.hero} aria-labelledby="download-title">
+          <div>
+            <p className={styles.eyebrow}>Access desktop app</p>
+            <h1 id="download-title">Download Access.</h1>
+            <p className={styles.intro}>
+              Install the app on the computer you’ll use for your assessment.
             </p>
-          )}
-        </Container>
-      </section>
+            <p className={styles.heroNote}>
+              Keep your organizer’s invitation and sign-in instructions nearby.
+            </p>
+          </div>
+          <aside className={styles.release} aria-label="Release information">
+            <span className={styles.eyebrow}>
+              {release ? "Current release" : "Release information"}
+            </span>
+            <strong>{release?.version ?? "Unavailable right now"}</strong>
+            {releaseDate && (
+              <time dateTime={release!.publishedAt}>{releaseDate}</time>
+            )}
+            <a href={WEBSITE + "/changelog"}>
+              Public release notes <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+          </aside>
+        </section>
 
-      <section className="hidden pb-16 xl:block">
-        <Container>
-          <PlatformList platforms={platforms} />
-        </Container>
-      </section>
-
-      <section className="border-t border-line bg-surface py-[clamp(3.75rem,7vw,6.5rem)]">
-        <Container>
-          <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr]">
+        {!release && (
+          <div className={styles.releaseNotice} role="status">
             <div>
-              <Eyebrow>Before you start</Eyebrow>
-              <h2 className="mt-3 font-display text-[clamp(1.5rem,1.8vw+0.75rem,2rem)] leading-tight text-ink">
-                Three things worth knowing.
-              </h2>
-
-              <dl className="mt-6 space-y-5">
-                <div>
-                  <dt className="font-display text-base text-ink">
-                    Follow your invitation
-                  </dt>
-                  <dd className="mt-1 text-sm leading-6 text-muted">
-                    Use the access details and sign-in instructions provided by
-                    your organizer.
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-display text-base text-ink">
-                    Run the device check early
-                  </dt>
-                  <dd className="mt-1 text-sm leading-6 text-muted">
-                    Complete the required device and permission checks before
-                    the scheduled round.
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-display text-base text-ink">
-                    Check your app version
-                  </dt>
-                  <dd className="mt-1 text-sm leading-6 text-muted">
-                    Ask your organizer which version to use. Complete any
-                    required update before your assessment.
-                  </dd>
-                </div>
-              </dl>
+              <strong>We couldn’t load the downloads.</strong>
+              <p>
+                Try again shortly. If your assessment is about to start, contact
+                your organizer.
+              </p>
             </div>
+            <a href="/download">Try again</a>
+          </div>
+        )}
+        <DownloadChoices options={downloadOptions(release)} />
 
-            <div id="releases">
-              <Eyebrow>Releases</Eyebrow>
-              <h2 className="mt-3 font-display text-[clamp(1.5rem,1.8vw+0.75rem,2rem)] leading-tight text-ink">
-                What changed.
-              </h2>
-              <div className="mt-6">
-                <p className="text-sm leading-6 text-muted">
-                  Read the{" "}
-                  <Link
-                    href="/changelog"
-                    className="underline underline-offset-4"
-                  >
-                    public release notes
-                  </Link>{" "}
-                  for published changes, or follow the{" "}
-                  <Link
-                    href="/docs/candidate-setup"
-                    className="underline underline-offset-4"
-                  >
-                    candidate setup guide
-                  </Link>{" "}
-                  to prepare.
+        <section className={styles.setup} aria-labelledby="setup-title">
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.eyebrow}>After downloading</p>
+              <h2 id="setup-title">Get ready before your round.</h2>
+            </div>
+            <a href={WEBSITE + "/docs/candidate-setup"}>
+              Read the setup guide <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+          </div>
+          <ol className={styles.steps}>
+            <li>
+              <span>01</span>
+              <div>
+                <h3>Install and open Access</h3>
+                <p>
+                  Use the installer for your operating system. On a managed
+                  computer, ask your IT team if installation is restricted.
                 </p>
               </div>
-            </div>
-          </div>
-        </Container>
-      </section>
+            </li>
+            <li>
+              <span>02</span>
+              <div>
+                <h3>Follow your invitation</h3>
+                <p>
+                  Use the access details supplied by your organizer. Your
+                  invitation contains the instructions for your round.
+                </p>
+              </div>
+            </li>
+            <li>
+              <span>03</span>
+              <div>
+                <h3>Check your device</h3>
+                <p>
+                  Complete the readiness checks and required permissions before
+                  the start time, so there is time to resolve an issue.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </section>
 
-      <MarketingFooter />
-    </main>
+        <section className={styles.help} aria-labelledby="help-title">
+          <div>
+            <p className={styles.eyebrow}>A question about setup?</p>
+            <h2 id="help-title">Help with your next step.</h2>
+            <p>
+              For an invitation, schedule, access code, or an issue during your
+              round, contact the organizer who invited you.
+            </p>
+            <a href={WEBSITE + "/docs/troubleshooting"}>
+              Troubleshooting guide{" "}
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+          </div>
+          <div className={styles.questions}>
+            <details>
+              <summary>Which Mac download should I choose?</summary>
+              <p>
+                Open the Apple menu and choose About This Mac. If it lists an
+                Apple M-series chip, choose Apple silicon. If it lists an Intel
+                processor, choose Intel.
+              </p>
+            </details>
+            <details>
+              <summary>Can I take an assessment on a phone or tablet?</summary>
+              <p>
+                The Access assessment workspace is a desktop app for Windows,
+                macOS, and Linux. Prepare a supported computer and confirm any
+                device requirements with your organizer.
+              </p>
+            </details>
+            <details>
+              <summary>What if installation or a device check fails?</summary>
+              <p>
+                Read the displayed message and follow the{" "}
+                <a href={WEBSITE + "/docs/device-checks"}>device-check guide</a>
+                . Contact your organizer if a required check remains unresolved.
+                Do not disable your computer’s security protections to install
+                the app.
+              </p>
+            </details>
+            <details>
+              <summary>Do I need to update before every assessment?</summary>
+              <p>
+                Use the version your organizer requires. If an update is needed,
+                complete it and check your device before your round begins.
+              </p>
+            </details>
+          </div>
+        </section>
+
+        <aside className={styles.workspaces} aria-labelledby="workspace-title">
+          <div>
+            <h2 id="workspace-title">Organizing or reviewing assessments?</h2>
+            <p>Use your team’s web workspace.</p>
+          </div>
+          <div>
+            <a href={WEBSITE + "/org/login"}>
+              Organizer sign in <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+            <a href={WEBSITE + "/firms/login"}>
+              Recruiter sign in <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+          </div>
+        </aside>
+      </main>
+      <footer className={styles.footer}>
+        <div>
+          <a href={WEBSITE}>Access by AMS</a>
+          <p>Let the work speak.</p>
+        </div>
+        <nav aria-label="Download page footer">
+          <a href={WEBSITE + "/security"}>Security &amp; privacy</a>
+          <a href={WEBSITE + "/privacy"}>Privacy</a>
+          <a href={WEBSITE + "/terms"}>Terms</a>
+          <a href={WEBSITE + "/contact"}>Contact</a>
+        </nav>
+      </footer>
+    </div>
   );
 }
