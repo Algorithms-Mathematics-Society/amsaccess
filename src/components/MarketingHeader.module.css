@@ -1,0 +1,371 @@
+/* Access/Astryx light tokens; native disclosures preserve React 18 compatibility.
+   Follows TopNav's brand / centered navigation / end-action composition. */
+.header {
+  --nav-height: 76px;
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 70;
+  isolation: isolate;
+  font-family: var(--font-geist), sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  background: var(--color-background-body);
+  border-bottom: 1px solid var(--color-border);
+}
+.header [hidden] {
+  display: none !important;
+}
+.header a {
+  text-decoration: none;
+}
+.header button {
+  cursor: pointer;
+}
+.header :is(a, button):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  max-width: 1208px;
+  height: var(--nav-height);
+  padding-inline: 24px;
+  margin-inline: auto;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 9px;
+  min-height: 44px;
+  color: var(--color-text-primary);
+  border-radius: var(--radius-element);
+  white-space: nowrap;
+}
+.brandMark {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+.brandName {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  line-height: 1;
+}
+.brandByline {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--color-text-secondary);
+}
+.desktopNav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-element);
+  background: transparent;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    color var(--duration-fast),
+    background-color var(--duration-fast);
+}
+.navLink:hover,
+.navLink[aria-expanded="true"] {
+  background: var(--color-background-surface);
+  color: var(--color-text-primary);
+}
+.navLink[aria-current="page"],
+.navLink[data-active="true"] {
+  color: var(--color-text-primary);
+}
+.chevron {
+  opacity: 0.65;
+  transition: transform var(--duration-fast);
+}
+.navLink[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: end;
+}
+.contactLink {
+  padding-inline: 8px;
+}
+.appLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 10px 15px;
+  border-radius: var(--radius-element);
+  color: var(--color-background-card);
+  background: var(--color-background-inverted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast);
+}
+.appLink:hover {
+  background: #333;
+}
+.appLink svg {
+  flex-shrink: 0;
+}
+.dropdown {
+  position: relative;
+}
+.panel {
+  position: absolute;
+  top: calc(100% + 16px);
+  left: 0;
+  width: 332px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-card);
+  box-shadow: 0 8px 24px #0000000a;
+}
+.resourcesPanel {
+  left: auto;
+  right: 0;
+}
+.menuLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.menuLink {
+  display: flex;
+  align-items: center;
+  min-height: 68px;
+  padding: 13px 14px;
+  color: var(--color-text-primary);
+  border-radius: var(--radius-element);
+  transition: background-color var(--duration-fast);
+}
+.menuLink:hover,
+.menuLink[aria-current="page"] {
+  background: var(--color-background-surface);
+}
+.menuText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.menuTitle {
+  font-size: 13px;
+  font-weight: 500;
+}
+.menuDescription {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+.eyebrow {
+  color: var(--color-text-secondary);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  line-height: 1.6;
+}
+.iconButton {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--radius-element);
+  color: var(--color-text-primary);
+  background: transparent;
+}
+.iconButton:hover {
+  background: var(--color-background-surface);
+}
+.mobileToggle,
+.mobilePanel {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .brandByline {
+    display: none;
+  }
+  .bar {
+    gap: 16px;
+  }
+  .desktopNav {
+    gap: 0;
+  }
+  .actions {
+    gap: 8px;
+  }
+  .navLink {
+    padding-inline: 10px;
+  }
+}
+@media (max-width: 959px) {
+  .header {
+    --nav-height: 68px;
+  }
+  .bar {
+    grid-template-columns: auto 1fr;
+    gap: 16px;
+  }
+  .desktopNav,
+  .contactLink {
+    display: none;
+  }
+  .brandByline {
+    display: inline;
+  }
+  .mobileToggle {
+    display: inline-flex;
+  }
+  .appLink {
+    min-height: 44px;
+  }
+  .mobilePanel {
+    display: block;
+    max-height: calc(100dvh - var(--nav-height) - 1px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-background-body);
+    padding: 12px 24px 24px;
+    box-shadow: 0 12px 24px #00000008;
+  }
+  .mobileQuickLinks {
+    display: flex;
+    gap: 24px;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 12px;
+  }
+  .mobileQuickLinks .navLink {
+    justify-content: flex-start;
+    padding-inline: 0;
+  }
+  .mobileGroups {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    padding-block: 24px;
+  }
+  .mobileGroups .eyebrow {
+    margin: 0 0 10px;
+    padding-left: 12px;
+  }
+  .mobileGroups .menuLink {
+    padding: 10px 12px;
+    min-height: 62px;
+  }
+  .mobileSignIn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    border-top: 1px solid var(--color-border);
+    padding-top: 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+}
+@media (max-width: 599px) {
+  .brand {
+    gap: 8px;
+  }
+  .brandMark {
+    width: 25px;
+    height: 25px;
+  }
+  .brandName {
+    font-size: 21px;
+    letter-spacing: -0.6px;
+  }
+  .brandByline {
+    display: none;
+  }
+  .actions {
+    gap: 4px;
+  }
+  .appLink {
+    gap: 7px;
+    padding-inline: 12px;
+  }
+  .mobileGroups {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding-block: 20px;
+  }
+}
+@media (max-width: 380px) {
+  .bar,
+  .mobilePanel {
+    padding-inline: 20px;
+  }
+  .bar {
+    gap: 8px;
+  }
+  .brandMark {
+    width: 23px;
+    height: 23px;
+  }
+  .brandName {
+    font-size: 20px;
+  }
+  .appLink {
+    padding-inline: 10px;
+    font-size: 11px;
+    gap: 6px;
+  }
+  .appLink svg {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header,
+  .header *,
+  .header *::before,
+  .header *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Keep the 16px visual gap traversable at any pointer speed. */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: -17px 0 auto;
+  height: 17px;
+}

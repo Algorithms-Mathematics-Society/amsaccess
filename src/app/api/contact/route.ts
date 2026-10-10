@@ -15,14 +15,21 @@ function isCategory(value: string) {
 }
 
 function isExpectedRoundVolume(value: string) {
-  return value === "Not sure yet" || value === "< 100" || value === "100-1,000" || value === "1,000+";
+  return (
+    value === "Not sure yet" ||
+    value === "< 100" ||
+    value === "100-1,000" ||
+    value === "1,000+"
+  );
 }
 
 export async function POST(request: NextRequest) {
   return withApiLogging("contact.submit", async () => {
     // IP rate limit first — before JSON parsing — so bots pay minimal cost
     // and can't exhaust JSON parse budget. Upstash-backed when configured.
-    const ipLimit = await checkRequestRateLimitAsync(request, "contact", ["ip"]);
+    const ipLimit = await checkRequestRateLimitAsync(request, "contact", [
+      "ip",
+    ]);
     if (ipLimit.limited) return apiRateLimited(ipLimit.retryAfter);
 
     let payload: unknown;
@@ -32,6 +39,9 @@ export async function POST(request: NextRequest) {
       return apiError("Invalid request body.", 400, "BAD_REQUEST");
     }
 
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return apiError("Invalid request body.", 400, "BAD_REQUEST");
+    }
     const record = payload as Record<string, unknown>;
 
     // Honeypot: bots fill hidden fields that human users never see.
@@ -44,7 +54,10 @@ export async function POST(request: NextRequest) {
     // doing full validation — limits cost of high-volume address enumeration.
     const email = normalizeEmail(cleanText(record.email, 180));
     if (isValidEmail(email)) {
-      const emailLimit = await checkRequestRateLimitAsync(request, "contact", ["email", email]);
+      const emailLimit = await checkRequestRateLimitAsync(request, "contact", [
+        "email",
+        email,
+      ]);
       if (emailLimit.limited) return apiRateLimited(emailLimit.retryAfter);
     }
 
@@ -54,60 +67,79 @@ export async function POST(request: NextRequest) {
     const expectedRoundVolume = cleanText(record.expectedRoundVolume, 40);
     const message = cleanText(record.message, 4000);
 
-    if (!name || !isValidEmail(email) || !message || !isCategory(category) || (expectedRoundVolume && !isExpectedRoundVolume(expectedRoundVolume))) {
-      return apiError("Name, email, category, and message are required.", 400, "BAD_REQUEST");
+    if (
+      !name ||
+      !isValidEmail(email) ||
+      !message ||
+      !isCategory(category) ||
+      (expectedRoundVolume && !isExpectedRoundVolume(expectedRoundVolume))
+    ) {
+      return apiError(
+        "Name, email, category, and message are required.",
+        400,
+        "BAD_REQUEST",
+      );
     }
 
-    const contactPayload = {
-      name,
-      organization,
-      email,
-      category,
-      expectedRoundVolume: expectedRoundVolume || "Not sure yet",
-      message
-    };
-
-    if (!process.env.RESEND_API_KEY) {
-      // Log metadata only — no PII (name/email/message) in stdout
-      logger.info("contact_form_logged", { category, messageLength: message.length });
-      return apiOk({ delivered: true });
+    const to = process.env.CONTACT_TO_EMAIL || process.env.RESEND_TO_EMAIL;
+    if (!process.env.RESEND_API_KEY || !to) {
+      // Never acknowledge delivery when there is no configured delivery path.
+      logger.error("contact_form_delivery_unavailable", { category });
+      return apiError(
+        "The contact form is temporarily unavailable. Please email us directly.",
+        503,
+        "SERVICE_UNAVAILABLE",
+      );
     }
 
-    const to = process.env.CONTACT_TO_EMAIL ?? process.env.RESEND_TO_EMAIL;
-    if (!to) {
-      logger.info("contact_form_logged_no_recipient", { category, messageLength: message.length });
-      return apiOk({ delivered: true });
+    let resendResponse: Response;
+    try {
+      resendResponse = await fetch("https://api.resend.com/emails", {
+        signal: AbortSignal.timeout(12000),
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from:
+            process.env.RESEND_FROM_EMAIL ??
+            "Access by AMS <onboarding@resend.dev>",
+          to,
+          reply_to: email,
+          subject: `Access by AMS ${category} inquiry from ${name}`,
+          text: [
+            `Name: ${name}`,
+            `Organization: ${organization || "Not provided"}`,
+            `Email: ${email}`,
+            `Category: ${category}`,
+            `Expected round volume: ${expectedRoundVolume || "Not sure yet"}`,
+            "",
+            message,
+          ].join("\n"),
+        }),
+      });
+    } catch {
+      // Provider/network details and enquiry content must not enter logs.
+      logger.error("contact_form_delivery_unconfirmed", { category });
+      return apiError(
+        "Unable to confirm your message was sent. Please try again or email us directly.",
+        502,
+        "SERVER_ERROR",
+      );
     }
-
-    const resendResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL ?? "Access by AMS <onboarding@resend.dev>",
-        to,
-        reply_to: email,
-        subject: `Access by AMS ${category} inquiry from ${name}`,
-        text: [
-          `Name: ${name}`,
-          `Organization: ${organization || "Not provided"}`,
-          `Email: ${email}`,
-          `Category: ${category}`,
-          `Expected round volume: ${expectedRoundVolume || "Not sure yet"}`,
-          "",
-          message
-        ].join("\n")
-      })
-    });
 
     if (!resendResponse.ok) {
-      logger.error("contact_form_resend_failed", { status: resendResponse.status });
+      logger.error("contact_form_resend_failed", {
+        status: resendResponse.status,
+      });
       return apiError("Unable to send message right now.", 502, "SERVER_ERROR");
     }
 
-    logger.info("contact_form_delivered", { category, messageLength: message.length });
+    logger.info("contact_form_delivered", {
+      category,
+      messageLength: message.length,
+    });
     return apiOk({ delivered: true });
   });
 }

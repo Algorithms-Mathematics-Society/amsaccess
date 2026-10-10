@@ -1,0 +1,327 @@
+.page {
+  background: var(--color-background-body);
+  color: var(--color-text-primary);
+  padding: 160px 0 88px;
+}
+.container {
+  max-width: 1208px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.hero {
+  max-width: 850px;
+  padding-bottom: 72px;
+}
+.eyebrow {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0 0 20px;
+}
+.hero h1 {
+  font-size: clamp(38px, 4.5vw, 64px);
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  margin: 0;
+}
+.hero h1 span {
+  color: var(--color-text-secondary);
+}
+.lead {
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+  max-width: 580px;
+  margin: 24px 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.primary,
+.secondary {
+  display: inline-flex;
+  min-height: 44px;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-element);
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background var(--duration-fast);
+}
+.primary {
+  background: var(--color-background-inverted);
+  color: #fff;
+  border-color: var(--color-background-inverted);
+}
+.primary:hover {
+  background: #303030;
+}
+.secondary {
+  background: var(--color-background-card);
+  color: var(--color-text-primary);
+}
+.secondary:hover {
+  background: var(--color-background-surface);
+}
+.heroNote {
+  margin: 16px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.section {
+  padding: 48px 0 64px;
+  border-top: 1px solid var(--color-border);
+}
+.sectionIntro {
+  max-width: 640px;
+  margin-bottom: 28px;
+}
+.sectionIntro .eyebrow,
+.confirm .eyebrow,
+.closing .eyebrow {
+  margin-bottom: 14px;
+}
+.page h2 {
+  font-size: clamp(27px, 3vw, 38px);
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  margin: 0;
+}
+.sectionIntro > p:last-child {
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+  margin: 16px 0 0;
+}
+.options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.option {
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-card);
+}
+.optionName {
+  margin: 0 0 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-accent);
+}
+.option h3 {
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  margin: 0 0 12px;
+}
+.option > p:not(.optionName) {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+}
+.option > p:not(.optionName):not(.detail) {
+  margin: 0 0 24px;
+  max-width: 470px;
+}
+.option .detail {
+  margin: auto 0 0;
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
+  font-size: 13px;
+}
+.confirm {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  padding: 48px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+.confirm > div > p:not(.eyebrow),
+.closing > div > p:not(.eyebrow) {
+  max-width: 510px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.8;
+  margin: 20px 0;
+}
+.textLink {
+  display: inline-block;
+  padding: 8px 0;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  text-underline-offset: 4px;
+  text-decoration: underline;
+}
+.requirements {
+  list-style: none;
+  counter-reset: requirement;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 26px;
+}
+.requirements li {
+  position: relative;
+  counter-increment: requirement;
+  padding-left: 42px;
+}
+.requirements li::before {
+  content: "0" counter(requirement);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  font-size: 12px;
+  line-height: 24px;
+  color: var(--color-text-secondary);
+}
+.requirements h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.requirements p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+}
+.faq {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 64px;
+  padding: 64px 0;
+}
+.faq details {
+  border-bottom: 1px solid var(--color-border);
+}
+.faq summary {
+  padding: 20px 0;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.faq details:first-child summary {
+  padding-top: 0;
+}
+.faq details p {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 0 0 22px;
+}
+.faq details a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--color-text-primary);
+}
+.closing {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
+  padding: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-card);
+}
+.closing > div > p:last-child {
+  margin-bottom: 0;
+}
+.closing > a {
+  flex-shrink: 0;
+}
+.page a:focus-visible,
+.page summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+@media (max-width: 959px) {
+  .page {
+    padding-top: 128px;
+  }
+  .container {
+    padding: 0 24px;
+  }
+  .confirm,
+  .faq {
+    gap: 32px;
+  }
+}
+@media (max-width: 640px) {
+  .page {
+    padding: 112px 0 48px;
+  }
+  .container {
+    padding: 0 20px;
+  }
+  .hero {
+    padding-bottom: 40px;
+  }
+  .hero h1 {
+    font-size: clamp(32px, 8vw, 44px);
+  }
+  .hero h1 br {
+    display: none;
+  }
+  .hero h1 span::before {
+    content: " ";
+  }
+  .lead {
+    font-size: 16px;
+  }
+  .section {
+    padding: 32px 0 40px;
+  }
+  .options,
+  .confirm,
+  .faq {
+    grid-template-columns: 1fr;
+  }
+  .option {
+    padding: 22px;
+  }
+  .confirm {
+    padding: 32px 0;
+  }
+  .faq {
+    gap: 24px;
+    padding: 40px 0;
+  }
+  .faq .sectionIntro {
+    margin-bottom: 0;
+  }
+  .closing {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 24px;
+    gap: 20px;
+  }
+  .closing > a {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .primary,
+  .secondary {
+    transition: none;
+  }
+}

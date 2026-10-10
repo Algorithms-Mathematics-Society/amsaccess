@@ -1,0 +1,142 @@
+.page {
+  background: var(--color-background-body);
+  color: var(--color-text-primary);
+  padding: 152px 0 80px;
+}
+.container {
+  max-width: 1208px;
+  padding: 0 24px;
+  margin-inline: auto;
+}
+.hero {
+  max-width: 700px;
+  margin-bottom: 40px;
+}
+.eyebrow {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0 0 20px;
+}
+.hero h1 {
+  font-size: clamp(38px, 5vw, 64px);
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  margin: 0;
+}
+.hero > p:last-child {
+  color: var(--color-text-secondary);
+  font-size: 17px;
+  line-height: 1.8;
+  margin: 20px 0 0;
+}
+.notice {
+  background: var(--color-background-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  padding: 32px;
+}
+.page h2 {
+  font-size: 22px;
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  margin: 0;
+}
+.notice > p,
+.help p,
+.contact {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.notice > p {
+  max-width: 600px;
+  margin: 14px 0 24px;
+}
+.page a {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.page a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+.page .primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: var(--radius-element);
+  background: var(--color-background-inverted);
+  color: #fff;
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background var(--duration-fast);
+}
+.primary:hover {
+  background: #303030;
+}
+.help {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 40px;
+  padding: 40px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.help h2 {
+  font-size: 20px;
+}
+.help p {
+  max-width: 550px;
+  margin: 12px 0 0;
+}
+.links {
+  display: grid;
+  gap: 12px;
+}
+.links a {
+  display: block;
+  padding: 7px 0;
+  font-size: 14px;
+}
+.contact {
+  margin: 24px 0 0;
+}
+@media (max-width: 959px) {
+  .page {
+    padding-top: 120px;
+  }
+}
+@media (max-width: 599px) {
+  .page {
+    padding: 112px 0 48px;
+  }
+  .container {
+    padding: 0 20px;
+  }
+  .notice {
+    padding: 24px;
+  }
+  .help {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 32px 0;
+  }
+  .links {
+    gap: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .primary {
+    transition: none;
+  }
+}

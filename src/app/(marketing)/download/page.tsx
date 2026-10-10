@@ -1,56 +1,51 @@
 import type { Metadata } from "next";
-import { MarketingHeader } from "@/components/MarketingEndpointPage";
+import Link from "next/link";
+import { MarketingHeader } from "@/components/MarketingHeader";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { Container, Eyebrow } from "@/components/ams/primitives";
 import { PrimaryDownload } from "@/components/ams/DownloadHero";
-import { PlatformList, type PlatformBuild } from "@/components/ams/PlatformList";
-import { ReleaseHistory } from "@/components/ams/ReleaseHistory";
+import {
+  PlatformList,
+  type PlatformBuild,
+} from "@/components/ams/PlatformList";
 import { DesktopDownloadNotice } from "@/components/DesktopDownloadNotice";
-import { fetchLatestRelease, fetchReleases } from "@/lib/releases";
+import { fetchLatestRelease } from "@/lib/releases";
 
 export const metadata: Metadata = {
   title: "Download",
   description: "AMS Access for Windows, macOS and Linux.",
 };
 
-/**
- * The download page.
- *
- * **Open, deliberately.** This used to sit behind the organization login,
- * which had it exactly backwards: the people who need this binary are
- * candidates, and a candidate has no organization credentials by
- * definition. They sign in to a round from inside the app, with a code on
- * a printed slip. The one audience that must have the installer was the
- * one audience that could not reach it.
- *
- * **Release history lives here**, not on its own page. Somebody on a
- * download page asking "what changed" is deciding whether to update, and
- * sending them elsewhere to find out is a round trip for one question.
- * /changelog still resolves, so existing links hold.
- *
- * Assets are linked straight from GitHub. The /api/releases/download proxy
- * existed to enforce the login; with the login gone it is a redirect that
- * costs a hop and can only fail.
- */
-
+// Keep public installer availability from main. Public notes are curated on
+// /changelog rather than copied from internal release descriptions.
 export default async function DownloadPage() {
-  const [release, releases] = await Promise.all([fetchLatestRelease(), fetchReleases()]);
+  const release = await fetchLatestRelease();
 
   const windows: PlatformBuild["files"] = [];
-  if (release?.windows.msi) windows.push({ label: "Installer (.msi)", asset: release.windows.msi });
-  if (release?.windows.exe) windows.push({ label: "Setup (.exe)", asset: release.windows.exe });
+  if (release?.windows.msi)
+    windows.push({ label: "Installer (.msi)", asset: release.windows.msi });
+  if (release?.windows.exe)
+    windows.push({ label: "Setup (.exe)", asset: release.windows.exe });
 
   const macos: PlatformBuild["files"] = [];
-  if (release?.macos.dmg) macos.push({ label: "Universal (.dmg)", asset: release.macos.dmg });
+  if (release?.macos.dmg)
+    macos.push({ label: "Universal (.dmg)", asset: release.macos.dmg });
 
   const linux: PlatformBuild["files"] = [];
-  if (release?.linux.appimage) linux.push({ label: "AppImage", asset: release.linux.appimage });
-  if (release?.linux.deb) linux.push({ label: "Debian, Ubuntu (.deb)", asset: release.linux.deb });
-  if (release?.linux.rpm) linux.push({ label: "Fedora, RHEL (.rpm)", asset: release.linux.rpm });
+  if (release?.linux.appimage)
+    linux.push({ label: "AppImage", asset: release.linux.appimage });
+  if (release?.linux.deb)
+    linux.push({ label: "Debian, Ubuntu (.deb)", asset: release.linux.deb });
+  if (release?.linux.rpm)
+    linux.push({ label: "Fedora, RHEL (.rpm)", asset: release.linux.rpm });
 
   const platforms: PlatformBuild[] = [
     { os: "Windows", requirement: "Windows 10 or newer", files: windows },
-    { os: "macOS", requirement: "macOS 12 or newer, Apple silicon and Intel", files: macos },
+    {
+      os: "macOS",
+      requirement: "macOS 12 or newer, Apple silicon and Intel",
+      files: macos,
+    },
     { os: "Linux", requirement: "GNOME, KDE or similar", files: linux },
   ];
 
@@ -73,12 +68,15 @@ export default async function DownloadPage() {
             AMS Access for the desktop.
           </h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-muted">
-            Install this before your round. You sign in inside the app with the code you were
-            sent, so there is nothing to set up beforehand.
+            The Access desktop app for taking assessments. Follow your
+            organizer’s instructions to choose and prepare your device.
           </p>
 
           <div className="mt-8 hidden xl:block">
-            <PrimaryDownload available={preferred} version={release?.version ?? null} />
+            <PrimaryDownload
+              available={preferred}
+              version={release?.version ?? null}
+            />
           </div>
 
           <DesktopDownloadNotice className="mt-8 xl:hidden" />
@@ -113,23 +111,30 @@ export default async function DownloadPage() {
 
               <dl className="mt-6 space-y-5">
                 <div>
-                  <dt className="font-display text-base text-ink">You need a code, not an account</dt>
+                  <dt className="font-display text-base text-ink">
+                    Follow your invitation
+                  </dt>
                   <dd className="mt-1 text-sm leading-6 text-muted">
-                    Your organizer sends one. The app asks for it on first launch.
+                    Use the access details and sign-in instructions provided by
+                    your organizer.
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-display text-base text-ink">Run the device check early</dt>
+                  <dt className="font-display text-base text-ink">
+                    Run the device check early
+                  </dt>
                   <dd className="mt-1 text-sm leading-6 text-muted">
-                    Camera and screen-recording permissions are the usual holdup, and both are
-                    easier to sort the day before than five minutes in.
+                    Complete the required device and permission checks before
+                    the scheduled round.
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-display text-base text-ink">Updating is installing again</dt>
+                  <dt className="font-display text-base text-ink">
+                    Check your app version
+                  </dt>
                   <dd className="mt-1 text-sm leading-6 text-muted">
-                    Install over the top. Sessions live on the server, so updating between rounds
-                    costs nothing. macOS builds are signed and notarised.
+                    Ask your organizer which version to use. Complete any
+                    required update before your assessment.
                   </dd>
                 </div>
               </dl>
@@ -141,7 +146,23 @@ export default async function DownloadPage() {
                 What changed.
               </h2>
               <div className="mt-6">
-                <ReleaseHistory releases={releases.slice(0, 6)} />
+                <p className="text-sm leading-6 text-muted">
+                  Read the{" "}
+                  <Link
+                    href="/changelog"
+                    className="underline underline-offset-4"
+                  >
+                    public release notes
+                  </Link>{" "}
+                  for published changes, or follow the{" "}
+                  <Link
+                    href="/docs/candidate-setup"
+                    className="underline underline-offset-4"
+                  >
+                    candidate setup guide
+                  </Link>{" "}
+                  to prepare.
+                </p>
               </div>
             </div>
           </div>
