@@ -160,14 +160,14 @@ export default function LandingPage() {
         </Container>
       </section>
 
-      <section className="border-t border-line bg-violet py-[clamp(3.75rem,7vw,6.5rem)] lg:py-32">
+      <section className="border-t border-line bg-[#352748] py-[clamp(3.75rem,7vw,6.5rem)] text-white lg:py-32">
         <Container>
           <div className="flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-center">
             <div className="max-w-xl">
               <h2 className="font-display text-[clamp(1.75rem,2.4vw+0.75rem,2.6rem)] leading-tight text-white">
                 Get the desktop app.
               </h2>
-              <p className="mt-3 text-base leading-7 text-white/70">
+              <p className="mt-3 text-base leading-7 text-white/80">
                 Candidates need the app. Everything you run a round with is in the browser.
               </p>
             </div>
@@ -178,7 +178,7 @@ export default function LandingPage() {
               <AmsButton
                 href="/contact"
                 variant="outline"
-                className="border-white/40 text-white hover:border-white hover:bg-white/10"
+                className="border-white/60 text-white hover:border-white hover:bg-white/10"
               >
                 Contact
               </AmsButton>
