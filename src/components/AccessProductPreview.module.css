@@ -101,7 +101,7 @@
   overflow: hidden;
 }
 .heroFigure {
-  box-shadow: 0 16px 50px #00000005;
+  box-shadow: 0 12px 40px #00000006;
 }
 .frameHeader {
   display: flex;
@@ -241,12 +241,18 @@
     padding: 18px;
   }
   .panel {
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr);
+    grid-template-columns: minmax(0, 1fr);
     padding: 22px;
     gap: 22px;
   }
   .perspective h3 {
     font-size: 21px;
+  }
+  .perspective {
+    max-width: 560px;
+  }
+  .detail {
+    display: none;
   }
   .perspective p {
     font-size: 12px;

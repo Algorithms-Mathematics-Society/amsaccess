@@ -1,9 +1,12 @@
 // Intentionally curated public help content. Do not import internal markdown,
 // operational runbooks, customer fixtures, or repository metadata into this file.
+import type { ProductMediaKey } from "../product/product-media";
+
 export type Audience = "everyone" | "candidates" | "organizers" | "reviewers";
 export type GuideSection = {
   id: string;
   title: string;
+  screenshot?: ProductMediaKey;
   paragraphs?: string[];
   steps?: { title: string; body: string }[];
   bullets?: string[];
@@ -119,6 +122,7 @@ export const guides: Guide[] = [
       },
       {
         id: "before-entry",
+        screenshot: "prepare",
         title: "Check your setup before entering",
         paragraphs: [
           "Review the device readiness information on the app’s home screen. Open Settings to test any camera and microphone required for the round.",
@@ -153,6 +157,7 @@ export const guides: Guide[] = [
       },
       {
         id: "camera-microphone",
+        screenshot: "hardware",
         title: "Test the required camera and microphone",
         steps: [
           {
@@ -197,6 +202,7 @@ export const guides: Guide[] = [
     sections: [
       {
         id: "understand-problem",
+        screenshot: "workspace",
         title: "Read before you write",
         paragraphs: [
           "Choose the problem you want to work on. Read its statement, constraints, and examples, then check which languages are available.",

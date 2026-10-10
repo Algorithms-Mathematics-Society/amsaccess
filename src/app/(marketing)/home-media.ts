@@ -3,7 +3,7 @@ import { productMedia } from "./product/product-media";
 // Reuse the approved product screenshots. Set their src in product-media.ts
 // after adding the files to public/product/. Null renders a labelled space.
 export const homeScreenshots = {
-  review: productMedia.review,
+  submissions: productMedia.submissions,
   prepare: productMedia.prepare,
   workspace: productMedia.workspace,
 };

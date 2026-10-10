@@ -9,6 +9,8 @@ import {
   ChevronDown,
   Info,
 } from "lucide-react";
+import { ProductImage } from "@/components/ProductImage";
+import { productMedia } from "../../product/product-media";
 import { ACCESS_APP_URL } from "@/lib/product-links";
 import { guides, getGuide, audienceLabels } from "../guides";
 import styles from "../docs.module.css";
@@ -118,6 +120,15 @@ export default async function GuidePage({
                 ))}
               </ul>
             )}
+            {section.screenshot && (() => {
+              const media = productMedia[section.screenshot];
+              return media.src ? (
+                <figure className={styles.guideScreenshot}>
+                  <ProductImage {...media} src={media.src} sizes="(max-width: 700px) calc(100vw - 48px), (max-width: 1100px) 70vw, 720px" />
+                  <figcaption>{media.caption}</figcaption>
+                </figure>
+              ) : null;
+            })()}
             {section.note && (
               <aside className={styles.articleNote}>
                 <h3>{section.note.title}</h3>

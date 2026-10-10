@@ -126,35 +126,15 @@ export default function HomePage() {
       </a>
       <MarketingHeader />
       <main id="main-content" tabIndex={-1}>
-        <nav
-          className={styles.returningVisitors}
-          aria-label="Partner and candidate access"
-        >
-          <div>
-            <span>Already working with Access?</span>
-            <a href={ACCESS_APP_URL}>
-              Partner access <ArrowUpRight size={13} aria-hidden="true" />
-            </a>
-          </div>
-          <div>
-            <span>Taking an assessment?</span>
-            <a href={ACCESS_APP_URL}>
-              Candidate access & downloads{" "}
-              <ArrowUpRight size={13} aria-hidden="true" />
-            </a>
-          </div>
-        </nav>
-
         <section className={styles.hero} aria-labelledby="hero-title">
           <div className={styles.heroContent}>
             <span className={styles.eyebrow}>
-              <span className={styles.brandTick} /> FOR ASSESSMENT ORGANIZERS
-              AND CANDIDATES
+              <span className={styles.brandTick} aria-hidden="true" />
+              THE CODING ASSESSMENT WORKSPACE
             </span>
             <h1 id="hero-title">
-              Let the work
-              <br />
-              <span>speak.</span>
+              <span className={styles.heroLead}>Let the work</span>{" "}
+              <span className={styles.heroAccent}>speak.</span>
             </h1>
             <p className={styles.heroCopy}>
               Coding assessments for candidates to demonstrate their skills and
@@ -168,11 +148,25 @@ export default function HomePage() {
                 Contact the team <ArrowRight size={16} aria-hidden="true" />
               </Link>
             </div>
-            <p className={styles.heroNote}>
-              For a new organization, contact the team about access and setup.
-            </p>
+            <nav
+              className={styles.returningVisitors}
+              aria-label="Partner and candidate access"
+            >
+              <span>Already using Access?</span>
+              <div>
+                <a href={ACCESS_APP_URL}>
+                  Partner access <ArrowUpRight size={12} aria-hidden="true" />
+                </a>
+                <span className={styles.accessDivider} aria-hidden="true" />
+                <a href={ACCESS_APP_URL}>
+                  Candidate downloads <ArrowUpRight size={12} aria-hidden="true" />
+                </a>
+              </div>
+            </nav>
           </div>
-          <AccessProductScreenshot name="review" hero />
+          <div className={styles.heroProduct}>
+            <AccessProductScreenshot name="workspace" hero />
+          </div>
         </section>
 
         <section
@@ -206,14 +200,14 @@ export default function HomePage() {
             <div>
               <span className={styles.eyebrow}>THE ASSESSMENT WORKFLOW</span>
               <h2 id="product-title">
-                Results, submissions,
+                Inside the candidate
                 <br />
-                and session activity.
+                workspace.
               </h2>
             </div>
             <p>
-              View the organizer’s review tools, candidate device checks, and
-              coding workspace.
+              See how candidates prepare their device, work through a problem,
+              and check their recorded submissions.
             </p>
           </div>
           <AccessProductPreview />

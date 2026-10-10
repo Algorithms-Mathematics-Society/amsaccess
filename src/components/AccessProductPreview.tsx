@@ -11,39 +11,39 @@ import styles from "./AccessProductPreview.module.css";
 
 const stages = [
   {
-    id: "review",
-    label: "Review",
-    icon: FileText,
-    role: "FOR YOUR REVIEWERS",
-    title: "Review submissions and attempts.",
-    description:
-      "Inspect submitted code, see when each attempt was made, and review available session activity.",
-    detail: "Organizer workspace",
-  },
-  {
     id: "prepare",
     label: "Preparation",
     icon: Laptop,
-    role: "FOR YOUR CANDIDATES",
-    title: "Check assessment and device readiness.",
+    role: "BEFORE THE ROUND",
+    title: "Get familiar with the setup.",
     description:
-      "Find the assigned assessment and check device readiness before entering the workspace.",
-    detail: "Before entry",
+      "Rehearse the device setup and understand the checks before assessment day.",
+    detail: "Candidate preparation",
   },
   {
     id: "workspace",
     label: "Workspace",
     icon: Code2,
-    role: "FOR YOUR CANDIDATES",
+    role: "DURING THE ASSESSMENT",
     title: "Read the problem and write code.",
     description:
-      "Read the question, write code, and inspect its output in the dedicated assessment workspace.",
-    detail: "During the assessment",
+      "Read the question, write code, and inspect test results in the dedicated assessment workspace.",
+    detail: "Candidate coding workspace",
+  },
+  {
+    id: "submissions",
+    label: "Submissions",
+    icon: FileText,
+    role: "CHECK YOUR ATTEMPTS",
+    title: "See what you have submitted.",
+    description:
+      "Candidates can check their recorded attempts and judging status. These are not published standings or a final contest score.",
+    detail: "Candidate submission history",
   },
 ] as const;
 
 export function AccessProductPreview() {
-  const [active, setActive] = useState<HomeScreenshotKey>("review");
+  const [active, setActive] = useState<HomeScreenshotKey>("prepare");
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const selected = stages.find((stage) => stage.id === active)!;
   return (

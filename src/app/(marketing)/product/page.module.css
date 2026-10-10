@@ -800,3 +800,11 @@
     transition: none;
   }
 }
+
+/* Real screenshots retain their native proportions; placeholder ratios stay separate. */
+.actualImageFrame {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}

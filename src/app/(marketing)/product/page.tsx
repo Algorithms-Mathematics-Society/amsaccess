@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import { ProductImage } from "@/components/ProductImage";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -65,24 +65,28 @@ function ProductScreenshot({
   wide?: boolean;
 }) {
   const media = productMedia[name];
+  if (media.src) {
+    return (
+      <figure className={styles.figure} data-product-media={name}>
+        <div className={styles.actualImageFrame}>
+          <ProductImage
+            {...media}
+            src={media.src}
+            sizes={wide
+              ? "(max-width: 800px) calc(100vw - 40px), (max-width: 1240px) calc(100vw - 80px), 1160px"
+              : "(max-width: 800px) calc(100vw - 40px), (max-width: 1240px) 52vw, 680px"}
+          />
+        </div>
+        <figcaption>{media.caption}</figcaption>
+      </figure>
+    );
+  }
+
   return (
     <figure className={styles.figure} data-product-media={name}>
       <div
         className={[styles.imageFrame, wide ? styles.wideFrame : ""].join(" ")}
       >
-        {media.src ? (
-          <Image
-            src={media.src}
-            alt={media.alt}
-            fill
-            sizes={
-              wide
-                ? "(max-width: 1240px) 100vw, 1160px"
-                : "(max-width: 800px) 100vw, 680px"
-            }
-            className={styles.screenshot}
-          />
-        ) : (
           <div className={styles.imagePlaceholder}>
             <span className={styles.placeholderIcon}>
               <ImageIcon size={23} strokeWidth={1.3} aria-hidden="true" />
@@ -92,7 +96,6 @@ function ProductScreenshot({
               Screenshot to be added
             </span>
           </div>
-        )}
       </div>
       <figcaption>
         <span>{media.caption}</span>
