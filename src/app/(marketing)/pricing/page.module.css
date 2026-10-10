@@ -103,46 +103,69 @@
   color: var(--color-text-secondary);
   margin: 16px 0 0;
 }
-.options {
+.brief {
+  margin: 0;
+  border-top: 1px solid var(--color-border);
+}
+.brief > div {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 40px;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--color-border);
 }
-.option {
-  display: flex;
-  flex-direction: column;
-  padding: 28px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-container);
-  background: var(--color-background-card);
-}
-.optionName {
-  margin: 0 0 16px;
-  font-size: 12px;
+.brief dt {
+  font-size: 18px;
+  line-height: 1.5;
   font-weight: 500;
-  color: var(--color-text-accent);
+  letter-spacing: -0.02em;
 }
-.option h3 {
-  font-size: 22px;
-  line-height: 1.3;
-  font-weight: 500;
-  letter-spacing: -0.025em;
-  margin: 0 0 12px;
-}
-.option > p:not(.optionName) {
-  font-size: 14px;
+.brief dd {
+  margin: 0;
+  font-size: 15px;
   line-height: 1.8;
   color: var(--color-text-secondary);
 }
-.option > p:not(.optionName):not(.detail) {
-  margin: 0 0 24px;
-  max-width: 470px;
+.process {
+  padding: 0 0 56px;
 }
-.option .detail {
-  margin: auto 0 0;
+.processSteps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  list-style: none;
+  counter-reset: process;
+  margin: 0;
+  padding: 0;
+}
+.processSteps li {
+  counter-increment: process;
+  padding-top: 20px;
   border-top: 1px solid var(--color-border);
-  padding-top: 16px;
-  font-size: 13px;
+}
+.processSteps li::before {
+  content: "0" counter(process);
+  color: var(--color-text-accent);
+  font-size: 12px;
+}
+.processSteps h3 {
+  margin: 16px 0 10px;
+  font-size: 18px;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.processSteps p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.processSteps a {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
 }
 .confirm {
   display: grid;
@@ -291,13 +314,18 @@
   .section {
     padding: 32px 0 40px;
   }
-  .options,
+  .brief > div,
+  .processSteps,
   .confirm,
   .faq {
     grid-template-columns: 1fr;
   }
-  .option {
-    padding: 22px;
+  .brief > div {
+    gap: 10px;
+    padding: 22px 0;
+  }
+  .process {
+    padding-bottom: 40px;
   }
   .confirm {
     padding: 32px 0;

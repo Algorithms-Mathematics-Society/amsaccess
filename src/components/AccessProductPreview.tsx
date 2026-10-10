@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, Film, Laptop, Code2 } from "lucide-react";
+import { FileText, Laptop, Code2 } from "lucide-react";
 import {
   homeWalkthrough,
   type HomeScreenshotKey,
@@ -105,12 +105,9 @@ export function AccessProductPreview() {
           <AccessProductScreenshot name={active} />
         </div>
       </div>
-      <div
-        className={styles.walkthrough}
-        data-ready={Boolean(homeWalkthrough.src)}
-      >
-        <div className={styles.walkthroughMedia}>
-          {homeWalkthrough.src ? (
+      {homeWalkthrough.src && (
+        <div className={styles.walkthrough} data-home-walkthrough>
+          <div className={styles.walkthroughMedia}>
             <video
               controls
               playsInline
@@ -131,22 +128,17 @@ export function AccessProductPreview() {
               )}
               Your browser does not support this video.
             </video>
-          ) : (
-            <div className={styles.videoPlaceholder}>
-              <Film size={21} strokeWidth={1.4} aria-hidden="true" />
-              <span>Walkthrough to be added</span>
-            </div>
-          )}
+          </div>
+          <div className={styles.walkthroughCopy}>
+            <span className={styles.overline}>REVIEW WALKTHROUGH</span>
+            <h3>Reviewing a sample submission</h3>
+            <p id="walkthrough-description">
+              A short walkthrough of sample submission results and the
+              available review controls.
+            </p>
+          </div>
         </div>
-        <div className={styles.walkthroughCopy}>
-          <span className={styles.overline}>REVIEW WALKTHROUGH</span>
-          <h3>Reviewing a sample submission</h3>
-          <p id="walkthrough-description">
-            A short walkthrough of opening a sample submission and viewing the
-            related session activity.
-          </p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

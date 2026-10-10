@@ -5,13 +5,13 @@ import { MarketingHeader } from "@/components/MarketingHeader";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { AccessProductPreview } from "@/components/AccessProductPreview";
 import { AccessProductScreenshot } from "@/components/AccessProductScreenshot";
-import { ACCESS_APP_URL } from "@/lib/product-links";
+import { ACCESS_DOWNLOAD_URL, ORGANIZER_SIGN_IN_URL } from "@/lib/product-links";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "Access by AMS — Coding assessments and submission review",
   description:
-    "Run coding assessments in a dedicated candidate workspace. Review results, individual submissions, and available session activity. Read about setup, candidate preparation, and review.",
+    "Run coding assessments in a dedicated candidate workspace. Review submission results and export standings. Read about setup, candidate preparation, and review.",
 };
 
 const workflow = [
@@ -28,7 +28,7 @@ const workflow = [
   {
     number: "03",
     title: "Review the submissions",
-    copy: "Examine results and individual attempts alongside available session activity.",
+    copy: "Review attempt verdicts and test results, then export standings and submissions.",
   },
 ];
 
@@ -36,7 +36,7 @@ const useCases = [
   {
     tag: "HIRING TEAMS",
     title: "Technical hiring",
-    copy: "Review a candidate’s submitted code and individual attempts as part of your evaluation.",
+    copy: "Review candidates’ submission results and individual attempts as part of your evaluation.",
     link: "View submission review",
     href: "/product#review",
   },
@@ -64,7 +64,7 @@ const faqs = [
         Start with an <Link href="/contact">enquiry to the Access team</Link>.
         Share the kind of round you have in mind, approximate candidate numbers,
         and any questions about setup. If your team already has access, use{" "}
-        <a href={ACCESS_APP_URL}>your workspace</a>.
+        <a href={ORGANIZER_SIGN_IN_URL}>Organizer sign in</a>.
       </>
     ),
   },
@@ -83,9 +83,8 @@ const faqs = [
     question: "Do candidates need to install an app?",
     answer: (
       <>
-        Yes. Candidates take the assessment in the Access desktop app. Product
-        access and downloads are at{" "}
-        <a href={ACCESS_APP_URL}>app.amsaccess.com</a>. Allow time for
+        Yes. Candidates take the assessment in the Access desktop app. Downloads are at{" "}
+        <a href={ACCESS_DOWNLOAD_URL}>app.amsaccess.com</a>. Allow time for
         installation and device checks before the round; the{" "}
         <Link href="/docs/candidate-setup">candidate setup guide</Link> explains
         where to begin.
@@ -150,15 +149,15 @@ export default function HomePage() {
             </div>
             <nav
               className={styles.returningVisitors}
-              aria-label="Partner and candidate access"
+              aria-label="Organizer sign-in and candidate downloads"
             >
               <span>Already using Access?</span>
               <div>
-                <a href={ACCESS_APP_URL}>
-                  Partner access <ArrowUpRight size={12} aria-hidden="true" />
+                <a href={ORGANIZER_SIGN_IN_URL}>
+                  Organizer sign in <ArrowUpRight size={12} aria-hidden="true" />
                 </a>
                 <span className={styles.accessDivider} aria-hidden="true" />
-                <a href={ACCESS_APP_URL}>
+                <a href={ACCESS_DOWNLOAD_URL}>
                   Candidate downloads <ArrowUpRight size={12} aria-hidden="true" />
                 </a>
               </div>
@@ -270,9 +269,9 @@ export default function HomePage() {
                 <span>Review responsibilities.</span>
               </h2>
               <p>
-                Reviewers should consider session activity alongside the
-                submitted work. An activity flag alone is not proof of
-                misconduct.
+                Confirm how your team will access and interpret assessment
+                records before the round. An activity flag alone is not proof
+                of misconduct.
               </p>
               <Link href="/security" className={styles.textLink}>
                 Security & privacy <ArrowRight size={15} aria-hidden="true" />

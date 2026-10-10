@@ -14,10 +14,11 @@ type ProductImageProps = {
   caption: string;
   sizes: string;
   priority?: boolean;
+  surface?: string;
 };
 
 export function ProductImage({
-  src, width, height, alt, title, caption, sizes, priority = false,
+  src, width, height, alt, title, caption, sizes, priority = false, surface = "Desktop app",
 }: ProductImageProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
@@ -57,7 +58,7 @@ export function ProductImage({
           className={styles.image}
         />
         <span className={styles.imageAction}>
-          <span>Desktop app · Example data</span>
+          <span>{surface} · Example data</span>
           <span><Expand size={14} aria-hidden="true" /> View larger</span>
         </span>
       </button>

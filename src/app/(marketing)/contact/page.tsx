@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowUpRight, BookOpen } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { MarketingFooter } from "@/components/MarketingFooter";
-import { ACCESS_APP_URL } from "@/lib/product-links";
+import { ACCESS_DOWNLOAD_URL } from "@/lib/product-links";
 import { AMS_TEAM_EMAIL, AMS_PARTNERS_EMAIL } from "@/lib/ams-contact";
 import { ContactForm } from "./ContactForm";
 import styles from "./Contact.module.css";
@@ -79,8 +79,8 @@ export default function ContactPage() {
                   Candidate setup guide{" "}
                   <ArrowUpRight size={14} aria-hidden="true" />
                 </Link>
-                <a href={ACCESS_APP_URL}>
-                  Open Access <ArrowUpRight size={14} aria-hidden="true" />
+                <a href={ACCESS_DOWNLOAD_URL}>
+                  Download Access <ArrowUpRight size={14} aria-hidden="true" />
                 </a>
               </div>
             </div>

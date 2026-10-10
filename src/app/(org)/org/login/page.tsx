@@ -14,7 +14,7 @@ import { List, ListItem } from "@astryxdesign/core/List";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { OrgAstryxTheme } from "@/components/org/OrgAstryxTheme";
-import { ACCESS_APP_URL } from "@/lib/product-links";
+import { ACCESS_DOWNLOAD_URL } from "@/lib/product-links";
 import { apiFetch } from "@/lib/client/apiClient";
 import styles from "./login.module.css";
 
@@ -160,7 +160,7 @@ export default function OrgLoginPage() {
               <Text type="supporting" color="secondary">
                 Candidates sign in inside the Access desktop app using their organizer’s instructions.
               </Text>
-              <a href={ACCESS_APP_URL} className={styles.textLink}>
+              <a href={ACCESS_DOWNLOAD_URL} className={styles.textLink}>
                 Download Access <ArrowUpRight size={14} aria-hidden="true" />
               </a>
             </VStack>

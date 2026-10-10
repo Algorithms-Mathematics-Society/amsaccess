@@ -14,10 +14,10 @@ type ProductMedia = {
 
 export const productMedia: Record<ProductMediaKey, ProductMedia> = {
   organize: {
-    src: null, width: 1600, height: 1100,
-    alt: "Access organizer workspace showing an assessment and its launch checklist.",
+    src: "/product/organizer-setup-light.png", width: 2632, height: 1000,
+    alt: "Access organizer web workspace showing a sample coding assessment in Draft, its schedule, Publish control and four example problems with limits and scores.",
     title: "Organizer workspace",
-    caption: "Questions, candidates, and launch preparation.",
+    caption: "A draft assessment, its schedule and problems. Synthetic example data.",
     surface: "Web workspace",
   },
   prepare: {
@@ -35,10 +35,10 @@ export const productMedia: Record<ProductMediaKey, ProductMedia> = {
     surface: "Desktop app",
   },
   review: {
-    src: null, width: 1600, height: 1200,
-    alt: "Access organizer results view showing per-question scores and a candidate’s submission history.",
+    src: "/product/organizer-results-light.png", width: 2632, height: 1280,
+    alt: "Access organizer Submissions tab for a sample assessment, showing example candidates, submission times, problem labels, verdicts, tests passed, runtime and memory, with CSV export controls.",
     title: "Results & submission review",
-    caption: "Assessment results and submission history.",
+    caption: "Submission results and export controls. Synthetic example data.",
     surface: "Web workspace",
   },
   submissions: {

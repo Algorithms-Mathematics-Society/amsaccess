@@ -32,6 +32,7 @@ const content: LegalContent = {
       paragraphs: [
         "Access by AMS provides assessment software, a candidate desktop workspace, and tools used to organize and review rounds. This draft describes proposed terms for using those services and the related website.",
         "These terms are not yet an effective agreement. The legal operator, applicable jurisdiction, acceptance process, and any additional contractual provisions need confirmation before final publication.",
+        "Access 2.3.1 includes separate desktop terms dated 27 May 2026, available in Settings → About → Terms. This website draft does not replace the terms supplied with the desktop app.",
         "An organization’s signed service agreement and a round’s specific instructions may address additional matters. If instructions conflict or are unclear, ask for clarification rather than assuming which rule applies.",
       ],
     },
@@ -101,7 +102,7 @@ const content: LegalContent = {
         "An activity flag alone is not proof of misconduct. The organizer’s criteria and review process should consider the work, relevant context, and reported issues.",
         "Access does not promise a particular score, selection decision, ranking, or employment outcome.",
       ],
-      link: { href: "/privacy", label: "Read the draft privacy notice" },
+      link: { href: "/docs/what-access-checks-and-records#decisions", label: "Understand checks, activity and assessment decisions" },
     },
     {
       id: "availability",

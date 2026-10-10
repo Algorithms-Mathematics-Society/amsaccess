@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, BookOpen } from "lucide-react";
-import { ACCESS_APP_URL } from "@/lib/product-links";
+import { ACCESS_DOWNLOAD_URL, ORGANIZER_SIGN_IN_URL } from "@/lib/product-links";
 import type { Audience } from "./guides";
 import styles from "./docs.module.css";
 
@@ -65,9 +65,12 @@ export function DocsNavigation({
         </div>
       ))}
       <div className={styles.navHelp}>
-        <p>Looking for the app?</p>
-        <a href={ACCESS_APP_URL}>
-          App access & downloads <ArrowUpRight size={13} aria-hidden="true" />
+        <p>Already using Access?</p>
+        <a href={ORGANIZER_SIGN_IN_URL}>
+          Organizer sign in <ArrowUpRight size={13} aria-hidden="true" />
+        </a>
+        <a href={ACCESS_DOWNLOAD_URL}>
+          Download Access <ArrowUpRight size={13} aria-hidden="true" />
         </a>
       </div>
     </nav>

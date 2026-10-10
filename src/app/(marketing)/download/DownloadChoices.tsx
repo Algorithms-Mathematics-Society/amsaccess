@@ -1,5 +1,6 @@
 "use client";
 
+import { DownloadIntegrity } from "./DownloadIntegrity";
 import { useEffect, useState } from "react";
 import { ArrowDownToLine, ArrowRight } from "lucide-react";
 import { PlatformLogo } from "@/components/PlatformLogo";
@@ -83,7 +84,7 @@ export function DownloadChoices({ options }: { options: DownloadOption[] }) {
               </a>
             )}
             <a href="#all-downloads" className={styles.otherVersions}>
-              {ready ? "Choose another version" : "View all downloads"}
+              {ready ? "Choose another installer" : "View all downloads"}
               <ArrowRight size={14} aria-hidden="true" />
             </a>
             {ready && (
@@ -141,9 +142,9 @@ export function DownloadChoices({ options }: { options: DownloadOption[] }) {
                 <select id="download-distribution" value={linuxFamily} aria-describedby="distribution-help"
                   onChange={(event) => { setLinuxFamily(event.target.value as LinuxFamily); setEditing(true); }}>
                   <option value="">Choose distribution</option>
-                  <option value="deb">Ubuntu / Debian / Linux Mint</option>
-                  <option value="rpm">Fedora / RHEL</option>
-                  <option value="appimage">Other / not sure — AppImage</option>
+                  <option value="deb">Debian / Ubuntu family (.deb)</option>
+                  <option value="rpm">RPM-based distribution (.rpm)</option>
+                  <option value="appimage">AppImage — confirm compatibility</option>
                 </select>
                 <p id="distribution-help">Check your system’s About page for its distribution name.</p>
               </div>
@@ -158,7 +159,7 @@ export function DownloadChoices({ options }: { options: DownloadOption[] }) {
 
       <div id="all-downloads" className={styles.choicesIntro}>
         <h2>All downloads</h2>
-        <span>Downloading for another computer? Choose its version below.</span>
+        <span>Downloading for another computer? Choose its installer below.</span>
       </div>
       <div className={styles.platforms}>
         {options.map((option) => {
@@ -184,12 +185,14 @@ export function DownloadChoices({ options }: { options: DownloadOption[] }) {
                       {file.label}<ArrowDownToLine size={16} aria-hidden="true" />
                     </a>
                     <p>{file.detail}{file.size && <> <span aria-hidden="true">·</span> {file.size}</>}</p>
+                    <DownloadIntegrity file={file} platform={option.id} />
                   </div>
                 ))}
                 {option.alternatives.length > 0 && (
                   <div className={styles.alternatives}>
                     {option.alternatives.map((file) => (
-                      <a href={file.href} key={file.href} data-recommended={recommendedFile?.href === file.href}
+                      <div key={file.href} className={styles.alternativeFile}>
+                      <a href={file.href} data-recommended={recommendedFile?.href === file.href}
                         aria-label={"Download " + file.label + " " + file.detail}>
                         <span>
                           {file.label}
@@ -198,6 +201,8 @@ export function DownloadChoices({ options }: { options: DownloadOption[] }) {
                         </span>
                         <ArrowDownToLine size={14} aria-hidden="true" />
                       </a>
+                      <DownloadIntegrity file={file} platform={option.id} />
+                      </div>
                     ))}
                   </div>
                 )}

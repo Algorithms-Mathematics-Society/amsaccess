@@ -10,7 +10,7 @@ import {
   LifeBuoy,
   Search,
 } from "lucide-react";
-import { ACCESS_APP_URL } from "@/lib/product-links";
+import { ACCESS_DOWNLOAD_URL } from "@/lib/product-links";
 import { DocsDirectory } from "./DocsDirectory";
 import { guides, guideSearchText } from "./guides";
 import styles from "./docs.module.css";
@@ -40,7 +40,7 @@ const paths = [
   {
     role: "For reviewers",
     title: "I’m reviewing the work.",
-    body: "Review results, submissions, and recorded session activity.",
+    body: "Read submission results, export standings, and understand review limits.",
     href: "/docs/review-results",
     label: "Start your review",
     icon: FileSearch,
@@ -118,8 +118,8 @@ export default function DocsPage() {
       </section>
       <div className={styles.appStrip}>
         <span>Already know what to do?</span>
-        <a href={ACCESS_APP_URL}>
-          Open Access & downloads <ArrowUpRight size={14} aria-hidden="true" />
+        <a href={ACCESS_DOWNLOAD_URL}>
+          Download Access <ArrowUpRight size={14} aria-hidden="true" />
         </a>
       </div>
     </div>

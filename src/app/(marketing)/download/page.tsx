@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { NextRequest } from "next/server";
+import { checkRequestRateLimitAsync } from "@/lib/server/rateLimit";
+import { ReleaseRequirements } from "@/components/ReleaseRequirements";
+import { MONITORING_GUIDE_PATH } from "@/lib/assessment-information";
 import { ArrowUpRight } from "lucide-react";
+import { ORGANIZER_SIGN_IN_URL, RECRUITER_SIGN_IN_URL } from "@/lib/product-links";
 import { fetchLatestRelease } from "@/lib/releases";
 import { DownloadChoices } from "./DownloadChoices";
 import { downloadOptions } from "./download-options";
@@ -14,8 +20,19 @@ export const metadata: Metadata = {
 };
 export const revalidate = 300;
 
-export default async function DownloadPage() {
-  const release = await fetchLatestRelease();
+export default async function DownloadPage({ searchParams }: {
+  searchParams: Promise<{ refresh?: string }>;
+}) {
+  const query = await searchParams;
+  const fresh = query.refresh === "1";
+  const refreshLimit = fresh
+    ? await checkRequestRateLimitAsync(
+        new NextRequest("https://app.amsaccess.com/download", { headers: await headers() }),
+        "publicRead", ["release-download"],
+      )
+    : null;
+  // Share the download API's budget: refreshing must not bypass upstream protection.
+  const release = refreshLimit?.limited ? null : await fetchLatestRelease({ fresh });
   const published = release?.publishedAt ? new Date(release.publishedAt) : null;
   const releaseDate =
     published && Number.isFinite(published.getTime())
@@ -67,7 +84,8 @@ export default async function DownloadPage() {
               Install the app on the computer you’ll use for your assessment.
             </p>
             <p className={styles.heroNote}>
-              Keep your organizer’s invitation and sign-in instructions nearby.
+              If your organizer specified a version, confirm it matches before
+              installing or updating.
             </p>
           </div>
           <aside className={styles.release} aria-label="Release information">
@@ -87,16 +105,29 @@ export default async function DownloadPage() {
         {!release && (
           <div className={styles.releaseNotice} role="status">
             <div>
-              <strong>We couldn’t load the downloads.</strong>
+              <strong>{refreshLimit?.limited ? "Please wait before refreshing again." : "We couldn’t load the downloads."}</strong>
               <p>
-                Try again shortly. If your assessment is about to start, contact
-                your organizer.
+                {refreshLimit?.limited
+                  ? `Try again in ${refreshLimit.retryAfter} seconds.`
+                  : "Try again shortly. If your assessment is about to start, contact your organizer."}
               </p>
             </div>
-            <a href="/download">Try again</a>
+            <a href="/download?refresh=1">Try again</a>
           </div>
         )}
+        <aside className={styles.monitoringNote} aria-labelledby="monitoring-note-title">
+          <div>
+            <h2 id="monitoring-note-title">Before you install</h2>
+            <p>The desktop app checks device readiness and records session activity.
+              Some presence checks can include camera images sent to the assessment service.</p>
+          </div>
+          <a href={WEBSITE + MONITORING_GUIDE_PATH}>
+            What Access checks and records <ArrowUpRight size={14} aria-hidden="true" />
+          </a>
+        </aside>
         <DownloadChoices options={downloadOptions(release)} />
+
+        <ReleaseRequirements release={release} />
 
         <section className={styles.setup} aria-labelledby="setup-title">
           <div className={styles.sectionHeading}>
@@ -185,8 +216,10 @@ export default async function DownloadPage() {
             <details>
               <summary>Do I need to update before every assessment?</summary>
               <p>
-                Use the version your organizer requires. If an update is needed,
-                complete it and check your device before your round begins.
+                This page offers the current public release. If your organizer
+                specifies another version, confirm the correct download with them
+                before installing or updating. Complete any update and device
+                checks before the round starts.
               </p>
             </details>
           </div>
@@ -198,10 +231,10 @@ export default async function DownloadPage() {
             <p>Use your team’s web workspace.</p>
           </div>
           <div>
-            <a href={WEBSITE + "/org/login"}>
+            <a href={ORGANIZER_SIGN_IN_URL}>
               Organizer sign in <ArrowUpRight size={14} aria-hidden="true" />
             </a>
-            <a href={WEBSITE + "/firms/login"}>
+            <a href={RECRUITER_SIGN_IN_URL}>
               Recruiter sign in <ArrowUpRight size={14} aria-hidden="true" />
             </a>
           </div>

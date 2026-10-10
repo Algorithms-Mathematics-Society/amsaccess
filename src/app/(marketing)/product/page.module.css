@@ -198,7 +198,8 @@
   line-height: 1.4;
   letter-spacing: -0.02em;
 }
-.sectionCopy > p:not(.sectionLabel, .eyebrow) {
+.sectionCopy > p:not(.sectionLabel, .eyebrow),
+.organizeIntro > p:not(.sectionLabel) {
   margin-top: 20px;
   color: var(--color-text-secondary);
   font-size: 15px;
@@ -254,66 +255,6 @@
 .figure {
   min-width: 0;
 }
-.imageFrame {
-  position: relative;
-  aspect-ratio: 16 / 11;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-container);
-  background: var(--color-background-surface);
-}
-.imagePlaceholder {
-  display: flex;
-  position: absolute;
-  inset: 16px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-element);
-  background-image:
-    linear-gradient(var(--color-border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
-  background-size: 48px 48px;
-  background-position: center;
-}
-.imagePlaceholder::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse,
-    var(--color-background-surface) 26%,
-    transparent 130%
-  );
-}
-.imagePlaceholder > span {
-  position: relative;
-}
-.placeholderIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 50px;
-  height: 50px;
-  margin-bottom: 16px;
-  background: var(--color-background-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-container);
-  color: var(--color-text-accent);
-}
-.placeholderTitle {
-  font-size: 14px;
-  font-weight: 500;
-}
-.placeholderNote {
-  font-size: 11px;
-  margin-top: 5px;
-  color: var(--color-text-secondary);
-}
-.screenshot {
-  object-fit: contain;
-}
 .figure figcaption {
   display: flex;
   justify-content: space-between;
@@ -322,9 +263,6 @@
   font-size: 11px;
   line-height: 1.6;
   color: var(--color-text-secondary);
-}
-.figureLabel {
-  flex-shrink: 0;
 }
 .prepareBand {
   border-block: 1px solid var(--color-border);
@@ -342,12 +280,6 @@
   background: var(--color-background-body);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-container);
-}
-.prepareVisual .imageFrame {
-  aspect-ratio: 5 / 4;
-}
-.prepareVisual .figureLabel {
-  display: none;
 }
 .preparationSteps {
   display: grid;
@@ -395,13 +327,6 @@
   max-width: 420px;
   padding-bottom: 3px;
 }
-.wideFrame {
-  aspect-ratio: 16 / 8;
-}
-.wideFrame .imagePlaceholder {
-  inset: 24px;
-  background-size: 64px 64px;
-}
 .workspaceDetails {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -446,9 +371,6 @@
   grid-template-columns: 1.4fr 0.85fr;
   gap: 64px;
   align-items: start;
-}
-.review .imageFrame {
-  aspect-ratio: 4 / 3;
 }
 .reviewDetails {
   display: grid;
@@ -635,7 +557,8 @@
     grid-template-columns: 1fr;
     gap: 36px;
   }
-  .sectionCopy > p:not(.sectionLabel, .eyebrow) {
+  .sectionCopy > p:not(.sectionLabel, .eyebrow),
+  .organizeIntro > p:not(.sectionLabel) {
     max-width: 550px;
   }
   .product h2 {
@@ -648,9 +571,6 @@
     order: 2;
     padding: 20px;
   }
-  .prepareVisual .imageFrame {
-    aspect-ratio: 16 / 10;
-  }
   .sectionHeading {
     grid-template-columns: 1fr;
     gap: 20px;
@@ -658,9 +578,6 @@
   }
   .sectionHeading > p {
     max-width: 540px;
-  }
-  .wideFrame {
-    aspect-ratio: 16 / 10;
   }
   .workspaceDetails {
     gap: 20px;
@@ -670,9 +587,6 @@
   }
   .workspaceDetails h3 {
     font-size: 14px;
-  }
-  .review .imageFrame {
-    aspect-ratio: 16 / 10;
   }
   .figure figcaption {
     flex-direction: row;
@@ -729,29 +643,9 @@
     margin-bottom: 18px !important;
   }
   .sectionCopy > p:not(.sectionLabel, .eyebrow),
+  .organizeIntro > p:not(.sectionLabel),
   .sectionHeading > p {
     font-size: 14px;
-  }
-  .imageFrame,
-  .prepareVisual .imageFrame,
-  .review .imageFrame,
-  .wideFrame {
-    aspect-ratio: 4 / 3;
-  }
-  .imagePlaceholder,
-  .wideFrame .imagePlaceholder {
-    inset: 10px;
-  }
-  .placeholderIcon {
-    width: 42px;
-    height: 42px;
-    margin-bottom: 12px;
-  }
-  .placeholderTitle {
-    font-size: 12px;
-  }
-  .placeholderNote {
-    font-size: 10px;
   }
   .figure figcaption {
     font-size: 10px;
@@ -801,7 +695,7 @@
   }
 }
 
-/* Real screenshots retain their native proportions; placeholder ratios stay separate. */
+/* Real screenshots retain their native proportions. */
 .actualImageFrame {
   overflow: hidden;
   border: 1px solid var(--color-border);
@@ -858,4 +752,92 @@
   .availabilityHeading { flex-direction: column; align-items: flex-start; gap: 12px; }
   .platformGrid li { min-height: 120px; gap: 14px; padding: 20px 8px; font-size: 12px; }
   .platformGrid svg { width: 26px; height: 26px; }
+}
+
+
+/* Keep wide web workspaces readable, with supporting copy above or below. */
+.organizeTextOnly {
+  display: block;
+}
+.organizeTextOnly .sectionCopy {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  align-items: start;
+  gap: 80px;
+}
+.organizeTextOnly .organizeDetails {
+  padding-top: 6px;
+}
+.organizeTextOnly .featureList {
+  margin-top: 0 !important;
+  gap: 20px;
+}
+.organizeTextOnly .featureList li {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.organizeTextOnly .featureList svg {
+  margin-top: 4px;
+}
+.reviewTextOnly {
+  display: block;
+}
+.reviewTextOnly .reviewDetails {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px 32px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 28px;
+}
+.reviewTextOnly .reviewDetails article {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.reviewTextOnly .reviewDetails article + article {
+  border-left: 1px solid var(--color-border);
+  padding-left: 32px;
+}
+.reviewTextOnly .humanReview {
+  grid-column: 1 / -1;
+}
+@media (max-width: 1100px) {
+  .organizeTextOnly .sectionCopy {
+    gap: 48px;
+  }
+}
+@media (max-width: 800px) {
+  .organizeTextOnly .sectionCopy {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .organizeTextOnly .organizeDetails {
+    padding-top: 0;
+  }
+  .reviewTextOnly .reviewDetails {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .reviewTextOnly .reviewDetails article + article {
+    border-left: 0;
+    border-top: 1px solid var(--color-border);
+    padding: 24px 0 0;
+  }
+}
+
+.proofNote {
+  margin-top: 28px !important;
+  max-width: 620px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.organizeTextOnly > .figure {
+  margin-top: 36px;
+}
+.reviewTextOnly > .figure {
+  margin-bottom: 32px;
+}
+.reviewTextOnly .reviewDetails > .textLink {
+  grid-column: 1 / -1;
+  justify-self: start;
 }

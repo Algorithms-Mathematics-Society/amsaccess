@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createContext, runInContext } from "node:vm";
 import ts from "typescript";
+import { downloadOptions } from "../../src/app/(marketing)/download/download-options.ts";
+import { parseDownloadIdentity } from "../../src/lib/release-download.ts";
 
 function compile(path) {
   const context = createContext({ exports: {}, URLSearchParams });
@@ -18,9 +20,6 @@ function compile(path) {
   return context.exports;
 }
 const { detectDownloadDevice } = compile("../../src/lib/download-platform.ts");
-const { downloadOptions } = compile(
-  "../../src/app/(marketing)/download/download-options.ts",
-);
 
 test("mobile and tablet browsers never receive a desktop recommendation", () => {
   assert.equal(
@@ -48,14 +47,23 @@ test("desktop detection does not infer a Mac processor or recommend Linux on Chr
 });
 function asset(architecture) {
   return {
+    id: architecture === "arm64" ? 11 : 12,
     url: "https://example.invalid/private-metadata",
     size: 10_000_000,
-    label: "file",
+    label: "Access_sample.dmg",
+    sha256: "ab".repeat(32),
     architecture,
   };
 }
 function release(overrides = {}) {
-  return { windows: {}, macos: {}, linux: {}, ...overrides };
+  return {
+    id: 1,
+    version: "v2.3.1",
+    windows: {},
+    macos: {},
+    linux: {},
+    ...overrides,
+  };
 }
 test("Mac choices preserve exact architecture and expose only the download endpoint", () => {
   const mac = downloadOptions(
@@ -77,6 +85,16 @@ test("Mac choices preserve exact architecture and expose only the download endpo
     "x64",
   );
   assert(!JSON.stringify(mac).includes("example.invalid"));
+  for (const file of mac.files) {
+    const expected = parseDownloadIdentity(
+      new URL(file.href, "https://app.amsaccess.com").searchParams,
+    );
+    assert(expected);
+    assert.equal(expected.version, "v2.3.1");
+    assert.equal(expected.filename, file.filename);
+    assert.equal(expected.bytes, file.bytes);
+    assert.equal(expected.sha256, file.sha256);
+  }
 });
 test("partial releases retain available installer formats without inventing downloads", () => {
   const options = downloadOptions(

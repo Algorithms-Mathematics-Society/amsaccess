@@ -2,7 +2,7 @@
 
 Prepared 10 October 2026  
 Scope: marketing website, public documentation, download experience, and the notices/support information connecting them to the desktop app.  
-Status: plan for review. This document does not implement or deploy the proposed changes.
+Status: work packages A, factual privacy/monitoring in B, and download/release alignment in C are implemented and reviewed locally. Final legal publication, tested support commitments and older-version policy still need owner decisions. See the execution record for deployment status.
 
 ## 1. Recommended direction
 
@@ -21,14 +21,14 @@ Do not delay the first track while gathering facts for the second. Do not fill g
 
 The production baseline is commit **d276e93**, which includes the About AMS page and the approved public inboxes.
 
-The following work is already complete locally and remains unpublished:
+The following work was completed before package A and deployed in commit **2de50ba**:
 
 - Frosted marketing navbar on scroll, with solid menus and accessibility fallbacks.
 - Three-platform availability grid in the product setup section.
 - Architecture-aware download recommendations, manual chip/distribution choices, and matching-file highlighting.
 - Nineteen installer-selection tests and 112 production-preview browser assertions.
 
-Preserve these changes and include them in the eventual integrated review. Do not recreate them as new tasks. The compatibility grid does **not** replace a supported-environment specification.
+Preserve these changes in subsequent batches. Do not recreate them as new tasks. The compatibility grid does **not** replace a supported-environment specification.
 
 Evidence checked for this plan:
 
@@ -349,3 +349,64 @@ These are internal implementation references, not links to expose on public page
 | Release packaging and checksums | AccessSoftware: .github/workflows/release.yml; apps/desktop/src-tauri/tauri.conf.json |
 
 Use the released version and live configuration as the final reference when a source checkout, old document or review differs.
+
+## 13. Execution record — 10 October 2026
+
+### Published UI baseline
+
+Commit **2de50ba** was pushed to main. Vercel production deployment **dpl_4iR55EzGbAnBgfkGEZF9yuZBpipF** is Ready. It includes the reviewed navbar/download polish and the organizer sign-in redesign. Both website sign-in URLs resolve to the updated page while logged out; the app download root responds successfully. Authentication and backend behavior were preserved.
+
+### Package A — implemented and reviewed; not yet pushed
+
+- Introduced separate shared candidate-download and organizer-sign-in destinations, using the canonical website host for organization authentication.
+- Replaced ambiguous access labels throughout navigation, homepage, footer, product, docs, contact and changelog. Organizer/reviewer guides now offer organizer sign-in; candidate guides offer downloads.
+- Placed organizer sign-in at the start of the mobile menu and kept downloads directly visible. Preserved the existing recruiter sign-in utility on the download page without adding a new public offering.
+- Hid the unavailable homepage recording, including its introduction. Removed missing organizer/reviewer image frames and gave both product sections complete responsive text layouts. Existing candidate screenshots, labels and enlargement controls remain.
+- Retained media configuration for future assets. When publishing organizer/reviewer web screenshots, pass their surface label into ProductImage rather than using its current desktop-app label.
+- Kept the homepage “See how Access works” action pointing to its existing product-preview section; this preserves the guided homepage journey.
+
+Validation: production build and whitespace checks passed; 159 production-preview browser assertions passed across 320, 390, 768, 960, 1024 and 1440px and the affected public routes, with no runtime errors. Independent routing and presentation subagent reviews found no blocking issues; the presentation reviewer also passed 24 browser assertions. No authentication handlers, API routes or middleware changed.
+
+Preview: http://127.0.0.1:3200
+
+The current-main implementation is in /tmp/access-marketing-main. Website UI changes are mirrored into the shared workspace with its older Next.js page signatures preserved. Its older organization login is not overwritten. The UI-only package A patch is saved at docs/access-routing-ui.patch.
+
+### Package B — factual reconciliation implemented and reviewed; policy approval remains open
+
+Added the canonical “What Access checks and records” guide, a readable information-handling matrix, and links before download and from setup, device checks, organizer/reviewer guidance, privacy, security and terms. Public copy separates local calibration from uploaded presence images; microphone permission from recording; automatic readiness reports from optional incident reports; local drafts from code sent by Run/Submit; and activity flags from judging and entry checks.
+
+The desktop privacy source now describes persistent event queues, best-effort cleanup and session-image transmission accurately, without publishing internal paths or enforcement mechanics. It preserves the existing 27 May 2026 policy date and records the technical clarification separately. A website deployment alone will not change installed app notices.
+
+The user confirmed that legal operator details, retention periods, hosting locations and record-access approvals are not available yet. Website legal notices remain explicitly non-effective review drafts. No new retention, hosting, rights, age or access commitment was invented.
+
+Validation: website production build, 83 website browser assertions, 18 app-notice browser assertions, app TypeScript and whitespace checks passed. Independent factual and journey reviews completed; findings were corrected. No backend, collection, permission, authentication or enforcement changes.
+
+Full evidence, unresolved decisions and delivery status: docs/privacy-reconciliation.md.
+
+### Package C — download/release alignment implemented and reviewed locally
+
+Downloads now carry the exact displayed release and file identity. Fresh metadata validation fails clearly for changed releases/assets; it does not silently substitute another binary or expose arbitrary historical versions. Refresh recovery is rate-limited with the public download endpoint.
+
+Added per-installer filename, exact size, SHA-256, copy feedback and verification commands. An independent audit downloaded all seven v2.3.1 installers and confirmed their bytes/hashes against both the API digests and four published manifests without executing installers.
+
+One version-scoped requirements source now drives downloads, product and documentation. Removed the unverified Windows10/11 minimum and broad Linux family implications. Unknown releases do not inherit old minimums. The changelog now provides real version/date/package availability, and candidate setup links to requirements and verification.
+
+Both subagent reviews completed and findings were resolved. Production build, 36 unit tests, 81 responsive browser assertions and 23 isolated production-server HTTP assertions passed. A final live metadata smoke check confirmed all seven bound links and exact asset resolution.
+
+No assessment backend, authentication or app monitoring changes. Public website release metadata and download resolution changed as necessary for integrity. Per-artifact signing verification, a tested OS/distro support matrix and organizer-pinned older-version policy remain owner/release work; no claims were invented.
+
+Evidence and implementation details: docs/download-release-alignment.md and docs/release-integrity-v2.3.1.json. This batch is not yet pushed.
+
+### Packages D and E — workflow documentation, product proof and pricing guidance
+
+Completed the role guides and added question preparation/verification. Instructions use actual organizer and desktop labels, distinguish local drafts and scored submissions, explain report/finish receipts, and cover safe recovery, roster/credential states, publishing, invigilation summaries and CSV exports.
+
+Published two local organizer-interface captures with synthetic example data into product and guides. Wide layouts and correct Web workspace labels keep them distinct from candidate desktop screenshots. Removed unsupported source-inspector, launch-checklist and combined timeline claims, including related homepage copy.
+
+Pricing now explains the brief, enquiry and written-quote process without numerical prices, illustrative plan tiers, invented billing units or service commitments. Contact backend and required fields are unchanged.
+
+Independent workflow/product and pricing reviews completed; findings corrected. Production build and 256 responsive browser assertions passed, with no runtime errors. Detailed validation and scope: docs/workflow-product-pricing.md. Source evidence: docs/workflow-documentation-evidence.md. Changes remain local and unpushed; production rehearsal and owner commercial/policy decisions remain open.
+
+### Final code review and main delivery
+
+Independent code, navigation/accessibility and content reviews completed across packages A–E. Fixed outdated download tests, bound reviewed requirements to exact installer fingerprints and removed duplicate title branding. The standard test command now runs the complete suite. Final production build, 78 tests, 138 independent presentation checks and 81 final download checks passed. No blocking findings remain. This main delivery supersedes the earlier local-only package status; the separate desktop notice still needs an app release. Full record: docs/final-code-review.md.

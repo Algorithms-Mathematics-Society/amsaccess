@@ -4,9 +4,10 @@ import { architectureFromHints, detectDownloadDevice, readDownloadDevice } from 
 import { recommendDownload } from "./download-recommendation.ts";
 import { downloadOptions } from "../app/(marketing)/download/download-options.ts";
 
-const asset = (architecture) => ({ architecture, url: "https://example.invalid/installer", size: 1000, label: "installer" });
+let fixtureAssetId = 100;
+const asset = (architecture) => ({ id: ++fixtureAssetId, sha256: "a".repeat(64), architecture, url: "https://example.invalid/installer", size: 1000, label: "installer" });
 const release = {
-  version: "test", name: "test", publishedAt: "2026-10-10T00:00:00Z", releaseUrl: "",
+  id: 1, version: "v2.3.1", name: "test", publishedAt: "2026-10-10T00:00:00Z", releaseUrl: "",
   windows: { exe: asset("x64"), msi: asset("x64") },
   macos: { arm64: asset("arm64"), x64: asset("x64") },
   linux: { appimage: asset("x64"), deb: asset("x64"), rpm: asset("x64") },

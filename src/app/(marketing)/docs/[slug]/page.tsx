@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ReleaseRequirements } from "@/components/ReleaseRequirements";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,14 +12,14 @@ import {
 } from "lucide-react";
 import { ProductImage } from "@/components/ProductImage";
 import { productMedia } from "../../product/product-media";
-import { ACCESS_APP_URL } from "@/lib/product-links";
+import { ACCESS_DOWNLOAD_URL, ORGANIZER_SIGN_IN_URL } from "@/lib/product-links";
 import { guides, getGuide, audienceLabels } from "../guides";
 import styles from "../docs.module.css";
 
 function GuideText({ text }: { text: string }) {
   return text.split("app.amsaccess.com").map((part, index) => (
     <Fragment key={index}>
-      {index > 0 && <a href={ACCESS_APP_URL}>app.amsaccess.com</a>}
+      {index > 0 && <a href={ACCESS_DOWNLOAD_URL}>app.amsaccess.com</a>}
       {part}
     </Fragment>
   ));
@@ -47,6 +48,9 @@ export default async function GuidePage({
   const guide = getGuide(slug);
   if (!guide) notFound();
   const next = getGuide(guide.next)!;
+  const organizerGuide = guide.audience === "organizers" || guide.audience === "reviewers";
+  const accessHref = organizerGuide ? ORGANIZER_SIGN_IN_URL : ACCESS_DOWNLOAD_URL;
+  const accessLabel = organizerGuide ? "Organizer sign in" : "Download Access";
   const contents = (
     <ol>
       {guide.sections.map((section) => (
@@ -96,6 +100,18 @@ export default async function GuidePage({
                 <GuideText text={p} />
               </p>
             ))}
+            {section.requirements && <ReleaseRequirements showGuide={false} />}
+            {section.dataRows && (
+              <dl className={styles.monitoringRows}>
+                {section.dataRows.map((row) => (
+                  <div key={row.title}>
+                    <dt>{row.title}</dt>
+                    <dd><strong>Purpose</strong><p>{row.purpose}</p></dd>
+                    <dd><strong>Information handling</strong><p>{row.handling}</p></dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             {section.steps && (
               <ol className={styles.steps}>
                 {section.steps.map((step, i) => (
@@ -135,6 +151,15 @@ export default async function GuidePage({
                 <p>{section.note.body}</p>
               </aside>
             )}
+            {section.links && (
+              <div className={styles.sectionLinks}>
+                {section.links.map((link) => (
+                  <Link key={link.href} href={link.href}>
+                    {link.label} <ArrowRight size={14} aria-hidden="true" />
+                  </Link>
+                ))}
+              </div>
+            )}
           </section>
         ))}
         <div className={styles.guideEnd}>
@@ -155,8 +180,8 @@ export default async function GuidePage({
             <Link href="/contact">
               General enquiries <ArrowRight size={14} aria-hidden="true" />
             </Link>
-            <a href={ACCESS_APP_URL}>
-              App access <ArrowUpRight size={14} aria-hidden="true" />
+            <a href={accessHref}>
+              {accessLabel} <ArrowUpRight size={14} aria-hidden="true" />
             </a>
           </div>
         </div>
@@ -167,9 +192,9 @@ export default async function GuidePage({
           {contents}
         </nav>
         <div className={styles.contentsHelp}>
-          <p>App access & downloads</p>
-          <a href={ACCESS_APP_URL}>
-            Open Access <ArrowUpRight size={13} aria-hidden="true" />
+          <p>{organizerGuide ? "Your web workspace" : "Candidate desktop app"}</p>
+          <a href={accessHref}>
+            {accessLabel} <ArrowUpRight size={13} aria-hidden="true" />
           </a>
         </div>
       </aside>

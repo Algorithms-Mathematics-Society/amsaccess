@@ -11,7 +11,9 @@ function publicAsset(asset?: ReleaseAsset) {
   if (!asset) return null;
   return {
     label: asset.label,
-    size: asset.size
+    size: asset.size,
+    architecture: asset.architecture ?? null,
+    sha256: asset.sha256 ?? null
   };
 }
 
@@ -40,7 +42,10 @@ export async function GET(request: NextRequest) {
       rpm: publicAsset(release.linux.rpm)
     },
     macos: {
-      dmg: publicAsset(release.macos.dmg)
+      dmg: publicAsset(release.macos.dmg),
+      arm64: publicAsset(release.macos.arm64),
+      x64: publicAsset(release.macos.x64),
+      universal: publicAsset(release.macos.universal)
     }
   }, {
     headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60" },

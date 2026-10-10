@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ReleaseRequirements } from "@/components/ReleaseRequirements";
 import { ProductImage } from "@/components/ProductImage";
 import { PlatformLogo } from "@/components/PlatformLogo";
 import Link from "next/link";
@@ -9,7 +10,6 @@ import {
   Check,
   Code2,
   FileText,
-  ImageIcon,
   Laptop,
   ListChecks,
   Monitor,
@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { MarketingFooter } from "@/components/MarketingFooter";
-import { ACCESS_APP_URL } from "@/lib/product-links";
+import { ACCESS_DOWNLOAD_URL, ORGANIZER_SIGN_IN_URL } from "@/lib/product-links";
 import { productMedia, type ProductMediaKey } from "./product-media";
 import styles from "./page.module.css";
 
@@ -83,27 +83,7 @@ function ProductScreenshot({
     );
   }
 
-  return (
-    <figure className={styles.figure} data-product-media={name}>
-      <div
-        className={[styles.imageFrame, wide ? styles.wideFrame : ""].join(" ")}
-      >
-          <div className={styles.imagePlaceholder}>
-            <span className={styles.placeholderIcon}>
-              <ImageIcon size={23} strokeWidth={1.3} aria-hidden="true" />
-            </span>
-            <span className={styles.placeholderTitle}>{media.title}</span>
-            <span className={styles.placeholderNote}>
-              Screenshot to be added
-            </span>
-          </div>
-      </div>
-      <figcaption>
-        <span>{media.caption}</span>
-        <span className={styles.figureLabel}>{media.surface}</span>
-      </figcaption>
-    </figure>
-  );
+  return null;
 }
 
 function SectionLabel({
@@ -142,8 +122,9 @@ export default function ProductPage() {
             </h1>
             <div className={styles.heroIntro}>
               <p>
-                Set up questions and invitations, prepare candidate devices, and
-                review submissions and available session activity.
+                Organizers prepare the round in the web workspace. Candidates
+                install the desktop app to take it. Reviewers return to the web
+                workspace to review submission results and export them.
               </p>
               <div className={styles.actions}>
                 <Link className={styles.primaryButton} href="/contact">
@@ -156,6 +137,10 @@ export default function ProductPage() {
               </div>
             </div>
           </div>
+          <p className={styles.proofNote}>
+            Screens from Access with example assessment data. Open any image
+            to read the interface in detail.
+          </p>
           <nav className={styles.journey} aria-label="Product sections">
             {stages.map(({ id, number, label, role, icon: Icon }) => (
               <a key={id} href={"#" + id}>
@@ -176,45 +161,56 @@ export default function ProductPage() {
 
         <section
           id="organize"
-          className={[styles.container, styles.section, styles.organize].join(
-            " ",
-          )}
+          className={[
+            styles.container,
+            styles.section,
+            styles.organize,
+            styles.organizeTextOnly,
+          ].join(" ")}
           aria-labelledby="organize-title"
         >
           <div className={styles.sectionCopy}>
-            <SectionLabel number="01">The organizer workspace</SectionLabel>
-            <h2 id="organize-title">
-              Set up questions
-              <br />
-              and invitations.
-            </h2>
-            <p>
-              Prepare the questions, schedule, and candidate invitations before
-              the assessment.
-            </p>
-            <ul className={styles.featureList}>
-              <li>
-                <Check size={16} aria-hidden="true" />
-                <span>Set the assessment window and instructions.</span>
-              </li>
-              <li>
-                <Check size={16} aria-hidden="true" />
-                <span>Prepare problems and their test configuration.</span>
-              </li>
-              <li>
-                <Check size={16} aria-hidden="true" />
-                <span>Invite candidates or import your roster.</span>
-              </li>
-            </ul>
-            <div className={styles.editorialNote}>
-              <ListChecks size={19} strokeWidth={1.5} aria-hidden="true" />
+            <div className={styles.organizeIntro}>
+              <SectionLabel number="01">The organizer workspace</SectionLabel>
+              <h2 id="organize-title">
+                Set up questions
+                <br />
+                and invitations.
+              </h2>
               <p>
-                <strong>Check the details before launch.</strong>The launch
-                checklist shows setup items that still need attention.
+                Prepare the questions, schedule, and candidate invitations before
+                the assessment.
               </p>
             </div>
+            <div className={styles.organizeDetails}>
+              <ul className={styles.featureList}>
+                <li>
+                  <Check size={16} aria-hidden="true" />
+                  <span>Set the contest schedule before publishing.</span>
+                </li>
+                <li>
+                  <Check size={16} aria-hidden="true" />
+                  <span>Add problems and check their test configuration.</span>
+                </li>
+                <li>
+                  <Check size={16} aria-hidden="true" />
+                  <span>Add participants from your directory or a roster file.</span>
+                </li>
+              </ul>
+              <div className={styles.editorialNote}>
+                <ListChecks size={19} strokeWidth={1.5} aria-hidden="true" />
+                <p>
+                  <strong>Prepare the round as a draft.</strong>Check the
+                  schedule, problems, and participant access before publishing
+                  and sharing the invite code.
+                </p>
+              </div>
+              <Link className={styles.textLink} href="/docs/organize-assessment">
+                Follow the organizer guide <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+            </div>
           </div>
-          <ProductScreenshot name="organize" />
+          <ProductScreenshot name="organize" wide />
         </section>
 
         <div className={styles.prepareBand}>
@@ -264,9 +260,9 @@ export default function ProductPage() {
                   </div>
                 </li>
               </ol>
-              <a className={styles.textLink} href="#requirements">
-                What candidates need <ArrowDown size={15} aria-hidden="true" />
-              </a>
+              <Link className={styles.textLink} href="/docs/candidate-setup">
+                Follow the candidate setup guide <ArrowRight size={15} aria-hidden="true" />
+              </Link>
             </div>
             <div className={styles.prepareVisual}>
               <ProductScreenshot name="prepare" />
@@ -324,6 +320,9 @@ export default function ProductPage() {
             Available tools and languages depend on the assessment
             configuration.
           </p>
+          <Link className={styles.textLink} href="/docs/taking-an-assessment">
+            Understand Run, Submit, and saved work <ArrowRight size={15} aria-hidden="true" />
+          </Link>
         </section>
 
         <section
@@ -343,40 +342,51 @@ export default function ProductPage() {
               </h2>
             </div>
             <p>
-              View per-question results, inspect submitted code, and review
-              available session activity.
+              See submission verdicts, passed tests, runtime, and memory.
+              Export standings and submissions for your team’s review.
             </p>
           </div>
-          <div className={styles.reviewGrid}>
-            <ProductScreenshot name="review" />
+          <div
+            className={[
+              styles.reviewGrid,
+              styles.reviewTextOnly,
+            ].join(" ")}
+          >
+            <ProductScreenshot name="review" wide />
             <div className={styles.reviewDetails}>
               <article>
                 <h3>Assessment results</h3>
                 <p>
-                  View the leaderboard and per-question results. Export results
-                  for your team’s review process.
+                  Use Standings CSV and Submissions CSV to take results into
+                  your team’s review process.
                 </p>
               </article>
               <article>
-                <h3>Submission history</h3>
+                <h3>Individual attempts</h3>
                 <p>
-                  Open a candidate’s submission history and inspect individual
-                  attempts.
+                  In Submissions, compare each attempt’s candidate, problem,
+                  verdict, passed tests, runtime, and memory.
                 </p>
               </article>
               <article>
-                <h3>Recorded session activity</h3>
+                <h3>Read results in context</h3>
                 <p>
-                  Use recorded session activity to guide further investigation.
+                  A pending attempt is still being judged. A system error needs
+                  investigation before you draw conclusions about the work.
                 </p>
               </article>
               <aside className={styles.humanReview}>
                 <span className={styles.smallLabel}>Interpreting activity</span>
                 <p>
-                  An activity flag is a reason to look closer. It is not, on its
-                  own, proof of misconduct.
+                  The desktop app also records assessment events. Confirm how
+                  your team can access those records; this results view does not
+                  show a session activity timeline. A flag alone is not proof of
+                  misconduct.
                 </p>
               </aside>
+              <Link className={styles.textLink} href="/docs/review-results">
+                Follow the results review guide <ArrowRight size={15} aria-hidden="true" />
+              </Link>
             </div>
           </div>
         </section>
@@ -401,8 +411,8 @@ export default function ProductPage() {
               Share the setup requirements with candidates ahead of time, so
               installation and permissions are handled before the assessment.
             </p>
-            <a className={styles.textLink} href={ACCESS_APP_URL}>
-              App access & downloads{" "}
+            <a className={styles.textLink} href={ACCESS_DOWNLOAD_URL}>
+              Download Access{" "}
               <ArrowUpRight size={15} aria-hidden="true" />
             </a>
           </div>
@@ -434,22 +444,21 @@ export default function ProductPage() {
             <div>
               <dt>App access</dt>
               <dd>
-                Partner workspace access and candidate downloads are at{" "}
-                <a href={ACCESS_APP_URL}>
-                  app.amsaccess.com{" "}
-                  <ArrowUpRight size={13} aria-hidden="true" />
-                </a>
-                .
+                Candidates can <a href={ACCESS_DOWNLOAD_URL}>download Access</a>.{" "}
+                Existing organizers use{" "}
+                <a href={ORGANIZER_SIGN_IN_URL}>Organizer sign in</a>.{" "}
+                New teams can <Link href="/contact">contact the team</Link> about setup.
               </dd>
             </div>
           </dl>
           <div className={styles.desktopAvailability} data-desktop-availability>
+            <ReleaseRequirements />
             <div className={styles.availabilityHeading}>
               <div>
                 <h3>Choose your desktop app.</h3>
                 <p>Get the installer for the computer you’ll use for your assessment.</p>
               </div>
-              <a className={styles.textLink} href={ACCESS_APP_URL}>
+              <a className={styles.textLink} href={ACCESS_DOWNLOAD_URL}>
                 Find your download <ArrowUpRight size={15} aria-hidden="true" />
               </a>
             </div>
@@ -486,9 +495,9 @@ export default function ProductPage() {
               <Link className={styles.primaryButton} href="/contact">
                 Contact the team <ArrowRight size={16} aria-hidden="true" />
               </Link>
-              <a className={styles.textLink} href={ACCESS_APP_URL}>
-                Open Access <ArrowUpRight size={15} aria-hidden="true" />
-              </a>
+              <Link className={styles.textLink} href="/pricing">
+                What to know about pricing <ArrowRight size={15} aria-hidden="true" />
+              </Link>
             </div>
           </div>
         </section>

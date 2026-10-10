@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { MarketingFooter } from "@/components/MarketingFooter";
-import { PricingOptions } from "@/components/PricingVolumeModeler";
+import { PricingBrief } from "@/components/PricingVolumeModeler";
+import { AMS_TEAM_EMAIL, AMS_PARTNERS_EMAIL } from "@/lib/ams-contact";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -25,8 +26,9 @@ export default function PricingPage() {
               <span>your assessment.</span>
             </h1>
             <p className={styles.lead}>
-              Contact the team with your assessment format, approximate
-              candidate count, and schedule to ask about pricing.
+              Planning an assessment with Access? Share your format, approximate
+              candidate count, and schedule to discuss pricing and availability
+              with the team.
             </p>
             <div className={styles.actions}>
               <Link href="/contact" className={styles.primary}>
@@ -37,20 +39,53 @@ export default function PricingPage() {
               </Link>
             </div>
             <p className={styles.heroNote}>
-              Prices are confirmed with the team. A rough candidate count is
-              fine.
+              Pricing is discussed directly with the team. There are no published
+              rates or self-service plans on this page.
             </p>
           </header>
 
-          <PricingOptions />
+          <PricingBrief />
+
+          <section className={styles.process} aria-labelledby="pricing-process">
+            <div className={styles.sectionIntro}>
+              <p className={styles.eyebrow}>How to proceed</p>
+              <h2 id="pricing-process">How to ask about pricing.</h2>
+            </div>
+            <ol className={styles.processSteps}>
+              <li>
+                <h3>Send a short brief</h3>
+                <p>
+                  Use the contact form or email{" "}
+                  <a href={"mailto:" + AMS_TEAM_EMAIL}>{AMS_TEAM_EMAIL}</a>.
+                  Include your questions and anything still undecided.
+                </p>
+              </li>
+              <li>
+                <h3>Clarify what you need</h3>
+                <p>
+                  Any follow-up will go to the email you provide. Use that
+                  conversation to confirm product fit, timing, and requirements.
+                  An enquiry does not reserve an assessment or book a meeting.
+                </p>
+              </li>
+              <li>
+                <h3>Review the written scope</h3>
+                <p>
+                  Before agreeing to proceed, request a written quote covering
+                  the price, what is included, and the terms for your round.
+                </p>
+              </li>
+            </ol>
+          </section>
 
           <section className={styles.confirm} aria-labelledby="confirm-title">
             <div>
               <p className={styles.eyebrow}>Before you decide</p>
-              <h2 id="confirm-title">What to confirm before your round.</h2>
+              <h2 id="confirm-title">What your quote should make clear.</h2>
               <p>
-                Ask for written confirmation of the price, included usage, and
-                any support or data requirements your team has.
+                Use this checklist when reviewing an offer. Product capabilities
+                described on this website are not a statement of what a particular
+                quote includes.
               </p>
               <Link href="/security" className={styles.textLink}>
                 Read about security &amp; privacy
@@ -60,22 +95,26 @@ export default function PricingPage() {
               <li>
                 <h3>Scope and price</h3>
                 <p>
-                  Confirm the total cost, included usage, any limits, and what
-                  additional usage would mean.
+                  Confirm what you are buying, how usage is counted, the total
+                  cost and applicable taxes, payment terms, and any limits. Ask
+                  how extra candidates, further rounds, or a change of date
+                  would affect the quote.
                 </p>
               </li>
               <li>
                 <h3>Readiness and support</h3>
                 <p>
-                  Discuss supported devices, your schedule, and the support or
-                  availability commitments required for your round.
+                  Confirm device requirements and setup responsibilities. Agree
+                  who candidates should contact during the round, through which
+                  channel, and any support commitments your team needs.
                 </p>
               </li>
               <li>
                 <h3>Data and review</h3>
                 <p>
-                  Clarify reviewer access, the data collected for your setup,
-                  and applicable retention and deletion terms.
+                  Confirm who can review assessment records, what is collected
+                  for your setup, and the applicable retention and deletion
+                  terms before you invite candidates.
                 </p>
               </li>
             </ol>
@@ -84,7 +123,7 @@ export default function PricingPage() {
           <section className={styles.faq} aria-labelledby="pricing-questions">
             <div className={styles.sectionIntro}>
               <p className={styles.eyebrow}>Common questions</p>
-              <h2 id="pricing-questions">About pricing and plans.</h2>
+              <h2 id="pricing-questions">Before you get in touch.</h2>
             </div>
             <div>
               <details>
@@ -103,6 +142,16 @@ export default function PricingPage() {
                 </p>
               </details>
               <details>
+                <summary>We already work with AMS. Who should we contact?</summary>
+                <p>
+                  Existing partners and sponsorship enquiries can email{" "}
+                  <a href={"mailto:" + AMS_PARTNERS_EMAIL}>
+                    {AMS_PARTNERS_EMAIL}
+                  </a>. For a new assessment or general product questions, use{" "}
+                  <a href={"mailto:" + AMS_TEAM_EMAIL}>{AMS_TEAM_EMAIL}</a>.
+                </p>
+              </details>
+              <details>
                 <summary>
                   Are support levels or retention periods guaranteed here?
                 </summary>
@@ -117,7 +166,7 @@ export default function PricingPage() {
                   I am taking an assessment. Do I need to choose a plan?
                 </summary>
                 <p>
-                  These enquiries are for teams organizing assessments. Follow
+                  This pricing conversation is for teams organizing assessments. Follow
                   your organizer’s invitation and the{" "}
                   <Link href="/docs/candidate-setup">
                     candidate setup guide

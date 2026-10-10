@@ -1,3 +1,5 @@
+import { downloadHref } from "../../../lib/release-download.ts";
+import { requirementsFor } from "../../../lib/release-requirements.ts";
 import type { LatestRelease, ReleaseAsset, ReleaseArchitecture } from "@/lib/releases";
 import type { DownloadPlatform } from "@/lib/download-platform";
 
@@ -9,6 +11,10 @@ export type DownloadFile = {
   detail: string;
   href: string;
   size: string;
+  bytes: number;
+  filename: string;
+  version: string;
+  sha256?: string;
 };
 export type DownloadOption = {
   id: DownloadPlatform;
@@ -26,16 +32,15 @@ function formatSize(bytes: number) {
     : Math.ceil(bytes / 1_000) + " KB";
 }
 
-function file(
+function releaseFile(
+  release: LatestRelease | null,
   asset: ReleaseAsset | undefined,
   platform: DownloadPlatform,
   type: DownloadFormat,
   label: string,
   detail: string,
 ): DownloadFile[] {
-  if (!asset) return [];
-  const params = new URLSearchParams({ platform, type });
-  if (asset.architecture) params.set("architecture", asset.architecture);
+  if (!asset || !release) return [];
   return [
     {
       label,
@@ -45,7 +50,11 @@ function file(
         ? detail + " · " + (asset.architecture === "arm64" ? "ARM64" : asset.architecture === "x64" ? "64-bit Intel / AMD" : "Universal")
         : detail,
       size: formatSize(asset.size),
-      href: "/api/releases/download?" + params.toString(),
+      href: downloadHref(release, asset, platform, type),
+      filename: asset.label,
+      bytes: asset.size,
+      version: release.version,
+      sha256: asset.sha256,
     },
   ];
 }
@@ -53,6 +62,9 @@ function file(
 export function downloadOptions(
   release: LatestRelease | null,
 ): DownloadOption[] {
+  const file = (asset: ReleaseAsset | undefined, platform: DownloadPlatform, type: DownloadFormat, label: string, detail: string) =>
+    releaseFile(release, asset, platform, type, label, detail);
+  const requirements = requirementsFor(release);
   const windows = release?.windows;
   const mac = release?.macos;
   const linux = release?.linux;
@@ -104,7 +116,7 @@ export function downloadOptions(
     {
       id: "windows",
       name: "Windows",
-      requirement: "Windows 10 / 11 · 64-bit",
+      requirement: requirements?.windows ?? "Check the installer architecture below",
       files: winPrimary,
       alternatives: windows?.exe
         ? file(windows.msi, "windows", "msi", "MSI installer", ".msi")
@@ -114,7 +126,7 @@ export function downloadOptions(
     {
       id: "macos",
       name: "macOS",
-      requirement: "macOS 12 or later",
+      requirement: requirements?.macos ?? "Confirm the macOS requirement for this release",
       files: macFiles,
       alternatives: [],
       help: "Find your chip in the Apple menu → About This Mac.",
@@ -122,7 +134,7 @@ export function downloadOptions(
     {
       id: "linux",
       name: "Linux",
-      requirement: "Check the package and processor below",
+      requirement: requirements?.linux ?? "Check the package and processor below",
       files: file(
         linux?.appimage,
         "linux",
@@ -131,8 +143,8 @@ export function downloadOptions(
         ".AppImage",
       ),
       alternatives: [
-        ...file(linux?.deb, "linux", "deb", "Debian / Ubuntu", ".deb"),
-        ...file(linux?.rpm, "linux", "rpm", "Fedora / RHEL", ".rpm"),
+        ...file(linux?.deb, "linux", "deb", "DEB package", ".deb"),
+        ...file(linux?.rpm, "linux", "rpm", "RPM package", ".rpm"),
       ],
       help: "Choose the package for your distribution. Check device readiness before your round.",
     },

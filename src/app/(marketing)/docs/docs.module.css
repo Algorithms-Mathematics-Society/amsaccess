@@ -103,7 +103,8 @@
   margin-bottom: 5px;
 }
 .navHelp a {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
   align-items: center;
   gap: 5px;
   min-height: 36px;
@@ -1106,4 +1107,18 @@
   color: var(--color-text-secondary);
   font-size: 12px;
   line-height: 1.7;
+}
+
+/* Definition rows keep each monitoring category readable without horizontal scrolling. */
+.monitoringRows { margin-block: 24px; border-top: 1px solid var(--color-border); }
+.monitoringRows > div { display: grid; grid-template-columns: 1fr 1.2fr 1.7fr; gap: 20px; padding-block: 24px; border-bottom: 1px solid var(--color-border); }
+.monitoringRows dt { font-size: 14px; font-weight: 500; }
+.monitoringRows dd { margin: 0; min-width: 0; }
+.monitoringRows dd strong { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); }
+.monitoringRows dd p { margin-top: 8px; font-size: 13px; line-height: 1.8; }
+.sectionLinks { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 20px; }
+.sectionLinks a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: 500; }
+.sectionLinks svg { flex-shrink: 0; }
+@media (max-width: 959px) {
+  .monitoringRows > div { grid-template-columns: 1fr; gap: 12px; }
 }

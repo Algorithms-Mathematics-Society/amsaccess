@@ -184,10 +184,10 @@
 }
 .walkthrough {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   align-items: center;
   gap: 28px;
-  margin-top: 22px;
+  margin-top: 30px;
 }
 .walkthroughMedia {
   overflow: hidden;
@@ -195,18 +195,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-container);
   background: var(--color-background-surface);
-}
-.videoPlaceholder {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 15px;
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  text-align: center;
 }
 .walkthroughCopy {
   max-width: 470px;
@@ -223,10 +211,6 @@
   line-height: 1.8;
   color: var(--color-text-secondary);
   margin: 0;
-}
-.walkthrough[data-ready="true"] {
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-  margin-top: 30px;
 }
 .walkthrough video {
   display: block;
@@ -335,21 +319,9 @@
   .heroFigure figcaption {
     padding: 12px 14px;
   }
-  .walkthrough,
-  .walkthrough[data-ready="true"] {
+  .walkthrough {
     grid-template-columns: 1fr;
     gap: 17px;
-  }
-  .walkthrough:not([data-ready="true"]) {
-    grid-template-columns: 112px minmax(0, 1fr);
-    gap: 16px;
-    align-items: start;
-  }
-  .walkthrough:not([data-ready="true"]) .walkthroughMedia {
-    aspect-ratio: 1;
-  }
-  .walkthrough:not([data-ready="true"]) .overline {
-    display: none;
   }
   .walkthroughCopy h3 {
     font-size: 16px;

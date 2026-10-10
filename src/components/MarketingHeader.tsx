@@ -10,7 +10,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ArrowUpRight, ChevronDown, Menu, X } from "lucide-react";
-import { ACCESS_APP_URL } from "@/lib/product-links";
+import { ACCESS_DOWNLOAD_URL, ORGANIZER_SIGN_IN_URL } from "@/lib/product-links";
 import styles from "./MarketingHeader.module.css";
 
 const productLinks = [
@@ -25,9 +25,9 @@ const productLinks = [
     href: "/product#organize",
   },
   {
-    label: "Desktop app",
+    label: "Download Access",
     description: "Available on Windows, macOS, and Linux.",
-    href: ACCESS_APP_URL,
+    href: ACCESS_DOWNLOAD_URL,
   },
 ];
 const resourceLinks = [
@@ -303,19 +303,19 @@ export function MarketingHeader() {
 
         <div className={styles.actions}>
           <Link
-            href="/contact"
-            className={`${styles.navLink} ${styles.contactLink}`}
-            aria-current={pathname === "/contact" ? "page" : undefined}
+            href={ORGANIZER_SIGN_IN_URL}
+            className={`${styles.navLink} ${styles.signInLink}`}
+            aria-current={pathname === "/org/login" ? "page" : undefined}
             onClick={close}
           >
-            Contact
+            Organizer sign in
           </Link>
           <Link
-            href={ACCESS_APP_URL}
+            href={ACCESS_DOWNLOAD_URL}
             className={styles.appLink}
             onClick={close}
           >
-            <span>Open Access</span>
+            <span>Download Access</span>
             <ArrowUpRight size={14} strokeWidth={1.6} aria-hidden="true" />
           </Link>
           <button
@@ -346,6 +346,14 @@ export function MarketingHeader() {
         className={styles.mobilePanel}
         hidden={open !== "mobile"}
       >
+        <Link
+          href={ORGANIZER_SIGN_IN_URL}
+          className={styles.mobileSignIn}
+          onClick={close}
+        >
+          Organizer sign in{" "}
+          <ArrowUpRight size={14} strokeWidth={1.6} aria-hidden="true" />
+        </Link>
         <div className={styles.mobileQuickLinks}>
           <Link href="/#use-cases" className={styles.navLink} onClick={close}>
             Use cases
@@ -369,14 +377,6 @@ export function MarketingHeader() {
             {menuLinks(resourceLinks)}
           </section>
         </div>
-        <Link
-          href={ACCESS_APP_URL}
-          className={styles.mobileSignIn}
-          onClick={close}
-        >
-          Sign in to your workspace{" "}
-          <ArrowUpRight size={14} strokeWidth={1.6} aria-hidden="true" />
-        </Link>
       </nav>
     </header>
   );

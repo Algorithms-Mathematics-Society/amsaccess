@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "next lint",
     "theme:build": "node scripts/build-org-theme.mjs",
-    "test": "node --test --experimental-strip-types src/lib/roster.test.mjs"
+    "test": "node --test --experimental-strip-types"
   },
   "dependencies": {
     "@astryxdesign/core": "0.1.8",

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import "@/styles/access-theme.css";
 import { ArrowUp, ArrowUpRight } from "lucide-react";
-import { ACCESS_APP_URL } from "@/lib/product-links";
+import { ACCESS_DOWNLOAD_URL, ORGANIZER_SIGN_IN_URL } from "@/lib/product-links";
 import styles from "./MarketingFooter.module.css";
 
 const productLinks = [
@@ -86,10 +86,10 @@ export function MarketingFooter() {
             <h2 id="footer-app-title">App access</h2>
             <ul>
               <li>
-                <a href={ACCESS_APP_URL} className={styles.appLink}>
+                <a href={ORGANIZER_SIGN_IN_URL} className={styles.appLink}>
                   <span>
-                    <strong>Partner workspace</strong>
-                    <span>For partners and organizers.</span>
+                    <strong>Organizer sign in</strong>
+                    <span>Manage assessments and review results.</span>
                   </span>
                   <ArrowUpRight
                     size={15}
@@ -99,10 +99,10 @@ export function MarketingFooter() {
                 </a>
               </li>
               <li>
-                <a href={ACCESS_APP_URL} className={styles.appLink}>
+                <a href={ACCESS_DOWNLOAD_URL} className={styles.appLink}>
                   <span>
-                    <strong>Candidate access</strong>
-                    <span>Desktop app & assessment access.</span>
+                    <strong>Candidate downloads</strong>
+                    <span>Get the desktop app for your round.</span>
                   </span>
                   <ArrowUpRight
                     size={15}
@@ -112,7 +112,6 @@ export function MarketingFooter() {
                 </a>
               </li>
             </ul>
-            <span className={styles.appDomain}>app.amsaccess.com</span>
           </nav>
         </div>
 

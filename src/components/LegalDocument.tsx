@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AMS_TEAM_EMAIL } from "@/lib/ams-contact";
 import { ArrowRight, ChevronDown, FileText, Mail } from "lucide-react";
 import { TrustLayout } from "./TrustLayout";
 import styles from "./TrustPages.module.css";
@@ -131,10 +132,10 @@ export function LegalDocument({ content }: { content: LegalContent }) {
                 organizer’s name. Keep passwords, invitation codes, and
                 assessment answers out of your message.
               </p>
-              <Link className={styles.textLink} href="/contact">
-                Contact the Access team{" "}
+              <a className={styles.textLink} href={"mailto:" + AMS_TEAM_EMAIL}>
+                {AMS_TEAM_EMAIL}{" "}
                 <ArrowRight size={14} aria-hidden="true" />
-              </Link>
+              </a>
             </div>
           </section>
           <div className={styles.relatedPolicies}>

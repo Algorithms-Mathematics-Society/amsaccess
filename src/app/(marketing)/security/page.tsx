@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { assessmentInformation, MONITORING_GUIDE_PATH } from "@/lib/assessment-information";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -37,7 +38,7 @@ const controls = [
   {
     icon: ScanLine,
     title: "A controlled assessment session",
-    body: "The desktop app supports round-specific session controls and records relevant activity for review. Capabilities vary by device and round.",
+    body: "The desktop app records device, focus, connection and presence events for assessment review. Session events are queued on the device and sent to the assessment service.",
     label: "During the round",
   },
   {
@@ -53,8 +54,12 @@ const questions = [
     body: "No. The marketing website does not request camera or microphone access. The desktop app has separate permission and readiness steps for assessments.",
   },
   {
-    title: "Will camera or microphone data be stored?",
-    body: "Media handling depends on the assessment and its configured services. Ask your organizer which media is used, whether it is transmitted or retained, who can review it, and the retention period before taking part.",
+    title: "Can camera images leave my device?",
+    body: assessmentInformation.camera,
+  },
+  {
+    title: "Does microphone access mean audio is recorded?",
+    body: assessmentInformation.microphone,
   },
   {
     title: "Does an activity flag decide my result?",
@@ -174,8 +179,8 @@ export default function SecurityPage() {
             Visiting the website, contacting the team, and taking an assessment
             involve different information.
           </p>
-          <Link href="/privacy#information" className={styles.textLink}>
-            Read about the information involved{" "}
+          <Link href={MONITORING_GUIDE_PATH} className={styles.textLink}>
+            What Access checks and records{" "}
             <ArrowRight size={14} aria-hidden="true" />
           </Link>
         </div>
@@ -190,15 +195,17 @@ export default function SecurityPage() {
           <div>
             <dt>When you take a round</dt>
             <dd>
-              Account information, assessment work, device readiness, and
-              session activity support participation and review.
+              Readiness reports are sent before entry. Submitted work and
+              timestamped activity, including focus, connection and presence
+              events, support participation and review.
             </dd>
           </div>
           <div>
             <dt>When media is required</dt>
             <dd>
-              Camera and microphone access may support readiness or proctoring.
-              Confirm the handling for your round before entry.
+              Calibration images stay local in the reviewed flow. Separate
+              presence-check stills can be sent with session events. Microphone
+              permission is distinct from audio recording.
             </dd>
           </div>
           <div>
@@ -302,7 +309,7 @@ export default function SecurityPage() {
             <ArrowRight size={14} aria-hidden="true" />
           </Link>
           <h3>A privacy or service question?</h3>
-          <p>Use the contact page to reach the Access team.</p>
+          <p>Email team@amshq.in for privacy questions, or use the contact page.</p>
           <Link className={styles.textLink} href="/contact">
             Contact Access <ArrowRight size={14} aria-hidden="true" />
           </Link>

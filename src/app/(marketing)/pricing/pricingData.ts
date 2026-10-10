@@ -1,33 +1,18 @@
-// Broad use cases are documented in docs/product/pricing.md.
-// Prices, numeric limits, service levels, and availability require confirmation.
-export const assessmentOptions = [
+// Planning prompts, not plans, entitlements, or a pricing formula.
+export const assessmentBrief = [
   {
-    name: "Pilot",
-    audience: "A first assessment",
+    title: "The round you have in mind",
     description:
-      "If you are considering Access for a first assessment, include the question format and approximate number of candidates.",
-    detail: "Useful details: assessment format and candidate count.",
+      "Hiring assessment, coding contest, or another coding round? Describe what candidates will do and whether this is a single round or a recurring need.",
   },
   {
-    name: "Event",
-    audience: "A single round",
+    title: "People and timing",
     description:
-      "For a hiring round, contest, or scheduled assessment, share the date and how many candidates may participate at the same time.",
-    detail:
-      "Useful details: date and number of candidates taking part at once.",
+      "Share an approximate candidate count, how many may participate at once, and your preferred dates. A rough range or “not decided yet” is enough.",
   },
   {
-    name: "Institution",
-    audience: "Recurring assessments",
+    title: "Anything your team needs to confirm",
     description:
-      "If several teams or programs would use Access, describe how often you run assessments and how your reviewers work together.",
-    detail: "Useful details: assessment frequency and participating teams.",
-  },
-  {
-    name: "Enterprise",
-    audience: "Specific requirements",
-    description:
-      "List any procurement, integration, or deployment requirements and ask the team to confirm which ones Access can support.",
-    detail: "Useful details: required capabilities and any approval steps.",
+      "Mention device restrictions, reviewer access, support, data handling, or procurement requirements. The team can then clarify what is available for your setup.",
   },
 ] as const;

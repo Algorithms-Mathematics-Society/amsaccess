@@ -233,7 +233,7 @@
   display: grid;
   gap: 2px;
 }
-.alternatives > a {
+.alternativeFile > a {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -750,3 +750,24 @@
 @media (max-width: 380px) {
   .recommendation { padding: 20px; }
 }
+
+.monitoringNote { display: flex; align-items: center; justify-content: space-between; gap: 32px; padding: 24px; margin-bottom: 28px; border: 1px solid var(--color-border); border-radius: var(--radius-container); background: var(--color-background-card); }
+.monitoringNote h2 { font-size: 14px; font-weight: 500; }
+.monitoringNote p { max-width: 640px; margin-top: 8px; color: var(--color-text-secondary); font-size: 13px; line-height: 1.7; }
+.monitoringNote a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 12px; font-weight: 500; flex-shrink: 0; }
+.monitoringNote svg { flex-shrink: 0; }
+@media (max-width: 800px) { .monitoringNote { align-items: flex-start; flex-direction: column; gap: 12px; padding: 20px; } }
+
+
+.integrity { margin-top: 10px; font-size: 11px; color: var(--color-text-secondary); min-width: 0; }
+.integrity summary { min-height: 36px; padding-block: 9px; cursor: pointer; color: var(--color-text-primary); }
+.integrity dl { display: grid; gap: 8px; margin-block: 12px; }
+.integrity dl > div { display: grid; gap: 3px; }
+.integrity dt { font-weight: 500; }
+.integrity dd { margin: 0; overflow-wrap: anywhere; }
+.integrity code { font-family: var(--font-geist-mono), monospace; font-size: 10px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.integrity .hash, .integrity .command { display: block; padding: 10px; border: 1px solid var(--color-border); border-radius: var(--radius-element); background: var(--color-background-body); margin-block: 10px; color: var(--color-text-primary); }
+.integrity p { margin-block: 10px; line-height: 1.7; }
+.integrity button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-element); background: var(--color-background-card); color: var(--color-text-primary); cursor: pointer; font: inherit; }
+.integrity > a { display: inline-flex; min-height: 44px; align-items: center; text-decoration: underline; }
+.integrity :is(summary, button, a):focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
