@@ -11,30 +11,31 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import { AMS_TEAM_EMAIL } from "@/lib/ams-contact";
 import styles from "./Contact.module.css";
 
 const topics = [
   {
     value: "Sales",
     label: "Plan an assessment",
-    detail: "New teams & partnerships",
+    detail: "New teams & assessments",
     icon: Users,
     title: "Tell us about your assessment.",
     intro:
       "Describe the round you want to run and any questions about pricing, setup, or review.",
     hint: "What kind of assessment are you planning? Include your timeline or any questions, if you know them.",
-    email: "sales@amsaccess.com",
+    email: AMS_TEAM_EMAIL,
   },
   {
     value: "Support",
     label: "Get product help",
-    detail: "Existing teams & users",
+    detail: "App setup & product questions",
     icon: MessageSquare,
     title: "Describe the problem.",
     intro:
       "Include what you were trying to do, what happened, and any error message you saw.",
     hint: "What were you trying to do, and what happened instead? You can include your device and any visible error message.",
-    email: "support@amsaccess.com",
+    email: AMS_TEAM_EMAIL,
   },
   {
     value: "Security",
@@ -45,7 +46,7 @@ const topics = [
     intro:
       "Ask about permissions, data handling, or a security concern. Include a brief description without private information.",
     hint: "What would you like to understand or report? Leave out passwords, access tokens, and private assessment material.",
-    email: "security@amsaccess.com",
+    email: AMS_TEAM_EMAIL,
   },
 ] as const;
 type Topic = (typeof topics)[number]["value"];

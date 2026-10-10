@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUpRight, BookOpen } from "lucide-react";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { ACCESS_APP_URL } from "@/lib/product-links";
+import { AMS_TEAM_EMAIL, AMS_PARTNERS_EMAIL } from "@/lib/ams-contact";
 import { ContactForm } from "./ContactForm";
 import styles from "./Contact.module.css";
 
@@ -37,6 +38,25 @@ export default function ContactPage() {
               <ArrowDown size={14} aria-hidden="true" />
             </a>
           </header>
+          <section className={styles.directContact} aria-labelledby="email-title">
+            <h2 id="email-title">Email the right team.</h2>
+            <div className={styles.emailRoutes}>
+              <article>
+                <h3>General enquiries & product help</h3>
+                <p>For questions about AMS, Access or a new assessment.</p>
+                <a href={"mailto:" + AMS_TEAM_EMAIL}>
+                  {AMS_TEAM_EMAIL} <ArrowUpRight size={15} aria-hidden="true" />
+                </a>
+              </article>
+              <article>
+                <h3>Partners & sponsorships</h3>
+                <p>For existing partners and sponsorship enquiries.</p>
+                <a href={"mailto:" + AMS_PARTNERS_EMAIL}>
+                  {AMS_PARTNERS_EMAIL} <ArrowUpRight size={15} aria-hidden="true" />
+                </a>
+              </article>
+            </div>
+          </section>
           <ContactForm />
           <section
             className={styles.candidate}

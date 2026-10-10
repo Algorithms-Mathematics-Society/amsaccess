@@ -11,6 +11,7 @@ const productLinks = [
   { label: "Pricing", href: "/pricing" },
 ];
 const resourceLinks = [
+  { label: "About AMS", href: "/about" },
   { label: "Security & privacy", href: "/security" },
   { label: "Documentation", href: "/docs" },
   { label: "Release notes", href: "/changelog" },

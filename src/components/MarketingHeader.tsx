@@ -32,6 +32,11 @@ const productLinks = [
 ];
 const resourceLinks = [
   {
+    label: "About AMS",
+    description: "The company behind Access, Derive and Ascent.",
+    href: "/about",
+  },
+  {
     label: "Security & privacy",
     description: "Permissions, assessment controls, and data handling.",
     href: "/security",

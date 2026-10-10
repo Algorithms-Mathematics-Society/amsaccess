@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import { AMS_TEAM_EMAIL } from "@/lib/ams-contact";
 import { TrustLayout } from "@/components/TrustLayout";
 import styles from "@/components/TrustPages.module.css";
 export const metadata: Metadata = {
@@ -278,15 +279,15 @@ export default function SecurityPage() {
           <p className={styles.eyebrow}>Raise a concern</p>
           <h2 id="report-title">Found a security issue?</h2>
           <p>
-            Email the Access security team. Describe the affected feature, what
+            Email the AMS team about the security concern. Describe the affected feature, what
             you observed, and when it happened.
           </p>
           <a
-            href="mailto:security@amsaccess.com?subject=Access%20security%20report"
+            href={"mailto:" + AMS_TEAM_EMAIL + "?subject=Access%20security%20report"}
             className={styles.emailLink}
           >
             <Mail size={17} aria-hidden="true" />
-            security@amsaccess.com <ArrowUpRight size={15} aria-hidden="true" />
+            {AMS_TEAM_EMAIL} <ArrowUpRight size={15} aria-hidden="true" />
           </a>
           <p className={styles.reportDetail}>
             Keep passwords, invitation codes, and other people’s information out

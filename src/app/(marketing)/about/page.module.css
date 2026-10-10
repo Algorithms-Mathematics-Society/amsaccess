@@ -1,0 +1,223 @@
+.page {
+  background: var(--color-background-body);
+  color: var(--color-text-primary);
+  font-family: var(--font-geist), "Geist Sans", sans-serif;
+  line-height: 1.5;
+  padding: 100px 0 88px;
+}
+.page:focus { outline: none; }
+.page :is(h1, h2, h3, p, ol) { margin: 0; }
+.page a { color: inherit; text-decoration: none; }
+.page :is(a, button):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 5px;
+}
+.page section[id] { scroll-margin-top: 100px; }
+.container {
+  width: min(1160px, calc(100% - 80px));
+  margin-inline: auto;
+}
+.pageBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.pageBar > span { color: var(--color-text-primary); font-weight: 500; }
+.pageBar nav { display: flex; flex-wrap: wrap; gap: 24px; }
+.pageBar a { display: inline-flex; align-items: center; min-height: 44px; }
+.pageBar a:hover, .textLink:hover { color: var(--color-text-accent); }
+.hero { padding-block: 76px 80px; }
+.eyebrow {
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hero h1 {
+  margin-top: 26px;
+  font-size: clamp(48px, 6vw, 80px);
+  font-weight: 500;
+  line-height: 1.06;
+  letter-spacing: -0.055em;
+}
+.hero h1 span { color: var(--color-text-accent); }
+.introduction {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 96px;
+  margin-top: 48px;
+  align-items: start;
+}
+.introduction .definition {
+  max-width: 465px;
+  font-size: 25px;
+  line-height: 1.45;
+  letter-spacing: -0.03em;
+}
+.introduction > p:last-child, .prose p,
+.approach p, .programDescription p,
+.audience article > p:last-child, .direction > p:last-child,
+.contacts p {
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--color-text-secondary);
+}
+.purpose {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 96px;
+  padding-block: 64px;
+  border-block: 1px solid var(--color-border);
+}
+.page h2 {
+  font-size: clamp(29px, 3vw, 40px);
+  font-weight: 500;
+  line-height: 1.18;
+  letter-spacing: -0.04em;
+}
+.purpose h2, .audience h2, .direction h2 { margin-top: 20px; }
+.prose p + p { margin-top: 18px; }
+.section { padding-top: 76px; }
+.sectionHeading { margin-bottom: 36px; }
+.sectionHeading h2 { margin-top: 20px; }
+.sectionHeading > p:last-child:not(.eyebrow) {
+  margin-top: 20px;
+  max-width: 540px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.8;
+}
+.approach {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 36px;
+  list-style: none;
+  padding: 0;
+}
+.approach li {
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+.number {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  line-height: 1.7;
+  letter-spacing: 0.05em;
+}
+.page h3 { font-weight: 500; line-height: 1.4; letter-spacing: -0.02em; }
+.approach h3 { font-size: 19px; margin-top: 22px; }
+.approach p { margin-top: 14px; font-size: 14px; }
+.programs { border-top: 1px solid var(--color-border); }
+.programs article {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 72px;
+  padding-block: 32px;
+  border-bottom: 1px solid var(--color-border);
+}
+.programName h3 { font-size: 30px; margin-top: 12px; }
+.programDescription p { max-width: 590px; }
+.programDescription > span {
+  display: block;
+  margin-top: 20px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.page .textLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.audience {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 96px;
+  padding-block: 76px;
+}
+.audience article > p:last-child { margin-top: 22px; max-width: 470px; }
+.direction {
+  padding: 44px 48px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+.direction > p:last-child { max-width: 700px; margin-top: 24px; }
+.connect { padding-top: 76px; }
+.contacts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  border-top: 1px solid var(--color-border);
+}
+.contacts article { padding-top: 28px; }
+.contacts h3 { font-size: 18px; }
+.contacts p { max-width: 410px; margin-top: 12px; font-size: 14px; }
+.contacts a {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin-top: 18px;
+  font-size: clamp(18px, 2vw, 24px);
+  letter-spacing: -0.025em;
+  text-decoration: underline;
+  text-decoration-color: var(--color-border);
+  text-underline-offset: 6px;
+}
+.contacts a:hover { text-decoration-color: var(--color-text-accent); }
+.contacts svg { flex-shrink: 0; }
+@media (max-width: 959px) {
+  .page { padding-top: 88px; }
+  .hero { padding-block: 56px; }
+  .introduction, .purpose, .audience { gap: 40px; }
+  .introduction .definition { font-size: 22px; }
+  .programs article { gap: 40px; }
+  .approach { gap: 24px; }
+  .approach h3 { font-size: 17px; }
+}
+@media (max-width: 700px) {
+  .container { width: calc(100% - 40px); }
+  .page { padding-bottom: 56px; }
+  .pageBar { display: block; padding-bottom: 10px; }
+  .pageBar nav { gap: 8px 20px; margin-top: 8px; font-size: 10px; }
+  .hero { padding-block: 40px 44px; }
+  .hero h1 { font-size: clamp(40px, 9.5vw, 62px); margin-top: 20px; }
+  .introduction { grid-template-columns: 1fr; gap: 22px; margin-top: 30px; }
+  .introduction .definition { font-size: 22px; max-width: 480px; }
+  .introduction > p:last-child, .prose p { font-size: 14px; }
+  .page h2 { font-size: 29px; }
+  .purpose { grid-template-columns: 1fr; gap: 26px; padding-block: 40px; }
+  .section, .connect { padding-top: 48px; }
+  .sectionHeading { margin-bottom: 28px; }
+  .approach { grid-template-columns: 1fr; gap: 24px; }
+  .approach h3 { font-size: 20px; margin-top: 14px; }
+  .approach p { margin-top: 10px; }
+  .programs article { grid-template-columns: 1fr; gap: 20px; padding-block: 28px; }
+  .programName h3 { font-size: 27px; }
+  .programDescription p { font-size: 14px; }
+  .audience { grid-template-columns: 1fr; gap: 36px; padding-block: 48px; }
+  .direction { padding: 28px 24px; }
+  .direction > p:last-child { font-size: 14px; }
+  .contacts { grid-template-columns: 1fr; gap: 28px; }
+  .contacts article + article { border-top: 1px solid var(--color-border); }
+  .contacts a { font-size: 21px; }
+}
+@media (max-width: 360px) {
+  .hero h1 { font-size: 36px; }
+  .page h2 { font-size: 26px; }
+  .direction { padding-inline: 20px; }
+  .contacts a { font-size: 19px; gap: 8px; }
+}
