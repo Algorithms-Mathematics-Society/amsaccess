@@ -52,77 +52,90 @@ export function SessionWalkthrough() {
   }, [paused, reduce]);
 
   return (
-    <div className="rounded-panel border border-white/10 bg-[#14101b] text-white">
-      {/* The frame. A window chrome, so it reads as the application without
-          pretending to be a photograph of one. */}
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-        <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-        <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-        <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-        <span className="ml-2 font-body text-xs text-white/40">AMS Access</span>
-      </div>
+    <div className="relative mx-auto w-full lg:origin-center lg:transform-gpu lg:[transform:perspective(1400px)_rotateY(-8deg)_rotateX(2deg)]">
+      <div className="relative rounded-[1.15rem] border-[5px] border-[#332d38] bg-[#17141a] p-[5px] shadow-[0_28px_70px_rgba(20,16,27,0.24)] sm:rounded-[1.4rem] sm:border-[7px] sm:p-2">
+        <span role="img" aria-label="Camera active" className="absolute left-1/2 top-[4px] z-10 flex -translate-x-1/2 items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full border border-[#817987] bg-[#111014] shadow-inner" />
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+        </span>
+        <div className="overflow-hidden rounded-[0.72rem] border border-white/10 bg-[#14101b] text-white sm:rounded-[0.9rem] lg:flex lg:aspect-[16/10] lg:flex-col">
+          <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-4 py-2.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+            <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+            <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+            <span className="ml-2 font-body text-xs text-white/40">AMS Access</span>
+          </div>
 
-      <div className="relative min-h-[300px] p-6 sm:min-h-[360px] sm:p-10 lg:min-h-[440px] lg:p-12">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={STAGES[active].key}
-            initial={reduce ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduce ? undefined : { opacity: 0, y: -8 }}
-            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <Scene stage={STAGES[active].key} />
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      <div className="border-t border-white/10 p-4 sm:p-5">
-        <div
-          role="tablist"
-          aria-label="Session stages"
-          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
-        >
-          {STAGES.map((stage, index) => {
-            const current = index === active;
-            return (
-              <button
-                key={stage.key}
-                role="tab"
-                aria-selected={current}
-                onClick={() => {
-                  stop();
-                  setActive(index);
-                }}
-                className={`rounded-control px-3 py-2 text-left transition-colors ${
-                  current ? "bg-white/10" : "hover:bg-white/5"
-                }`}
+          <div className="relative min-h-[250px] flex-1 p-5 sm:min-h-[280px] sm:p-7 lg:min-h-0 lg:p-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={STAGES[active].key}
+                initial={reduce ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? undefined : { opacity: 0, y: -8 }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               >
-                <span
-                  className={`block font-body text-xs font-semibold ${
-                    current ? "text-orchid" : "text-white/60"
-                  }`}
-                >
-                  {stage.label}
-                </span>
-                <span className="mt-0.5 block font-body text-[11px] leading-4 text-white/40">
-                  {stage.caption}
-                </span>
-                {/* The progress bar doubles as the only "this is playing"
-                    signal, so it disappears when paused rather than sitting
-                    there frozen and looking broken. */}
-                {current && !paused && !reduce && (
-                  <motion.span
-                    key={`${stage.key}-bar`}
-                    className="mt-2 block h-px bg-violet-bright/60"
-                    initial={{ scaleX: 0 }}
-                    animate={{ scaleX: 1 }}
-                    transition={{ duration: DWELL_MS / 1000, ease: "linear" }}
-                    style={{ transformOrigin: "left" }}
-                  />
-                )}
-              </button>
-            );
-          })}
+                <Scene stage={STAGES[active].key} />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div className="shrink-0 border-t border-white/10 p-3 sm:p-4">
+            <div role="tablist" aria-label="Session stages" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {STAGES.map((stage, index) => {
+                const current = index === active;
+                return (
+                  <button
+                    key={stage.key}
+                    role="tab"
+                    aria-selected={current}
+                    onClick={() => {
+                      stop();
+                      setActive(index);
+                    }}
+                    className={`rounded-control px-3 py-2 text-left transition-colors ${
+                      current ? "bg-white/10" : "hover:bg-white/5"
+                    }`}
+                  >
+                    <span className={`block font-body text-xs font-semibold ${current ? "text-orchid" : "text-white/60"}`}>
+                      {stage.label}
+                    </span>
+                    <span className="mt-0.5 hidden font-body text-[11px] leading-4 text-white/40 sm:block">
+                      {stage.caption}
+                    </span>
+                    {current && !paused && !reduce && (
+                      <motion.span
+                        key={`${stage.key}-bar`}
+                        className="mt-2 block h-px bg-violet-bright/60"
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: 1 }}
+                        transition={{ duration: DWELL_MS / 1000, ease: "linear" }}
+                        style={{ transformOrigin: "left" }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div aria-hidden="true" className="relative mx-auto h-9 w-[20%]">
+        <span className="absolute inset-x-[34%] top-0 h-full bg-gradient-to-r from-[#37323c] via-[#5d5663] to-[#37323c] [clip-path:polygon(38%_0,62%_0,100%_100%,0_100%)]" />
+      </div>
+      <div aria-hidden="true" className="mx-auto -mt-1 h-2 w-[34%] rounded-[50%] border border-[#34303a] bg-gradient-to-b from-[#68616d] to-[#34303a] shadow-[0_4px_9px_rgba(20,16,27,0.2)]" />
+      <div aria-hidden="true" className="mx-auto mt-2 flex w-full items-end justify-center gap-[2%]">
+        <div className="relative h-11 w-[78%] rounded-md border border-[#302b35] bg-gradient-to-b from-[#55505b] via-[#403b45] to-[#2d2931] p-1 shadow-[0_5px_10px_rgba(20,16,27,0.16)] sm:h-12 sm:p-1.5">
+          <div className="grid grid-cols-12 gap-[3px] sm:gap-1">
+            {Array.from({ length: 36 }, (_, index) => (
+              <span key={index} className="h-1.5 rounded-[2px] border border-black/25 bg-white/[0.11] shadow-[0_1px_0_rgba(255,255,255,0.08)] sm:h-2" />
+            ))}
+          </div>
+          <span className="absolute bottom-1 left-1/2 h-1 w-[18%] -translate-x-1/2 rounded-full bg-black/20 sm:bottom-1.5" />
+        </div>
+        <div className="relative h-9 w-[9%] rounded-[48%_48%_42%_42%] border border-[#302b35] bg-gradient-to-br from-[#615a67] via-[#47414c] to-[#302c34] shadow-[0_5px_10px_rgba(20,16,27,0.16)] sm:h-10">
+          <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-white/15" />
+          <span className="absolute left-1/2 top-1.5 h-1 w-0.5 -translate-x-1/2 rounded-full bg-[#aaa2af]/70" />
         </div>
       </div>
     </div>

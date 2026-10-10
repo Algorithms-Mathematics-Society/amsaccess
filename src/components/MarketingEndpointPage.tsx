@@ -26,7 +26,7 @@ export function MarketingHeader() {
 
         <MarketingNavLinks />
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <ThemeToggle />
           <MobileNav />
         </div>

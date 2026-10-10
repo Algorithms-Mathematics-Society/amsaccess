@@ -4,10 +4,12 @@ import { FormEvent, ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, ArrowRight, BarChart3, Building2, CheckCircle2, ChevronRight,
-  Code2, ExternalLink, GraduationCap, LayoutDashboard, LogOut, Mail, MapPin,
+  ArrowLeft, ArrowRight, BarChart3, ChevronRight,
+  Code2, Eye, EyeOff, ExternalLink, GraduationCap, LayoutDashboard, Lock, LogOut, Mail, MapPin,
   Menu, Search, ShieldCheck, Trophy, UserRound, X,
 } from "lucide-react";
+import { MarketingHeader } from "@/components/MarketingEndpointPage";
+import { MarketingFooter } from "@/components/MarketingFooter";
 
 type FirmUser = { uid: string; display_name: string; email: string; role: string | null; organization_name: string | null };
 type TalentCard = {
@@ -43,6 +45,7 @@ function Login() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit(event: FormEvent) {
@@ -53,30 +56,39 @@ function Login() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Sign in failed."); }
     finally { setBusy(false); }
   }
-  return <div className="relative min-h-[100dvh] overflow-hidden bg-bg text-text">
-    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgb(var(--firms-accent-soft)/0.9),transparent_38rem)]" />
-    <header className="relative z-10 border-b border-white/10 bg-[#211a2b] px-5 py-5 sm:px-8 lg:px-12"><img src="/AMS_ACCESS.svg" alt="AMS Access" className="h-7 w-auto" /></header>
-    <main className="relative z-10 mx-auto grid min-h-[calc(100dvh-4.25rem)] w-full max-w-[96rem] gap-12 px-5 py-14 sm:px-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center lg:px-12 lg:py-20">
-      <section className="max-w-3xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Firms workspace · AWS secured</p>
-        <h1 className="mt-5 text-[clamp(3rem,6.4vw,6.8rem)] font-semibold leading-[0.94] tracking-[-0.055em] text-text-strong">Hire from<br />recorded signal.</h1>
-        <p className="mt-7 max-w-xl text-lg leading-8 text-text">Review assessment performance, search the AMS talent directory, and open evidence-rich candidate profiles—served from the same AWS platform that runs AMS Access.</p>
-        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted">{["Cognito authentication", "Server-side authorization", "AWS-backed candidate data"].map((item) => <span key={item} className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-gold" />{item}</span>)}</div>
-      </section>
-      <section className="rounded-2xl border border-border bg-surface p-6 shadow-[0_30px_90px_rgba(33,26,43,0.13)] sm:p-9">
-        <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#211a2b] text-white"><Building2 className="h-5 w-5" /></span>
-        <h2 className="mt-7 text-3xl font-semibold tracking-tight text-text-strong">Firm sign in</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">Use your pre-provisioned AMS Cognito account.</p>
-        {error && <div role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
-        <form onSubmit={submit} className="mt-7 space-y-5">
-          <label className="block text-sm font-semibold text-text-strong">Work email<input required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 min-h-12 w-full rounded-lg border border-border bg-bg px-4 text-base font-normal outline-none focus:border-gold focus:ring-4 focus:ring-gold/15" placeholder="you@firm.com" /></label>
-          <label className="block text-sm font-semibold text-text-strong">Password<input required type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-2 min-h-12 w-full rounded-lg border border-border bg-bg px-4 text-base font-normal outline-none focus:border-gold focus:ring-4 focus:ring-gold/15" placeholder="Your password" /></label>
-          <button disabled={busy} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-gold px-5 text-sm font-semibold text-white transition hover:bg-[#4c2f8a] disabled:opacity-60">{busy ? "Signing in…" : "Sign in to workspace"}<ArrowRight className="h-4 w-4" /></button>
-        </form>
-        <p className="mt-6 text-xs leading-5 text-muted">Access is restricted to approved firm and AMS operator roles.</p>
-      </section>
-    </main>
-  </div>;
+  return <main className="ac-theme min-h-screen overflow-hidden bg-paper font-body text-ink selection:bg-violet-soft selection:text-violet-deep">
+    <MarketingHeader />
+    <section className="relative flex min-h-[calc(100dvh-5rem)] items-center overflow-hidden px-5 pb-16 pt-28 sm:px-8 sm:pb-20 sm:pt-32 lg:px-8 lg:py-24">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgb(var(--ac-violet-soft)/0.8),transparent_34rem)]" />
+      <div className="relative z-10 mx-auto grid w-full max-w-[96rem] gap-10 sm:gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] lg:items-center lg:gap-16 xl:gap-24">
+        <section className="max-w-2xl">
+          <p className="font-body text-xs font-semibold uppercase tracking-[0.2em] text-violet">Firms</p>
+          <h1 className="mt-5 font-display text-[clamp(2.5rem,5vw,5.5rem)] font-normal leading-[1.05] tracking-[-0.035em] text-ink lg:leading-[1.02]">Welcome to AMS Access.</h1>
+          <p className="mt-7 max-w-xl text-lg leading-8 text-muted sm:text-xl">Sign in to continue to your firm workspace.</p>
+        </section>
+        <section className="rounded-panel border border-line bg-surface p-6 shadow-xl shadow-slate-950/10 sm:p-9">
+          <div className="mb-6">
+            <p className="text-sm font-semibold tracking-tight text-ink">AMS Access <span className="font-normal text-muted">/ Firms</span></p>
+            <h2 className="mt-8 font-display text-3xl text-ink">Sign in</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">Use your work email and password.</p>
+          </div>
+          {error && <div role="alert" className="mb-5 rounded-control border border-red-300/50 bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-200">{error}</div>}
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label htmlFor="firms-email" className="mb-1.5 block text-xs font-semibold text-ink">Work email</label>
+              <div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input id="firms-email" required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-control border border-line bg-paper py-3 pl-10 pr-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-violet focus:bg-surface focus:ring-4 focus:ring-violet/15" placeholder="you@firm.com" /></div>
+            </div>
+            <div>
+              <label htmlFor="firms-password" className="mb-1.5 block text-xs font-semibold text-ink">Password</label>
+              <div className="relative"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input id="firms-password" required type={showPwd ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-control border border-line bg-paper py-3 pl-10 pr-11 text-sm text-ink outline-none transition placeholder:text-muted focus:border-violet focus:bg-surface focus:ring-4 focus:ring-violet/15" placeholder="Password" /><button type="button" onClick={() => setShowPwd((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition hover:text-ink" tabIndex={-1} aria-label={showPwd ? "Hide password" : "Show password"}>{showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
+            </div>
+            <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-control bg-violet px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-violet-deep active:translate-y-px disabled:cursor-wait disabled:opacity-60">{busy ? "Signing in…" : "Sign in to workspace"}<ArrowRight className="h-4 w-4" /></button>
+          </form>
+        </section>
+      </div>
+    </section>
+    <MarketingFooter />
+  </main>;
 }
 
 const nav = [

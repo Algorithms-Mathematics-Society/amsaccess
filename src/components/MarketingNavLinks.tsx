@@ -4,13 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { label: "Firms", href: "/firms/login" },
   { label: "Download", href: "/download" },
   { label: "Contact", href: "/contact" },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
-  return href === "/firms/login" ? pathname.startsWith("/firms") : pathname === href;
+  return pathname === href;
 }
 
 export function MarketingNavLinks() {
@@ -24,7 +23,7 @@ export function MarketingNavLinks() {
           <Link
             key={href}
             href={href}
-            className={`inline-flex min-h-11 items-center rounded-control px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream ${
+            className={`inline-flex min-h-11 items-center rounded-control px-4 py-2 text-base font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream ${
               active
                 ? "bg-[#352748] text-[#fffcf5]"
                 : "text-[#fffcf5]/85 hover:bg-[#352748] hover:text-[#fffcf5]"
