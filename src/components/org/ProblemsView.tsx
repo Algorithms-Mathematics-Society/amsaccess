@@ -20,7 +20,7 @@ async function json<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-export function ProblemsView() {
+export function ProblemsView({ embedded = false }: { embedded?: boolean } = {}) {
   const [problems, setProblems] = useState<Problem[] | null>(null);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -39,7 +39,9 @@ export function ProblemsView() {
   }, [load]);
 
   return (
-    <div className="px-8 py-6">
+    // The tabs above already supply the page padding; doubling it here
+    // would indent the catalogue relative to its own tab strip.
+    <div className={embedded ? "" : "px-8 py-6"}>
       <div className="mb-6 flex items-center justify-between">
         <p className="text-sm text-slate-500">
           {problems === null ? "Loading…" : `${problems.length} problem${problems.length === 1 ? "" : "s"}`}

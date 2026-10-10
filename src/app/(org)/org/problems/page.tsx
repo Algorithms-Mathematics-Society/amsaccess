@@ -1,5 +1,5 @@
 import { OrgShell, PageHeader } from "@/components/org/OrgShell";
-import { ProblemsView } from "@/components/org/ProblemsView";
+import { ProblemsTabs } from "@/components/org/ProblemsTabs";
 
 export const metadata = { title: "Problems · AMS Access" };
 
@@ -8,9 +8,9 @@ export default function ProblemsPage() {
     <OrgShell>
       <PageHeader
         title="Problems"
-        subtitle="cxxprobe packages. Each upload creates a new immutable version."
+        subtitle="Upload a built cxxprobe package, or write one here and verify it on the judge."
       />
-      <ProblemsView />
+      <ProblemsTabs />
     </OrgShell>
   );
 }
