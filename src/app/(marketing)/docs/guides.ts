@@ -98,7 +98,7 @@ export const guides: Guide[] = [
           "Browsing this website or using its download recommendation does not turn on your camera or microphone. The desktop app requests permissions separately during setup and participation.",
           "For a round that requires a permission, refusing or removing it can prevent entry or interrupt participation. Ask your organizer about alternatives before assessment day.",
         ],
-        links: [{ href: "/privacy", label: "Read the website privacy draft" }],
+        links: [{ href: "/privacy", label: "Read the website privacy notice" }],
       },
       {
         id: "information-categories",
@@ -143,7 +143,7 @@ export const guides: Guide[] = [
         id: "notice-and-help",
         title: "Read the notice for your version and your round",
         paragraphs: [
-          "Access 2.3.1 includes a desktop privacy policy dated 27 May 2026. Find it in Settings → About → Privacy, or through the privacy link before setup. Read it alongside your organizer’s notice; the website review draft does not replace either.",
+          "Access 2.3.1 includes a desktop privacy policy dated 27 May 2026. Find it in Settings → About → Privacy, or through the privacy link before setup. Read it alongside your organizer’s notice; the website notice supplements this information and does not replace either.",
           "Before the round, confirm which checks apply, whether session images are available to reviewers, who can access records, how long they are kept, and how to ask for a correction or review.",
           "For invitation, participation or result questions, start with your organizer. For privacy questions about Access or uncertainty about where to ask, email team@amshq.in. Keep passwords, invitation codes and assessment answers out of an initial message.",
         ],

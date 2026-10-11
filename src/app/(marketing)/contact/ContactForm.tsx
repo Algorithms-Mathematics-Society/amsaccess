@@ -378,7 +378,7 @@ export function ContactForm() {
                     Your details help us handle your enquiry and reply by email.
                     <br />
                     <Link href="/privacy#information">
-                      Read the privacy draft
+                      Read the privacy notice
                     </Link>
                   </p>
                 </div>

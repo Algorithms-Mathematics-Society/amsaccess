@@ -79,3 +79,31 @@ General transparency reference used to check completeness: [ICO privacy-informat
 - Website preview: http://127.0.0.1:3200/docs/what-access-checks-and-records
 - App notice preview: http://127.0.0.1:3300/privacy
 - Neither batch is pushed. Website deployment and a future app release are separate delivery steps.
+
+## Follow-up review · 11 October 2026
+
+The owner confirmed the privacy notice has been reviewed and supplied:
+Algorithms & Mathematics Society; founder Tilak Jain; Mumbai, India; and
+BigRock for hosting. These confirmations supersede the earlier unknown operator
+name/location and draft-publication status above. They do not establish a full
+postal address, the complete provider inventory, processing countries, retention
+rules, legal bases, age rules, or a designated grievance officer.
+
+Compared the website notice against [FreePrivacyPolicy's general guidance](https://www.freeprivacypolicy.com/blog/sample-privacy-policy-template/)
+and its [GDPR notice checklist](https://www.freeprivacypolicy.com/blog/gdpr-privacy-policy-template/).
+Cross-checked the missing-disclosure categories with the [ICO privacy-information checklist](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/individual-rights/the-right-to-be-informed/what-privacy-information-should-we-provide/).
+These are completeness references, not evidence that a particular jurisdiction's
+law applies or that AMS is legally compliant.
+
+Corrections remove stale privacy-draft wording and links, identify the operator
+using the owner's details, add a website revision date, distinguish required and
+optional contact fields, describe the implemented Resend contact delivery and
+conditional Upstash rate limiting, reuse the reviewed automated-assessment
+explanation, and give a concrete privacy-request contact route. Website session
+protections are grounded in `src/lib/server/session.ts`; contact handling in
+`src/app/api/contact/route.ts` and `src/lib/server/rateLimit.ts`.
+
+The public notice continues to disclose the unconfirmed retention, legal-basis,
+provider/location, and age details. Do not substitute generic template promises
+for those decisions. Terms, installed desktop notices, consent handling,
+retention behavior, and infrastructure were not changed by this text review.

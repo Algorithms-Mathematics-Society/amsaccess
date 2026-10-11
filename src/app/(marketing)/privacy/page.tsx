@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 const content: LegalContent = {
   kind: "privacy",
   status: "reviewed",
+  lastUpdated: "2026-10-11",
   title: "Privacy notice.",
   description:
     "Understand the information involved when you visit Access, contact the team, or take part in an assessment.",
@@ -32,18 +33,18 @@ const content: LegalContent = {
       id: "scope",
       title: "Scope and responsibilities",
       paragraphs: [
-        "This draft covers the Access marketing website, downloads, the candidate desktop experience, and related support. Access is a product of AMS. The operator’s full legal identity and policy commitments are still awaiting confirmation.",
+        "This notice covers the Access marketing website, downloads, the candidate desktop experience, and related support. Access is operated by Algorithms & Mathematics Society (AMS), based in Mumbai, India. Its founder is Tilak Jain. Contact team@amshq.in about privacy or this notice.",
         "An assessment organizer sets the purpose, questions, participation rules, and review process for its round. Access supplies the assessment software and connected service workflows. The organization responsible for a particular use of personal information depends on the service arrangement.",
-        "Read your organizer’s notice for registration, eligibility, evaluation, result publication, and any additional use of your information. The legal operator, relevant contact details, and responsibilities must be identified in the final notice.",
+        "Read your organizer’s notice for registration, eligibility, evaluation, result publication, and any additional use of your information. Contact the organizer for its identity, contact details, and responsibilities for your assessment.",
       ],
     },
     {
       id: "desktop-notice",
-      title: "Website draft and desktop notice",
+      title: "Website and desktop notices",
       paragraphs: [
-        "Access 2.3.1 includes a desktop privacy policy dated 27 May 2026. You can read it in Settings → About → Privacy, or from the privacy link before setup. This website draft does not replace that published notice, the organizer’s notice, or an existing agreement.",
+        "Access 2.3.1 includes a desktop privacy policy dated 27 May 2026. You can read it in Settings → About → Privacy, or from the privacy link before setup. This website notice supplements information about the service; it does not replace the notice supplied with your installed app, the organizer’s notice, or an existing agreement.",
         "The monitoring explanation here is based on the reviewed 2.3.1 desktop flow. Local calibration captures are different from session images sent with activity records. This distinction matters when reading the desktop policy’s statement about local calibration.",
-        "Legal operator details, production hosting and providers, record-access permissions, and retention periods remain unconfirmed for this draft. The prepared date is not a new policy effective date.",
+        "The full provider inventory, processing locations, record-access permissions, and retention periods are not established by this website notice. Contact Access and your organizer for the arrangements that apply to your assessment.",
       ],
       link: { href: MONITORING_GUIDE_PATH, label: "What Access checks and records" },
     },
@@ -61,6 +62,7 @@ const content: LegalContent = {
       ],
       paragraphs: [
         "Information can come from you, your device, your assessment organizer, or your use of the service. The categories used depend on the activity and assessment configuration.",
+        "The website contact form requires your name, email address, enquiry category, and message so the team can handle your enquiry. Organization and expected round size are optional. Without the required fields, the form cannot send your message; you can email team@amshq.in instead.",
       ],
     },
     {
@@ -73,7 +75,7 @@ const content: LegalContent = {
         "Receive and evaluate submissions, show results, and provide context for review.",
         "Investigate reported problems and support service operation and security.",
       ],
-      note: "The final notice must identify the applicable legal grounds for each use. A device permission prompt, by itself, does not explain every use of assessment information.",
+      note: "The applicable legal grounds for these uses are not specified in this notice. Contact Access and your organizer for that information. A device permission prompt, by itself, does not explain or authorize every use of assessment information.",
     },
     {
       id: "permissions",
@@ -92,11 +94,27 @@ const content: LegalContent = {
       },
     },
     {
+      id: "automated-results",
+      title: "Automated results and assessment review",
+      paragraphs: [...assessmentInformation.decisions],
+      link: { href: MONITORING_GUIDE_PATH, label: "Read about assessment checks and review" },
+    },
+    {
+      id: "security",
+      title: "Security and external services",
+      paragraphs: [
+        "The website uses signed session cookies with expiry checks for account sessions and request rate limits to help reduce abuse. These controls do not guarantee that all information is secure or establish the security arrangements of every connected assessment service.",
+        "Links may take you to services operated by other organizations. Read their privacy notices before providing information there; this notice describes Access and does not describe every external service’s practices.",
+        "To report a suspected privacy or security issue, contact team@amshq.in. Describe the issue without sending passwords, invitation codes, or assessment answers.",
+      ],
+    },
+    {
       id: "sharing",
       title: "Who may receive information",
       paragraphs: [
         "Assessment information may be available to the organizer and people involved in its authorized review or support process. Results shared beyond that group depend on the organizer’s rules and notice.",
-        "Service providers involved in account access, hosting, storage, submission evaluation, communications, and support may process information needed for those functions.",
+        "Service providers involved in account access, hosting, storage, submission evaluation, communications, and support may process information needed for those functions. Website hosting includes BigRock.",
+        "When the website contact form sends an enquiry, it uses Resend to deliver your submitted details to the configured AMS recipient. Contact rate limiting uses your IP address and, where supplied, email address; these identifiers are also processed by Upstash when the shared rate-limit service is configured. These examples are not a complete inventory of assessment-service providers.",
         "Some desktop setup checks can also contact a Google connectivity service. Its operator can receive normal request information, such as IP address, time and user agent.",
         "The provider inventory, processing locations, and any international-transfer arrangements must be confirmed for the applicable service. Ask Access about those details before arranging a round with specific data-location requirements.",
       ],
@@ -118,7 +136,7 @@ const content: LegalContent = {
       title: "Retention and deletion",
       paragraphs: [
         "Different records have different purposes. Assessment records, session activity, support correspondence, and information stored on your device should not be assumed to have the same retention period.",
-        "No universal retention or automatic-deletion period is specified in this draft. The final notice and relevant assessment arrangement need to state the periods or criteria that apply, including any review or dispute requirements.",
+        "This notice does not specify a universal retention or automatic-deletion period. The retention periods or criteria for each record category, including review or dispute requirements, need confirmation from Access and the relevant organizer. Ask for those details before participating.",
         "For a request about an assessment record, contact the organizer that invited you. For an Access enquiry or uncertainty about who to contact, email team@amshq.in.",
         "Local calibration cleanup and retention of queued session events are different processes. Neither establishes how long records already received by the assessment service are kept.",
       ],
@@ -129,8 +147,10 @@ const content: LegalContent = {
       title: "Your questions and choices",
       paragraphs: [
         "You can ask what information is involved, request correction of inaccurate information, and raise a concern about how your information is handled.",
-        "Depending on the applicable law and circumstances, you may have rights to access, delete, restrict, object to, or receive a copy of information, and to withdraw consent where consent is the basis for a particular use.",
-        "The final notice must identify the relevant request contact, applicable rights, and complaint route. An identity check may be needed before information about an account or assessment can be shared.",
+        "Depending on the applicable law and circumstances, you may have rights to access, delete, restrict, object to, or receive a copy of information.",
+        "Where processing relies on consent, you can request withdrawal through team@amshq.in or the organizer’s privacy contact. Withdrawing an app permission in device settings is a separate action and does not itself request deletion of records already received.",
+        "Where applicable law gives you a right to complain to a data protection authority, you may use that route as well. The relevant authority depends on the law and organization responsible for the processing.",
+        "To make a privacy request, email team@amshq.in with the request type, the email address associated with your account or enquiry, and the organizer or assessment name if relevant. For records held by your organizer, also use the contact in its notice. An identity check may be needed before information about an account or assessment can be shared.",
       ],
       note: "You do not need to include passwords, invitation codes, or assessment answers in an initial privacy enquiry.",
     },
@@ -139,15 +159,15 @@ const content: LegalContent = {
       title: "Participation and younger candidates",
       paragraphs: [
         "Assessment eligibility is set for the particular round. If an assessment includes younger candidates, the organizer and Access need to confirm applicable age requirements, notices, and any parent, guardian, or school authorization before participation.",
-        "This draft does not set an age threshold or assume that every assessment is suitable for every age group.",
+        "This notice does not set an age threshold or assume that every assessment is suitable for every age group. If you are unsure whether you may participate, ask your organizer before supplying assessment information.",
       ],
     },
     {
       id: "changes",
       title: "Changes and contact",
       paragraphs: [
-        "The prepared date identifies this review draft. It is not an effective date and does not replace an applicable organizer notice or an existing agreement.",
-        "Changes to the service or its information handling may require updated notices. Confirm the applicable notice for your assessment before you begin.",
+        "Updates to this website notice are published on this page with a last-updated date. That date identifies the website text revision; it does not change the effective date of the notice supplied with an installed app or an organizer’s agreement.",
+        "Changes to the service or its information handling may require additional notice or consent under applicable law; updating this page alone does not replace those requirements. Confirm the applicable notice for your assessment before you begin.",
       ],
       link: { href: "mailto:team@amshq.in", label: "Contact team@amshq.in about privacy" },
     },

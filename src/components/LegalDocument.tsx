@@ -15,6 +15,7 @@ export type LegalSection = {
 export type LegalContent = {
   kind: "privacy" | "terms";
   status?: "draft" | "reviewed";
+  lastUpdated?: string;
   title: string;
   description: string;
   summary: { title: string; body: string }[];
@@ -39,6 +40,18 @@ export function LegalDocument({ content }: { content: LegalContent }) {
         <p className={styles.eyebrow}>Access information</p>
         <h1>{content.title}</h1>
         <p>{content.description}</p>
+        {content.lastUpdated && (
+          <div className={styles.documentMeta}>
+            <span>
+              Last updated{" "}
+              <time dateTime={content.lastUpdated}>
+                {new Intl.DateTimeFormat("en-GB", {
+                  day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+                }).format(new Date(content.lastUpdated))}
+              </time>
+            </span>
+          </div>
+        )}
         {content.status !== "reviewed" && (
           <div className={styles.documentMeta}>
             <span>Draft for review</span>

@@ -94,7 +94,7 @@ export default function SecurityPage() {
               See assessment controls <ArrowDown size={15} aria-hidden="true" />
             </a>
             <Link href="/privacy" className={styles.textLink}>
-              Read the privacy draft <ArrowRight size={15} aria-hidden="true" />
+              Read the privacy notice <ArrowRight size={15} aria-hidden="true" />
             </Link>
           </div>
         </div>
@@ -319,7 +319,7 @@ export default function SecurityPage() {
         <Link href="/privacy">
           <span>
             How information is handled
-            <small>Privacy notice · review draft</small>
+            <small>Privacy notice</small>
           </span>
           <ArrowRight size={18} aria-hidden="true" />
         </Link>
