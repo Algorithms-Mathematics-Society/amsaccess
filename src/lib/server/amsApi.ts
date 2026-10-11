@@ -112,8 +112,46 @@ export async function proxyToAmsApi(
   });
 }
 
+/**
+ * The API's refusals, in words someone can act on.
+ *
+ * Only the handful a staff member can genuinely run into are rewritten.
+ * Everything else is passed through untouched, because inventing friendly
+ * text for an unknown failure is how a real error becomes invisible.
+ *
+ * `insufficient role` is the one that prompted this. It is the name of the
+ * gate, not an account of what happened, and it rendered as a bare red line
+ * on whatever page you were looking at — which reads like the page is broken
+ * rather than like you are not allowed in. It is also what somebody sees the
+ * first time they sign in to an environment where they have no membership:
+ * accounts land as contestants by default, so an owner on one deployment is
+ * a contestant on another until somebody says otherwise.
+ */
+const PLAINER: readonly [RegExp, string][] = [
+  [
+    /^insufficient role$/i,
+    "Your account does not have access to this. If you should, ask an owner to check your role for this organization.",
+  ],
+  [
+    /^not a member of this organization$/i,
+    "Your account is not a member of this organization yet, so nothing here is available to it.",
+  ],
+  [/^user belongs to no organization$/i, "Your account is not attached to an organization."],
+];
+
 /** FastAPI reports errors as `{detail: "..."}`; the UI wants a plain string. */
 export function errorMessage(data: unknown, fallback = "Something went wrong."): string {
+  return plainer(rawErrorMessage(data, fallback));
+}
+
+function plainer(message: string): string {
+  for (const [pattern, replacement] of PLAINER) {
+    if (pattern.test(message.trim())) return replacement;
+  }
+  return message;
+}
+
+function rawErrorMessage(data: unknown, fallback: string): string {
   if (typeof data === "string" && data.trim()) return data;
   if (data && typeof data === "object") {
     const detail = (data as { detail?: unknown; error?: unknown }).detail

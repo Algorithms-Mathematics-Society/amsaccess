@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, Cpu, FileCode2, LayoutDashboard, Mail, Users } from "lucide-react";
+import { useOrgRole } from "@/lib/client/useOrgRole";
 
 const NAV = [
   { href: "/org/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -20,7 +21,18 @@ const NAV = [
  *  list going stale would show a tab that 403s rather than open a door.
  *  The point is not to stop anyone, it is to stop the sidebar advertising
  *  six pages when four of them are closed. */
-const INTERN_HIDDEN: readonly string[] = ["/org/problems", "/org/participants", "/org/mails"];
+const INTERN_HIDDEN: readonly string[] = [
+  "/org/problems",
+  "/org/participants",
+  "/org/mails",
+  // Judging was left visible because watching the fleet looked harmless.
+  // It was not: the fleet view names the contest it is warming for, with
+  // its window and roster size, which is the same thing the contest list
+  // withholds. The response no longer carries that for an intern; the tab
+  // goes too, because the page's only remaining content for them would be
+  // a worker count and two buttons they cannot press.
+  "/org/fleet",
+];
 
 /** Purple keyboard focus ring, the same token as the Astryx content (#7c3aed). */
 const FOCUS =
@@ -28,23 +40,10 @@ const FOCUS =
 
 export function OrgShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [role, setRole] = useState<string | null>(null);
-
-  // Asked once, and a failure leaves the full nav rather than an empty one.
-  // Guessing "intern" on a network error would lock an admin out of their
-  // own sidebar for the length of a blip.
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((me) => {
-        if (!cancelled && me && typeof me.role === "string") setRole(me.role);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Asked once per page load and shared with every other panel that needs
+  // it. A failure leaves the full nav rather than an empty one: guessing
+  // "intern" on a network blip would lock an admin out of their own sidebar.
+  const { role } = useOrgRole();
 
   const nav = role === "intern" ? NAV.filter((i) => !INTERN_HIDDEN.includes(i.href)) : NAV;
   const headerRef = useRef<HTMLElement>(null);

@@ -95,6 +95,8 @@ export type Contest = {
   joined: boolean;
   frozen: boolean;
   verification_window_minutes: number;
+  /** Null when nobody has pinned a count and the roster decides. */
+  judge_instances: number | null;
 };
 
 export type ContestSubmission = {

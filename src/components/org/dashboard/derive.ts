@@ -279,7 +279,7 @@ function judgingVerdict(fleet: Fleet, contests: Contest[] | null, now: number): 
             kind,
             severity: "quiet",
             headline: "No judges running",
-            detail: "They start on their own about half an hour before a contest.",
+            detail: "They start on their own an hour before a contest.",
             attention: null,
           };
   }

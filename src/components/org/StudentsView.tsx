@@ -86,7 +86,15 @@ export function StudentsView() {
         </button>
       </div>
 
-      {importing && <ImportPanel onDone={() => { setImporting(false); void load(query); }} />}
+      {importing && (
+        <ImportPanel
+          onDone={() => {
+            setImporting(false);
+            void load(query);
+          }}
+          onImported={() => void load(query)}
+        />
+      )}
       {adding && <AddStudent onDone={() => { setAdding(false); void load(query); }} />}
 
       {error && (
@@ -432,7 +440,7 @@ function AddStudent({ onDone }: { onDone: () => void }) {
   );
 }
 
-function ImportPanel({ onDone }: { onDone: () => void }) {
+function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ created: number; updated: number; errors: string[] } | null>(
@@ -450,6 +458,10 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
           await fetch("/api/org/students/import", { method: "POST", body: form }),
         ),
       );
+      // Reload now, not on Done. "500 added" used to render directly above
+      // "0 students — No students yet", because the list behind the panel
+      // was only refetched when the panel closed.
+      onImported();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not import.");
     } finally {
@@ -461,8 +473,10 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
     <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
       <p className="text-sm font-medium text-slate-800">Import students from CSV</p>
       <p className="mt-1 text-xs text-slate-500">
-        Only <code className="rounded bg-slate-100 px-1">display_name</code> is required. Also
-        accepted: college, branch, graduation_year, linkedin_url, github_url, resume_url,
+        Only <code className="rounded bg-slate-100 px-1">display_name</code> is required, but
+        include <code className="rounded bg-slate-100 px-1">email</code> — it is the address
+        credentials are sent to, and a row without one can only ever be handed a printed slip.
+        Also accepted: college, branch, graduation_year, linkedin_url, github_url, resume_url,
         contact_email, phone, location, external_ref.
       </p>
       <p className="mt-1 text-xs text-slate-500">

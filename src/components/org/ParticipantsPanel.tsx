@@ -92,6 +92,10 @@ export function ParticipantsPanel({
   // this state is the only copy until the operator saves it.
   const [issued, setIssued] = useState<IssuedCredential[] | null>(null);
   const [saved, setSaved] = useState(false);
+  // Said after a roster add that minted nothing. Without it the screen just
+  // goes back to the table and five hundred people arriving looks identical
+  // to nothing happening.
+  const [added, setAdded] = useState<RosterAdd | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -109,6 +113,21 @@ export function ParticipantsPanel({
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** What to show after people were added, which depends on what was minted. */
+  const absorb = useCallback(
+    (result: RosterAdd) => {
+      if (result.credentials.length > 0) {
+        // Slips. These exist nowhere else, so they take over the screen.
+        setIssued(result.credentials);
+        setSaved(false);
+      } else {
+        setAdded(result);
+      }
+      void load();
+    },
+    [load],
+  );
 
   // Closing the tab with unsaved passwords loses them permanently. The
   // browser's own confirmation is the only thing that can interrupt that.
@@ -185,13 +204,14 @@ export function ParticipantsPanel({
           // The roster's own user uids, so people already here are not offered
           // again — adding them twice is harmless but looks like a mistake.
           alreadyOnRoster={new Set((roster ?? []).map((row) => row.user_uid))}
-          onAdded={(rows) => {
+          onAdded={(result) => {
             setPickingFromAccess(false);
-            // Anyone who already held a passphrase keeps it and comes back with
-            // none, so only show the one-time screen if there is something on it.
-            const withPasswords = rows.filter((row) => row.password);
-            if (withPasswords.length > 0) setIssued(withPasswords);
-            void load();
+            absorb({
+              ...result,
+              // Anyone who already held a passphrase comes back with none, so
+              // the one-time screen only opens if there is something on it.
+              credentials: result.credentials.filter((row) => row.password),
+            });
           }}
           onClose={() => setPickingFromAccess(false)}
         />
@@ -200,12 +220,33 @@ export function ParticipantsPanel({
       {adding && (
         <ImportCsv
           contestUid={contestUid}
-          onIssued={(rows) => {
+          onAdded={(result) => {
             setAdding(false);
-            setIssued(rows);
+            absorb(result);
           }}
           onCancel={() => setAdding(false)}
         />
+      )}
+
+      {added !== null && (
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <p className="font-medium">
+            {added.added.toLocaleString()} added
+            {added.already_on_roster > 0 &&
+              ` · ${added.already_on_roster.toLocaleString()} were already on the roster`}
+          </p>
+          <p className="mt-1 text-emerald-800">
+            They have a login and no passphrase yet. Send it with{" "}
+            <strong>Credentials by email</strong>, or use Reissue for a printed slip.
+          </p>
+          <button
+            type="button"
+            onClick={() => setAdded(null)}
+            className="mt-2 rounded-lg bg-emerald-700 px-3 py-1 text-xs font-medium text-white"
+          >
+            Done
+          </button>
+        </div>
       )}
 
       {error && (
@@ -248,14 +289,19 @@ export function ParticipantsPanel({
  */
 function ImportCsv({
   contestUid,
-  onIssued,
+  onAdded,
   onCancel,
 }: {
   contestUid: string;
-  onIssued: (rows: IssuedCredential[]) => void;
+  onAdded: (result: RosterAdd) => void;
   onCancel: () => void;
 }) {
   const [fileName, setFileName] = useState("");
+  // Off by default, and that default is the fix. Minting a passphrase for
+  // everyone at import time spends the one chance to show it on a panel
+  // most people close, and leaves the credential email with nobody to send
+  // to — it can then only offer to rotate all five hundred.
+  const [printSlips, setPrintSlips] = useState(false);
   const [resolved, setResolved] = useState<Resolved | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -295,12 +341,15 @@ function ImportCsv({
     setBusy(true);
     setError("");
     try {
-      onIssued(
-        await json<IssuedCredential[]>(
+      onAdded(
+        await json<RosterAdd>(
           await fetch(`/api/org/contests/${contestUid}/participants/from-directory`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ emails: toAdd.map((m) => m.email) }),
+            body: JSON.stringify({
+              emails: toAdd.map((m) => m.email),
+              issue_passphrases: printSlips,
+            }),
           }),
         ),
       );
@@ -398,6 +447,19 @@ function ImportCsv({
 
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
+      <label className="mt-3 flex items-start gap-2 text-xs text-slate-600">
+        <input
+          type="checkbox"
+          checked={printSlips}
+          onChange={(event) => setPrintSlips(event.target.checked)}
+          className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300"
+        />
+        <span>
+          Generate passphrases now, for printed slips. Leave this off to email them instead —
+          a passphrase can only be shown once, and this page is that one time.
+        </span>
+      </label>
+
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -419,6 +481,13 @@ function ImportCsv({
     </div>
   );
 }
+
+/** What `from-directory` answers with now that it does not always mint keys. */
+export type RosterAdd = {
+  added: number;
+  already_on_roster: number;
+  credentials: IssuedCredential[];
+};
 
 type Resolved = {
   matched: {

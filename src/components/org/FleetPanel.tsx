@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { formatWhen, relativeWhen } from "@/lib/orgTypes";
+import { canSpend, useOrgRole } from "@/lib/client/useOrgRole";
 
 /**
  * Judging, for someone running a contest.
@@ -66,6 +67,8 @@ export type Upcoming = {
   participants: number;
   instances: number;
   reason: string;
+  /** True when staff pinned the count rather than the roster implying it. */
+  pinned?: boolean;
 };
 
 export type Fleet = {
@@ -185,7 +188,7 @@ export function situationOf(fleet: Fleet | null): Situation {
     kind: "idle",
     tone: "idle",
     headline: "No judges running",
-    detail: "Nothing is scheduled. They start on their own about half an hour before a contest.",
+    detail: "Nothing is scheduled. They start on their own an hour before a contest.",
   };
 }
 
@@ -200,7 +203,29 @@ const TONE: Record<Situation["tone"], { box: string; icon: string; Icon: typeof 
   idle: { box: "border-slate-200 bg-white", icon: "text-slate-400", Icon: Moon },
 };
 
+/**
+ * The API's wording, turned into something a person can act on.
+ *
+ * `insufficient role` is accurate and useless: it is what the gate is
+ * called, not what happened. Only the handful of messages that a staff
+ * member can genuinely run into are translated; everything else is passed
+ * through, because inventing friendly text for an unknown failure is how a
+ * real error becomes invisible.
+ */
+function readable(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "";
+  if (/insufficient role|not a member/i.test(raw))
+    return "Only an owner or admin can change the size of the fleet. Ask one of them, or watch from here.";
+  return raw || "That did not work.";
+}
+
 export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
+  const { role, known } = useOrgRole();
+  // Watching the fleet is open to any staff member; changing its size is
+  // not. The buttons used to render for everyone and fail on click with the
+  // API's own `insufficient role`, which reads like a bug rather than a
+  // boundary.
+  const spender = canSpend(role, known);
   const [fleet, setFleet] = useState<Fleet | null>(null);
   const [runs, setRuns] = useState<FleetRun[]>([]);
   const [error, setError] = useState("");
@@ -241,7 +266,7 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
       await run();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "That did not work.");
+      setError(readable(err));
     } finally {
       setBusy(null);
     }
@@ -288,9 +313,10 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
         </div>
       </div>
 
-      {/* Only the actions that make sense right now. */}
+      {/* Only the actions that make sense right now, for someone allowed to
+          take them. Watching is open to all staff; spending is not. */}
       <div className="flex flex-wrap items-center gap-2">
-        {standingDown ? (
+        {!spender ? null : standingDown ? (
           <button
             type="button"
             onClick={() => act("clear", () => fetch("/api/org/fleet", { method: "DELETE" }))}
@@ -304,7 +330,21 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
           <>
             <button
               type="button"
-              onClick={() => act("warm", () => post("/api/org/fleet?action=warm", { instances: 8, minutes: 240 }))}
+              onClick={() => {
+                // Was a hardcoded 8 against a ceiling of 4 — asking for twice
+                // what the same panel prints as "Most we can run", left over
+                // from when a judge was a 2 vCPU box. Ask for what exists.
+                const wanted = fleet?.ceiling ?? 1;
+                if (
+                  !window.confirm(
+                    `Start ${wanted} judge${wanted === 1 ? "" : "s"} now and hold them for 4 hours? They run until then whether or not a contest needs them.`,
+                  )
+                )
+                  return;
+                void act("warm", () =>
+                  post("/api/org/fleet?action=warm", { instances: wanted, minutes: 240 }),
+                );
+              }}
               disabled={busy !== null}
               title="Start judges now instead of waiting for the contest. They stop on their own after 4 hours."
               className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-40"
@@ -392,15 +432,21 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
             )}
             {fleet.state?.last_error && <Row label="Last error" value={fleet.state.last_error} />}
 
-            {!standingDown && (
+            {!standingDown && spender && (
               <div className="border-t border-slate-100 pt-4">
                 <button
                   type="button"
-                  onClick={() =>
-                    act("standdown", () =>
-                      post("/api/org/fleet?action=stand-down", { minutes: 240 }),
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        "Stop all judging for 4 hours? Every contest in that window is affected, including ones already running.",
+                      )
                     )
-                  }
+                      return;
+                    void act("standdown", () =>
+                      post("/api/org/fleet?action=stand-down", { minutes: 240 }),
+                    );
+                  }}
                   disabled={busy !== null}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
                 >
@@ -417,6 +463,7 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
               </div>
             )}
 
+            {spender && (
             <div className="border-t border-slate-100 pt-4">
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
                 Load test
@@ -473,6 +520,7 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
                 </ul>
               )}
             </div>
+            )}
 
             {fleet.workers.length > 0 && (
               <div className="border-t border-slate-100 pt-4">

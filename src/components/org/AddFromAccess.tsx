@@ -30,6 +30,14 @@ type IssuedCredential = {
   user_uid: string;
 };
 
+/** What `from-directory` answers with. `credentials` is empty unless slips
+ *  were asked for, because a passphrase can only ever be shown once. */
+type RosterAdd = {
+  added: number;
+  already_on_roster: number;
+  credentials: IssuedCredential[];
+};
+
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
@@ -45,7 +53,7 @@ export function AddFromAccess({
   contestUid: string;
   /** User uids already in this contest, so they can be shown as such. */
   alreadyOnRoster: Set<string>;
-  onAdded: (rows: IssuedCredential[]) => void;
+  onAdded: (result: RosterAdd) => void;
   onClose: () => void;
 }) {
   const [students, setStudents] = useState<Student[] | null>(null);
@@ -91,14 +99,14 @@ export function AddFromAccess({
     setBusy(true);
     setError("");
     try {
-      const rows = await json<IssuedCredential[]>(
+      const result = await json<RosterAdd>(
         await fetch(`/api/org/contests/${contestUid}/participants/from-directory`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ student_uids: [...picked] }),
         }),
       );
-      onAdded(rows);
+      onAdded(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add them.");
     } finally {

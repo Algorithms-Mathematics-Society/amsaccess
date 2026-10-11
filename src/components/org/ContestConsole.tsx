@@ -23,6 +23,16 @@ import { InvigilationPanel } from "./InvigilationPanel";
 import { FleetPanel } from "./FleetPanel";
 import { ContestScale } from "./ContestScale";
 
+/** How many rows the submissions table holds. The contest may hold far more. */
+const SUBMISSION_PAGE = 200;
+
+/** Counts over every submission, from the API rather than from the page. */
+type SubmissionSummary = {
+  total: number;
+  pending: number;
+  verdicts: Record<string, number>;
+};
+
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
@@ -38,6 +48,7 @@ const POLL_IDLE_MS = 20_000;
 export function ContestConsole({ contestUid }: { contestUid: string }) {
   const [contest, setContest] = useState<Contest | null>(null);
   const [submissions, setSubmissions] = useState<ContestSubmission[]>([]);
+  const [summary, setSummary] = useState<SubmissionSummary | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<
     "problems" | "participants" | "submissions" | "invigilation" | "judging"
@@ -58,13 +69,24 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
 
   const loadSubmissions = useCallback(async () => {
     try {
-      setSubmissions(
-        await json<ContestSubmission[]>(
-          await fetch(`/api/org/contests/${contestUid}/submissions?limit=200`, {
+      // The table is a page; the counts are the contest. Fetched together
+      // because showing one without the other is how "200" ended up beside
+      // a tab on a contest with a thousand submissions.
+      const [page, totals] = await Promise.all([
+        json<ContestSubmission[]>(
+          await fetch(`/api/org/contests/${contestUid}/submissions?limit=${SUBMISSION_PAGE}`, {
             cache: "no-store",
           }),
         ),
-      );
+        fetch(`/api/org/contests/${contestUid}/submissions/summary`, { cache: "no-store" })
+          .then((res) => json<SubmissionSummary>(res))
+          // An API that does not serve the summary yet must not blank the
+          // table: fall back to counting the page, which is what this did
+          // before, and say so in the UI rather than here.
+          .catch(() => null),
+      ]);
+      setSubmissions(page);
+      setSummary(totals);
     } catch {
       // A failed poll is not worth replacing the table with an error; the
       // next tick usually succeeds and the stale rows stay readable.
@@ -97,11 +119,17 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
   }
   if (!contest) return <div className="px-8 py-6 text-sm text-slate-500">Loading…</div>;
 
-  const counts = submissions.reduce<Record<string, number>>((acc, s) => {
-    const key = s.verdict ?? s.status;
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
+  // Over the whole contest when the API can say, over the loaded page when
+  // it cannot. `total` carries which, so the table can be honest about it.
+  const counts: Record<string, number> =
+    summary !== null
+      ? { ...summary.verdicts, ...(summary.pending > 0 ? { judging: summary.pending } : {}) }
+      : submissions.reduce<Record<string, number>>((acc, s) => {
+          const key = s.verdict ?? s.status;
+          acc[key] = (acc[key] ?? 0) + 1;
+          return acc;
+        }, {});
+  const total = summary?.total ?? submissions.length;
 
   return (
     <div>
@@ -173,9 +201,9 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
               }`}
             >
               {t}
-              {t === "submissions" && submissions.length > 0 && (
+              {t === "submissions" && total > 0 && (
                 <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
-                  {submissions.length}
+                  {total.toLocaleString()}
                 </span>
               )}
             </button>
@@ -213,12 +241,21 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
         ) : tab === "participants" ? (
           <ParticipantsPanel contestUid={contest.uid} contestTitle={contest.title} />
         ) : tab === "submissions" ? (
-          <SubmissionsTab submissions={submissions} counts={counts} pending={pending} />
+          <SubmissionsTab
+              submissions={submissions}
+              counts={counts}
+              total={total}
+              pending={pending}
+            />
         ) : tab === "invigilation" ? (
           <InvigilationPanel contestUid={contest.uid} />
         ) : (
           <div className="space-y-4">
-            <ContestScale contestUid={contest.uid} isPractice={contest.is_practice} />
+            <ContestScale
+              contestUid={contest.uid}
+              isPractice={contest.is_practice}
+              isDraft={contest.status === "draft"}
+            />
             <FleetPanel />
           </div>
         )}
@@ -238,6 +275,9 @@ function Reschedule({ contest, onChanged }: { contest: Contest; onChanged: () =>
   const [open, setOpen] = useState(false);
   const [starts, setStarts] = useState(toLocalInput(contest.starts_at));
   const [ends, setEnds] = useState(toLocalInput(contest.ends_at));
+  const [judges, setJudges] = useState(
+    contest.judge_instances ? String(contest.judge_instances) : "",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -251,7 +291,14 @@ function Reschedule({ contest, onChanged }: { contest: Contest; onChanged: () =>
         await fetch(`/api/org/contests/${contest.uid}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ starts_at: startISO, ends_at: endISO }),
+          body: JSON.stringify({
+            starts_at: startISO,
+            ends_at: endISO,
+            // 0 is how "blank" travels: it means hand sizing back to the
+            // roster, which is a different instruction from "leave it
+            // alone" and needs a value of its own to say so.
+            judge_instances: judges.trim() === "" ? 0 : Number(judges),
+          }),
         }),
       );
       setOpen(false);
@@ -299,6 +346,20 @@ function Reschedule({ contest, onChanged }: { contest: Contest; onChanged: () =>
             }`}
           />
         </label>
+        <label className="text-xs text-slate-600">
+          Judges
+          <input
+            type="number"
+            min={1}
+            value={judges}
+            onChange={(e) => setJudges(e.target.value)}
+            placeholder="From the roster"
+            className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1 text-xs"
+          />
+        </label>
+        <p className="self-end text-xs text-slate-400">
+          Blank lets the roster decide. They start an hour before the contest.
+        </p>
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -625,10 +686,13 @@ function AddProblemForm({
 function SubmissionsTab({
   submissions,
   counts,
+  total,
   pending,
 }: {
   submissions: ContestSubmission[];
   counts: Record<string, number>;
+  /** Every submission in the contest, which is usually more than are listed. */
+  total: number;
   pending: boolean;
 }) {
   if (submissions.length === 0) {
@@ -659,6 +723,14 @@ function SubmissionsTab({
             </span>
           ))}
       </div>
+
+      {total > submissions.length && (
+        <p className="mb-2 text-xs text-slate-500">
+          Showing the {submissions.length.toLocaleString()} most recent of{" "}
+          {total.toLocaleString()}. The counts above are for the whole contest; export the
+          CSV for every row.
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[720px] text-sm">

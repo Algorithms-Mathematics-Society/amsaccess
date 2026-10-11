@@ -27,7 +27,8 @@ type Scale = {
 export function scaleOf(
   fleet: Fleet | null,
   contestUid: string,
-  isPractice: boolean
+  isPractice: boolean,
+  isDraft = false
 ): Scale | null {
   if (!fleet) return null;
 
@@ -43,16 +44,33 @@ export function scaleOf(
   const mine: Upcoming | undefined = fleet.upcoming.find((u) => u.contest_uid === contestUid);
 
   if (!mine) {
+    // Draft contests are the trap here. They are excluded from the fleet's
+    // demand entirely — nobody can join one, so warming for it would be
+    // paying for an empty hall — but the old wording promised judges would
+    // turn up anyway, which is exactly the sentence an organiser reads at
+    // T-60 and relaxes at.
+    if (isDraft) {
+      return {
+        tone: "warn",
+        headline: "No judges while this is a draft",
+        detail:
+          "Judges are warmed for published contests only. Publish it and they start an hour before it opens.",
+      };
+    }
     return {
       tone: "idle",
       headline: "No judges held for this contest",
       detail:
-        "Judges start on their own about half an hour before the contest opens. Until then submissions go to the always-on judge.",
+        "Judges start on their own an hour before the contest opens. Until then submissions go to the always-on judge.",
     };
   }
 
   const judges = mine.instances;
   const roster = mine.participants;
+  // "4 judges" means something different when a person typed it: the roster
+  // no longer explains the number, so saying where it came from is the only
+  // way the strip stays self-explanatory.
+  const because = mine.pinned ? `${judges} judges set for this contest` : `${roster.toLocaleString()} on the roster \u2192 ${judges} judge${judges === 1 ? "" : "s"}`;
   // `live` is platform-wide: the fleet is shared, so it is the honest number
   // for "how many are answering", even though the contest asked for `judges`.
   const up = Math.min(fleet.live, judges);
@@ -60,7 +78,7 @@ export function scaleOf(
 
   return {
     tone: ready ? "good" : "warn",
-    headline: `${roster.toLocaleString()} on the roster → ${judges} judge${judges === 1 ? "" : "s"}`,
+    headline: because,
     detail: ready
       ? `All ${judges} running. ${mine.reason === "running" ? "Judging now." : "Ready before the start."}`
       : `${up} of ${judges} running — the rest take about 90 seconds from launch.`,
@@ -76,9 +94,11 @@ const TONE: Record<Scale["tone"], string> = {
 export function ContestScale({
   contestUid,
   isPractice,
+  isDraft = false,
 }: {
   contestUid: string;
   isPractice: boolean;
+  isDraft?: boolean;
 }) {
   const [fleet, setFleet] = useState<Fleet | null>(null);
 
@@ -103,7 +123,7 @@ export function ContestScale({
     };
   }, []);
 
-  const scale = scaleOf(fleet, contestUid, isPractice);
+  const scale = scaleOf(fleet, contestUid, isPractice, isDraft);
   if (!scale) return null;
 
   return (

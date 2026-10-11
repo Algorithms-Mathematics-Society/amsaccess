@@ -19,7 +19,14 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ uid: stri
 
   const { uid } = await ctx.params;
 
-  let body: { starts_at?: string; ends_at?: string; freeze_minutes_before_end?: number };
+  // Forwarded as-is: the API owns which fields a reschedule may carry, and
+  // listing them twice is how one of them quietly stops being sent.
+  let body: {
+    starts_at?: string;
+    ends_at?: string;
+    freeze_minutes_before_end?: number;
+    judge_instances?: number;
+  };
   try {
     body = await request.json();
   } catch {

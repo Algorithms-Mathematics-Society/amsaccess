@@ -281,6 +281,11 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
     localInputValue(new Date(tomorrow.getTime() + 2 * 60 * 60 * 1000)),
   );
   const [freeze, setFreeze] = useState(0);
+  // Empty means "size it from the roster", which is what almost every
+  // contest wants and what the placeholder says. A number here is for the
+  // cases the roster cannot predict: a rehearsal, or a round whose roster
+  // lands on the morning.
+  const [judges, setJudges] = useState("");
   const [practice, setPractice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -303,6 +308,7 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
             starts_at: new Date(startsAt).toISOString(),
             ends_at: new Date(endsAt).toISOString(),
             freeze_minutes_before_end: freeze,
+            judge_instances: judges.trim() === "" ? 0 : Number(judges),
             is_practice: practice,
           }),
         }),
@@ -318,8 +324,12 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={submit} className="mb-6 space-y-4 rounded-xl border border-slate-200 bg-white p-5">
       <div>
-        <label className="block text-sm font-medium text-slate-700">Title</label>
+        <label htmlFor="new-contest-title" className="block text-sm font-medium text-slate-700">
+          Title
+        </label>
         <input
+          id="new-contest-title"
+          name="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Monthly Round 1"
@@ -330,8 +340,11 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-slate-700">Starts</label>
+          <label htmlFor="new-contest-starts" className="block text-sm font-medium text-slate-700">
+            Starts
+          </label>
           <input
+            id="new-contest-starts"
             type="datetime-local"
             value={startsAt}
             onChange={(e) => setStartsAt(e.target.value)}
@@ -339,8 +352,11 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700">Ends</label>
+          <label htmlFor="new-contest-ends" className="block text-sm font-medium text-slate-700">
+            Ends
+          </label>
           <input
+            id="new-contest-ends"
             type="datetime-local"
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
@@ -356,10 +372,11 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-slate-700">
+          <label htmlFor="new-contest-freeze" className="block text-sm font-medium text-slate-700">
             Freeze scoreboard (minutes before end)
           </label>
           <input
+            id="new-contest-freeze"
             type="number"
             min={0}
             value={freeze}
@@ -368,7 +385,27 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
           />
           <p className="mt-1 text-xs text-slate-500">0 means the scoreboard never freezes.</p>
         </div>
-        <label className="flex items-end gap-2 pb-2 text-sm text-slate-700">
+        <div>
+          <label htmlFor="new-contest-judges" className="block text-sm font-medium text-slate-700">
+            Judges
+          </label>
+          <input
+            id="new-contest-judges"
+            type="number"
+            min={1}
+            value={judges}
+            onChange={(e) => setJudges(e.target.value)}
+            placeholder="From the roster"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            Leave blank and the roster decides. They start an hour before the contest.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="flex items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"
             checked={practice}
@@ -377,6 +414,12 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
           />
           Practice contest
         </label>
+        {practice && (
+          <p className="text-xs text-amber-700">
+            Practice contests never start judges. Submissions go to the always-on judge, however
+            many are set above.
+          </p>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

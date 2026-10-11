@@ -60,6 +60,10 @@ export async function POST(request: Request) {
       visibility: String(body.visibility ?? "invite_only"),
       freeze_minutes_before_end: Number(body.freeze_minutes_before_end ?? 0),
       is_practice: Boolean(body.is_practice ?? false),
+      // Absent or 0 means "size it from the roster", which is the default
+      // and the right answer almost always. Only a positive number pins it.
+      judge_instances:
+        Number(body.judge_instances ?? 0) > 0 ? Number(body.judge_instances) : null,
     },
     subject,
   );
