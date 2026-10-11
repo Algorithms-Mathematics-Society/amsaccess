@@ -14,6 +14,7 @@ export type LegalSection = {
 };
 export type LegalContent = {
   kind: "privacy" | "terms";
+  status?: "draft" | "reviewed";
   title: string;
   description: string;
   summary: { title: string; body: string }[];
@@ -38,25 +39,29 @@ export function LegalDocument({ content }: { content: LegalContent }) {
         <p className={styles.eyebrow}>Access information</p>
         <h1>{content.title}</h1>
         <p>{content.description}</p>
-        <div className={styles.documentMeta}>
-          <span>Draft for review</span>
-          <span>
-            Prepared <time dateTime="2026-10-10">10 October 2026</time>
-          </span>
-        </div>
+        {content.status !== "reviewed" && (
+          <div className={styles.documentMeta}>
+            <span>Draft for review</span>
+            <span>
+              Prepared <time dateTime="2026-10-10">10 October 2026</time>
+            </span>
+          </div>
+        )}
       </header>
-      <aside className={styles.draftNotice} data-legal-draft>
-        <FileText size={19} aria-hidden="true" />
-        <div>
-          <h2>Review draft · not yet effective</h2>
-          <p>
-            The page is prepared for review. Legal operator details,
-            policy-specific commitments, and applicable legal terms need
-            confirmation before it becomes an effective{" "}
-            {content.kind === "privacy" ? "privacy notice" : "agreement"}.
-          </p>
-        </div>
-      </aside>
+      {content.status !== "reviewed" && (
+        <aside className={styles.draftNotice} data-legal-draft>
+          <FileText size={19} aria-hidden="true" />
+          <div>
+            <h2>Review draft · not yet effective</h2>
+            <p>
+              The page is prepared for review. Legal operator details,
+              policy-specific commitments, and applicable legal terms need
+              confirmation before it becomes an effective{" "}
+              {content.kind === "privacy" ? "privacy notice" : "agreement"}.
+            </p>
+          </div>
+        </aside>
+      )}
       <section
         className={styles.policySummary}
         aria-label={

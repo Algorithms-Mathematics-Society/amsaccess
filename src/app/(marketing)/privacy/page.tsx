@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 const content: LegalContent = {
   kind: "privacy",
+  status: "reviewed",
   title: "Privacy notice.",
   description:
     "Understand the information involved when you visit Access, contact the team, or take part in an assessment.",
