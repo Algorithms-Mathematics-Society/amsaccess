@@ -239,7 +239,11 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
         {tab === "problems" ? (
           <ProblemsTab contest={contest} onChange={loadContest} />
         ) : tab === "participants" ? (
-          <ParticipantsPanel contestUid={contest.uid} contestTitle={contest.title} />
+          <ParticipantsPanel
+              contestUid={contest.uid}
+              contestTitle={contest.title}
+              isPractice={contest.is_practice}
+            />
         ) : tab === "submissions" ? (
           <SubmissionsTab
               submissions={submissions}

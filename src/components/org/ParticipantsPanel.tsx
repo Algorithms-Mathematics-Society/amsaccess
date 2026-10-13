@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { extractEmails } from "@/lib/roster";
+import { useOrgRole } from "@/lib/client/useOrgRole";
 import { AddFromAccess } from "./AddFromAccess";
 import {
   AlertTriangle,
@@ -78,9 +79,12 @@ function download(filename: string, contents: string): void {
 export function ParticipantsPanel({
   contestUid,
   contestTitle,
+  isPractice = false,
 }: {
   contestUid: string;
   contestTitle: string;
+  /** A rehearsal needs candidates who do not exist and must not. */
+  isPractice?: boolean;
 }) {
   const [roster, setRoster] = useState<Participant[] | null>(null);
   const [error, setError] = useState("");
@@ -96,6 +100,8 @@ export function ParticipantsPanel({
   // goes back to the table and five hundred people arriving looks identical
   // to nothing happening.
   const [added, setAdded] = useState<RosterAdd | null>(null);
+  const { role } = useOrgRole();
+  const isIntern = role === "intern";
 
   const load = useCallback(async () => {
     try {
@@ -179,6 +185,11 @@ export function ParticipantsPanel({
               Export roster
             </a>
           )}
+          {isPractice && <SeedTestParticipants contestUid={contestUid} onSeeded={absorb} />}
+          {/* Both of these read the directory, which an intern may not, so
+              for them they would be buttons that always fail. */}
+          {!isIntern && (
+            <>
           <button
             type="button"
             onClick={() => setPickingFromAccess(true)}
@@ -195,6 +206,8 @@ export function ParticipantsPanel({
             <Plus className="h-4 w-4" />
             Add participants
           </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -478,6 +491,102 @@ function ImportCsv({
           Cancel
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Invent a handful of candidates for a rehearsal.
+ *
+ * Every other way of adding somebody selects them from the directory, which
+ * is right for a real round and useless for a dry run: the people you want
+ * do not exist and must not, and an intern — whose whole job is the dry run
+ * — may not read the directory at all. So this is the one place a contest
+ * authors a person, and it is offered only on a practice contest.
+ *
+ * Their slips come back once, as slips always do.
+ */
+function SeedTestParticipants({
+  contestUid,
+  onSeeded,
+}: {
+  contestUid: string;
+  onSeeded: (result: RosterAdd) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(10);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function seed() {
+    setBusy(true);
+    setError("");
+    try {
+      const stamp = Date.now().toString(36);
+      const rows = await json<IssuedCredential[]>(
+        await fetch(`/api/org/contests/${contestUid}/participants`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            participants: Array.from({ length: count }, (_, i) => ({
+              display_name: `Test Candidate ${String(i + 1).padStart(3, "0")}`,
+              // Deliberately undeliverable. These are not people, and a
+              // rehearsal must never be one typo away from mailing a real
+              // address.
+              email: `test-${stamp}-${i + 1}@participants.invalid`,
+            })),
+          }),
+        }),
+      );
+      setOpen(false);
+      onSeeded({ added: rows.length, already_on_roster: 0, credentials: rows });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add them.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-900"
+      >
+        <Plus className="h-4 w-4" />
+        Add test candidates
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="number"
+        min={1}
+        max={200}
+        value={count}
+        onChange={(event) => setCount(Number(event.target.value))}
+        aria-label="How many test candidates"
+        className="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-sm tabular-nums"
+      />
+      <button
+        type="button"
+        onClick={() => void seed()}
+        disabled={busy || count < 1}
+        className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+      >
+        {busy ? "Adding…" : `Add ${count}`}
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:text-slate-900"
+      >
+        Cancel
+      </button>
+      {error && <span className="text-xs text-red-600">{error}</span>}
     </div>
   );
 }
