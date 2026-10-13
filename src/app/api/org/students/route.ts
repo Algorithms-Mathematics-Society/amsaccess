@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
 import { callAmsApi, errorMessage } from "@/lib/server/amsApi";
 import { requireSubject } from "@/lib/server/session";
+import { allowedQuery } from "@/lib/server/studentFilters";
+
 
 export async function GET(request: Request) {
   const subject = await requireSubject();
   if (!subject) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
-  const q = new URL(request.url).searchParams.get("q") ?? "";
+  // Every filter the directory offers, forwarded as given. The proxy used
+  // to forward `q` alone and pin the limit at 500, which is how a directory
+  // of 2,500 came to report itself as 500.
   const res = await callAmsApi(
     "GET",
-    `/students?q=${encodeURIComponent(q)}&limit=500`,
+    `/students?${allowedQuery(request)}`,
     null,
     subject,
   );

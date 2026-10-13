@@ -19,6 +19,7 @@ import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClass } from "@/lib/contestTypes";
 import { ParticipantsPanel } from "./ParticipantsPanel";
+import { LeaderboardPanel } from "./LeaderboardPanel";
 import { InvigilationPanel } from "./InvigilationPanel";
 import { FleetPanel } from "./FleetPanel";
 import { ContestScale } from "./ContestScale";
@@ -51,7 +52,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
   const [summary, setSummary] = useState<SubmissionSummary | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<
-    "problems" | "participants" | "submissions" | "invigilation" | "judging"
+    "problems" | "participants" | "leaderboard" | "submissions" | "invigilation" | "judging"
   >("problems");
 
   const loadContest = useCallback(async () => {
@@ -188,7 +189,14 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
       <div className="border-b border-slate-200 bg-white px-8">
         <nav className="flex gap-6">
           {(
-            ["problems", "participants", "submissions", "invigilation", "judging"] as const
+            [
+              "problems",
+              "participants",
+              "leaderboard",
+              "submissions",
+              "invigilation",
+              "judging",
+            ] as const
           ).map((t) => (
             <button
               key={t}
@@ -215,6 +223,16 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
           above every tab — so the Problems tab offered to download a
           submissions CSV, and Rejudge was one stray click away at all times
           from a screen that has nothing to do with it. */}
+      {tab === "leaderboard" && (
+        <div className="px-8 py-6">
+          <LeaderboardPanel
+            contestUid={contest.uid}
+            problemLabels={contest.problems.map((p) => p.label)}
+            live={contest.status === "running"}
+          />
+        </div>
+      )}
+
       {tab === "submissions" && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-8 py-3">
           <RejudgeButton contestUid={contest.uid} onDone={loadSubmissions} />

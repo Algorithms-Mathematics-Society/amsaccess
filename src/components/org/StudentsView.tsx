@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { statusClass } from "@/lib/orgTypes";
 import {
+  Download,
   Upload,
   Plus,
   Search,
@@ -25,36 +26,88 @@ async function json<T>(res: Response): Promise<T> {
   return data as T;
 }
 
+const PAGE = 200;
+
+/** Everything narrowing the directory right now. One object so the listing
+ *  and the facet counts cannot drift apart. */
+type Filters = {
+  q: string;
+  college: string;
+  branch: string;
+  graduation_year: string;
+  mailable: string;
+  sort: string;
+};
+
+const NO_FILTERS: Filters = {
+  q: "",
+  college: "",
+  branch: "",
+  graduation_year: "",
+  mailable: "",
+  sort: "name",
+};
+
+type Facet = { value: string; count: number };
+type Facets = {
+  total: number;
+  colleges: Facet[];
+  branches: Facet[];
+  graduation_years: Facet[];
+};
+
+function queryString(filters: Filters, extra: Record<string, string> = {}): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries({ ...filters, ...extra })) {
+    if (value) params.set(key, value);
+  }
+  return params.toString();
+}
+
 export function StudentsView() {
   const [students, setStudents] = useState<Student[] | null>(null);
-  const [query, setQuery] = useState("");
+  const [facets, setFacets] = useState<Facets | null>(null);
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const load = useCallback(async (q = "") => {
+  const load = useCallback(async (active: Filters) => {
     try {
-      setStudents(
-        await json<Student[]>(
-          await fetch(`/api/org/students?q=${encodeURIComponent(q)}`, { cache: "no-store" }),
+      // The page and the counts go together. The page alone cannot say what
+      // it left out, which is how "500 students" came to be printed on a
+      // directory holding two and a half thousand.
+      const [rows, totals] = await Promise.all([
+        json<Student[]>(
+          await fetch(`/api/org/students?${queryString(active, { limit: String(PAGE) })}`, {
+            cache: "no-store",
+          }),
         ),
-      );
+        fetch(`/api/org/students/facets?${queryString(active)}`, { cache: "no-store" })
+          .then((res) => json<Facets>(res))
+          // An API without the facets route yet must not blank the list.
+          .catch(() => null),
+      ]);
+      setStudents(rows);
+      setFacets(totals);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load students.");
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   // Debounced: typing a college name should not fire a request per keystroke.
+  // Everything else changes on a click, but one path keeps them in step.
   useEffect(() => {
-    const id = setTimeout(() => void load(query), 300);
+    const id = setTimeout(() => void load(filters), 300);
     return () => clearTimeout(id);
-  }, [query, load]);
+  }, [filters, load]);
+
+  const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
+  const narrowed = Object.entries(filters).some(
+    ([key, value]) => key !== "sort" && value !== "",
+  );
 
   return (
     <div className="px-8 py-6">
@@ -62,9 +115,9 @@ export function StudentsView() {
         <div className="relative flex-1 min-w-[240px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, college, or reference…"
+            value={filters.q}
+            onChange={(e) => set({ q: e.target.value })}
+            placeholder="Search by name, email, college, or reference…"
             className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-900"
           />
         </div>
@@ -86,16 +139,76 @@ export function StudentsView() {
         </button>
       </div>
 
+      {facets && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <FacetSelect
+            label="College"
+            value={filters.college}
+            options={facets.colleges}
+            onChange={(college) => set({ college })}
+          />
+          <FacetSelect
+            label="Branch"
+            value={filters.branch}
+            options={facets.branches}
+            onChange={(branch) => set({ branch })}
+          />
+          <FacetSelect
+            label="Graduating"
+            value={filters.graduation_year}
+            options={facets.graduation_years}
+            onChange={(graduation_year) => set({ graduation_year })}
+          />
+          <select
+            value={filters.mailable}
+            onChange={(e) => set({ mailable: e.target.value })}
+            aria-label="Whether they can be emailed"
+            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
+          >
+            <option value="">Anyone</option>
+            <option value="true">Can be emailed</option>
+            <option value="false">No usable address</option>
+          </select>
+          <select
+            value={filters.sort}
+            onChange={(e) => set({ sort: e.target.value })}
+            aria-label="Sort order"
+            className="ml-auto rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
+          >
+            <option value="name">Name</option>
+            <option value="newest">Most recently added</option>
+            <option value="college">College</option>
+            <option value="year">Graduation year</option>
+          </select>
+          {narrowed && (
+            <button
+              type="button"
+              onClick={() => setFilters({ ...NO_FILTERS, sort: filters.sort })}
+              className="rounded-lg px-2.5 py-1.5 text-sm text-slate-500 hover:text-slate-900"
+            >
+              Clear
+            </button>
+          )}
+          <a
+            href={`/api/org/students/export.csv?${queryString(filters)}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-700 transition hover:border-slate-900"
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </a>
+        </div>
+      )}
+
       {importing && (
         <ImportPanel
           onDone={() => {
             setImporting(false);
-            void load(query);
+            void load(filters);
           }}
-          onImported={() => void load(query)}
+          onImported={() => void load(filters)}
         />
       )}
-      {adding && <AddStudent onDone={() => { setAdding(false); void load(query); }} />}
+      {adding && <AddStudent onDone={() => { setAdding(false); void load(filters); }} />}
 
       {error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -104,14 +217,20 @@ export function StudentsView() {
       )}
 
       <p className="mb-3 text-sm text-slate-500">
-        {students === null ? "Loading…" : `${students.length} student${students.length === 1 ? "" : "s"}`}
+        {students === null
+          ? "Loading…"
+          : facets === null
+            ? `${students.length} student${students.length === 1 ? "" : "s"}`
+            : facets.total > students.length
+              ? `Showing ${students.length} of ${facets.total.toLocaleString()}${narrowed ? " matching" : ""}`
+              : `${facets.total.toLocaleString()} student${facets.total === 1 ? "" : "s"}${narrowed ? " match" : ""}`}
       </p>
 
       {students !== null && students.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
           <Users className="mx-auto h-8 w-8 text-slate-300" />
           <p className="mt-3 text-sm font-medium text-slate-700">
-            {query ? "Nobody matches that search" : "No students yet"}
+            {narrowed ? "Nobody matches that" : "No students yet"}
           </p>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
             Add them one at a time, or import a CSV. A student lives here across every contest
@@ -126,12 +245,50 @@ export function StudentsView() {
               student={s}
               open={expanded === s.uid}
               onToggle={() => setExpanded(expanded === s.uid ? null : s.uid)}
-              onChange={() => void load(query)}
+              onChange={() => void load(filters)}
             />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * One filter, with the count each choice would leave.
+ *
+ * Counted under the filters already applied, so a college that would return
+ * nothing alongside the current branch is simply not in the list. A dropdown
+ * that offers a dead end is worse than a shorter dropdown.
+ */
+function FacetSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Facet[];
+  onChange: (value: string) => void;
+}) {
+  if (options.length === 0 && !value) return null;
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      aria-label={label}
+      className={`rounded-lg border px-2.5 py-1.5 text-sm ${
+        value ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"
+      }`}
+    >
+      <option value="">{label}</option>
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.value} ({option.count})
+        </option>
+      ))}
+    </select>
   );
 }
 
