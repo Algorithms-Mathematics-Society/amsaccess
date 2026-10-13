@@ -233,16 +233,6 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
           above every tab — so the Problems tab offered to download a
           submissions CSV, and Rejudge was one stray click away at all times
           from a screen that has nothing to do with it. */}
-      {tab === "leaderboard" && (
-        <div className="px-8 py-6">
-          <LeaderboardPanel
-            contestUid={contest.uid}
-            problemLabels={contest.problems.map((p) => p.label)}
-            live={contest.status === "running"}
-          />
-        </div>
-      )}
-
       {tab === "submissions" && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-8 py-3">
           <RejudgeButton contestUid={contest.uid} onDone={loadSubmissions} />
@@ -279,9 +269,18 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
               total={total}
               pending={pending}
             />
+        ) : tab === "leaderboard" ? (
+          <LeaderboardPanel
+            contestUid={contest.uid}
+            problemLabels={contest.problems.map((p) => p.label)}
+            live={contest.status === "running"}
+          />
         ) : tab === "invigilation" ? (
           <InvigilationPanel contestUid={contest.uid} />
-        ) : (
+        ) : tab === "judging" ? (
+          // Named rather than left as the trailing `else`. A fall-through
+          // catches every tab nobody has got round to adding, which is how
+          // the fleet controls came to sit underneath the standings.
           <div className="space-y-4">
             <ContestScale
               contestUid={contest.uid}
@@ -290,7 +289,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
             />
             <FleetPanel />
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
