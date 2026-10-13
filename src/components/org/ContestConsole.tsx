@@ -154,6 +154,16 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
               >
                 {contest.status}
               </span>
+              {/* Whether the contest is *flagged* practice, which decides who
+                  may touch it and whether judges warm for it. A title that
+                  merely says "(practice)" decides nothing, and the two being
+                  indistinguishable here is how an intern ends up locked out
+                  of a contest everybody calls the rehearsal. */}
+              {contest.is_practice && (
+                <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">
+                  practice
+                </span>
+              )}
               {contest.frozen && (
                 <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">
                   scoreboard frozen
