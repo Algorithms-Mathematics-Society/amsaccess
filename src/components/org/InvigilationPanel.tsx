@@ -70,6 +70,13 @@ type SessionRow = {
   // an hour out would otherwise paint the whole room as stalled.
   idle_seconds: number | null;
   resume_pending: boolean;
+  // Presence, not the image. The roster is polled every ten seconds by every
+  // open console, so the photographs themselves are fetched one at a time,
+  // for the candidate actually being looked at.
+  has_entry_photo: boolean;
+  has_exit_photo: boolean;
+  entry_photo_at: string | null;
+  exit_photo_at: string | null;
 };
 
 /** How long a session may go unheard from before it is worth looking at. */
@@ -94,12 +101,175 @@ async function json<T>(res: Response): Promise<T> {
   return data as T;
 }
 
+/**
+ * The face beside the name.
+ *
+ * Small on purpose. An invigilator scanning a room of a thousand rows is
+ * looking for the one that is wrong, and a wall of 200px portraits is harder
+ * to scan than a column of thumbnails, not easier. The full-size pair is one
+ * click away, which is where an actual identity decision gets made.
+ */
+function IdentityThumb({
+  contestUid,
+  row,
+  onOpen,
+}: {
+  contestUid: string;
+  row: SessionRow;
+  onOpen: () => void;
+}) {
+  // "No photo" is a finding, not an empty cell: it is what a session looks
+  // like when the camera never delivered, which is itself worth a second
+  // look. It must not be drawn as a blank avatar that reads as "loading".
+  if (!row.has_entry_photo) {
+    return (
+      <span
+        title="No entry photo was captured for this session."
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-dashed border-slate-300 text-[10px] font-medium uppercase tracking-wide text-slate-400"
+      >
+        none
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={`${row.display_name || row.login_id} at check-in. Click to compare with their exit photo.`}
+      className="group relative inline-flex h-9 w-9 overflow-hidden rounded-full ring-1 ring-slate-200 transition hover:ring-2 hover:ring-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/api/org/contests/${contestUid}/invigilation/photo/${row.uid}/entry`}
+        alt={`${row.display_name || row.login_id} at check-in`}
+        loading="lazy"
+        className="h-full w-full object-cover"
+      />
+    </button>
+  );
+}
+
+/**
+ * Entry beside exit, which is the comparison that answers the question.
+ *
+ * One photo proves somebody sat down. Two photos side by side are what shows
+ * whether the same person was there at the end, which is the swap this was
+ * built to catch. They are shown at equal size for that reason: the eye
+ * compares them directly rather than treating one as the subject and the
+ * other as a detail.
+ */
+function IdentityDialog({
+  contestUid,
+  row,
+  onClose,
+}: {
+  contestUid: string;
+  row: SessionRow;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const frames: { kind: "entry" | "exit"; label: string; has: boolean; at: string | null }[] = [
+    { kind: "entry", label: "At check-in", has: row.has_entry_photo, at: row.entry_photo_at },
+    { kind: "exit", label: "At the end", has: row.has_exit_photo, at: row.exit_photo_at },
+  ];
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Identity photos for ${row.display_name || row.login_id}`}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl bg-white shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">
+              {row.display_name || "Unknown"}
+            </h3>
+            <p className="font-mono text-xs text-slate-500">{row.login_id}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="grid gap-4 p-5 sm:grid-cols-2">
+          {frames.map((frame) => (
+            <figure key={frame.kind} className="space-y-2">
+              <div className="aspect-[4/3] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                {frame.has ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={`/api/org/contests/${contestUid}/invigilation/photo/${row.uid}/${frame.kind}`}
+                    alt={`${row.display_name || row.login_id} ${frame.label.toLowerCase()}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center">
+                    <span className="text-sm font-medium text-slate-500">No photo</span>
+                    <span className="text-xs text-slate-400">
+                      {frame.kind === "entry"
+                        ? "The camera never delivered a frame at check-in."
+                        : "This session has not ended, or ended without one."}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <figcaption className="flex items-baseline justify-between text-xs">
+                <span className="font-medium text-slate-700">{frame.label}</span>
+                <span className="text-slate-400">
+                  {frame.at ? new Date(frame.at).toLocaleTimeString() : "—"}
+                </span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 px-5 py-3 text-xs text-slate-500">
+          <span>
+            State: <span className="font-medium text-slate-700">{row.status}</span>
+          </span>
+          <span>Last contact: {idleLabel(row.idle_seconds)}</span>
+          {row.violation_count > 0 && (
+            <span className="text-amber-700">{row.violation_count} flagged</span>
+          )}
+          {row.resume_count > 0 && <span>reopened {row.resume_count}×</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function InvigilationPanel({ contestUid }: { contestUid: string }) {
+  // Which candidate's photos are open, by session uid. Held here rather than
+  // in the row so the dialog survives the ten-second roster refresh --
+  // otherwise it closed itself under the invigilator every poll.
+  const [photoRowUid, setPhotoRowUid] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<ReadinessRow[]>([]);
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [resumes, setResumes] = useState<ResumeRequest[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  // Resolved from the live list rather than copied on click, so an open
+  // dialog picks up the exit photo the moment that candidate finishes
+  // instead of showing the roster as it was ten seconds ago.
+  const photoRow = sessions.find((row) => row.uid === photoRowUid) ?? null;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -379,9 +549,12 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
           </p>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[780px] text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
+                  <th className="px-4 py-2.5">
+                    <span className="sr-only">Photo</span>
+                  </th>
                   <th className="px-4 py-2.5">Candidate</th>
                   <th className="px-4 py-2.5">State</th>
                   <th className="px-4 py-2.5">Last contact</th>
@@ -401,6 +574,13 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                       key={row.uid}
                       className={isQuiet ? "bg-amber-50/60" : undefined}
                     >
+                      <td className="py-2 pl-4 pr-0">
+                        <IdentityThumb
+                          contestUid={contestUid}
+                          row={row}
+                          onOpen={() => setPhotoRowUid(row.uid)}
+                        />
+                      </td>
                       <td className="px-4 py-2.5">
                         <span className="font-medium text-slate-900">
                           {row.display_name || "Unknown"}
@@ -444,6 +624,14 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
           </div>
         )}
       </section>
+
+      {photoRow && (
+        <IdentityDialog
+          contestUid={contestUid}
+          row={photoRow}
+          onClose={() => setPhotoRowUid(null)}
+        />
+      )}
 
       {/* Devices that failed their own readiness check. */}
       <section>
