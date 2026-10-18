@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Download, Lock, RefreshCw, Search } from "lucide-react";
 
 /**
@@ -175,7 +176,12 @@ export function LeaderboardPanel({
                     {row.rank}
                   </td>
                   <td className="px-4 py-2">
-                    <span className="font-medium text-slate-900">{row.display_name}</span>
+                    <Link
+                      href={`/org/participants/${row.username}`}
+                      className="font-medium text-slate-900 hover:underline"
+                    >
+                      {row.display_name}
+                    </Link>
                     <span className="ml-2 font-mono text-xs text-slate-400">{row.username}</span>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{row.solved}</td>

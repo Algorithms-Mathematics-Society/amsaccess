@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   Check,
@@ -59,6 +60,9 @@ type ResumeRequest = {
 
 type SessionRow = {
   uid: string;
+  /** The person, not the session. Null on a row the API served before this
+   *  field existed, which simply renders as unlinked text. */
+  user_uid: string | null;
   login_id: string;
   display_name: string;
   status: string;
@@ -582,9 +586,18 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                         />
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className="font-medium text-slate-900">
-                          {row.display_name || "Unknown"}
-                        </span>{" "}
+                        {row.user_uid ? (
+                          <Link
+                            href={`/org/participants/${row.user_uid}`}
+                            className="font-medium text-slate-900 hover:underline"
+                          >
+                            {row.display_name || "Unknown"}
+                          </Link>
+                        ) : (
+                          <span className="font-medium text-slate-900">
+                            {row.display_name || "Unknown"}
+                          </span>
+                        )}{" "}
                         <span className="font-mono text-xs text-slate-400">
                           {row.login_id}
                         </span>

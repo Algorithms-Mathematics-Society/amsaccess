@@ -784,7 +784,19 @@ function RosterTable({
           <tbody className="divide-y divide-slate-100">
             {rows.map((row) => (
               <tr key={row.login_id} className={row.revoked ? "opacity-50" : undefined}>
-                <td className="px-4 py-2.5 text-slate-700">{row.display_name}</td>
+                <td className="px-4 py-2.5 text-slate-700">
+                  {/* The profile is reachable from the Students directory but
+                      not from here, which is the screen staff are actually on
+                      when a name comes up mid-contest. Linked by uid rather
+                      than handle: this row carries the uid, and the profile
+                      route resolves either. */}
+                  <Link
+                    href={`/org/participants/${row.user_uid}`}
+                    className="font-medium text-slate-900 hover:underline"
+                  >
+                    {row.display_name}
+                  </Link>
+                </td>
                 <td className="px-4 py-2.5 font-mono text-slate-900">
                   {row.login_id}
                   <span className="text-slate-400">@access</span>
