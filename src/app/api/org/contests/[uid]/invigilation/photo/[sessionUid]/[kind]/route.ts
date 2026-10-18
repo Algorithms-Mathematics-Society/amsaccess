@@ -14,7 +14,10 @@ import { requireSubject } from "@/lib/server/session";
  * live on in someone's history after their account is closed. Behind this
  * route, access ends when the org session does.
  */
-const KINDS = new Set(["entry", "exit"]);
+/** "entry", "exit", or a frame's position in the strip. */
+function isFrame(kind: string): boolean {
+  return kind === "entry" || kind === "exit" || /^\d{1,4}$/.test(kind);
+}
 
 export async function GET(
   _request: Request,
@@ -25,7 +28,7 @@ export async function GET(
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
   const { uid, sessionUid, kind } = await ctx.params;
-  if (!KINDS.has(kind))
+  if (!isFrame(kind))
     return NextResponse.json({ error: "Unknown photo." }, { status: 404 });
 
   const secret = process.env.AMS_INTERNAL_API_SECRET ?? "";

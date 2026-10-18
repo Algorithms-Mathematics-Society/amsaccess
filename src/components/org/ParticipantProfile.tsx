@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { InvigilationTimeline } from "@/components/org/InvigilationTimeline";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -266,6 +267,18 @@ export function ParticipantProfile({ handle }: { handle: string }) {
                 ))}
               </ul>
             )}
+          </Section>
+
+          {/* Above submissions on purpose. The question a staff member
+              opens this page with during or after a contest is usually
+              "was this really them", and the answer to that outranks how
+              many problems they solved. */}
+          <Section title="Invigilation" count={0}>
+            <p className="mb-3 text-xs text-slate-500">
+              A frame every half hour while they sat. Read left to right: one
+              face across the whole strip is the answer you want.
+            </p>
+            <InvigilationTimeline studentUid={profile.uid} />
           </Section>
 
           <Section title="Submissions" count={profile.submissions.length}>
