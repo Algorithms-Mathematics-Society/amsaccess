@@ -45,6 +45,51 @@ type ProfileSubmission = {
   max_runtime_ms: number;
 };
 
+/**
+ * The student's face: the frame the proctor took as they sat down.
+ *
+ * Not an uploaded avatar, deliberately. This is the one photograph on the
+ * platform anybody has a reason to trust -- taken under invigilation, with
+ * the camera checked, at the moment the exam opened. It is the same evidence
+ * the invigilation screen shows, surfaced where staff actually look a person
+ * up.
+ *
+ * Falls back to initials rather than a broken frame. A student who has not
+ * sat a contest since identity photos existed simply has none, and that is
+ * ordinary rather than a fault worth shouting about on their profile.
+ */
+function StudentPhoto({ uid, name }: { uid: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+
+  if (failed) {
+    return (
+      <div
+        aria-hidden
+        className="flex h-16 w-16 shrink-0 select-none items-center justify-center rounded-xl bg-slate-100 text-lg font-semibold text-slate-400"
+      >
+        {initials}
+      </div>
+    );
+  }
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={`/api/org/students/${uid}/photo`}
+      alt={`${name} at check-in`}
+      title="Taken by the proctor as this contest opened"
+      onError={() => setFailed(true)}
+      className="h-16 w-16 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
+    />
+  );
+}
+
 export type Profile = {
   uid: string;
   handle: string;
@@ -122,7 +167,9 @@ export function ParticipantProfile({ handle }: { handle: string }) {
       {/* ── identity ──────────────────────────────────────────────────── */}
       <div className="mt-4 rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
+          <div className="flex min-w-0 gap-4">
+            <StudentPhoto uid={profile.uid} name={profile.display_name} />
+            <div className="min-w-0">
             <h1 className="text-xl font-semibold text-slate-950">{profile.display_name}</h1>
             {/* The handle is the participant's ID — it is on their slip and in
                 their credential email, so it is shown as the primary identifier
@@ -164,6 +211,7 @@ export function ParticipantProfile({ handle }: { handle: string }) {
               {profile.external_ref && (
                 <span className="font-mono text-slate-400">{profile.external_ref}</span>
               )}
+            </div>
             </div>
           </div>
 
