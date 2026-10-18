@@ -1,0 +1,112 @@
+/*
+ * The org portal, in the homepage's palette.
+ *
+ * The two halves of the product were drawn from different ramps. Marketing
+ * uses the Access palette in `access-theme.css` -- a warm neutral grey with
+ * a violet accent -- while the org portal was written in Tailwind's stock
+ * `slate`, which is cool and blue-tinted. Side by side they read as two
+ * products, and the join is visible the moment a staff member signs in.
+ *
+ * This maps one onto the other in a single place rather than rewriting the
+ * call sites. There are 868 `slate-*` utilities across the org components;
+ * editing each one would be a very large diff to review for a purely visual
+ * change, it would conflict with everything in flight, and the next person
+ * to type `text-slate-500` out of habit would put the old ramp back. Mapping
+ * the ramp means existing code, in-flight branches and future code all land
+ * on the palette without anyone having to remember.
+ *
+ * Tailwind 3 compiles colours to literal hex in each utility, so they cannot
+ * be swapped by redefining a variable the way Tailwind 4 allows. These are
+ * therefore overrides of the generated classes, scoped to `[data-org-theme]`
+ * so nothing outside the portal is touched.
+ *
+ * The mapping, from the shades the portal actually uses:
+ *
+ *   slate-950 / 900   headings and primary text   -> text-primary   #171717
+ *   slate-800 / 700   body text                   -> text-primary at 85%
+ *   slate-600 / 500   secondary text              -> text-secondary #5b5b5b
+ *   slate-400         hint text, inactive icons   -> text-secondary at 70%
+ *   slate-300 / 200   borders and dividers        -> border         #dedede
+ *   slate-100         rails and hovers            -> surface        #f5f5f5
+ *   slate-50          page canvas                 -> body           #fafafa
+ *   white             cards                       -> card           #fff
+ *
+ * Semantic colours -- amber for a warning, red for a violation, green for a
+ * pass -- are deliberately left alone. They carry meaning rather than brand,
+ * and an invigilator reading a red row at a glance is the one thing here
+ * that must not be restyled for consistency's sake.
+ */
+
+[data-org-theme] {
+  --org-text-strong: var(--color-text-primary, #171717);
+  --org-text-body: color-mix(in srgb, var(--color-text-primary, #171717) 85%, #fff);
+  --org-text-muted: var(--color-text-secondary, #5b5b5b);
+  --org-text-hint: color-mix(in srgb, var(--color-text-secondary, #5b5b5b) 70%, #fff);
+  --org-border: var(--color-border, #dedede);
+  --org-surface: var(--color-background-surface, #f5f5f5);
+  --org-canvas: var(--color-background-body, #fafafa);
+  --org-card: var(--color-background-card, #fff);
+}
+
+/* ── text ──────────────────────────────────────────────────────────────── */
+[data-org-theme] .text-slate-950,
+[data-org-theme] .text-slate-900 {
+  color: var(--org-text-strong);
+}
+[data-org-theme] .text-slate-800,
+[data-org-theme] .text-slate-700 {
+  color: var(--org-text-body);
+}
+[data-org-theme] .text-slate-600,
+[data-org-theme] .text-slate-500 {
+  color: var(--org-text-muted);
+}
+[data-org-theme] .text-slate-400 {
+  color: var(--org-text-hint);
+}
+
+/* ── surfaces ──────────────────────────────────────────────────────────── */
+[data-org-theme] .bg-white {
+  background-color: var(--org-card);
+}
+[data-org-theme] .bg-slate-50 {
+  background-color: var(--org-canvas);
+}
+[data-org-theme] .bg-slate-100 {
+  background-color: var(--org-surface);
+}
+[data-org-theme] .bg-slate-900,
+[data-org-theme] .bg-slate-950 {
+  background-color: var(--color-background-inverted, #171717);
+}
+
+/* Hover states, which in this portal always mean "a shade up from the
+   surface" rather than a colour of their own. */
+[data-org-theme] .hover\:bg-slate-50:hover {
+  background-color: var(--org-canvas);
+}
+[data-org-theme] .hover\:bg-slate-100:hover {
+  background-color: var(--org-surface);
+}
+
+/* ── lines ─────────────────────────────────────────────────────────────── */
+[data-org-theme] .border-slate-200,
+[data-org-theme] .border-slate-300 {
+  border-color: var(--org-border);
+}
+[data-org-theme] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+[data-org-theme] .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--org-border);
+}
+[data-org-theme] .ring-slate-200 {
+  --tw-ring-color: var(--org-border);
+}
+
+/* ── the accent ────────────────────────────────────────────────────────── */
+/* The portal's primary action is a near-black button, which in the Access
+   palette is the violet accent. Only the deliberate ones: `bg-slate-900` as
+   a *surface* stays neutral above. */
+[data-org-theme] .bg-slate-900.text-white:hover,
+[data-org-theme] button.bg-slate-900:hover {
+  background-color: var(--color-text-accent, #6d28d9);
+}

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import "@/styles/access-theme.css";
+import "@/styles/org-theme-bridge.css";
 import { CalendarDays, Cpu, FileCode2, LayoutDashboard, Mail, Users } from "lucide-react";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 
@@ -111,7 +113,15 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     href === "/org/dashboard" ? pathname === href : pathname.startsWith(href);
 
   return (
-    <div className="light flex min-h-screen min-w-0 flex-col bg-slate-50 text-slate-900 lg:flex-row">
+    // `data-access-theme` brings the homepage's tokens into scope and
+    // `data-org-theme` maps the portal's slate ramp onto them, so the two
+    // halves of the product stop reading as two products. See
+    // src/styles/org-theme-bridge.css.
+    <div
+      data-access-theme
+      data-org-theme
+      className="light flex min-h-screen min-w-0 flex-col bg-slate-50 text-slate-900 lg:flex-row"
+    >
       <a
         href="#org-main"
         className={`sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-900 focus:shadow ${FOCUS}`}
