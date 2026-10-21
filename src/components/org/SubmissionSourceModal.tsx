@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { CodeBox } from "./authoring/CodeBox";
 
 export type SubmissionRef = {
   uid: string;
@@ -137,13 +138,19 @@ export function SubmissionSourceModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto">
-          {loading && <p className="px-4 py-6 text-sm text-slate-500">Loading source…</p>}
-          {error && <p className="px-4 py-6 text-sm text-rose-600">{error}</p>}
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          {loading && <p className="py-6 text-sm text-slate-500">Loading source…</p>}
+          {error && <p className="py-6 text-sm text-rose-600">{error}</p>}
           {data && (
-            <pre className="overflow-x-auto px-4 py-3 font-mono text-xs leading-relaxed text-slate-800">
-              {data.source}
-            </pre>
+            // CodeBox owns its own scrolling and gutter, so it is given the
+            // pane rather than wrapped in a second scroll container.
+            <CodeBox
+              value={data.source}
+              onChange={() => {}}
+              language={data.language === "cpp" ? "cpp" : "text"}
+              readOnly
+              minHeight={320}
+            />
           )}
         </div>
 
