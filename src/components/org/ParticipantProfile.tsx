@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClass } from "@/lib/contestTypes";
+import { SubmissionSourceModal, type SubmissionRef } from "./SubmissionSourceModal";
 
 type TagStat = { tag: string; solved: number; attempted: number };
 type VerdictCount = { verdict: string; count: number };
@@ -123,6 +124,7 @@ export type Profile = {
 export function ParticipantProfile({ handle }: { handle: string }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState("");
+  const [openSubmission, setOpenSubmission] = useState<SubmissionRef | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -287,7 +289,13 @@ export function ParticipantProfile({ handle }: { handle: string }) {
             ) : (
               <ul className="divide-y divide-slate-100">
                 {profile.submissions.map((submission) => (
-                  <li key={submission.uid} className="flex flex-wrap items-center gap-3 py-2.5">
+                  <li key={submission.uid}>
+                    <button
+                      type="button"
+                      className="flex w-full flex-wrap items-center gap-3 rounded py-2.5 text-left hover:bg-slate-50"
+                      onClick={() => setOpenSubmission(submission)}
+                      title="View submitted code"
+                    >
                     <span className={`w-12 flex-shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-medium ${verdictClass(submission.verdict)}`}>
                       {submission.verdict || "—"}
                     </span>
@@ -302,6 +310,7 @@ export function ParticipantProfile({ handle }: { handle: string }) {
                       {submission.max_runtime_ms ? `${submission.max_runtime_ms} ms` : ""}
                     </span>
                     <span className="text-xs text-slate-400">{formatWhen(submission.created_at)}</span>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -359,6 +368,11 @@ export function ParticipantProfile({ handle }: { handle: string }) {
           </Section>
         </div>
       </div>
+
+      <SubmissionSourceModal
+        submission={openSubmission}
+        onClose={() => setOpenSubmission(null)}
+      />
     </div>
   );
 }
