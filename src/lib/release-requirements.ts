@@ -33,7 +33,7 @@ type ReviewedInstaller = Pick<
   platform: "windows" | "linux" | "macos";
   slot: string;
 };
-const reviewedInstallers: readonly ReviewedInstaller[] = [
+const reviewedV231Installers: readonly ReviewedInstaller[] = [
   {
     platform: "windows",
     slot: "msi",
@@ -99,6 +99,25 @@ const reviewedInstallers: readonly ReviewedInstaller[] = [
   },
 ];
 
+type ReviewedRelease = {
+  releaseId: number;
+  requirements: (typeof packageRequirements)[string];
+  installers: readonly ReviewedInstaller[];
+};
+
+/**
+ * Registration is intentionally explicit. A version appears here only after
+ * its immutable GitHub release and every exposed installer identity have been
+ * reviewed. Unknown, draft, incomplete, or replaced releases fail closed.
+ */
+const reviewedReleases: Readonly<Record<string, ReviewedRelease>> = {
+  "v2.3.1": {
+    releaseId: 406470000,
+    requirements: packageRequirements["v2.3.1"],
+    installers: reviewedV231Installers,
+  },
+};
+
 function matchesReviewed(
   asset: ReleaseAsset | undefined,
   reviewed: ReviewedInstaller,
@@ -114,8 +133,10 @@ function matchesReviewed(
 }
 
 export function requirementsFor(release?: LatestRelease | null) {
-  if (!release || release.id !== 406470000 || release.version !== "v2.3.1")
-    return undefined;
+  if (!release) return undefined;
+  const reviewedRelease = reviewedReleases[release.version];
+  if (!reviewedRelease || release.id !== reviewedRelease.releaseId) return undefined;
+  const reviewedInstallers = reviewedRelease.installers;
 
   // A version name alone is not evidence: a publisher can recreate a release
   // or replace an installer under the same tag. Any missing or changed file
@@ -150,5 +171,5 @@ export function requirementsFor(release?: LatestRelease | null) {
     }
   }
   if (!release.macos.dmg) return undefined;
-  return packageRequirements["v2.3.1"];
+  return reviewedRelease.requirements;
 }
