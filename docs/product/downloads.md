@@ -20,7 +20,7 @@ The desktop shell is the primary product surface.
 
 The public GitHub latest-release feed controls which version and installers appear. Release-specific system requirements are stricter: `src/lib/release-requirements.ts` exposes them only for a release registered with its exact GitHub release ID and every published installer identity. Unknown versions remain downloadable through identity-bound links, but their requirements stay unconfirmed.
 
-After the v4.0.0 draft contains its final assets:
+After v4.0.0 passes acceptance and is published (draft metadata is insufficient):
 
 1. Inspect each final asset and record the GitHub release ID, asset ID, filename, byte size, GitHub `sha256:` digest, architecture, platform, and slot. Do not register draft assets or copy values from a build log.
 2. Save the review evidence as `docs/release-integrity-v4.0.0.json`, following the v2.3.1 record. Tie it to the release tag, publication timestamp, source commit, and artifact hashes.
@@ -29,3 +29,9 @@ After the v4.0.0 draft contains its final assets:
 5. Run `pnpm test` and `pnpm run build`, then verify `/api/releases/latest`, `/download`, and one identity-bound download per published artifact against the deployed site.
 
 Publishing a GitHub release can make its installers visible before requirements are registered. That state is intentional: the site labels requirements unconfirmed instead of attaching old facts to new binaries.
+
+## v4.0.0 candidate evidence
+
+Draft release `420029337` was built by desktop workflow `39669622379` from source `092897b5dd2e51d6ab32055e2a3a3c756b8d7054`. All four platform builds passed. Seven installers and four checksum manifests were independently downloaded; sizes and SHA-256 hashes match the GitHub API and all installer manifest entries. The desktop release branch records exact identities in `release-v4.0.0-integrity.json`.
+
+This is an unpublished candidate: `published_at` is null. Physical Linux desktop/camera/restoration, the complete backend/judge journey and admission capacity remain acceptance gaps. Do not register draft identities as a published requirements review. Public latest remains v3.4.0 until an accepted release is published. After publication, refetch all identities and the actual publication timestamp before registering requirements; earlier draft hashes do not authorize claims about replaced assets.
