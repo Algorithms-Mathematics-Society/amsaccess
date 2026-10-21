@@ -42,6 +42,24 @@ export type ContestInvigilation = {
   ended_at: string | null;
   violation_count: number;
   photos: SessionPhoto[];
+  flags?: InvigilationFlag[];
+};
+
+/** Something the proctor thought worth recording: a phone-shaped object, a
+ *  missing face, more than one face. Never a verdict -- the image is what
+ *  settles it, which is why these are shown rather than counted. */
+export type InvigilationFlag = {
+  uid: string;
+  kind: string;
+  detail: string;
+  created_at: string;
+  has_image: boolean;
+};
+
+const FLAG_LABEL: Record<string, string> = {
+  face_missing: "No face",
+  multiple_faces: "Two faces",
+  object_suspected: "Possible phone",
 };
 
 function Frame({
@@ -255,6 +273,37 @@ export function InvigilationTimeline({ studentUid }: { studentUid: string }) {
                 <span className="text-xs text-amber-700">{row.violation_count} flagged</span>
               )}
             </div>
+
+            {(row.flags ?? []).length > 0 && (
+              /* Red, and above the strip. These are the frames a reviewer
+                 opened the page for; burying them after sixty routine
+                 photographs would mean scrolling past the evidence to reach
+                 the evidence. */
+              <div className="mb-3 flex items-start gap-3 overflow-x-auto pb-2">
+                {(row.flags ?? []).map((flag) => (
+                  <figure key={flag.uid} className="shrink-0">
+                    {flag.has_image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/org/students/${encodeURIComponent(studentUid)}/invigilation/flag/${encodeURIComponent(flag.uid)}`}
+                        alt={flag.detail || flag.kind}
+                        className="h-24 w-20 rounded-lg border-2 border-rose-400 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-24 w-20 flex-col items-center justify-center rounded-lg border-2 border-dashed border-rose-300 bg-rose-50 px-2 text-center">
+                        <span className="text-[10px] leading-tight text-rose-700">no image</span>
+                      </div>
+                    )}
+                    <figcaption className="mt-1 w-20 text-center text-[10px] leading-tight text-rose-700">
+                      {FLAG_LABEL[flag.kind] ?? flag.kind}
+                      <span className="block text-slate-500">
+                        {elapsedLabel(row.started_at, flag.created_at)}
+                      </span>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
 
             {row.photos.length === 0 ? (
               /* Said plainly rather than left blank: a sitting with no
