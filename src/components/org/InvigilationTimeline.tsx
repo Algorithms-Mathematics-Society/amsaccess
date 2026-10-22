@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useApiQuery } from "@/lib/client/useApiQuery";
 import { X } from "lucide-react";
 import { elapsedLabel, gapMinutes } from "@/lib/invigilation-timeline";
 
@@ -219,31 +220,25 @@ function Lightbox({
 }
 
 export function InvigilationTimeline({ studentUid }: { studentUid: string }) {
-  const [rows, setRows] = useState<ContestInvigilation[] | null>(null);
-  const [error, setError] = useState("");
   const [open, setOpen] = useState<{ contest: string; session: string; index: number } | null>(
     null,
   );
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `/api/org/students/${encodeURIComponent(studentUid)}/invigilation`,
-        { cache: "no-store" },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Could not load invigilation photos.");
-      setRows(data as ContestInvigilation[]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load invigilation photos.");
-    }
-  }, [studentUid]);
+  const {
+    data: rows,
+    error,
+    refreshing,
+  } = useApiQuery<ContestInvigilation[]>(`invigilation:${studentUid}`, async () => {
+    const res = await fetch(
+      `/api/org/students/${encodeURIComponent(studentUid)}/invigilation`,
+      { cache: "no-store" },
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error ?? "Could not load invigilation photos.");
+    return data as ContestInvigilation[];
+  });
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  if (error)
+  if (error && rows === null)
     return <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</p>;
   if (rows === null)
     return <p className="text-sm text-slate-500">Loading…</p>;

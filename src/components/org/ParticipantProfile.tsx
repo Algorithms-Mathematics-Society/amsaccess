@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { InvigilationTimeline } from "@/components/org/InvigilationTimeline";
+import { useApiQuery } from "@/lib/client/useApiQuery";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -122,31 +123,24 @@ export type Profile = {
 };
 
 export function ParticipantProfile({ handle }: { handle: string }) {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [error, setError] = useState("");
   const [openSubmission, setOpenSubmission] = useState<SubmissionRef | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(`/api/org/students/${encodeURIComponent(handle)}/profile`, {
-          cache: "no-store",
-        });
-        const data = await res.json().catch(() => ({}));
-        if (cancelled) return;
-        if (!res.ok) setError((data as { error?: string }).error ?? "Could not load this profile.");
-        else setProfile(data as Profile);
-      } catch {
-        if (!cancelled) setError("Could not load this profile.");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [handle]);
+  // Cached per handle, so stepping back out to the roster and into the next
+  // person does not re-fetch a profile that was on screen a moment ago.
+  const {
+    data: profile,
+    error,
+    loading,
+  } = useApiQuery<Profile>(`student-profile:${handle}`, async () => {
+    const res = await fetch(`/api/org/students/${encodeURIComponent(handle)}/profile`, {
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not load this profile.");
+    return data as Profile;
+  });
 
-  if (error) {
+  if (error && !profile) {
     return (
       <div className="px-8 py-6">
         <BackLink />
@@ -156,7 +150,7 @@ export function ParticipantProfile({ handle }: { handle: string }) {
       </div>
     );
   }
-  if (!profile) return <p className="px-8 py-6 text-sm text-slate-500">Loading…</p>;
+  if (loading || !profile) return <p className="px-8 py-6 text-sm text-slate-500">Loading…</p>;
 
   const accuracy =
     profile.submissions_total > 0

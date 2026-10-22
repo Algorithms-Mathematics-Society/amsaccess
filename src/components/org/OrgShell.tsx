@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import "@/styles/access-theme.css";
 import "@/styles/org-theme-bridge.css";
-import { CalendarDays, Cpu, FileCode2, LayoutDashboard, Mail, Users } from "lucide-react";
+import { CalendarDays, FileCode2, LayoutDashboard, Mail, Users } from "lucide-react";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 
 const NAV = [
@@ -14,7 +14,6 @@ const NAV = [
   { href: "/org/contests", label: "Contests", icon: CalendarDays },
   { href: "/org/participants", label: "Students", icon: Users },
   { href: "/org/mails", label: "Mails", icon: Mail },
-  { href: "/org/fleet", label: "Judging", icon: Cpu },
 ] as const;
 
 /** Sections an intern has no business in, so the nav does not offer them.
@@ -27,12 +26,9 @@ const INTERN_HIDDEN: readonly string[] = [
   "/org/problems",
   "/org/participants",
   "/org/mails",
-  // Judging was left visible because watching the fleet looked harmless.
-  // It was not: the fleet view names the contest it is warming for, with
-  // its window and roster size, which is the same thing the contest list
-  // withholds. The response no longer carries that for an intern; the tab
-  // goes too, because the page's only remaining content for them would be
-  // a worker count and two buttons they cannot press.
+  // /org/fleet is no longer in NAV at all, so there is no tab to hide. The
+  // route still refuses an intern server side, which is what actually
+  // closed that door; this list only decides what the sidebar offers.
   "/org/fleet",
 ];
 
@@ -157,9 +153,6 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t border-slate-200 px-5 py-4 text-xs text-slate-400">
-          Judged by cxxprobe
-        </div>
       </aside>
 
       <header ref={headerRef} className="sticky top-0 z-30 border-b border-slate-200 bg-white lg:hidden">
