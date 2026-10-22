@@ -170,11 +170,14 @@ export function ParticipantsPanel({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
           {roster === null
-            ? "Loading…"
+            ? null
             : `${active} active · ${loggedIn} signed in${
                 unkeyed > 0 ? ` · ${unkeyed} awaiting a passphrase` : ""
               }${roster.length - active > 0 ? ` · ${roster.length - active} revoked` : ""}`}
         </p>
+        {roster === null && (
+          <div className="h-4 w-56 animate-pulse rounded bg-slate-200" aria-hidden="true" />
+        )}
         <div className="flex gap-2">
           <CredentialMail contestUid={contestUid} onChange={load} />
           {roster !== null && roster.length > 0 && (
@@ -267,6 +270,19 @@ export function ParticipantsPanel({
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
+      )}
+
+      {roster === null && (
+        /* The table's own shape. A bare "Loading…" under the tab strip said
+           nothing and left the panel empty, so the page jumped when 1,300
+           rows arrived. */
+        <div className="rounded-xl border border-slate-200 bg-white p-4" aria-busy="true">
+          <span className="sr-only">Loading participants</span>
+          <div className="mb-3 h-8 w-full animate-pulse rounded bg-slate-100" />
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="mb-2 h-9 w-full animate-pulse rounded bg-slate-50" />
+          ))}
+        </div>
       )}
 
       {roster !== null && roster.length === 0 && !adding ? (

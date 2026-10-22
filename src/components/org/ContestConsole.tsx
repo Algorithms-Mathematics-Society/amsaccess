@@ -24,6 +24,24 @@ import { InvigilationPanel } from "./InvigilationPanel";
 import { FleetPanel } from "./FleetPanel";
 import { ContestScale } from "./ContestScale";
 
+const TABS = [
+  "problems",
+  "participants",
+  "leaderboard",
+  "submissions",
+  "invigilation",
+  "judging",
+] as const;
+
+type Tab = (typeof TABS)[number];
+
+/** A fragment is whatever someone typed, so anything unrecognised falls back
+ *  rather than rendering an empty console. */
+function tabFromHash(hash: string): Tab {
+  const name = hash.replace(/^#/, "");
+  return (TABS as readonly string[]).includes(name) ? (name as Tab) : "problems";
+}
+
 /** How many rows the submissions table holds. The contest may hold far more. */
 const SUBMISSION_PAGE = 200;
 
@@ -51,9 +69,29 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
   const [submissions, setSubmissions] = useState<ContestSubmission[]>([]);
   const [summary, setSummary] = useState<SubmissionSummary | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<
-    "problems" | "participants" | "leaderboard" | "submissions" | "invigilation" | "judging"
-  >("problems");
+  const [tab, setTabState] = useState<Tab>("problems");
+
+  // The tab lives in the URL fragment, so reloading keeps you where you
+  // were. It was React state alone: Ctrl+R on the Leaderboard dropped you
+  // back on Problems, which during a live contest is the one moment someone
+  // reloads most. It also makes a tab linkable, which an invigilator asking
+  // "look at the leaderboard" could not do before.
+  //
+  // Adopted after mount rather than in the initial state: the server has no
+  // fragment, and reading one during render is a hydration mismatch.
+  useEffect(() => {
+    const read = () => setTabState(tabFromHash(window.location.hash));
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
+
+  // replaceState, not push: Back should leave the contest the way it
+  // arrived, not walk backwards through every tab that was glanced at.
+  const setTab = useCallback((next: Tab) => {
+    setTabState(next);
+    window.history.replaceState(null, "", `#${next}`);
+  }, []);
 
   const loadContest = useCallback(async () => {
     try {
@@ -214,16 +252,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
 
       <div className="border-b border-slate-200 bg-white px-4 sm:px-6 md:px-8">
         <nav className="flex gap-6 overflow-x-auto md:overflow-visible">
-          {(
-            [
-              "problems",
-              "participants",
-              "leaderboard",
-              "submissions",
-              "invigilation",
-              "judging",
-            ] as const
-          ).map((t) => (
+          {TABS.map((t) => (
             <button
               key={t}
               type="button"
