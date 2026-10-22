@@ -1,0 +1,87 @@
+{
+  "checkedAt": "2026-10-22T05:17:13Z",
+  "version": "v4.0.0",
+  "releaseId": 420029337,
+  "publishedAt": "2026-10-22T04:03:24Z",
+  "sourceCommit": "092897b5dd2e51d6ab32055e2a3a3c756b8d7054",
+  "method": "Installer bytes were independently downloaded before publication and matched GitHub API SHA-256 digests, byte sizes, and all four checksum manifests. After publication, the public API was refetched and every registered installer retained the same asset ID, filename, size, and digest. This does not verify code signing, notarization, physical hardware behavior, or absence of malicious code.",
+  "installers": [
+    {
+      "filename": "AMS.Access-4.0.0-1.x86_64.rpm",
+      "assetId": 663717522,
+      "expectedBytes": 14719657,
+      "actualBytes": 14719657,
+      "publishedSha256": "d1e4607547a7707db3a7ea3cd599fa5761d43d71bf79e101a8984e7173673505",
+      "actualSha256": "d1e4607547a7707db3a7ea3cd599fa5761d43d71bf79e101a8984e7173673505",
+      "matchesApiDigest": true,
+      "matchesManifest": true,
+      "matchesByteSize": true
+    },
+    {
+      "filename": "AMS.Access_4.0.0_aarch64.dmg",
+      "assetId": 663717582,
+      "expectedBytes": 15419028,
+      "actualBytes": 15419028,
+      "publishedSha256": "8395add210790455470f0be92d0b6dd35784d02ab2c485735204af24dd2dbabe",
+      "actualSha256": "8395add210790455470f0be92d0b6dd35784d02ab2c485735204af24dd2dbabe",
+      "matchesApiDigest": true,
+      "matchesManifest": true,
+      "matchesByteSize": true
+    },
+    {
+      "filename": "AMS.Access_4.0.0_amd64.AppImage",
+      "assetId": 663717525,
+      "expectedBytes": 103721464,
+      "actualBytes": 103721464,
+      "publishedSha256": "f4faaa0cf95f8b5793ca6e460912c8453b5b1836b46f035fc6ebd497912b9f76",
+      "actualSha256": "f4faaa0cf95f8b5793ca6e460912c8453b5b1836b46f035fc6ebd497912b9f76",
+      "matchesApiDigest": true,
+      "matchesManifest": true,
+      "matchesByteSize": true
+    },
+    {
+      "filename": "AMS.Access_4.0.0_amd64.deb",
+      "assetId": 663717523,
+      "expectedBytes": 14713866,
+      "actualBytes": 14713866,
+      "publishedSha256": "cf238d950e3f1276369033867a0e15c4fb399f2e05ac4f39bb9e5ce9ef043466",
+      "actualSha256": "cf238d950e3f1276369033867a0e15c4fb399f2e05ac4f39bb9e5ce9ef043466",
+      "matchesApiDigest": true,
+      "matchesManifest": true,
+      "matchesByteSize": true
+    },
+    {
+      "filename": "AMS.Access_4.0.0_x64-setup.exe",
+      "assetId": 663716945,
+      "expectedBytes": 13316626,
+      "actualBytes": 13316626,
+      "publishedSha256": "5863fa77b89a4011fd8e0c2b5232f1f582b137c9de3d26e15aa68cdea7c0e7d3",
+      "actualSha256": "5863fa77b89a4011fd8e0c2b5232f1f582b137c9de3d26e15aa68cdea7c0e7d3",
+      "matchesApiDigest": true,
+      "matchesManifest": true,
+      "matchesByteSize": true
+    },
+    {
+      "filename": "AMS.Access_4.0.0_x64.dmg",
+      "assetId": 663720148,
+      "expectedBytes": 15989403,
+      "actualBytes": 15989403,
+      "publishedSha256": "2bf10c74423b2c067c6abbf692749cd2c02977f2953bfedb84be84f88bbcc4b3",
+      "actualSha256": "2bf10c74423b2c067c6abbf692749cd2c02977f2953bfedb84be84f88bbcc4b3",
+      "matchesApiDigest": true,
+      "matchesManifest": true,
+      "matchesByteSize": true
+    },
+    {
+      "filename": "AMS.Access_4.0.0_x64_en-US.msi",
+      "assetId": 663716950,
+      "expectedBytes": 14888960,
+      "actualBytes": 14888960,
+      "publishedSha256": "24ba896c38812f23b7134f28617f7566c7e7e9157f4cb24bd536d7c19d1b699e",
+      "actualSha256": "24ba896c38812f23b7134f28617f7566c7e7e9157f4cb24bd536d7c19d1b699e",
+      "matchesApiDigest": true,
+      "matchesManifest": true,
+      "matchesByteSize": true
+    }
+  ]
+}

@@ -13,23 +13,34 @@ const audit = JSON.parse(
     "utf8",
   ),
 );
-function reviewedRelease() {
+
+const auditV400 = JSON.parse(
+  readFileSync(
+    new URL("../../docs/release-integrity-v4.0.0.json", import.meta.url),
+    "utf8",
+  ),
+);
+function reviewedRelease(auditRecord = audit) {
   const repo = "https://github.com/Algorithms-Mathematics-Society/ams-access";
   return normalizeRelease({
-    id: audit.releaseId,
-    tag_name: audit.version,
-    published_at: audit.publishedAt,
+    id: auditRecord.releaseId,
+    tag_name: auditRecord.version,
+    published_at: auditRecord.publishedAt,
     draft: false,
     prerelease: false,
-    html_url: repo + "/releases/tag/" + audit.version,
-    assets: audit.installers.map((asset) => ({
+    html_url: repo + "/releases/tag/" + auditRecord.version,
+    assets: auditRecord.installers.map((asset) => ({
       id: asset.assetId,
       name: asset.filename,
       state: "uploaded",
       size: asset.actualBytes,
       digest: "sha256:" + asset.actualSha256,
       browser_download_url:
-        repo + "/releases/download/" + audit.version + "/" + asset.filename,
+        repo +
+        "/releases/download/" +
+        auditRecord.version +
+        "/" +
+        asset.filename,
     })),
   });
 }
@@ -50,6 +61,19 @@ test("requirements apply to exactly the independently audited release and all se
   );
   assert(downloadOptions(release)[0].requirement.includes("Intel / AMD"));
 });
+test("v4.0.0 requirements apply only to its published release and seven reviewed installers", () => {
+  const release = reviewedRelease(auditV400);
+  assert.equal(release.version, "v4.0.0");
+  assert.equal(
+    requirementsFor(release).macos,
+    "macOS 12 or later · Apple silicon or Intel",
+  );
+  assert.equal(requirementsFor({ ...release, id: release.id + 1 }), undefined);
+  const changed = reviewedRelease(auditV400);
+  changed.linux.deb = { ...changed.linux.deb, sha256: "ab".repeat(32) };
+  assert.equal(requirementsFor(changed), undefined);
+});
+
 test("either reviewed Mac DMG can occupy the generic compatibility alias", () => {
   for (const architecture of ["x64", "arm64"]) {
     const release = reviewedRelease();
