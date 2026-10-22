@@ -75,6 +75,7 @@ const FLAG_LABEL: Record<string, string> = {
   clipboard_copy: "Copied from the statement",
   clipboard_paste: "Pasted from outside",
   clipboard_paste_blocked: "External paste blocked",
+  extra_display: "Second screen connected",
 };
 
 function Frame({
