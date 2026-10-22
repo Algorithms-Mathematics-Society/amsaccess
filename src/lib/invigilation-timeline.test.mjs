@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { elapsedLabel, gapMinutes } from "./invigilation-timeline.ts";
 
 const start = "2026-10-24T08:30:00Z";
-const at = (minutes) => new Date(Date.parse(start) + minutes * 60000).toISOString();
+const at = (minutes) =>
+  new Date(Date.parse(start) + minutes * 60000).toISOString();
 
 test("elapsed time is counted from the first frame, not the wall clock", () => {
   // "1:30 into the paper" is what a reader reasons about, not "10:00".
@@ -22,12 +23,12 @@ test("no first frame means no elapsed label rather than a wrong one", () => {
   assert.equal(elapsedLabel(null, at(30)), "");
 });
 
-test("a frame on time, or merely late, is not a gap", () => {
-  // The timer is half-hourly; a frame arriving a few minutes late is the
-  // ordinary case and must not be flagged as missing time.
-  assert.equal(gapMinutes(at(0), at(30)), 0);
-  assert.equal(gapMinutes(at(0), at(38)), 0);
-  assert.equal(gapMinutes(at(0), at(40)), 0);
+test("a frame on time, or within the capture grace, is not a gap", () => {
+  // The timer is two-minute; jitter and a short retry remain within the
+  // three-minute grace, while the next missed interval is visible.
+  assert.equal(gapMinutes(at(0), at(2)), 0);
+  assert.equal(gapMinutes(at(0), at(5)), 0);
+  assert.equal(gapMinutes(at(0), at(6)), 6);
 });
 
 test("a missed capture is reported with how long was unaccounted for", () => {
