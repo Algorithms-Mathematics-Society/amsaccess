@@ -23,6 +23,17 @@ export const packageRequirements: Record<
       "A tested Windows-version and Linux-distribution support list, and minimum memory/storage requirements, have not been published here. Confirm these before choosing a device for a round.",
     ],
   },
+  "v4.0.0": {
+    windows: "Intel / AMD 64-bit · EXE or MSI",
+    macos: "macOS 12 or later · Apple silicon or Intel",
+    linux: "Intel / AMD 64-bit · DEB, RPM or AppImage",
+    notes: [
+      "The macOS minimum is a package requirement. An installer matching your processor does not confirm readiness for a particular round.",
+      "The Windows installer may need internet access to install Microsoft Edge WebView2. Managed computers may need administrator assistance.",
+      "Linux package availability does not establish compatibility with every distribution or desktop environment. Confirm your distribution, version and display session with your organizer.",
+      "A tested Windows-version and Linux-distribution support list, and minimum memory/storage requirements, have not been published here. Confirm these before choosing a device for a round.",
+    ],
+  },
 };
 // Audited installer identities from docs/release-integrity-v2.3.1.json.
 // Only the compact facts needed for matching are part of the public bundle.
@@ -33,7 +44,7 @@ type ReviewedInstaller = Pick<
   platform: "windows" | "linux" | "macos";
   slot: string;
 };
-const reviewedInstallers: readonly ReviewedInstaller[] = [
+const reviewedV231Installers: readonly ReviewedInstaller[] = [
   {
     platform: "windows",
     slot: "msi",
@@ -99,6 +110,96 @@ const reviewedInstallers: readonly ReviewedInstaller[] = [
   },
 ];
 
+const reviewedV400Installers: readonly ReviewedInstaller[] = [
+  {
+    platform: "linux",
+    slot: "rpm",
+    id: 663717522,
+    label: "AMS.Access-4.0.0-1.x86_64.rpm",
+    size: 14719657,
+    sha256: "d1e4607547a7707db3a7ea3cd599fa5761d43d71bf79e101a8984e7173673505",
+    architecture: "x64",
+  },
+  {
+    platform: "macos",
+    slot: "arm64",
+    id: 663717582,
+    label: "AMS.Access_4.0.0_aarch64.dmg",
+    size: 15419028,
+    sha256: "8395add210790455470f0be92d0b6dd35784d02ab2c485735204af24dd2dbabe",
+    architecture: "arm64",
+  },
+  {
+    platform: "linux",
+    slot: "appimage",
+    id: 663717525,
+    label: "AMS.Access_4.0.0_amd64.AppImage",
+    size: 103721464,
+    sha256: "f4faaa0cf95f8b5793ca6e460912c8453b5b1836b46f035fc6ebd497912b9f76",
+    architecture: "x64",
+  },
+  {
+    platform: "linux",
+    slot: "deb",
+    id: 663717523,
+    label: "AMS.Access_4.0.0_amd64.deb",
+    size: 14713866,
+    sha256: "cf238d950e3f1276369033867a0e15c4fb399f2e05ac4f39bb9e5ce9ef043466",
+    architecture: "x64",
+  },
+  {
+    platform: "windows",
+    slot: "exe",
+    id: 663716945,
+    label: "AMS.Access_4.0.0_x64-setup.exe",
+    size: 13316626,
+    sha256: "5863fa77b89a4011fd8e0c2b5232f1f582b137c9de3d26e15aa68cdea7c0e7d3",
+    architecture: "x64",
+  },
+  {
+    platform: "macos",
+    slot: "x64",
+    id: 663720148,
+    label: "AMS.Access_4.0.0_x64.dmg",
+    size: 15989403,
+    sha256: "2bf10c74423b2c067c6abbf692749cd2c02977f2953bfedb84be84f88bbcc4b3",
+    architecture: "x64",
+  },
+  {
+    platform: "windows",
+    slot: "msi",
+    id: 663716950,
+    label: "AMS.Access_4.0.0_x64_en-US.msi",
+    size: 14888960,
+    sha256: "24ba896c38812f23b7134f28617f7566c7e7e9157f4cb24bd536d7c19d1b699e",
+    architecture: "x64",
+  },
+];
+
+type ReviewedRelease = {
+  releaseId: number;
+  requirements: (typeof packageRequirements)[string];
+  installers: readonly ReviewedInstaller[];
+};
+
+/**
+ * Registration is intentionally explicit. A version appears here only after
+ * its immutable GitHub release and every exposed installer identity have been
+ * reviewed. Unknown, draft, incomplete, or replaced releases fail closed.
+ */
+const reviewedReleases: Readonly<Record<string, ReviewedRelease>> = {
+  "v2.3.1": {
+    releaseId: 406470000,
+    requirements: packageRequirements["v2.3.1"],
+    installers: reviewedV231Installers,
+  },
+  "v4.0.0": {
+    releaseId: 420029337,
+    requirements: packageRequirements["v4.0.0"],
+    installers: reviewedV400Installers,
+  },
+};
+
 function matchesReviewed(
   asset: ReleaseAsset | undefined,
   reviewed: ReviewedInstaller,
@@ -114,8 +215,11 @@ function matchesReviewed(
 }
 
 export function requirementsFor(release?: LatestRelease | null) {
-  if (!release || release.id !== 406470000 || release.version !== "v2.3.1")
+  if (!release) return undefined;
+  const reviewedRelease = reviewedReleases[release.version];
+  if (!reviewedRelease || release.id !== reviewedRelease.releaseId)
     return undefined;
+  const reviewedInstallers = reviewedRelease.installers;
 
   // A version name alone is not evidence: a publisher can recreate a release
   // or replace an installer under the same tag. Any missing or changed file
@@ -150,5 +254,5 @@ export function requirementsFor(release?: LatestRelease | null) {
     }
   }
   if (!release.macos.dmg) return undefined;
-  return packageRequirements["v2.3.1"];
+  return reviewedRelease.requirements;
 }
