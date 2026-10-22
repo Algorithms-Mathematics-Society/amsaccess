@@ -34,4 +34,10 @@ Publishing can make installers visible before their requirements are registered.
 
 Release `420029337` was published on 22 October 2026 at 04:03:24 UTC from source `092897b5dd2e51d6ab32055e2a3a3c756b8d7054`. Its seven installer identities are unchanged from the independently downloaded candidate: byte sizes and SHA-256 hashes match the GitHub API and all four checksum manifests. The exact published identities are recorded in `docs/release-integrity-v4.0.0.json`.
 
-The integrity record covers artifact identity and packaging. It does not certify physical camera behavior, every desktop environment, signing/notarization, backend capacity, or a future release. v4.0.1 must remain unregistered until its published assets are independently verified.
+The integrity record covers artifact identity and packaging. It does not certify physical camera behavior, every desktop environment, signing/notarization, backend capacity, or a future release.
+
+## v4.0.1 release evidence
+
+Release `420358050` was published on 22 October 2026 at 06:29:38 UTC from source `ab23bc6c93e30a273c3d1d8042880725c047ee2e`. Its seven installer identities are unchanged from the independently downloaded candidate: byte sizes and SHA-256 hashes match the public GitHub API and all four checksum manifests. The exact published identities and scoped platform evidence are recorded in `docs/release-integrity-v4.0.1.json`.
+
+Linux DEB, RPM and AppImage validation exercised these exact bytes in clean containers and a headless Xvfb/Openbox session. The macOS packages were notarized, stapled and signed; Windows packages were unsigned and inspected without execution. This evidence does not certify physical camera behavior, GNOME/KDE sessions, Windows execution, backend capacity, or absence of malicious code.

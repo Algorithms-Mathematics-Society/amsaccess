@@ -20,7 +20,29 @@ const auditV400 = JSON.parse(
     "utf8",
   ),
 );
+const auditV401 = JSON.parse(
+  readFileSync(
+    new URL("../../docs/release-integrity-v4.0.1.json", import.meta.url),
+    "utf8",
+  ),
+);
 function reviewedRelease(auditRecord = audit) {
+  const normalizedAudit = auditRecord.installers
+    ? auditRecord
+    : {
+        releaseId: auditRecord.release_id,
+        version: auditRecord.tag,
+        publishedAt: auditRecord.published_at,
+        installers: auditRecord.assets
+          .filter((asset) => asset.kind === "installer")
+          .map((asset) => ({
+            assetId: asset.id,
+            filename: asset.name,
+            actualBytes: asset.bytes,
+            actualSha256: asset.sha256,
+          })),
+      };
+  auditRecord = normalizedAudit;
   const repo = "https://github.com/Algorithms-Mathematics-Society/ams-access";
   return normalizeRelease({
     id: auditRecord.releaseId,
@@ -71,6 +93,24 @@ test("v4.0.0 requirements apply only to its published release and seven reviewed
   assert.equal(requirementsFor({ ...release, id: release.id + 1 }), undefined);
   const changed = reviewedRelease(auditV400);
   changed.linux.deb = { ...changed.linux.deb, sha256: "ab".repeat(32) };
+  assert.equal(requirementsFor(changed), undefined);
+});
+
+test("v4.0.1 requirements match the independently verified seven installers", () => {
+  assert.equal(auditV401.draft, false);
+  assert.equal(auditV401.published_at, "2026-10-22T06:29:38Z");
+  const release = reviewedRelease(auditV401);
+  assert.equal(release.version, "v4.0.1");
+  assert.equal(release.id, 420358050);
+  assert.equal(
+    requirementsFor(release).linux,
+    "Intel / AMD 64-bit · DEB, RPM or AppImage",
+  );
+  const changed = reviewedRelease(auditV401);
+  changed.windows.msi = {
+    ...changed.windows.msi,
+    size: changed.windows.msi.size + 1,
+  };
   assert.equal(requirementsFor(changed), undefined);
 });
 

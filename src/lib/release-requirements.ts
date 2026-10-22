@@ -34,6 +34,17 @@ export const packageRequirements: Record<
       "A tested Windows-version and Linux-distribution support list, and minimum memory/storage requirements, have not been published here. Confirm these before choosing a device for a round.",
     ],
   },
+  "v4.0.1": {
+    windows: "Intel / AMD 64-bit · EXE or MSI",
+    macos: "macOS 12 or later · Apple silicon or Intel",
+    linux: "Intel / AMD 64-bit · DEB, RPM or AppImage",
+    notes: [
+      "The macOS minimum is a package requirement. An installer matching your processor does not confirm readiness for a particular round.",
+      "The Windows installer may need internet access to install Microsoft Edge WebView2. Managed computers may need administrator assistance.",
+      "Linux package availability does not establish compatibility with every distribution or desktop environment. Confirm your distribution, version and display session with your organizer.",
+      "A tested Windows-version and Linux-distribution support list, and minimum memory/storage requirements, have not been published here. Confirm these before choosing a device for a round.",
+    ],
+  },
 };
 // Audited installer identities from docs/release-integrity-v2.3.1.json.
 // Only the compact facts needed for matching are part of the public bundle.
@@ -176,6 +187,72 @@ const reviewedV400Installers: readonly ReviewedInstaller[] = [
   },
 ];
 
+const reviewedV401Installers: readonly ReviewedInstaller[] = [
+  {
+    platform: "linux",
+    slot: "rpm",
+    id: 664857946,
+    label: "AMS.Access-4.0.1-1.x86_64.rpm",
+    size: 14733280,
+    sha256: "f21ce6a667da251eee99ad758679ea692020d1ff3e539292cd4e4eb9fac2e655",
+    architecture: "x64",
+  },
+  {
+    platform: "macos",
+    slot: "arm64",
+    id: 664847341,
+    label: "AMS.Access_4.0.1_aarch64.dmg",
+    size: 15416222,
+    sha256: "902143bd256f07a181f72ce5b0458e87d7d237acbbc5d81180f74bed786c652c",
+    architecture: "arm64",
+  },
+  {
+    platform: "linux",
+    slot: "appimage",
+    id: 664857945,
+    label: "AMS.Access_4.0.1_amd64.AppImage",
+    size: 103741944,
+    sha256: "fb05eaf169b39d78325f55734a1f5a622877db24fcdcf2164ec2253cb16b42cf",
+    architecture: "x64",
+  },
+  {
+    platform: "linux",
+    slot: "deb",
+    id: 664857943,
+    label: "AMS.Access_4.0.1_amd64.deb",
+    size: 14727180,
+    sha256: "3edd2debaa08f2776676669dee5d1ff64b7c6eab2257d9a22b84ccfe6b184f63",
+    architecture: "x64",
+  },
+  {
+    platform: "windows",
+    slot: "exe",
+    id: 664853529,
+    label: "AMS.Access_4.0.1_x64-setup.exe",
+    size: 13315454,
+    sha256: "ccb96501c8273d5668b0d72aba73aeb199d60f9bb686b526239bf2723146c055",
+    architecture: "x64",
+  },
+  {
+    platform: "macos",
+    slot: "x64",
+    id: 664858382,
+    label: "AMS.Access_4.0.1_x64.dmg",
+    size: 16003148,
+    sha256: "980f8a0735f61dfabccca4d68bc48407ce43996567f5a0f448bf20803b989fe4",
+    architecture: "x64",
+  },
+  {
+    platform: "windows",
+    slot: "msi",
+    id: 664853531,
+    label: "AMS.Access_4.0.1_x64_en-US.msi",
+    size: 14888960,
+    sha256: "7bf8d8e3a1ab4bb388c2d8e3a499d5b2ede10065cd11e32fc975f63032007115",
+    architecture: "x64",
+  },
+];
+
 type ReviewedRelease = {
   releaseId: number;
   requirements: (typeof packageRequirements)[string];
@@ -197,6 +274,11 @@ const reviewedReleases: Readonly<Record<string, ReviewedRelease>> = {
     releaseId: 420029337,
     requirements: packageRequirements["v4.0.0"],
     installers: reviewedV400Installers,
+  },
+  "v4.0.1": {
+    releaseId: 420358050,
+    requirements: packageRequirements["v4.0.1"],
+    installers: reviewedV401Installers,
   },
 };
 
