@@ -122,7 +122,15 @@ export type Profile = {
   activity: ActivityDay[];
 };
 
-export function ParticipantProfile({ handle }: { handle: string }) {
+export function ParticipantProfile({
+  handle,
+  inModal = false,
+}: {
+  handle: string;
+  /** Rendered inside ParticipantModal: no back link, tighter padding. */
+  inModal?: boolean;
+}) {
+  const pad = inModal ? "px-6 py-6" : "px-8 py-6";
   const [openSubmission, setOpenSubmission] = useState<SubmissionRef | null>(null);
 
   // Cached per handle, so stepping back out to the roster and into the next
@@ -142,15 +150,19 @@ export function ParticipantProfile({ handle }: { handle: string }) {
 
   if (error && !profile) {
     return (
-      <div className="px-8 py-6">
-        <BackLink />
+      <div className={pad}>
+        {!inModal && <BackLink />}
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       </div>
     );
   }
-  if (loading || !profile) return <p className="px-8 py-6 text-sm text-slate-500">Loading…</p>;
+  // A skeleton rather than the word "Loading…". The shape of the page is
+  // known before its contents are, so drawing it stops the layout jumping
+  // when the data lands, and a reviewer who has opened this person before
+  // never sees it at all -- the cache answers first.
+  if (loading || !profile) return <ProfileSkeleton pad={pad} inModal={inModal} />;
 
   const accuracy =
     profile.submissions_total > 0
@@ -158,8 +170,8 @@ export function ParticipantProfile({ handle }: { handle: string }) {
       : null;
 
   return (
-    <div className="px-8 py-6">
-      <BackLink />
+    <div className={pad}>
+      {!inModal && <BackLink />}
 
       {/* ── identity ──────────────────────────────────────────────────── */}
       <div className="mt-4 rounded-xl border border-slate-200 bg-white p-6">
@@ -367,6 +379,30 @@ export function ParticipantProfile({ handle }: { handle: string }) {
         submission={openSubmission}
         onClose={() => setOpenSubmission(null)}
       />
+    </div>
+  );
+}
+
+/** The profile's own shape, greyed. Mirrors the header, the stat row and
+ *  the first panel, which is as much as is worth pre-drawing. */
+function ProfileSkeleton({ pad, inModal }: { pad: string; inModal: boolean }) {
+  return (
+    <div className={pad} aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading participant</span>
+      {!inModal && <div className="mb-4 h-4 w-28 animate-pulse rounded bg-slate-200" />}
+      <div className="flex items-center gap-4">
+        <div className="h-16 w-16 shrink-0 animate-pulse rounded-full bg-slate-200" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="h-5 w-56 animate-pulse rounded bg-slate-200" />
+          <div className="h-3 w-40 animate-pulse rounded bg-slate-100" />
+        </div>
+      </div>
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-100" />
+        ))}
+      </div>
+      <div className="mt-6 h-48 animate-pulse rounded-xl bg-slate-100" />
     </div>
   );
 }

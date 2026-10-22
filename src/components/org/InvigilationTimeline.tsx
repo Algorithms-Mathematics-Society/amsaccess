@@ -241,7 +241,17 @@ export function InvigilationTimeline({ studentUid }: { studentUid: string }) {
   if (error && rows === null)
     return <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</p>;
   if (rows === null)
-    return <p className="text-sm text-slate-500">Loading…</p>;
+    return (
+      <div className="space-y-3" aria-busy="true">
+        <span className="sr-only">Loading invigilation photos</span>
+        <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
+        <div className="flex gap-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-24 w-20 shrink-0 animate-pulse rounded-lg bg-slate-100" />
+          ))}
+        </div>
+      </div>
+    );
   if (rows.length === 0)
     return (
       <p className="rounded-xl border border-dashed border-slate-300 px-6 py-8 text-center text-sm text-slate-500">

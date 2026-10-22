@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { ParticipantModal } from "@/components/org/ParticipantModal";
 import {
   AlertTriangle,
   Check,
@@ -267,6 +267,9 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
   // in the row so the dialog survives the ten-second roster refresh --
   // otherwise it closed itself under the invigilator every poll.
   const [photoRowUid, setPhotoRowUid] = useState<string | null>(null);
+  // Opened over the contest instead of navigating away: /org/participants
+  // belongs to the Students section, so Back from there abandons the contest.
+  const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<ReadinessRow[]>([]);
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -357,6 +360,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
 
   return (
     <div className="space-y-8">
+      <ParticipantModal handle={openParticipant} onClose={() => setOpenParticipant(null)} />
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -576,12 +580,13 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                     <div className="flex items-start justify-between gap-2">
                       <p className="min-w-0 text-sm">
                         {row.user_uid ? (
-                          <Link
-                            href={`/org/participants/${row.user_uid}`}
-                            className="font-medium text-slate-900 hover:underline"
+                          <button
+                            type="button"
+                            onClick={() => setOpenParticipant(row.user_uid)}
+                            className="text-left font-medium text-slate-900 hover:underline"
                           >
                             {row.display_name || "Unknown"}
-                          </Link>
+                          </button>
                         ) : (
                           <span className="font-medium text-slate-900">
                             {row.display_name || "Unknown"}
@@ -669,12 +674,13 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                       </td>
                       <td className="px-4 py-2.5">
                         {row.user_uid ? (
-                          <Link
-                            href={`/org/participants/${row.user_uid}`}
-                            className="font-medium text-slate-900 hover:underline"
+                          <button
+                            type="button"
+                            onClick={() => setOpenParticipant(row.user_uid)}
+                            className="text-left font-medium text-slate-900 hover:underline"
                           >
                             {row.display_name || "Unknown"}
-                          </Link>
+                          </button>
                         ) : (
                           <span className="font-medium text-slate-900">
                             {row.display_name || "Unknown"}

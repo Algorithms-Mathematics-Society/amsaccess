@@ -118,7 +118,23 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
       </div>
     );
   }
-  if (!contest) return <div className="px-4 py-5 text-sm text-slate-500 sm:px-6 md:px-8 md:py-6">Loading…</div>;
+  // The console's own shape rather than the word "Loading…": the header and
+  // tab strip are known before the contest is, so drawing them stops the
+  // page reflowing when it lands.
+  if (!contest)
+    return (
+      <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6" aria-busy="true">
+        <span className="sr-only">Loading contest</span>
+        <div className="h-6 w-64 animate-pulse rounded bg-slate-200" />
+        <div className="mt-2 h-3 w-40 animate-pulse rounded bg-slate-100" />
+        <div className="mt-6 flex gap-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-8 w-24 animate-pulse rounded-lg bg-slate-100" />
+          ))}
+        </div>
+        <div className="mt-6 h-64 animate-pulse rounded-xl bg-slate-100" />
+      </div>
+    );
 
   // Over the whole contest when the API can say, over the loaded page when
   // it cannot. `total` carries which, so the table can be honest about it.

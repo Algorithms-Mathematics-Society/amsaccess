@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { ParticipantModal } from "@/components/org/ParticipantModal";
 import { Download, Lock, RefreshCw, Search } from "lucide-react";
 
 /**
@@ -61,6 +61,9 @@ export function LeaderboardPanel({
   live: boolean;
 }) {
   const [board, setBoard] = useState<Scoreboard | null>(null);
+  // Opened over the contest instead of navigating away: /org/participants
+  // belongs to the Students section, so Back from there abandons the contest.
+  const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [needle, setNeedle] = useState("");
 
@@ -110,6 +113,7 @@ export function LeaderboardPanel({
 
   return (
     <div>
+      <ParticipantModal handle={openParticipant} onClose={() => setOpenParticipant(null)} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -176,12 +180,13 @@ export function LeaderboardPanel({
                     {row.rank}
                   </td>
                   <td className="px-4 py-2">
-                    <Link
-                      href={`/org/participants/${row.username}`}
-                      className="font-medium text-slate-900 hover:underline"
+                    <button
+                      type="button"
+                      onClick={() => setOpenParticipant(row.username)}
+                      className="text-left font-medium text-slate-900 hover:underline"
                     >
                       {row.display_name}
-                    </Link>
+                    </button>
                     <span className="ml-2 font-mono text-xs text-slate-400">{row.username}</span>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{row.solved}</td>

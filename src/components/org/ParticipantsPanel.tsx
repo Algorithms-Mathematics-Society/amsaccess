@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ParticipantModal } from "@/components/org/ParticipantModal";
 import { extractEmails } from "@/lib/roster";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { AddFromAccess } from "./AddFromAccess";
@@ -741,6 +742,9 @@ function RosterTable({
   onChange: () => void;
   onReissued: (row: IssuedCredential) => void;
 }) {
+  // Opened over the contest instead of navigating away: /org/participants
+  // belongs to the Students section, so Back from there abandons the contest.
+  const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -765,6 +769,7 @@ function RosterTable({
 
   return (
     <div>
+      <ParticipantModal handle={openParticipant} onClose={() => setOpenParticipant(null)} />
       {error && (
         <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
@@ -790,12 +795,13 @@ function RosterTable({
                       when a name comes up mid-contest. Linked by uid rather
                       than handle: this row carries the uid, and the profile
                       route resolves either. */}
-                  <Link
-                    href={`/org/participants/${row.user_uid}`}
-                    className="font-medium text-slate-900 hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => setOpenParticipant(row.user_uid)}
+                    className="text-left font-medium text-slate-900 hover:underline"
                   >
                     {row.display_name}
-                  </Link>
+                  </button>
                 </td>
                 <td className="px-4 py-2.5 font-mono text-slate-900">
                   {row.login_id}
