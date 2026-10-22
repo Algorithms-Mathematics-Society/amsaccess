@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SkeletonTable } from "@/components/org/Skeleton";
 import { Check, Loader2, Search, UserPlus, X } from "lucide-react";
 
 /**
@@ -156,7 +157,7 @@ export function AddFromAccess({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
           {students === null ? (
-            <p className="py-8 text-center text-sm text-slate-500">Loading…</p>
+            <SkeletonTable rows={6} bare />
           ) : selectable.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-500">
               {query

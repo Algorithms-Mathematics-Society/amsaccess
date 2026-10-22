@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SkeletonText } from "@/components/org/Skeleton";
 import Link from "next/link";
 import { statusClass } from "@/lib/orgTypes";
 import {
@@ -218,7 +219,7 @@ export function StudentsView() {
 
       <p className="mb-3 text-sm text-slate-500">
         {students === null
-          ? "Loading…"
+          ? <SkeletonText className="w-28" />
           : facets === null
             ? `${students.length} student${students.length === 1 ? "" : "s"}`
             : facets.total > students.length

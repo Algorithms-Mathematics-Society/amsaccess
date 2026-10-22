@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SkeletonText } from "@/components/org/Skeleton";
 import {
   Upload,
   Plus,
@@ -44,7 +45,11 @@ export function ProblemsView({ embedded = false }: { embedded?: boolean } = {}) 
     <div className={embedded ? "" : "px-8 py-6"}>
       <div className="mb-6 flex items-center justify-between">
         <p className="text-sm text-slate-500">
-          {problems === null ? "Loading…" : `${problems.length} problem${problems.length === 1 ? "" : "s"}`}
+          {problems === null ? (
+            <SkeletonText className="w-24" />
+          ) : (
+            `${problems.length} problem${problems.length === 1 ? "" : "s"}`
+          )}
         </p>
         <button
           type="button"

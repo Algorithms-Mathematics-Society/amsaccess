@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { SkeletonText } from "@/components/org/Skeleton";
 import Link from "next/link";
 import { Archive, CalendarDays, Plus, Square, Trash2, Undo2, Users } from "lucide-react";
 import type { Contest } from "@/lib/orgTypes";
@@ -43,7 +44,7 @@ export function ContestsView() {
       <div className="mb-6 flex items-center justify-between">
         <p className="text-sm text-slate-500">
           {contests === null
-            ? "Loading…"
+            ? <SkeletonText className="w-24" />
             : `${contests.length} contest${contests.length === 1 ? "" : "s"}`}
         </p>
         <div className="flex items-center gap-2">

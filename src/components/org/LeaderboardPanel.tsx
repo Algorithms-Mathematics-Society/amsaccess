@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SkeletonTable } from "@/components/org/Skeleton";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
 import { Download, Lock, RefreshCw, Search } from "lucide-react";
 
@@ -108,7 +109,7 @@ export function LeaderboardPanel({
     );
   }
   if (board === null) {
-    return <p className="text-sm text-slate-500">Loading…</p>;
+    return <SkeletonTable rows={8} />;
   }
 
   return (

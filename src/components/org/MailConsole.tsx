@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SkeletonText } from "@/components/org/Skeleton";
 import {
   AlertTriangle,
   Check,
@@ -169,7 +170,7 @@ function Sends() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
           {batches === null
-            ? "Loading…"
+            ? <SkeletonText className="w-28" />
             : `${batches.length} send${batches.length === 1 ? "" : "s"}${
                 active ? " · delivering" : ""
               }`}
@@ -693,7 +694,7 @@ function Templates() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
           {templates === null
-            ? "Loading…"
+            ? <SkeletonText className="w-44" />
             : `${templates.length} template${templates.length === 1 ? "" : "s"} · stored in SES, edited here`}
         </p>
         <div className="flex gap-2">

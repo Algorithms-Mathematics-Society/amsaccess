@@ -44,11 +44,21 @@ export type ContestInvigilation = {
   violation_count: number;
   photos: SessionPhoto[];
   flags?: InvigilationFlag[];
+  incidents?: StudentIncident[];
 };
 
 /** Something the proctor thought worth recording: a phone-shaped object, a
  *  missing face, more than one face. Never a verdict -- the image is what
  *  settles it, which is why these are shown rather than counted. */
+export type StudentIncident = {
+  uid: string;
+  category: string;
+  message: string;
+  status: string;
+  created_at: string;
+  resolved_at: string | null;
+};
+
 export type InvigilationFlag = {
   uid: string;
   kind: string;
@@ -278,6 +288,36 @@ export function InvigilationTimeline({ studentUid }: { studentUid: string }) {
                 <span className="text-xs text-amber-700">{row.violation_count} flagged</span>
               )}
             </div>
+
+            {(row.incidents ?? []).length > 0 && (
+              /* What the candidate said, next to what the camera saw. A
+                 reviewer looking at a gap in the strip needs to know the
+                 person reported their camera dying at that exact minute,
+                 or they will read an equipment failure as an absence. */
+              <div className="mb-3 space-y-1.5">
+                {(row.incidents ?? []).map((incident) => (
+                  <div
+                    key={incident.uid}
+                    className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs"
+                  >
+                    <span className="font-medium text-amber-900">
+                      {incident.category.replace(/_/g, " ")}
+                    </span>
+                    <span className="text-amber-700">
+                      {elapsedLabel(row.started_at, incident.created_at)}
+                    </span>
+                    {incident.resolved_at && (
+                      <span className="rounded-full bg-amber-200/70 px-1.5 py-0.5 text-[10px] text-amber-900">
+                        resolved
+                      </span>
+                    )}
+                    {incident.message && (
+                      <span className="w-full text-amber-900/80">{incident.message}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {(row.flags ?? []).length > 0 && (
               /* Red, and above the strip. These are the frames a reviewer

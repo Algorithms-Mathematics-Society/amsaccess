@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SkeletonTable } from "@/components/org/Skeleton";
 import Link from "next/link";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
 import { extractEmails } from "@/lib/roster";
@@ -1007,7 +1008,7 @@ function CredentialMail({ contestUid, onChange }: { contestUid: string; onChange
       {open && (
         <div className="absolute right-0 z-10 mt-2 w-[26rem] rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
           {plan === null ? (
-            <p className="text-sm text-slate-500">Loading…</p>
+            <SkeletonTable rows={3} bare />
           ) : queued ? (
             <div>
               <p className="text-sm font-medium text-slate-900">

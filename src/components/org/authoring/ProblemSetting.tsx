@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { SkeletonTable } from "@/components/org/Skeleton";
 import { FilePlus2, Loader2, Trash2 } from "lucide-react";
 import type { DraftStatus, DraftSummary } from "./types";
 import { ProblemEditor } from "./ProblemEditor";
@@ -103,7 +104,7 @@ export function ProblemSetting() {
         </p>
       )}
 
-      {drafts === null && <p className="text-sm text-slate-500">Loading…</p>}
+      {drafts === null && <SkeletonTable rows={4} />}
 
       {drafts?.length === 0 && !error && (
         <p className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500">
