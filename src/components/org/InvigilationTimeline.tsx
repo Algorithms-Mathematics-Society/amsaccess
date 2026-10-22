@@ -71,6 +71,10 @@ const FLAG_LABEL: Record<string, string> = {
   face_missing: "No face",
   multiple_faces: "Two faces",
   object_suspected: "Possible phone",
+  focus_loss: "Left the exam window",
+  clipboard_copy: "Copied from the statement",
+  clipboard_paste: "Pasted from outside",
+  clipboard_paste_blocked: "External paste blocked",
 };
 
 function Frame({
@@ -319,13 +323,38 @@ export function InvigilationTimeline({ studentUid }: { studentUid: string }) {
               </div>
             )}
 
-            {(row.flags ?? []).length > 0 && (
+            {(row.flags ?? []).filter((f) => !f.has_image).length > 0 && (
+              /* Flags with nothing to look at: leaving the window, pasting
+                 from outside. A strip of dashed "no image" boxes reads as
+                 broken thumbnails rather than as the events they are, so
+                 these are lines. */
+              <div className="mb-3 space-y-1.5">
+                {(row.flags ?? [])
+                  .filter((f) => !f.has_image)
+                  .map((flag) => (
+                    <div
+                      key={flag.uid}
+                      className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs"
+                    >
+                      <span className="font-medium text-rose-900">
+                        {FLAG_LABEL[flag.kind] ?? flag.kind.replace(/_/g, " ")}
+                      </span>
+                      <span className="text-rose-700">
+                        {elapsedLabel(row.started_at, flag.created_at)}
+                      </span>
+                      {flag.detail && <span className="text-rose-900/80">{flag.detail}</span>}
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {(row.flags ?? []).filter((f) => f.has_image).length > 0 && (
               /* Red, and above the strip. These are the frames a reviewer
                  opened the page for; burying them after sixty routine
                  photographs would mean scrolling past the evidence to reach
                  the evidence. */
               <div className="mb-3 flex items-start gap-3 overflow-x-auto pb-2">
-                {(row.flags ?? []).map((flag) => (
+                {(row.flags ?? []).filter((f) => f.has_image).map((flag) => (
                   <figure key={flag.uid} className="shrink-0">
                     {flag.has_image ? (
                       // eslint-disable-next-line @next/next/no-img-element
