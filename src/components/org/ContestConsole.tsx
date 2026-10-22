@@ -111,14 +111,14 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
 
   if (error && !contest) {
     return (
-      <div className="px-8 py-6">
+      <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6">
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       </div>
     );
   }
-  if (!contest) return <div className="px-8 py-6 text-sm text-slate-500">Loading…</div>;
+  if (!contest) return <div className="px-4 py-5 text-sm text-slate-500 sm:px-6 md:px-8 md:py-6">Loading…</div>;
 
   // Over the whole contest when the API can say, over the loaded page when
   // it cannot. `total` carries which, so the table can be honest about it.
@@ -134,7 +134,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
 
   return (
     <div>
-      <header className="border-b border-slate-200 bg-white px-8 py-6">
+      <header className="border-b border-slate-200 bg-white px-4 py-5 sm:px-6 md:px-8 md:py-6">
         <Link
           href="/org/contests"
           className="mb-3 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900"
@@ -144,9 +144,9 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
         </Link>
 
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3 md:flex-nowrap">
+              <h1 className="break-words text-2xl font-semibold tracking-tight text-slate-950">
                 {contest.title}
               </h1>
               <span
@@ -196,8 +196,8 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
         )}
       </header>
 
-      <div className="border-b border-slate-200 bg-white px-8">
-        <nav className="flex gap-6">
+      <div className="border-b border-slate-200 bg-white px-4 sm:px-6 md:px-8">
+        <nav className="flex gap-6 overflow-x-auto md:overflow-visible">
           {(
             [
               "problems",
@@ -212,7 +212,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className={`border-b-2 px-1 py-3 text-sm font-medium capitalize transition ${
+              className={`flex-shrink-0 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium capitalize transition ${
                 tab === t
                   ? "border-slate-900 text-slate-900"
                   : "border-transparent text-slate-500 hover:text-slate-800"
@@ -234,7 +234,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
           submissions CSV, and Rejudge was one stray click away at all times
           from a screen that has nothing to do with it. */}
       {tab === "submissions" && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-8 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 md:px-8">
           <RejudgeButton contestUid={contest.uid} onDone={loadSubmissions} />
           <a
             href={`/api/org/contests/${contest.uid}/export?kind=standings`}
@@ -253,7 +253,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
         </div>
       )}
 
-      <div className="px-8 py-6">
+      <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6">
         {tab === "problems" ? (
           <ProblemsTab contest={contest} onChange={loadContest} />
         ) : tab === "participants" ? (

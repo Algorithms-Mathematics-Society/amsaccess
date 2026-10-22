@@ -192,22 +192,24 @@ function IdentityDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
       onClick={onClose}
     >
+      {/* On a phone the two photos stack, which is taller than the screen,
+          so the card scrolls inside the overlay instead of losing its top. */}
       <div
-        className="w-full max-w-2xl rounded-2xl bg-white shadow-xl"
+        className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl md:max-h-none md:overflow-visible"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
-          <div>
+          <div className="min-w-0">
             <h3 className="text-base font-semibold text-slate-900">
               {row.display_name || "Unknown"}
             </h3>
-            <p className="font-mono text-xs text-slate-500">{row.login_id}</p>
+            <p className="break-all font-mono text-xs text-slate-500">{row.login_id}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg p-2.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 md:p-1.5"
           >
             <X className="h-4 w-4" />
           </button>
@@ -388,11 +390,11 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-slate-900">
                       {request.display_name || "Unknown"}{" "}
-                      <span className="font-mono text-xs text-slate-400">
+                      <span className="break-all font-mono text-xs text-slate-400">
                         {request.login_id}
                       </span>
                     </p>
-                    <p className="mt-1 text-sm text-slate-700">
+                    <p className="mt-1 break-words text-sm text-slate-700">
                       {request.reason || "No reason given."}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
@@ -401,7 +403,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                         <>
                           {" "}
                           ·{" "}
-                          <span className="font-mono">
+                          <span className="break-all font-mono">
                             {request.device_fingerprint}
                           </span>
                         </>
@@ -412,7 +414,9 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                         ` · reopened ${request.resume_count}× already`}
                     </p>
                   </div>
-                  <div className="flex flex-shrink-0 gap-2">
+                  {/* Below md the decision gets a full-width row of
+                      thumb-sized buttons, not two small ones beside the text. */}
+                  <div className="flex w-full flex-shrink-0 gap-2 md:w-auto">
                     <button
                       type="button"
                       onClick={() =>
@@ -423,7 +427,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                         )
                       }
                       disabled={busy === request.uid}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40 md:flex-none md:justify-start md:py-1.5"
                     >
                       {busy === request.uid ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -442,7 +446,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                         )
                       }
                       disabled={busy === request.uid}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 md:flex-none md:justify-start md:py-1.5"
                     >
                       <X className="h-3.5 w-3.5" />
                       Refuse
@@ -486,14 +490,14 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-slate-900">
                       {incident.display_name || "Unknown"}{" "}
-                      <span className="font-mono text-xs text-slate-400">
+                      <span className="break-all font-mono text-xs text-slate-400">
                         {incident.login_id}
                       </span>
                     </p>
-                    <p className="mt-1 text-sm text-slate-700">
+                    <p className="mt-1 break-words text-sm text-slate-700">
                       {incident.message}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 break-words text-xs text-slate-500">
                       {incident.category}
                       {incident.contact && ` · ${incident.contact}`} ·{" "}
                       {new Date(incident.created_at).toLocaleTimeString()}
@@ -509,7 +513,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                         )
                       }
                       disabled={busy === incident.uid}
-                      className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40"
+                      className="inline-flex w-full flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 md:w-auto md:justify-start md:py-1.5"
                     >
                       {busy === incident.uid ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -547,12 +551,90 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
           us — worth a look before they find you.
         </p>
 
+        {/* Below md each candidate is a card: the same fields and the same
+            quiet highlight, without a 780px table to scroll sideways. */}
+        {sessions.length > 0 && (
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
+            {sessions.map((row) => {
+              const running =
+                row.status === "active" || row.status === "pending";
+              const isQuiet =
+                running &&
+                (row.idle_seconds === null ||
+                  row.idle_seconds >= QUIET_AFTER_SECONDS);
+              return (
+                <li
+                  key={row.uid}
+                  className={`flex items-start gap-3 px-4 py-3 ${isQuiet ? "bg-amber-50/60" : ""}`}
+                >
+                  <IdentityThumb
+                    contestUid={contestUid}
+                    row={row}
+                    onOpen={() => setPhotoRowUid(row.uid)}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 text-sm">
+                        {row.user_uid ? (
+                          <Link
+                            href={`/org/participants/${row.user_uid}`}
+                            className="font-medium text-slate-900 hover:underline"
+                          >
+                            {row.display_name || "Unknown"}
+                          </Link>
+                        ) : (
+                          <span className="font-medium text-slate-900">
+                            {row.display_name || "Unknown"}
+                          </span>
+                        )}
+                        <span className="block break-all font-mono text-xs text-slate-400">
+                          {row.login_id}
+                        </span>
+                      </p>
+                      {row.violation_count > 0 && (
+                        <span className="inline-flex flex-shrink-0 items-center gap-1 text-xs text-amber-700">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          {row.violation_count}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                      <span className="text-slate-700">{row.status}</span>
+                      {row.resume_pending && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-800">
+                          waiting on you
+                        </span>
+                      )}
+                      {running && (
+                        <span
+                          className={
+                            isQuiet
+                              ? "font-medium text-amber-800"
+                              : "text-slate-500"
+                          }
+                        >
+                          Last contact: {idleLabel(row.idle_seconds)}
+                        </span>
+                      )}
+                      {row.resume_count > 0 && (
+                        <span className="text-slate-500">
+                          reopened {row.resume_count}×
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
         {sessions.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-slate-500">
             Nobody has started this contest yet.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
             <table className="w-full min-w-[780px] text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
@@ -658,12 +740,58 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
           through when a detector misfires.
         </p>
 
+        {readiness.length > 0 && (
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
+            {readiness.map((row) => (
+              <li key={row.uid} className="space-y-2 px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 break-words text-sm font-medium text-slate-900">
+                    {row.display_name || "Unknown"}
+                  </p>
+                  {row.passed && (
+                    <span className="flex-shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+                      ready
+                    </span>
+                  )}
+                </div>
+                <p className="break-all text-xs">
+                  <span className="font-mono text-slate-600">
+                    {row.device_fingerprint.slice(0, 20)}
+                  </span>
+                  <span className="ml-2 text-slate-400">{row.os_name}</span>
+                </p>
+                {!row.passed && (
+                  <p className="flex items-start gap-1.5 text-xs text-amber-800">
+                    <AlertTriangle className="mt-px h-3.5 w-3.5 flex-shrink-0" />
+                    {row.failed_checks.join(", ") || "failed"}
+                  </p>
+                )}
+                {!row.passed && row.failed_checks.length > 0 && (
+                  <GrantWaiver
+                    checks={row.failed_checks}
+                    device={row.device_fingerprint}
+                    busy={busy === row.uid}
+                    onGrant={(checkKind, reason) =>
+                      act(row.uid, `${base}?action=grant-override`, {
+                        device_fingerprint: row.device_fingerprint,
+                        check_kind: checkKind,
+                        reason,
+                        minutes: 120,
+                      })
+                    }
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
         {readiness.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-slate-500">
             No devices have reported yet.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
@@ -736,7 +864,44 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
               </span>
             )}
           </h3>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
+            {overrides.map((grant) => (
+              <li
+                key={grant.uid}
+                className={`flex items-center justify-between gap-3 px-4 py-3 ${grant.revoked ? "opacity-50" : ""}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900">
+                    {grant.check_kind}
+                  </p>
+                  <p className="break-all font-mono text-xs text-slate-600">
+                    {grant.device_fingerprint.slice(0, 20)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {grant.revoked
+                      ? "Revoked"
+                      : `Expires ${new Date(grant.expires_at).toLocaleTimeString()}`}
+                  </p>
+                </div>
+                {!grant.revoked && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      act(
+                        grant.uid,
+                        `${base}?action=revoke-override&uid=${grant.uid}`,
+                      )
+                    }
+                    disabled={busy === grant.uid}
+                    className="flex-shrink-0 rounded-lg border border-red-200 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
+                  >
+                    Revoke
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
@@ -813,7 +978,7 @@ function GrantWaiver({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
+        className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 md:w-auto md:py-1.5"
       >
         Waive…
       </button>
@@ -821,11 +986,11 @@ function GrantWaiver({
   }
 
   return (
-    <div className="ml-auto max-w-xs space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left">
+    <div className="ml-auto space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left md:max-w-xs">
       <select
         value={checkKind}
         onChange={(e) => setCheckKind(e.target.value)}
-        className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+        className="w-full rounded border border-slate-300 px-2 py-2 text-base md:py-1 md:text-xs"
       >
         {checks.map((check) => (
           <option key={check} value={check}>
@@ -837,12 +1002,12 @@ function GrantWaiver({
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Why — e.g. verified in person"
-        className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+        className="w-full rounded border border-slate-300 px-2 py-2 text-base md:py-1 md:text-xs"
       />
       <p className="text-[11px] text-slate-500">
         Valid 2 hours, for {device.slice(0, 12)}… only.
       </p>
-      <div className="flex gap-1">
+      <div className="flex gap-2 md:gap-1">
         <button
           type="button"
           onClick={() => {
@@ -852,14 +1017,14 @@ function GrantWaiver({
           }}
           disabled={busy || !reason.trim()}
           title={reason.trim() ? undefined : "Give a reason"}
-          className="rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
+          className="flex-1 rounded bg-slate-900 px-2.5 py-2 text-xs font-medium text-white disabled:opacity-40 md:flex-none md:py-1"
         >
           Grant
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="rounded px-2 py-1 text-xs text-slate-500"
+          className="flex-1 rounded px-2 py-2 text-xs text-slate-500 md:flex-none md:py-1"
         >
           Cancel
         </button>
