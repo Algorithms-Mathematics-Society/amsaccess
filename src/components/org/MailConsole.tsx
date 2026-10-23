@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { startOrgPolling } from "@/lib/client/orgPolling";
+import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
 import { SkeletonText } from "@/components/org/Skeleton";
 import {
   AlertTriangle,
@@ -139,30 +141,26 @@ function Sends() {
   const [open, setOpen] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const load = useCallback(async () => {
+  const read = useCallback(async (signal: AbortSignal) => {
     try {
-      setBatches(await json<Batch[]>(await fetch("/api/org/mail/batches", { cache: "no-store" })));
+      const next = await json<Batch[]>(await fetch("/api/org/mail/batches", { cache: "no-store", signal }));
+      if (signal.aborted) return;
+      setBatches(next);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load sends.");
+      if (!signal.aborted) setError(err instanceof Error ? err.message : "Could not load sends.");
     }
   }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // Keep polling while anything is still going out, and stop when it is not:
-  // an idle console should not be hitting the API every five seconds.
+  const { load } = useOrgReadTask(read);
   const active = batches?.some((b) => inFlight(b.counts)) ?? false;
   useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => void load(), POLL_MS);
-    return () => clearInterval(id);
-  }, [active, load]);
+    if (open) return;
+    return startOrgPolling(load, active ? POLL_MS : null, { immediate: false });
+  }, [load, active, open]);
+  useEffect(() => { if (!open) void load(); }, [load, open]);
 
   if (open) {
-    return <BatchView uid={open} onBack={() => { setOpen(null); void load(); }} />;
+    return <BatchView uid={open} onBack={() => setOpen(null)} />;
   }
 
   return (
@@ -299,8 +297,8 @@ function NewSend({
     void (async () => {
       try {
         const [t, c] = await Promise.all([
-          json<Template[]>(await fetch("/api/org/mail/templates", { cache: "no-store" })),
-          json<Contest[]>(await fetch("/api/org/contests", { cache: "no-store" })),
+          fetch("/api/org/mail/templates", { cache: "no-store" }).then((res) => json<Template[]>(res)),
+          fetch("/api/org/contests", { cache: "no-store" }).then((res) => json<Contest[]>(res)),
         ]);
         // The credential template is sent from the roster, where the
         // passphrase logic lives; offering it here would only fail.
@@ -450,33 +448,26 @@ function BatchView({ uid, onBack }: { uid: string; onBack: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("");
 
-  const load = useCallback(async () => {
+  const read = useCallback(async (signal: AbortSignal) => {
     try {
-      setBatch(
-        await json<BatchDetail>(await fetch(`/api/org/mail/batches/${uid}`, { cache: "no-store" })),
-      );
+      const next = await json<BatchDetail>(await fetch(`/api/org/mail/batches/${uid}`, { cache: "no-store", signal }));
+      if (signal.aborted) return;
+      setBatch(next);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load the send.");
+      if (!signal.aborted) setError(err instanceof Error ? err.message : "Could not load the send.");
     }
   }, [uid]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
+  const { load, refreshAfterWrite } = useOrgReadTask(read);
+  useEffect(() => { void load(); }, [load]);
   const active = batch ? inFlight(batch.counts) : false;
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => void load(), POLL_MS);
-    return () => clearInterval(id);
-  }, [active, load]);
+  useEffect(() => startOrgPolling(load, active ? POLL_MS : null, { immediate: false }), [active, load]);
 
   async function retry(path: string, key: string) {
     setBusy(key);
     try {
       await json(await fetch(path, { method: "POST" }));
-      await load();
+      await refreshAfterWrite();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not retry.");
     } finally {
@@ -641,10 +632,8 @@ function Templates() {
   const load = useCallback(async () => {
     try {
       const [t, v] = await Promise.all([
-        json<Template[]>(await fetch("/api/org/mail/templates", { cache: "no-store" })),
-        json<{ variables: Variable[] }>(
-          await fetch("/api/org/mail/templates?variables=1", { cache: "no-store" }),
-        ),
+        fetch("/api/org/mail/templates", { cache: "no-store" }).then((res) => json<Template[]>(res)),
+        fetch("/api/org/mail/templates?variables=1", { cache: "no-store" }).then((res) => json<{ variables: Variable[] }>(res)),
       ]);
       setTemplates(t);
       setVariables(v.variables);

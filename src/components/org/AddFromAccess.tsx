@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SkeletonTable } from "@/components/org/Skeleton";
 import { Check, Loader2, Search, UserPlus, X } from "lucide-react";
 
@@ -63,20 +63,25 @@ export function AddFromAccess({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const request = useRef<AbortController | null>(null);
   const load = useCallback(async (q: string) => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     try {
       const url = q.trim() ? `/api/org/students?q=${encodeURIComponent(q.trim())}` : "/api/org/students";
-      setStudents(await json<Student[]>(await fetch(url, { cache: "no-store" })));
+      const next = await json<Student[]>(await fetch(url, { cache: "no-store", signal: controller.signal }));
+      if (controller.signal.aborted || request.current !== controller) return;
+      setStudents(next);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load the directory.");
+      if (!controller.signal.aborted && request.current === controller) setError(err instanceof Error ? err.message : "Could not load the directory.");
     }
   }, []);
 
-  // Debounced so typing a name does not fire a request per keystroke.
   useEffect(() => {
     const t = setTimeout(() => void load(query), query ? 250 : 0);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); request.current?.abort(); };
   }, [query, load]);
 
   // Someone already on this roster is shown, greyed, rather than hidden —
@@ -147,7 +152,7 @@ export function AddFromAccess({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { request.current?.abort(); setQuery(e.target.value); }}
               placeholder="Search by name, college or reference"
               autoFocus
               className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-900"

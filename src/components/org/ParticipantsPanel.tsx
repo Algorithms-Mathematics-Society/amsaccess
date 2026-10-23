@@ -184,6 +184,17 @@ function ParticipantsContent({
     return () => window.removeEventListener("beforeunload", warn);
   }, [issued, saved]);
 
+  const { active, loggedIn, unkeyed, rosterUids } = useMemo(() => {
+    let active = 0, loggedIn = 0, unkeyed = 0;
+    const rosterUids = new Set<string>();
+    for (const row of roster ?? []) {
+      rosterUids.add(row.user_uid);
+      if (!row.revoked) { active++; if (!row.has_passphrase) unkeyed++; }
+      if (row.last_login_at) loggedIn++;
+    }
+    return { active, loggedIn, unkeyed, rosterUids };
+  }, [roster]);
+
   if (issued !== null) {
     return (
       <IssuedCredentials
@@ -200,9 +211,6 @@ function ParticipantsContent({
     );
   }
 
-  const active = roster?.filter((p) => !p.revoked).length ?? 0;
-  const loggedIn = roster?.filter((p) => p.last_login_at).length ?? 0;
-  const unkeyed = roster?.filter((p) => !p.revoked && !p.has_passphrase).length ?? 0;
 
   return (
     <div>
@@ -259,7 +267,7 @@ function ParticipantsContent({
           contestUid={contestUid}
           // The roster's own user uids, so people already here are not offered
           // again — adding them twice is harmless but looks like a mistake.
-          alreadyOnRoster={new Set((roster ?? []).map((row) => row.user_uid))}
+          alreadyOnRoster={rosterUids}
           onAdded={(result) => {
             setPickingFromAccess(false);
             absorb({

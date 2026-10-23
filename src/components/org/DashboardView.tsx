@@ -130,7 +130,8 @@ function Dashboard() {
   // A clock tick, not a poll: it re-renders time text and the "today" date.
   const now = useNow();
 
-  const loading = contests.loading || problems.loading || fleet.loading;
+  const loading = contests.loading || problems.loading || fleet.loading ||
+    contests.refreshing || problems.refreshing || fleet.refreshing;
   const refresh = useCallback(() => {
     void Promise.all([contests.reload(), problems.reload(), fleet.reload()]);
   }, [contests, problems, fleet]);

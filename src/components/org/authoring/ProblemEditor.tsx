@@ -1,5 +1,7 @@
 "use client";
 
+import { invalidate } from "@/lib/client/useApiQuery";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import type { CxxprobeReport, DraftDetail, DraftStatus, Package } from "./types";
@@ -162,6 +164,7 @@ export function ProblemEditor({ uid, onClose }: { uid: string; onClose: () => vo
       const res = await fetch(`/api/org/problem-drafts/${uid}/publish`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        invalidate("/api/org/problems");
         setStatus("published");
         setDraft((d) => (d ? { ...d, ...data } : d));
       } else {

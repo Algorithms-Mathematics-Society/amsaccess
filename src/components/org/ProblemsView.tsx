@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useApiQuery, invalidate } from "@/lib/client/useApiQuery";
 import { SkeletonText } from "@/components/org/Skeleton";
 import {
   Upload,
@@ -22,22 +23,12 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export function ProblemsView({ embedded = false }: { embedded?: boolean } = {}) {
-  const [problems, setProblems] = useState<Problem[] | null>(null);
-  const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      setProblems(await json<Problem[]>(await fetch("/api/org/problems", { cache: "no-store" })));
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load problems.");
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const url = "/api/org/problems";
+  const { data: problems, error, refresh } = useApiQuery<Problem[]>(url, () =>
+    fetch(url, { cache: "no-store" }).then((res) => json<Problem[]>(res)), { staleMs: 0 });
+  const load = () => { invalidate("/api/org/problems"); return refresh(); };
 
   return (
     // The tabs above already supply the page padding; doubling it here

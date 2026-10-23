@@ -18,6 +18,7 @@ import {
 import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClass } from "@/lib/contestTypes";
+import { invalidate } from "@/lib/client/useApiQuery";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { LeaderboardPanel } from "./LeaderboardPanel";
@@ -99,6 +100,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   }, []);
 
   const loadContest = useCallback(async () => {
+    invalidate("/api/org/contests");
     try {
       setContest(
         await json<Contest>(

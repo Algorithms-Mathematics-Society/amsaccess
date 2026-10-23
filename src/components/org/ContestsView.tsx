@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useApiQuery, invalidate } from "@/lib/client/useApiQuery";
 import { SkeletonText } from "@/components/org/Skeleton";
 import Link from "next/link";
 import { Archive, CalendarDays, Plus, Square, Trash2, Undo2, Users } from "lucide-react";
@@ -20,24 +21,13 @@ function localInputValue(d: Date): string {
 }
 
 export function ContestsView() {
-  const [contests, setContests] = useState<Contest[] | null>(null);
-  const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const url = showArchived ? "/api/org/contests?archived=1" : "/api/org/contests";
-      setContests(await json<Contest[]>(await fetch(url, { cache: "no-store" })));
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load contests.");
-    }
-  }, [showArchived]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const url = showArchived ? "/api/org/contests?archived=1" : "/api/org/contests";
+  const { data: contests, error, refresh } = useApiQuery<Contest[]>(url, () =>
+    fetch(url, { cache: "no-store" }).then((res) => json<Contest[]>(res)), { staleMs: 0 });
+  const load = () => { invalidate("/api/org/contests"); return refresh(); };
 
   return (
     <div className="px-8 py-6">

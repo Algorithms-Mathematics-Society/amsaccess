@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOrgDesktopLayout } from "@/lib/client/useOrgDesktopLayout";
+import { startOrgPolling } from "@/lib/client/orgPolling";
+import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
 import {
   AlertTriangle,
@@ -263,6 +266,7 @@ function IdentityDialog({
 }
 
 export function InvigilationPanel({ contestUid }: { contestUid: string }) {
+  const desktop = useOrgDesktopLayout();
   // Which candidate's photos are open, by session uid. Held here rather than
   // in the row so the dialog survives the ten-second roster refresh --
   // otherwise it closed itself under the invigilator every poll.
@@ -278,55 +282,34 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
   // Resolved from the live list rather than copied on click, so an open
   // dialog picks up the exit photo the moment that candidate finishes
   // instead of showing the roster as it was ten seconds ago.
-  const photoRow = sessions.find((row) => row.uid === photoRowUid) ?? null;
+  const photoRow = useMemo(() => sessions.find((row) => row.uid === photoRowUid) ?? null, [sessions, photoRowUid]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const read = useCallback(async (signal: AbortSignal) => {
     const base = `/api/org/contests/${contestUid}/invigilation`;
-
-    // Each view is fetched independently and failures are per-section, not
-    // per-panel. Promise.all here meant one endpoint hiccuping blanked all
-    // five, so an invigilator mid-contest could lose the help-request list
-    // because the roster was briefly unhappy — and a view the deployed API
-    // does not yet serve took the whole screen down with it.
-    async function view<T>(name: string): Promise<T | null> {
+    // Render each section as it arrives; retain the previous section on failure.
+    async function view<T>(name: string, update: (value: T) => void): Promise<boolean> {
       try {
-        return await json<T>(
-          await fetch(`${base}?view=${name}`, { cache: "no-store" }),
-        );
+        const value = await json<T>(await fetch(`${base}?view=${name}`, { cache: "no-store", signal }));
+        if (signal.aborted || value == null) return false;
+        update(value);
+        return true;
       } catch {
-        return null;
+        return false;
       }
     }
-
-    const [r, o, i, q, live] = await Promise.all([
-      view<ReadinessRow[]>("readiness"),
-      view<Override[]>("overrides"),
-      view<Incident[]>("incidents"),
-      view<ResumeRequest[]>("resume-requests"),
-      view<SessionRow[]>("sessions"),
+    const results = await Promise.all([
+      view("readiness", setReadiness),
+      view("overrides", setOverrides),
+      view("incidents", setIncidents),
+      view("resume-requests", setResumes),
+      view("sessions", setSessions),
     ]);
-
-    if (r) setReadiness(r);
-    if (o) setOverrides(o);
-    if (i) setIncidents(i);
-    if (q) setResumes(q);
-    if (live) setSessions(live);
-
-    // Only complain when nothing at all came back — that is a signed-out or
-    // unreachable console, which is worth interrupting somebody for. A single
-    // missing view is not, and holding the last good data beats replacing a
-    // working screen with an error during a contest.
-    const missing = [r, o, i, q, live].filter((value) => value === null).length;
-    setError(missing === 5 ? "Could not load invigilation data." : "");
+    if (!signal.aborted) setError(results.some(Boolean) ? "" : "Could not load invigilation data.");
   }, [contestUid]);
-
-  useEffect(() => {
-    void load();
-    const id = setInterval(() => void load(), POLL_MS);
-    return () => clearInterval(id);
-  }, [load]);
+  const { load, refreshAfterWrite } = useOrgReadTask(read);
+  useEffect(() => startOrgPolling(load, POLL_MS), [load]);
 
   async function act(key: string, url: string, body?: unknown) {
     setBusy(key);
@@ -339,7 +322,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
           body: body === undefined ? undefined : JSON.stringify(body),
         }),
       );
-      await load();
+      await refreshAfterWrite();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That did not work.");
     } finally {
@@ -348,15 +331,15 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
   }
 
   const base = `/api/org/contests/${contestUid}/invigilation`;
-  const openIncidents = incidents.filter((i) => i.status !== "resolved");
-  const blocked = readiness.filter((r) => !r.passed);
-  const liveOverrides = overrides.filter((o) => !o.revoked);
-  const waiting = resumes.filter((r) => r.status === "pending");
-  const quiet = sessions.filter(
+  const openIncidents = useMemo(() => incidents.filter((i) => i.status !== "resolved"), [incidents]);
+  const blocked = useMemo(() => readiness.filter((r) => !r.passed), [readiness]);
+  const liveOverrides = useMemo(() => overrides.filter((o) => !o.revoked), [overrides]);
+  const waiting = useMemo(() => resumes.filter((r) => r.status === "pending"), [resumes]);
+  const quiet = useMemo(() => sessions.filter(
     (row) =>
       (row.status === "active" || row.status === "pending") &&
       (row.idle_seconds === null || row.idle_seconds >= QUIET_AFTER_SECONDS),
-  );
+  ), [sessions]);
 
   return (
     <div className="space-y-8">
@@ -557,7 +540,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
 
         {/* Below md each candidate is a card: the same fields and the same
             quiet highlight, without a 780px table to scroll sideways. */}
-        {sessions.length > 0 && (
+        {!desktop && sessions.length > 0 && (
           <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
             {sessions.map((row) => {
               const running =
@@ -638,7 +621,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
           <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-slate-500">
             Nobody has started this contest yet.
           </p>
-        ) : (
+        ) : desktop ? (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
             <table className="w-full min-w-[780px] text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -723,7 +706,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
       </section>
 
       {photoRow && (
@@ -746,7 +729,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
           through when a detector misfires.
         </p>
 
-        {readiness.length > 0 && (
+        {!desktop && readiness.length > 0 && (
           <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
             {readiness.map((row) => (
               <li key={row.uid} className="space-y-2 px-4 py-3">
@@ -796,7 +779,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
           <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-slate-500">
             No devices have reported yet.
           </p>
-        ) : (
+        ) : desktop ? (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -855,7 +838,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
       </section>
 
       {/* Waivers currently in force. */}
@@ -870,7 +853,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
               </span>
             )}
           </h3>
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
+          {!desktop && <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
             {overrides.map((grant) => (
               <li
                 key={grant.uid}
@@ -906,8 +889,8 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                 )}
               </li>
             ))}
-          </ul>
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+          </ul>}
+          {desktop && <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
@@ -955,7 +938,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </div>}
         </section>
       )}
     </div>

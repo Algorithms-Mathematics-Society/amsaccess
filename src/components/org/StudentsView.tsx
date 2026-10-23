@@ -110,10 +110,11 @@ export function StudentsView() {
     }
   }, []);
 
-  // Debounced: typing a college name should not fire a request per keystroke.
-  // Everything else changes on a click, but one path keeps them in step.
+  // Only typing waits; initial load, selects and Clear start immediately.
+  const debounceSearch = useRef(false);
   useEffect(() => {
-    const id = setTimeout(() => void load(filters), 300);
+    const id = debounceSearch.current ? setTimeout(() => void load(filters), 300) : undefined;
+    if (id === undefined) void load(filters);
     return () => {
       clearTimeout(id);
       request.current?.abort();
@@ -121,6 +122,7 @@ export function StudentsView() {
   }, [filters, load]);
 
   const set = (patch: Partial<Filters>) => {
+    debounceSearch.current = Object.keys(patch).length === 1 && "q" in patch;
     // Invalidate now: an older response can arrive during the debounce delay.
     request.current?.abort();
     setRefreshing(true);

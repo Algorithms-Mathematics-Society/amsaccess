@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { clearApiCache } from "@/lib/client/useApiQuery";
+
+import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -19,6 +21,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export default function SignUpPage() {
   const router = useRouter();
+  useEffect(() => { clearApiCache(); }, []);
   const [stage, setStage] = useState<Stage>("details");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,6 +44,7 @@ export default function SignUpPage() {
       // A pool configured to auto-confirm skips the code entirely; going
       // straight to sign-in avoids asking for something that never arrives.
       if (confirmed) {
+        clearApiCache();
         router.push("/org/login");
         return;
       }
@@ -60,6 +64,7 @@ export default function SignUpPage() {
     try {
       await post("/api/auth/confirm", { email: email.trim(), code: code.trim() });
       await post("/api/auth/login", { email: email.trim(), password });
+      clearApiCache();
       router.push("/org/dashboard");
       router.refresh();
     } catch (err) {

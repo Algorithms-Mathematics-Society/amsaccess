@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useApiQuery } from "@/lib/client/useApiQuery";
 
 export type Read<T> = {
   data: T | null;
   error: string;
   loading: boolean;
+  refreshing: boolean;
   reload: () => Promise<void>;
 };
 
@@ -28,30 +29,7 @@ async function json<T>(res: Response, isValid?: (data: unknown) => boolean): Pro
  * the wrong shape; pass a module-level function so it never causes a refetch.
  */
 export function useRead<T>(url: string, isValid?: (data: unknown) => boolean): Read<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const seq = useRef(0);
-
-  const reload = useCallback(async () => {
-    const mine = ++seq.current;
-    setLoading(true);
-    try {
-      const next = await json<T>(await fetch(url, { cache: "no-store" }), isValid);
-      if (mine !== seq.current) return;
-      setData(next);
-      setError("");
-    } catch (err) {
-      if (mine !== seq.current) return;
-      setError(err instanceof Error ? err.message : "Request failed.");
-    } finally {
-      if (mine === seq.current) setLoading(false);
-    }
-  }, [url, isValid]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  return { data, error, loading, reload };
+  const query = useApiQuery<T>(url, async () =>
+    json<T>(await fetch(url, { cache: "no-store" }), isValid), { staleMs: 0 });
+  return { data: query.data, error: query.error ?? "", loading: query.loading, refreshing: query.refreshing, reload: query.refresh };
 }

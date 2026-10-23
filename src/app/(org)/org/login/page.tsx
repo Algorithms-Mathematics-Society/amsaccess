@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { clearApiCache } from "@/lib/client/useApiQuery";
+
+import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
@@ -26,6 +28,7 @@ const workspaceSteps = [
 
 export default function OrgLoginPage() {
   const router = useRouter();
+  useEffect(() => { clearApiCache(); }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -45,6 +48,7 @@ export default function OrgLoginPage() {
 
       // `next` lets a redirect-to-login return you where you were.
       const next = new URLSearchParams(window.location.search).get("next");
+      clearApiCache();
       router.push(next && next.startsWith("/") ? next : "/org/dashboard");
       router.refresh();
     } catch (err) {
