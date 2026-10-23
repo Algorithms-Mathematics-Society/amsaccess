@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startOrgPolling } from "@/lib/client/orgPolling";
+import { enteredParticipantKeys, participantEntered, type EntrySession } from "@/lib/client/orgEntry";
 import { SkeletonTable } from "@/components/org/Skeleton";
 import Link from "next/link";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
@@ -78,16 +80,27 @@ function download(filename: string, contents: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function ParticipantsPanel({
+export function ParticipantsPanel(props: { contestUid: string; contestTitle: string; isPractice?: boolean; live?: boolean }) {
+  return <ParticipantsContent key={props.contestUid} {...props} />;
+}
+
+function ParticipantsContent({
   contestUid,
   contestTitle,
   isPractice = false,
+  live = false,
 }: {
   contestUid: string;
   contestTitle: string;
   /** A rehearsal needs candidates who do not exist and must not. */
   isPractice?: boolean;
+  live?: boolean;
 }) {
+  const [entered, setEntered] = useState<Set<string>>(new Set());
+  const [entryError, setEntryError] = useState("");
+  const [entryLoaded, setEntryLoaded] = useState(false);
+  const [entryRetry, setEntryRetry] = useState(0);
+  const rosterRequest = useRef<AbortController | null>(null);
   const [roster, setRoster] = useState<Participant[] | null>(null);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
@@ -106,21 +119,46 @@ export function ParticipantsPanel({
   const isIntern = role === "intern";
 
   const load = useCallback(async () => {
+    rosterRequest.current?.abort();
+    const controller = new AbortController();
+    rosterRequest.current = controller;
     try {
-      setRoster(
+      const rows =
         await json<Participant[]>(
-          await fetch(`/api/org/contests/${contestUid}/participants`, { cache: "no-store" }),
-        ),
-      );
+          await fetch(`/api/org/contests/${contestUid}/participants`, { cache: "no-store", signal: controller.signal }),
+        );
+      if (controller.signal.aborted) return;
+      setRoster(rows);
       setError("");
     } catch (err) {
+      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not load the roster.");
     }
   }, [contestUid]);
 
   useEffect(() => {
     void load();
+    return () => rosterRequest.current?.abort();
   }, [load]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const stop = startOrgPolling(async () => {
+      try {
+        const sessions = await json<EntrySession[]>(await fetch(
+          `/api/org/contests/${contestUid}/invigilation?view=sessions`,
+          { cache: "no-store", signal: controller.signal },
+        ));
+        if (controller.signal.aborted) return;
+        setEntered(enteredParticipantKeys(sessions));
+        setEntryLoaded(true);
+        setEntryError("");
+      } catch {
+        if (!controller.signal.aborted) setEntryError("Entry status could not refresh.");
+      }
+    }, live ? 10000 : null);
+    return () => { stop(); controller.abort(); };
+  }, [contestUid, live, entryRetry]);
 
   /** What to show after people were added, which depends on what was minted. */
   const absorb = useCallback(
@@ -273,6 +311,12 @@ export function ParticipantsPanel({
         </p>
       )}
 
+      <p className="mb-3 text-xs text-slate-500" role="status">
+        Green names have started this contest. Signing in alone does not confirm entry.
+        {!entryLoaded && !entryError && " Checking entry status…"}
+        {entryError && <> {entryError} {entryLoaded ? "Showing last confirmed entries." : "Entry is unconfirmed."}{" "}
+          <button type="button" className="underline" onClick={() => setEntryRetry((n) => n + 1)}>Retry entry status</button></>}
+      </p>
       {roster === null && (
         /* The table's own shape. A bare "Loading…" under the tab strip said
            nothing and left the panel empty, so the page jumped when 1,300
@@ -298,7 +342,7 @@ export function ParticipantsPanel({
       ) : (
         roster !== null &&
         roster.length > 0 && (
-          <RosterTable contestUid={contestUid} rows={roster} onChange={load} onReissued={(row) => setIssued([row])} />
+          <RosterTable contestUid={contestUid} entered={entered} rows={roster} onChange={load} onReissued={(row) => setIssued([row])} />
         )
       )}
     </div>
@@ -751,11 +795,13 @@ function IssuedCredentials({
 function RosterTable({
   contestUid,
   rows,
+  entered,
   onChange,
   onReissued,
 }: {
   contestUid: string;
   rows: Participant[];
+  entered: Set<string>;
   onChange: () => void;
   onReissued: (row: IssuedCredential) => void;
 }) {
@@ -815,9 +861,10 @@ function RosterTable({
                   <button
                     type="button"
                     onClick={() => setOpenParticipant(row.user_uid)}
-                    className="text-left font-medium text-slate-900 hover:underline"
+                    className={`text-left font-medium hover:underline ${participantEntered(entered, row) ? "text-emerald-700" : "text-slate-900"}`}
                   >
                     {row.display_name}
+                    {participantEntered(entered, row) && <span className="sr-only"> — Entered this contest</span>}
                   </button>
                 </td>
                 <td className="px-4 py-2.5 font-mono text-slate-900">

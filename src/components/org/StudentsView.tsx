@@ -73,28 +73,40 @@ export function StudentsView() {
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async (active: Filters) => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setRefreshing(true);
     try {
       // The page and the counts go together. The page alone cannot say what
       // it left out, which is how "500 students" came to be printed on a
       // directory holding two and a half thousand.
       const [rows, totals] = await Promise.all([
-        json<Student[]>(
-          await fetch(`/api/org/students?${queryString(active, { limit: String(PAGE) })}`, {
-            cache: "no-store",
-          }),
-        ),
-        fetch(`/api/org/students/facets?${queryString(active)}`, { cache: "no-store" })
+        fetch(`/api/org/students?${queryString(active, { limit: String(PAGE) })}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        }).then((res) => json<Student[]>(res)),
+        fetch(`/api/org/students/facets?${queryString(active)}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        })
           .then((res) => json<Facets>(res))
           // An API without the facets route yet must not blank the list.
           .catch(() => null),
       ]);
+      if (controller.signal.aborted || request.current !== controller) return;
       setStudents(rows);
       setFacets(totals);
       setError("");
     } catch (err) {
+      if (controller.signal.aborted || request.current !== controller) return;
       setError(err instanceof Error ? err.message : "Could not load students.");
+    } finally {
+      if (!controller.signal.aborted && request.current === controller) setRefreshing(false);
     }
   }, []);
 
@@ -102,10 +114,18 @@ export function StudentsView() {
   // Everything else changes on a click, but one path keeps them in step.
   useEffect(() => {
     const id = setTimeout(() => void load(filters), 300);
-    return () => clearTimeout(id);
+    return () => {
+      clearTimeout(id);
+      request.current?.abort();
+    };
   }, [filters, load]);
 
-  const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
+  const set = (patch: Partial<Filters>) => {
+    // Invalidate now: an older response can arrive during the debounce delay.
+    request.current?.abort();
+    setRefreshing(true);
+    setFilters((f) => ({ ...f, ...patch }));
+  };
   const narrowed = Object.entries(filters).some(
     ([key, value]) => key !== "sort" && value !== "",
   );
@@ -184,7 +204,7 @@ export function StudentsView() {
           {narrowed && (
             <button
               type="button"
-              onClick={() => setFilters({ ...NO_FILTERS, sort: filters.sort })}
+              onClick={() => set({ ...NO_FILTERS, sort: filters.sort })}
               className="rounded-lg px-2.5 py-1.5 text-sm text-slate-500 hover:text-slate-900"
             >
               Clear
@@ -217,7 +237,7 @@ export function StudentsView() {
         </p>
       )}
 
-      <p className="mb-3 text-sm text-slate-500">
+      <p className="mb-3 text-sm text-slate-500" aria-live="polite" aria-busy={refreshing}>
         {students === null
           ? <SkeletonText className="w-28" />
           : facets === null
@@ -225,6 +245,7 @@ export function StudentsView() {
             : facets.total > students.length
               ? `Showing ${students.length} of ${facets.total.toLocaleString()}${narrowed ? " matching" : ""}`
               : `${facets.total.toLocaleString()} student${facets.total === 1 ? "" : "s"}${narrowed ? " match" : ""}`}
+        {refreshing && students !== null && <span className="ml-2">Updating…</span>}
       </p>
 
       {students !== null && students.length === 0 ? (

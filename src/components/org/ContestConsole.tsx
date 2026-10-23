@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -18,6 +18,7 @@ import {
 import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClass } from "@/lib/contestTypes";
+import { startOrgPolling } from "@/lib/client/orgPolling";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { LeaderboardPanel } from "./LeaderboardPanel";
 import { InvigilationPanel } from "./InvigilationPanel";
@@ -65,6 +66,10 @@ const POLL_BUSY_MS = 2_000;
 const POLL_IDLE_MS = 20_000;
 
 export function ContestConsole({ contestUid }: { contestUid: string }) {
+  return <ContestContent key={contestUid} contestUid={contestUid} />;
+}
+
+function ContestContent({ contestUid }: { contestUid: string }) {
   const [contest, setContest] = useState<Contest | null>(null);
   const [submissions, setSubmissions] = useState<ContestSubmission[]>([]);
   const [summary, setSummary] = useState<SubmissionSummary | null>(null);
@@ -106,17 +111,20 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
     }
   }, [contestUid]);
 
-  const loadSubmissions = useCallback(async () => {
+  const submissionFlight = useRef<Promise<void> | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const loadSubmissions = useCallback((): Promise<void> => {
+    if (submissionFlight.current) return submissionFlight.current;
+    const request = (async () => {
     try {
       // The table is a page; the counts are the contest. Fetched together
       // because showing one without the other is how "200" ended up beside
       // a tab on a contest with a thousand submissions.
       const [page, totals] = await Promise.all([
-        json<ContestSubmission[]>(
-          await fetch(`/api/org/contests/${contestUid}/submissions?limit=${SUBMISSION_PAGE}`, {
+        fetch(`/api/org/contests/${contestUid}/submissions?limit=${SUBMISSION_PAGE}`, {
             cache: "no-store",
-          }),
-        ),
+          }).then((res) => json<ContestSubmission[]>(res)),
         fetch(`/api/org/contests/${contestUid}/submissions/summary`, { cache: "no-store" })
           .then((res) => json<SubmissionSummary>(res))
           // An API that does not serve the summary yet must not blank the
@@ -124,12 +132,17 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
           // before, and say so in the UI rather than here.
           .catch(() => null),
       ]);
+      if (!mounted.current) return;
       setSubmissions(page);
       setSummary(totals);
     } catch {
       // A failed poll is not worth replacing the table with an error; the
       // next tick usually succeeds and the stale rows stay readable.
     }
+    })();
+    submissionFlight.current = request;
+    void request.finally(() => { if (submissionFlight.current === request) submissionFlight.current = null; });
+    return request;
   }, [contestUid]);
 
   useEffect(() => {
@@ -143,8 +156,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
   );
 
   useEffect(() => {
-    const id = setInterval(() => void loadSubmissions(), pending ? POLL_BUSY_MS : POLL_IDLE_MS);
-    return () => clearInterval(id);
+    return startOrgPolling(loadSubmissions, pending ? POLL_BUSY_MS : POLL_IDLE_MS, { immediate: false });
   }, [pending, loadSubmissions]);
 
   if (error && !contest) {
@@ -280,7 +292,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
           from a screen that has nothing to do with it. */}
       {tab === "submissions" && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 md:px-8">
-          <RejudgeButton contestUid={contest.uid} onDone={loadSubmissions} />
+          <RejudgeButton contestUid={contest.uid} onDone={async () => { await submissionFlight.current; await loadSubmissions(); }} />
           <a
             href={`/api/org/contests/${contest.uid}/export?kind=standings`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
@@ -306,6 +318,7 @@ export function ContestConsole({ contestUid }: { contestUid: string }) {
               contestUid={contest.uid}
               contestTitle={contest.title}
               isPractice={contest.is_practice}
+              live={contest.status === "running" || contest.status === "scheduled"}
             />
         ) : tab === "submissions" ? (
           <SubmissionsTab
