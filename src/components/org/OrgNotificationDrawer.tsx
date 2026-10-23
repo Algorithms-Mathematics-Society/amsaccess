@@ -16,9 +16,9 @@ type Props = {
   onRefresh: () => Promise<void>;
   onReview?: (item: OrgNotification) => void;
 };
-type Group = "waiting" | "flags" | "history";
-const GROUPS = ["waiting", "flags", "history"] as const;
-const LABELS = { waiting: "Waiting", flags: "Flags", history: "History" };
+type Group = "entries" | "help" | "flags" | "history";
+const GROUPS = ["entries", "help", "flags", "history"] as const;
+const LABELS = { entries: "Entries", help: "Help", flags: "Flags", history: "History" };
 const PAGE_SIZE = 50;
 const timeFormat = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const buttonClass = "rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50";
@@ -27,12 +27,27 @@ function timestamp(value: string) {
   return Number.isNaN(date.getTime()) ? "" : timeFormat.format(date);
 }
 
-const NotificationCard = memo(function NotificationCard({ item, busy, error, onAction, onReview }: {
+const NotificationCard = memo(function NotificationCard({ item, busy, error, confirmation, onCancel, onConfirm, onAction, onReview }: {
   item: OrgNotification; busy: boolean; error?: string;
+  confirmation?: Action;
+  onCancel: () => void;
+  onConfirm: (id: string, action: Action) => void;
   onAction: (id: string, action: Action) => void;
   onReview?: (item: OrgNotification) => void;
 }) {
-  return <li className="rounded-xl border border-slate-200 bg-white p-3 [overflow-wrap:anywhere]">
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const actionButton = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (confirmation) cancelButton.current?.focus();
+  }, [confirmation]);
+  const cancel = () => { onCancel(); actionButton.current?.focus(); };
+  const request = (event: React.MouseEvent<HTMLButtonElement>, action: Action) => {
+    actionButton.current = event.currentTarget;
+    onAction(item.id, action);
+  };
+  return <li className="rounded-xl border border-slate-200 bg-white p-3 [overflow-wrap:anywhere]" onKeyDown={event => {
+    if (confirmation && event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); }
+  }}>
     <div className="flex items-start justify-between gap-2">
       <div className="min-w-0">
         <p className="break-words text-sm font-semibold text-slate-900">{item.person || item.loginId || "Participant"}</p>
@@ -47,14 +62,22 @@ const NotificationCard = memo(function NotificationCard({ item, busy, error, onA
     {item.status === "unconfirmed" && <p className="mt-2 text-xs text-slate-500">No longer in the latest response; it may have been handled elsewhere or omitted by the listing limit.</p>}
     <time dateTime={item.createdAt} className="mt-2 block text-[11px] text-slate-500">{timestamp(item.createdAt)}</time>
     {item.pending && item.kind === "resume" && <div className="mt-3 flex flex-wrap gap-2">
-      <button type="button" disabled={busy} onClick={() => onAction(item.id, "approve-resume")} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50">
+      <button type="button" disabled={busy} onClick={event => request(event, "approve-resume")} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50">
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />} Allow re-entry
       </button>
-      <button type="button" disabled={busy} onClick={() => onAction(item.id, "reject-resume")} title="Decline this re-entry request; this does not permanently ban the participant" className={buttonClass}>Block request</button>
+      <button type="button" disabled={busy} onClick={event => request(event, "reject-resume")} title="Decline this re-entry request; this does not permanently ban the participant" className={buttonClass}>Block request</button>
     </div>}
-    {item.pending && item.kind === "incident" && <button type="button" disabled={busy} onClick={() => onAction(item.id, "resolve-incident")} className={`mt-3 inline-flex items-center gap-1.5 ${buttonClass}`}>
+    {item.pending && item.kind === "incident" && <button type="button" disabled={busy} onClick={event => request(event, "resolve-incident")} className={`mt-3 inline-flex items-center gap-1.5 ${buttonClass}`}>
       {busy && <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />} Mark resolved
     </button>}
+    {confirmation && item.pending && !busy && <div role="group" aria-label="Confirm decision" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+      <p className="text-sm font-medium text-slate-900">{confirmation === "approve-resume" ? "Allow re-entry" : confirmation === "reject-resume" ? "Block this request" : "Mark this help request resolved"} for {item.person || item.loginId || "this participant"}?</p>
+      <p className="mt-1 text-xs text-slate-600">{confirmation === "approve-resume" ? "This grants permission to resume under the contest’s existing rules." : confirmation === "reject-resume" ? "This declines only this re-entry request." : "This moves the request to History."}</p>
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={() => onConfirm(item.id, confirmation)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800">Yes, {confirmation === "approve-resume" ? "allow" : confirmation === "reject-resume" ? "block" : "resolve"}</button>
+        <button ref={cancelButton} type="button" onClick={cancel} className={buttonClass}>No, cancel</button>
+      </div>
+    </div>}
     {item.kind === "flag" && onReview && <button type="button" onClick={() => onReview(item)} className={`mt-3 inline-flex items-center gap-1.5 ${buttonClass}`}><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Review participant</button>}
     {error && <p role="alert" className="mt-2 text-xs text-red-700">{error}</p>}
   </li>;
@@ -64,7 +87,10 @@ const NotificationCard = memo(function NotificationCard({ item, busy, error, onA
 export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyIds, actionErrors, onAction, onRefresh, onReview }: Props) {
   const [open, setOpen] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
-  const [group, setGroup] = useState<Group>("waiting");
+  const [group, setGroup] = useState<Group>("entries");
+  const [confirmation, setConfirmation] = useState<{id: string; action: Action} | null>(null);
+  const confirmationRef = useRef<{id: string; action: Action} | null>(null);
+  const confirmationTrigger = useRef<HTMLElement | null>(null);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [toast, setToast] = useState<OrgNotification | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -80,12 +106,12 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
   const panelId = useId();
   const titleId = useId();
   const grouped = useMemo(() => {
-    const result: Record<Group, OrgNotification[]> = { waiting: [], flags: [], history: [] };
-    for (const item of items) result[item.kind === "flag" ? "flags" : !item.pending ? "history" : "waiting"].push(item);
+    const result: Record<Group, OrgNotification[]> = { entries: [], help: [], flags: [], history: [] };
+    for (const item of items) result[item.kind === "flag" ? "flags" : !item.pending ? "history" : item.kind === "resume" ? "entries" : "help"].push(item);
     return result;
   }, [items]);
   const attentionCount = useMemo(() => {
-    let count = grouped.waiting.length;
+    let count = grouped.entries.length + grouped.help.length;
     for (const item of grouped.flags) if ((item.count ?? 1) > (reviewedFlags[item.id] ?? 0)) count++;
     return count;
   }, [grouped, reviewedFlags]);
@@ -94,6 +120,8 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
   useEffect(() => {
     const reset = () => {
       setToast(null);
+      confirmationRef.current = null;
+      setConfirmation(null);
       setAnnouncement("");
       setReviewedFlags({});
       setLocalErrors({});
@@ -122,16 +150,21 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
     const timeout = window.setTimeout(() => setToast(null), 8000);
     return () => window.clearTimeout(timeout);
   }, [toast]);
-  const close = useCallback(() => { setOpen(false); launcher.current?.focus(); }, []);
+  const cancelAction = useCallback(() => {
+    confirmationRef.current = null;
+    setConfirmation(null);
+    confirmationTrigger.current?.focus();
+  }, []);
+  const close = useCallback(() => { confirmationRef.current = null; setConfirmation(null); setOpen(false); launcher.current?.focus(); }, []);
   useEffect(() => {
     if (!open) return;
     closeButton.current?.focus();
     const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); close(); }
+      if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); if (confirmationRef.current) cancelAction(); else close(); }
     };
     document.addEventListener("keydown", keydown);
     return () => document.removeEventListener("keydown", keydown);
-  }, [open, close]);
+  }, [open, close, cancelAction]);
   const act = useCallback(async (id: string, action: Action) => {
     if (inFlight.current.has(id)) return;
     inFlight.current.add(id);
@@ -140,6 +173,20 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
     catch { setLocalErrors(previous => ({ ...previous, [id]: "Action failed. Please refresh and try again." })); }
     finally { inFlight.current.delete(id); }
   }, [onAction]);
+  const requestAction = useCallback((id: string, action: Action) => {
+    confirmationTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    confirmationRef.current = {id, action};
+    setConfirmation(confirmationRef.current);
+  }, []);
+  const confirmAction = useCallback((id: string, action: Action) => {
+    if (confirmationRef.current?.id !== id || confirmationRef.current.action !== action) return;
+    confirmationRef.current = null;
+    setConfirmation(null);
+    void act(id, action);
+  }, [act]);
+  useEffect(() => {
+    if (confirmation && (!items.some(item => item.id === confirmation.id && item.pending) || busyIds.has(confirmation.id))) { confirmationRef.current = null; setConfirmation(null); }
+  }, [confirmation, items, busyIds]);
   const review = useCallback((item: OrgNotification) => {
     if (item.kind === "flag") setReviewedFlags(previous => ({ ...previous, [item.id]: item.count ?? 1 }));
     close();
@@ -155,6 +202,8 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
   };
   const selectGroup = (selected: Group) => {
     if (selected === group) return;
+    confirmationRef.current = null;
+    setConfirmation(null);
     setGroup(selected);
     setLimit(PAGE_SIZE);
     scrollArea.current?.scrollTo({ top: 0, behavior: "instant" });
@@ -169,13 +218,13 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
   // Keep the visible card tree stable during timestamp-only polls and launcher updates.
   // Lazily create it on first open, then retain it so closing transitions and scroll position stay smooth.
   const cards = useMemo(() => hasOpened ? grouped[group].slice(0, limit).map(item =>
-    <NotificationCard key={item.id} item={item} busy={busyIds.has(item.id)} error={actionErrors[item.id] || localErrors[item.id]} onAction={act} onReview={onReview ? review : undefined} />
-  ) : null, [hasOpened, grouped, group, limit, busyIds, actionErrors, localErrors, act, onReview, review]);
+    <NotificationCard key={item.id} item={item} busy={busyIds.has(item.id)} error={actionErrors[item.id] || localErrors[item.id]} confirmation={confirmation?.id === item.id ? confirmation.action : undefined} onCancel={cancelAction} onConfirm={confirmAction} onAction={requestAction} onReview={onReview ? review : undefined} />
+  ) : null, [hasOpened, grouped, group, limit, busyIds, actionErrors, localErrors, confirmation, cancelAction, confirmAction, requestAction, onReview, review]);
 
   return <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-40 max-w-[calc(100vw-2rem)] text-left">
     <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
     {toast && !open && <div className="absolute bottom-16 right-0 flex w-80 max-w-[calc(100vw-2rem)] items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
-      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => reveal(toast.kind === "flag" ? "flags" : "waiting")}>
+      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => reveal(toast.kind === "flag" ? "flags" : toast.kind === "resume" ? "entries" : "help")}>
         <span className="block text-xs font-semibold text-slate-900">{toast.kind === "resume" ? "Re-entry request" : toast.kind === "incident" ? "Help request" : "New flag"}</span>
         <span className="mt-1 block truncate text-sm text-slate-600">{toast.person || toast.loginId || "Participant"}</span>
         <span className="mt-1 block text-xs text-slate-500">Open notifications to review</span>
@@ -191,11 +240,12 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
         </div>
       </div>
       <div className="flex gap-1 border-b border-slate-200 bg-white p-2" aria-label="Notification groups">
-        {GROUPS.map(value => <button key={value} type="button" aria-pressed={group === value} onClick={() => selectGroup(value)} className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium ${group === value ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{LABELS[value]} <span className="tabular-nums">{grouped[value].length}</span></button>)}
+        {GROUPS.map(value => <button key={value} type="button" aria-pressed={group === value} onClick={() => selectGroup(value)} className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium ${group === value ? "bg-slate-900 text-white" : value === "entries" && grouped.entries.length > 0 ? "bg-amber-50 text-amber-900 hover:bg-amber-100" : "text-slate-600 hover:bg-slate-100"}`}>{LABELS[value]} <span className="tabular-nums">{grouped[value].length}</span></button>)}
       </div>
       {errors.length > 0 && <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"><p className="font-medium">Some updates could not be loaded. Showing available notifications.</p>{errors.map((error, index) => <p key={`${index}:${error}`} className="mt-1 break-words">{error}</p>)}</div>}
       <div ref={scrollArea} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 [scrollbar-gutter:stable]">
-        {grouped[group].length === 0 ? <div className="py-10 text-center text-sm text-slate-500">{loading ? "Loading notifications…" : group === "history" ? "Handled requests stay here during this visit." : "No notifications in this group."}</div> : <ul className="space-y-2" aria-label={`${LABELS[group]} notifications`}>{cards}</ul>}
+        {group === "entries" && <div className="mb-3"><h3 className="text-sm font-semibold text-slate-900">Entry requests</h3><p className="text-xs text-slate-500">Participants waiting for permission to re-enter. Each decision needs confirmation.</p></div>}
+        {grouped[group].length === 0 ? <div className="py-10 text-center text-sm text-slate-500">{loading ? "Loading notifications…" : group === "history" ? "Handled requests stay here during this visit." : group === "entries" ? "No entry requests waiting." : "No notifications in this group."}</div> : <ul className="space-y-2" aria-label={`${LABELS[group]} notifications`}>{cards}</ul>}
         {grouped[group].length > limit && <button type="button" onClick={() => setLimit(value => value + PAGE_SIZE)} className={`mt-3 w-full bg-white ${buttonClass}`}>Show more ({grouped[group].length - limit} remaining)</button>}
       </div>
     </section>

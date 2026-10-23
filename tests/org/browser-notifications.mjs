@@ -62,7 +62,30 @@ try{
  await launcher().click();await card('Asha Resume').waitFor();
  await until(async()=>await drawer().evaluate(el=>getComputedStyle(el).opacity)==='1');
  await page.screenshot({path:'/tmp/org-notifications-desktop.jpg',type:'jpeg',quality:65});
+ // Opening either decision must not submit; No and Escape cancel locally.
+ const beforeDecision=calls.filter(c=>c.method==='POST').length;
+ await card('Asha Resume').getByRole('button',{name:'Allow re-entry'}).click();
+ await card('Asha Resume').getByRole('group',{name:'Confirm decision'}).waitFor();
+ assert.equal(calls.filter(c=>c.method==='POST').length,beforeDecision);
+ await page.setViewportSize({width:390,height:844});
+ await page.screenshot({path:'/tmp/org-entry-confirmation-mobile.png'});
+ const confirmationBox=await card('Asha Resume').getByRole('group',{name:'Confirm decision'}).boundingBox();
+ assert(confirmationBox.x>=0 && confirmationBox.x+confirmationBox.width<=390);
+ await page.setViewportSize({width:1440,height:1000});
+ await card('Asha Resume').getByRole('button',{name:'No, cancel'}).click();
+ assert.equal(await card('Asha Resume').getByRole('group',{name:'Confirm decision'}).count(),0);
+ assert(await card('Asha Resume').getByRole('button',{name:'Allow re-entry'}).evaluate(el=>el===document.activeElement));
+ await card('Asha Resume').getByRole('button',{name:'Block request'}).click();
+ await page.keyboard.press('Escape');
+ assert(await drawer().isVisible());
+ assert.equal(await card('Asha Resume').getByRole('group',{name:'Confirm decision'}).count(),0);
+ assert.equal(calls.filter(c=>c.method==='POST').length,beforeDecision);
+ assert.equal(await card('Mira Help').count(),0,'help requests have their own group');
+ await drawer().getByRole('button',{name:/^Help/}).click();await card('Mira Help').waitFor();
+ assert.equal(await card('Asha Resume').count(),0);
+ await drawer().getByRole('button',{name:/^Entries/}).click();
  postGate=gate();await card('Asha Resume').getByRole('button',{name:'Allow re-entry'}).click();
+ await card('Asha Resume').getByRole('button',{name:'Yes, allow'}).click();
  await until(()=>calls.some(c=>c.method==='POST'));
  assert(await card('Asha Resume').getByRole('button',{name:'Block request'}).isDisabled());
  assert(await page.getByRole('button',{name:'Let them back in'}).first().isDisabled(),'existing panel shares action busy state');
@@ -72,11 +95,14 @@ try{
  await card('Asha Resume').getByText('approved',{exact:true}).waitFor();
  assert.equal(calls.filter(c=>c.method==='POST'&&c.query.includes('uid=r1')).length,1);
  await refresh();await card('Asha Resume').waitFor();
- console.log('PASS: one shared feed, single decision POST, handled request retained after refresh');
+ console.log('PASS: separate entry/help sections, Yes/No and Escape confirmation, single decision POST, retained history');
 
- await drawer().getByRole('button',{name:/^Waiting/}).click();
+ await drawer().getByRole('button',{name:/^Entries/}).click();
  await card('Rohan Resume').getByRole('button',{name:'Block request'}).click();
+ await card('Rohan Resume').getByRole('button',{name:'Yes, block'}).click();
+ await drawer().getByRole('button',{name:/^Help/}).click();
  await card('Mira Help').getByRole('button',{name:'Mark resolved'}).click();
+ await card('Mira Help').getByRole('button',{name:'Yes, resolve'}).click();
  await drawer().getByRole('button',{name:/^History/}).click();
  await card('Rohan Resume').getByText('rejected',{exact:true}).waitFor();
  await card('Mira Help').getByText('resolved',{exact:true}).waitFor();
@@ -87,9 +113,10 @@ try{
  console.log('PASS: reject/resolve actions preserve history across contest tabs');
 
  resumes=[resume('r3','New Arrival')];await refresh();
- await drawer().getByRole('button',{name:/^Waiting/}).click();await card('New Arrival').waitFor();
+ await drawer().getByRole('button',{name:/^Entries/}).click();await card('New Arrival').waitFor();
  actionFailure=true;resumes=[];
  await card('New Arrival').getByRole('button',{name:'Allow re-entry'}).click();
+ await card('New Arrival').getByRole('button',{name:'Yes, allow'}).click();
  await drawer().getByRole('button',{name:/^History/}).click();
  await card('New Arrival').getByText('Status unconfirmed',{exact:true}).waitFor();
  await card('New Arrival').getByText('Already reviewed elsewhere',{exact:true}).waitFor();
@@ -98,9 +125,10 @@ try{
  console.log('PASS: conflict is not retried, missing pending request remains neutral in history');
 
  resumes=[resume('r5','Uncertain Request')];await refresh();
- await drawer().getByRole('button',{name:/^Waiting/}).click();await card('Uncertain Request').waitFor();
+ await drawer().getByRole('button',{name:/^Entries/}).click();await card('Uncertain Request').waitFor();
  actionFailure=true;failResumeRead=true;readGate=gate();
  await card('Uncertain Request').getByRole('button',{name:'Allow re-entry'}).click();
+ await card('Uncertain Request').getByRole('button',{name:'Yes, allow'}).click();
  await until(()=>calls.some(c=>c.method==='POST'&&c.query.includes('uid=r5')));
  assert(await card('Uncertain Request').getByRole('button',{name:'Block request'}).isDisabled());
  const reconcile=readGate;readGate=null;reconcile.release();await wait(150);
@@ -109,7 +137,9 @@ try{
  actionFailure=false;failResumeRead=false;await refresh();
  await until(async()=>await card('Uncertain Request').getByRole('button',{name:'Allow re-entry'}).isEnabled());
  assert.equal(await card('Uncertain Request').getByText(/decisions stay disabled/).count(),0,'successful reconciliation removes stale disabled wording');
+ await card('Uncertain Request').getByRole('button',{name:'Allow re-entry'}).click();
  resumes=[];await refresh();
+ assert.equal(await drawer().getByRole('group',{name:'Confirm decision'}).count(),0,'stale request cannot keep confirmation');
  console.log('PASS: uncertain action stays locked through delayed/failed read and unlocks only after successful reconciliation');
 
  await drawer().getByRole('button',{name:'Close notifications'}).click();
@@ -117,7 +147,7 @@ try{
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await page.getByRole('button',{name:'Dismiss notification preview; keep in drawer'}).waitFor();
  await page.getByRole('button',{name:'Dismiss notification preview; keep in drawer'}).click();
- await launcher().click();await drawer().getByRole('button',{name:/^Waiting/}).click();await card('Toast Arrival').waitFor();
+ await launcher().click();await drawer().getByRole('button',{name:/^Entries/}).click();await card('Toast Arrival').waitFor();
  resumes=[];await refresh();
  console.log('PASS: dismissing arrival preview preserves the request in the drawer');
 
@@ -164,7 +194,7 @@ try{
  });
  await until(async()=>await drawer().evaluate(el=>getComputedStyle(el).opacity)==='1');
  console.log(`PROFILE: 5,000 flags + 200 requests: reopen next paint ${openPaintMs.toFixed(1)}ms; five unchanged refreshes browser task time ${taskMs.toFixed(1)}ms`);
- await drawer().getByRole('button',{name:/^Waiting/}).click();
+ await drawer().getByRole('button',{name:/^Entries/}).click();
  assert.equal(await drawer().getByRole('listitem').count(),50);
  assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'changing groups starts at top');
  await cdp.detach();bulk=false;resumes=[];await refresh();
@@ -188,7 +218,7 @@ try{
 
  await page.goto(base+'/org/contests/b#problems');await launcher().click();
  assert.equal(await drawer().getByText('Asha Resume',{exact:true}).count(),0);
- await page.getByText('No notifications in this group.',{exact:true}).waitFor();
+ await page.getByText('No entry requests waiting.',{exact:true}).waitFor();
  role='intern';const before=calls.length;
  await page.goto(base+'/org/contests/a#problems');await page.getByRole('heading',{name:'Notification test contest',exact:true}).waitFor();await wait(150);
  assert.equal(await page.getByRole('button',{name:/notifications,/}).count(),0);
