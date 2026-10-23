@@ -56,3 +56,27 @@ test('aggregate flags require a real session identifier', () => {
  const data=raw(); data.sessions=[{violation_count:3},null,{uid:'',violation_count:2}];
  assert.deepEqual(reconcileNotifications([],'c','sessions',data,time),[]);
 });
+
+test('flat polling rows preserve identity without masking changed session fields', async () => {
+ const { reuseNotificationRows } = await import('../../src/lib/client/orgNotifications.ts');
+ const original=[{uid:'a',status:'active',idle_seconds:0},{uid:'b',status:'active',idle_seconds:null}];
+ assert.equal(reuseNotificationRows(original,structuredClone(original)),original);
+ const next=reuseNotificationRows(original,[{...original[0],idle_seconds:10},{...original[1]}]);
+ assert.notEqual(next,original);
+ assert.notEqual(next[0],original[0]);
+ assert.equal(next[1],original[1]);
+ assert.notEqual(reuseNotificationRows(original,[original[1],original[0]]),original);
+ assert.notEqual(reuseNotificationRows(original,[original[0]]),original);
+ const optional=[{uid:'a',status:undefined}];
+ assert.notEqual(reuseNotificationRows(optional,[{uid:'a'}]),optional);
+});
+
+test('large unchanged notification streams reuse list and preserve changed ordering', () => {
+ const data=raw(); data.resumes=Array.from({length:5000},(_,index)=>resume(String(index)));
+ const original=reconcileNotifications([],'contest','resumes',data,time);
+ assert.equal(reconcileNotifications(original,'contest','resumes',structuredClone(data),time),original);
+ data.resumes[4999]={...data.resumes[4999],created_at:'2026-10-24T09:00:00Z'};
+ const changed=reconcileNotifications(original,'contest','resumes',data,time);
+ assert.equal(changed[0].id,'resume:4999');
+ assert.equal(changed.find(row=>row.id==='resume:1'),original.find(row=>row.id==='resume:1'));
+});

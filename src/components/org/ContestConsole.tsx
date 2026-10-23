@@ -22,6 +22,7 @@ import { invalidate } from "@/lib/client/useApiQuery";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
+import type { OrgNotification } from "@/lib/client/orgNotifications";
 import { OrgNotificationDrawer } from "./OrgNotificationDrawer";
 import { ParticipantModal } from "./ParticipantModal";
 import { ParticipantsPanel } from "./ParticipantsPanel";
@@ -108,6 +109,13 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     setTabState(next);
     window.history.replaceState(null, "", `#${next}`);
   }, []);
+
+  const reviewNotification = useCallback((item: OrgNotification) => {
+    const session = notifications.raw.sessions.find((row) => row.uid === item.targetUid);
+    const handle = session?.user_uid || session?.login_id || item.loginId;
+    if (handle) setNotificationParticipant(handle);
+    else setTab("invigilation");
+  }, [notifications.raw.sessions, setTab]);
 
   const loadContest = useCallback(async () => {
     invalidate("/api/org/contests");
@@ -371,12 +379,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           actionErrors={notifications.actionErrors}
           onAction={notifications.act}
           onRefresh={notifications.refresh}
-          onReview={(item) => {
-            const session = notifications.raw.sessions.find((row) => row.uid === item.targetUid);
-            const handle = session?.user_uid || session?.login_id || item.loginId;
-            if (handle) setNotificationParticipant(handle);
-            else setTab("invigilation");
-          }}
+          onReview={reviewNotification}
         />
       )}
       <ParticipantModal handle={notificationParticipant} onClose={() => setNotificationParticipant(null)} />

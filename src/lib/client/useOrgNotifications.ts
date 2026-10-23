@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import { startOrgPolling } from "./orgPolling";
-import { reconcileNotifications } from "./orgNotifications";
+import { reconcileNotifications, reuseNotificationRows } from "./orgNotifications";
 import type { NotificationAction, NotificationRaw, NotificationStream, OrgNotification, SessionRow } from "./orgNotifications";
 
 export type { OrgNotification } from "./orgNotifications";
@@ -59,13 +59,20 @@ function createStore(contestUid:string) {
   const flights = new Map<NotificationStream,{controller:AbortController;promise:Promise<void>}>();
   const writes = new Set<AbortController>();
   const activeActions = new Set<string>();
-  const uncertainActions = new Map<string,NotificationStream>();
+  const uncertainActions = new Map<string,{stream:NotificationStream;message:string}>();
   const failures = new Map<NotificationStream,string>();
   const loaded = new Set<NotificationStream>();
   const settled = new Map<string,string>();
   let stops: Array<() => void> = [];
-  const publish = (patch:Partial<Snapshot>) => { snapshot = {...snapshot,...patch}; listeners.forEach(fn => fn()); };
-  const publishBusy = () => publish({busyIds:new Set([...activeActions,...uncertainActions.keys()])});
+  const publish = (patch:Partial<Snapshot>) => {
+    if ((Object.keys(patch) as Array<keyof Snapshot>).every(key => Object.is(snapshot[key],patch[key]))) return;
+    snapshot = {...snapshot,...patch}; listeners.forEach(fn => fn());
+  };
+  const busyIds = () => {
+    const next = new Set([...activeActions,...uncertainActions.keys()]);
+    return next.size === snapshot.busyIds.size && [...next].every(id => snapshot.busyIds.has(id)) ? snapshot.busyIds : next;
+  };
+  const publishBusy = () => publish({busyIds:busyIds()});
   const base = `/api/org/contests/${encodeURIComponent(contestUid)}/invigilation`;
   async function read(stream:NotificationStream):Promise<void> {
     if (suspended) return;
@@ -74,6 +81,7 @@ function createStore(contestUid:string) {
     const controller = new AbortController();
     const epoch = generation;
     const timeout = setTimeout(() => controller.abort(), 12_000);
+    let patch:Partial<Snapshot> = {};
     const promise = (async () => {
       try {
         let rows:unknown;
@@ -97,9 +105,20 @@ function createStore(contestUid:string) {
         });
         failures.delete(stream);
         // Only this current, successful source read may unlock an uncertain write.
-        for (const [id,source] of uncertainActions) if (source === stream) uncertainActions.delete(id);
+        let actionErrors = snapshot.actionErrors;
+        for (const [id,uncertain] of uncertainActions) if (uncertain.stream === stream) {
+          uncertainActions.delete(id);
+          // Keep the failure visible, but remove obsolete "decisions disabled" wording.
+          if (actionErrors === snapshot.actionErrors) actionErrors = {...actionErrors};
+          actionErrors[id] = uncertain.message;
+        }
+        if (stream === "resumes") raw.resumes = reuseNotificationRows(snapshot.raw.resumes,raw.resumes);
+        else if (stream === "incidents") raw.incidents = reuseNotificationRows(snapshot.raw.incidents,raw.incidents);
+        else raw.sessions = reuseNotificationRows(snapshot.raw.sessions,raw.sessions);
+        const stableRaw = raw[stream] === snapshot.raw[stream] ? snapshot.raw : raw;
         const observedAt = Date.now();
-        publish({raw,busyIds:new Set([...activeActions,...uncertainActions.keys()]),updatedAt:observedAt,items:reconcileNotifications(snapshot.items,contestUid,stream,raw,new Date(observedAt).toISOString())});
+        patch = {raw:stableRaw,busyIds:busyIds(),actionErrors,updatedAt:observedAt,
+          items:stableRaw === snapshot.raw ? snapshot.items : reconcileNotifications(snapshot.items,contestUid,stream,stableRaw,new Date(observedAt).toISOString())};
       } catch {
         if (epoch === generation && flights.get(stream)?.controller === controller) failures.set(stream,`Could not update ${views[stream]}. Retrying automatically.`);
       } finally {
@@ -107,7 +126,9 @@ function createStore(contestUid:string) {
         if (flights.get(stream)?.controller === controller) {
           flights.delete(stream);
           loaded.add(stream);
-          publish({loading:loaded.size < streams.length,errors:[...failures.values()]});
+          const nextErrors = [...failures.values()];
+          const errors = nextErrors.length === snapshot.errors.length && nextErrors.every((error,index) => error === snapshot.errors[index]) ? snapshot.errors : nextErrors;
+          publish({...patch,loading:loaded.size < streams.length,errors});
         }
       }
     })();
@@ -135,7 +156,7 @@ function createStore(contestUid:string) {
     const timeout = setTimeout(() => controller.abort(),20_000);
     activeActions.add(id);
     const actionErrors = {...snapshot.actionErrors}; delete actionErrors[id];
-    publish({actionErrors}); publishBusy();
+    publish({actionErrors,busyIds:busyIds()});
     try {
       const response = await fetch(`${base}?action=${action}&uid=${encodeURIComponent(item.targetUid)}`,{
         method:"POST",headers:{"Content-Type":"application/json"},body:"{}",signal:controller.signal,
@@ -155,9 +176,8 @@ function createStore(contestUid:string) {
       if (epoch === generation) {
         const message = controller.signal.aborted ? "No confirmation received. Refresh and check the request before retrying." : error instanceof Error ? error.message : "Action failed.";
         const stream = item.kind === "resume" ? "resumes" : "incidents";
-        uncertainActions.set(id,stream);
-        publish({actionErrors:{...snapshot.actionErrors,[id]:`${message} Checking latest status before another decision.`}});
-        publishBusy();
+        uncertainActions.set(id,{stream,message});
+        publish({actionErrors:{...snapshot.actionErrors,[id]:`${message} Checking latest status before another decision.`},busyIds:busyIds()});
         // Discard the pre-decision read; its pending result cannot unlock this item.
         flights.get(stream)?.controller.abort(); flights.delete(stream);
         await read(stream);

@@ -55,6 +55,24 @@ export type NotificationRaw = { resumes: ResumeRequest[]; incidents: Incident[];
 export type NotificationAction = "approve-resume" | "reject-resume" | "resolve-incident";
 export type NotificationStream = keyof NotificationRaw;
 
+/** API rows are flat JSON records. Preserve identities across equal polling responses,
+ * including all fields used by the invigilation table, not just drawer fields. */
+export function reuseNotificationRows<T extends object>(previous: T[], incoming: T[]): T[] {
+  if (previous.length !== incoming.length) return incoming;
+  let unchanged = true;
+  const rows = incoming.map((row,index) => {
+    const prior = previous[index];
+    if (Object.is(prior,row)) return prior;
+    if (prior && row) {
+      const keys = Object.keys(row) as Array<keyof T>;
+      if (keys.length === Object.keys(prior).length && keys.every(key => Object.prototype.hasOwnProperty.call(prior,key) && Object.is(prior[key],row[key]))) return prior;
+    }
+    unchanged = false;
+    return row;
+  });
+  return unchanged ? previous : rows;
+}
+
 /** Retain history, while never presenting a missing request as actionable. */
 export function reconcileNotifications(previous: OrgNotification[], contestUid: string, stream: NotificationStream, raw: NotificationRaw, now: string): OrgNotification[] {
   const kind = stream === "resumes" ? "resume" : stream === "incidents" ? "incident" : "flag";
@@ -75,13 +93,16 @@ export function reconcileNotifications(previous: OrgNotification[], contestUid: 
     status:"recorded", pending:false, count:r.violation_count,
   }));
   const next = new Map(previous.filter(p => p.contestUid === contestUid).map(p => [p.id,p]));
+  let changed = next.size !== previous.length;
   const present = new Set(incoming.map(p => p.id));
-  for (const [id,p] of next) if (p.kind === kind && p.pending && !present.has(id)) next.set(id,{...p,pending:false,status:"unconfirmed"});
+  for (const [id,p] of next) if (p.kind === kind && p.pending && !present.has(id)) { next.set(id,{...p,pending:false,status:"unconfirmed"}); changed = true; }
   for (const p of incoming) {
     const prior = next.get(p.id);
     const unchanged = prior && (Object.keys(p) as Array<keyof OrgNotification>).every(key => prior[key] === p[key]);
     next.set(p.id,unchanged ? prior : p);
+    if (!unchanged) changed = true;
   }
+  if (!changed) return previous;
   const result = [...next.values()].sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || a.id.localeCompare(b.id));
   return result.length === previous.length && result.every((item,index) => item === previous[index]) ? previous : result;
 }

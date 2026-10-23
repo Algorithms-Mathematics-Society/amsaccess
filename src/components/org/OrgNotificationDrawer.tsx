@@ -32,7 +32,7 @@ const NotificationCard = memo(function NotificationCard({ item, busy, error, onA
   onAction: (id: string, action: Action) => void;
   onReview?: (item: OrgNotification) => void;
 }) {
-  return <li className="rounded-xl border border-slate-200 bg-white p-3">
+  return <li className="rounded-xl border border-slate-200 bg-white p-3 [overflow-wrap:anywhere]">
     <div className="flex items-start justify-between gap-2">
       <div className="min-w-0">
         <p className="break-words text-sm font-semibold text-slate-900">{item.person || item.loginId || "Participant"}</p>
@@ -63,6 +63,7 @@ const NotificationCard = memo(function NotificationCard({ item, busy, error, onA
 /** Presentation only: the parent owns polling, authorization and retained records. */
 export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyIds, actionErrors, onAction, onRefresh, onReview }: Props) {
   const [open, setOpen] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
   const [group, setGroup] = useState<Group>("waiting");
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [toast, setToast] = useState<OrgNotification | null>(null);
@@ -75,6 +76,7 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
   const refreshInFlight = useRef(false);
   const launcher = useRef<HTMLButtonElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
+  const scrollArea = useRef<HTMLDivElement>(null);
   const panelId = useId();
   const titleId = useId();
   const grouped = useMemo(() => {
@@ -82,11 +84,28 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
     for (const item of items) result[item.kind === "flag" ? "flags" : !item.pending ? "history" : "waiting"].push(item);
     return result;
   }, [items]);
-  const attentionCount = grouped.waiting.length + grouped.flags.filter(item => (item.count ?? 1) > (reviewedFlags[item.id] ?? 0)).length;
+  const attentionCount = useMemo(() => {
+    let count = grouped.waiting.length;
+    for (const item of grouped.flags) if ((item.count ?? 1) > (reviewedFlags[item.id] ?? 0)) count++;
+    return count;
+  }, [grouped, reviewedFlags]);
+  const checkedTime = useMemo(() => updatedAt ? timestamp(new Date(updatedAt).toISOString()) : "", [updatedAt]);
 
   useEffect(() => {
+    const reset = () => {
+      setToast(null);
+      setAnnouncement("");
+      setReviewedFlags({});
+      setLocalErrors({});
+      seenIds.current = null;
+    };
+    window.addEventListener("ams:org-session-reset", reset);
+    return () => window.removeEventListener("ams:org-session-reset", reset);
+  }, []);
+  useEffect(() => {
     if (!seenIds.current) {
-      if (items.length || !loading) seenIds.current = new Map(items.map(item => [item.id, item.count]));
+      // All initial streams form the baseline; a slower initial response is not a new arrival.
+      if (!loading) seenIds.current = new Map(items.map(item => [item.id, item.count]));
       return;
     }
     const fresh = items.filter(item => item.kind === "flag"
@@ -134,11 +153,24 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
     catch { setAnnouncement("Notifications could not be refreshed. Please try again."); }
     finally { refreshInFlight.current = false; setRefreshing(false); }
   };
+  const selectGroup = (selected: Group) => {
+    if (selected === group) return;
+    setGroup(selected);
+    setLimit(PAGE_SIZE);
+    scrollArea.current?.scrollTo({ top: 0, behavior: "instant" });
+  };
   const reveal = (selected?: Group) => {
-    if (selected) { setGroup(selected); setLimit(PAGE_SIZE); }
+    if (selected) selectGroup(selected);
+    setHasOpened(true);
     setToast(null);
     setOpen(true);
   };
+
+  // Keep the visible card tree stable during timestamp-only polls and launcher updates.
+  // Lazily create it on first open, then retain it so closing transitions and scroll position stay smooth.
+  const cards = useMemo(() => hasOpened ? grouped[group].slice(0, limit).map(item =>
+    <NotificationCard key={item.id} item={item} busy={busyIds.has(item.id)} error={actionErrors[item.id] || localErrors[item.id]} onAction={act} onReview={onReview ? review : undefined} />
+  ) : null, [hasOpened, grouped, group, limit, busyIds, actionErrors, localErrors, act, onReview, review]);
 
   return <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-40 max-w-[calc(100vw-2rem)] text-left">
     <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
@@ -152,18 +184,18 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
     </div>}
     <section id={panelId} role="dialog" aria-modal="false" aria-labelledby={titleId} aria-hidden={!open} inert={!open} className={`absolute bottom-16 right-0 flex h-[min(38rem,calc(100dvh-7rem))] w-96 max-w-[calc(100vw-2rem)] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-2xl transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none ${open ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-3 scale-[0.98] opacity-0"}`}>
       <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-3">
-        <div><h2 id={titleId} className="text-sm font-semibold text-slate-900">Notifications</h2><p className="text-xs text-slate-500">{attentionCount} awaiting review · this visit</p><p className="text-[11px] text-slate-500">{updatedAt ? `Last checked ${timestamp(new Date(updatedAt).toISOString())}` : "Waiting for first update"}</p></div>
+        <div><h2 id={titleId} className="text-sm font-semibold text-slate-900">Notifications</h2><p className="text-xs text-slate-500">{attentionCount} awaiting review · this visit</p><p className="text-[11px] text-slate-500">{updatedAt ? `Last checked ${checkedTime}` : "Waiting for first update"}</p></div>
         <div className="flex items-center gap-1">
           <button type="button" disabled={loading || refreshing} onClick={() => void refresh()} aria-label="Refresh notifications" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading || refreshing ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" /></button>
           <button ref={closeButton} type="button" onClick={close} aria-label="Close notifications" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"><ChevronDown className="h-4 w-4" aria-hidden="true" /></button>
         </div>
       </div>
       <div className="flex gap-1 border-b border-slate-200 bg-white p-2" aria-label="Notification groups">
-        {GROUPS.map(value => <button key={value} type="button" aria-pressed={group === value} onClick={() => { setGroup(value); setLimit(PAGE_SIZE); }} className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium ${group === value ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{LABELS[value]} <span className="tabular-nums">{grouped[value].length}</span></button>)}
+        {GROUPS.map(value => <button key={value} type="button" aria-pressed={group === value} onClick={() => selectGroup(value)} className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium ${group === value ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{LABELS[value]} <span className="tabular-nums">{grouped[value].length}</span></button>)}
       </div>
       {errors.length > 0 && <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"><p className="font-medium">Some updates could not be loaded. Showing available notifications.</p>{errors.map((error, index) => <p key={`${index}:${error}`} className="mt-1 break-words">{error}</p>)}</div>}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
-        {grouped[group].length === 0 ? <div className="py-10 text-center text-sm text-slate-500">{loading ? "Loading notifications…" : group === "history" ? "Handled requests stay here during this visit." : "No notifications in this group."}</div> : <ul className="space-y-2" aria-label={`${LABELS[group]} notifications`}>{grouped[group].slice(0, limit).map(item => <NotificationCard key={item.id} item={item} busy={busyIds.has(item.id)} error={actionErrors[item.id] || localErrors[item.id]} onAction={act} onReview={onReview ? review : undefined} />)}</ul>}
+      <div ref={scrollArea} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 [scrollbar-gutter:stable]">
+        {grouped[group].length === 0 ? <div className="py-10 text-center text-sm text-slate-500">{loading ? "Loading notifications…" : group === "history" ? "Handled requests stay here during this visit." : "No notifications in this group."}</div> : <ul className="space-y-2" aria-label={`${LABELS[group]} notifications`}>{cards}</ul>}
         {grouped[group].length > limit && <button type="button" onClick={() => setLimit(value => value + PAGE_SIZE)} className={`mt-3 w-full bg-white ${buttonClass}`}>Show more ({grouped[group].length - limit} remaining)</button>}
       </div>
     </section>

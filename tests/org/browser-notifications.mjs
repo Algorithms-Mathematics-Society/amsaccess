@@ -14,6 +14,7 @@ const now='2026-10-23T14:00:00Z';
 const resume=(uid,name)=>({uid,status:'pending',reason:'Connection interrupted; ready to resume.',device_fingerprint:'test-device',created_at:now,session_uid:'s',display_name:name,login_id:uid,resume_count:0});
 let resumes=[resume('r1','Asha Resume'),resume('r2','Rohan Resume')];
 let incidents=[{uid:'i1',status:'open',message:'Need help with setup.',category:'technical',contact:'',created_at:now,display_name:'Mira Help',login_id:'mira'}];
+let bulk=false;
 let count=2,role='admin',postGate=null,readGate=null,actionFailure=false,failResumeRead=false;
 await page.route('**/*',async route=>{
  const req=route.request(),url=new URL(req.url());
@@ -40,6 +41,7 @@ await page.route('**/*',async route=>{
   if(url.pathname.includes('/b/'))return ok([]);
   if(view==='resume-requests'){const snapshot=resumes.map(r=>({...r}));if(readGate)await readGate.promise;if(failResumeRead)return route.fulfill({status:503,contentType:'application/json',body:'{}'});return ok(snapshot);}
   if(view==='incidents')return ok(incidents);
+  if(view==='sessions' && bulk)return ok(Array.from({length:5000},(_,i)=>({uid:`bulk-${i}`,user_uid:`person-${i}`,login_id:`person-${i}`,display_name:`Flagged Person ${i}`,status:'active',violation_count:1,resume_count:0})));
   if(view==='sessions')return ok([{uid:'s',user_uid:'student',login_id:'flagged',display_name:'Dev Flagged',status:'active',started_at:now,last_seen_at:now,violation_count:count,resume_count:0,idle_seconds:1,resume_pending:false,has_entry_photo:false,has_exit_photo:false,entry_photo_at:null,exit_photo_at:null}]);
   return ok([]);
  }
@@ -106,6 +108,7 @@ try{
  assert.equal(calls.filter(c=>c.method==='POST'&&c.query.includes('uid=r5')).length,1);
  actionFailure=false;failResumeRead=false;await refresh();
  await until(async()=>await card('Uncertain Request').getByRole('button',{name:'Allow re-entry'}).isEnabled());
+ assert.equal(await card('Uncertain Request').getByText(/decisions stay disabled/).count(),0,'successful reconciliation removes stale disabled wording');
  resumes=[];await refresh();
  console.log('PASS: uncertain action stays locked through delayed/failed read and unlocks only after successful reconciliation');
 
@@ -133,10 +136,51 @@ try{
  assert(await launcher().evaluate(el=>el===document.activeElement));
  console.log('PASS: grouped flag review retains card, increased count renews attention, mobile/reduced-motion/focus work');
 
- await launcher().click();resumes=[resume('r4','Late Old Request')];readGate=gate();
- await drawer().getByRole('button',{name:'Refresh notifications'}).click();
+ // Stress the maximum sessions response while keeping rendered cards bounded.
+ await page.setViewportSize({width:1440,height:1000});
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ bulk=true;resumes=Array.from({length:200},(_,i)=>resume(`bulk-r-${i}`,`Waiting Person ${i}`));
+ await launcher().click();await refresh();
+ await drawer().getByRole('button',{name:/^Flags/}).click();
+ assert.equal(await drawer().getByRole('listitem').count(),50);
+ await drawer().getByRole('button',{name:/^Show more/}).click();
+ assert.equal(await drawer().getByRole('listitem').count(),100);
+ const scroll=drawer().locator('.overflow-y-auto');
+ await scroll.evaluate(el=>{el.scrollTop=600;});
+ const beforeScroll=await scroll.evaluate(el=>el.scrollTop);
+ const cdp=await context.newCDPSession(page);await cdp.send('Performance.enable');
+ const taskDuration=async()=> (await cdp.send('Performance.getMetrics')).metrics.find(m=>m.name==='TaskDuration').value;
+ const beforeTask=await taskDuration();
+ for(let i=0;i<5;i++)await refresh();
+ const taskMs=((await taskDuration())-beforeTask)*1000;
+ assert.equal(await scroll.evaluate(el=>el.scrollTop),beforeScroll,'no-op refresh preserves scroll');
+ assert.equal(await drawer().getByRole('listitem').count(),100,'refresh preserves expanded page');
+ await drawer().getByRole('button',{name:'Close notifications'}).click();
+ await wait(250);
+ const openPaintMs=await launcher().evaluate(async el=>{
+  const start=performance.now();el.click();
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  return performance.now()-start;
+ });
+ await until(async()=>await drawer().evaluate(el=>getComputedStyle(el).opacity)==='1');
+ console.log(`PROFILE: 5,000 flags + 200 requests: reopen next paint ${openPaintMs.toFixed(1)}ms; five unchanged refreshes browser task time ${taskMs.toFixed(1)}ms`);
+ await drawer().getByRole('button',{name:/^Waiting/}).click();
+ assert.equal(await drawer().getByRole('listitem').count(),50);
+ assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'changing groups starts at top');
+ await cdp.detach();bulk=false;resumes=[];await refresh();
+ await drawer().getByRole('button',{name:'Close notifications'}).click();
+ console.log('PASS: large feed uses bounded rendering and retains scroll/pagination on refresh');
+
+ resumes=[resume('reset-toast','Old Session Preview')];
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await page.getByRole('button',{name:'Dismiss notification preview; keep in drawer'}).waitFor();
+ resumes=[resume('r4','Late Old Request')];readGate=gate();
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  await page.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'ams-org-cache-reset',newValue:'test'})));
  const pending=readGate;readGate=null;pending.release();await wait(150);
+ assert.equal(await page.getByRole('button',{name:'Dismiss notification preview; keep in drawer'}).count(),0,'auth reset clears stale preview');
+ assert.equal(await page.getByRole('status').filter({hasText:'Old Session Preview'}).count(),0,'auth reset clears old announcement');
+ await launcher().click();
  assert.equal(await drawer().getByText('Late Old Request',{exact:true}).count(),0);
  await drawer().getByText(/Session changed/).waitFor();
  assert.equal(await drawer().getByRole('button',{name:'Allow re-entry'}).count(),0);
