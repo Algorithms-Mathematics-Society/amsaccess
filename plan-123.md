@@ -23,3 +23,11 @@ No backend/API routes, database, cloud configuration, candidate app, auth, depen
 ## Verified before push
 
 Independent scoped review: no concrete blockers. All 91 existing/new Node tests passed; full TypeScript and scoped ESLint passed; git diff --check passed. Isolated Next 15 production build passed (one transient Google Fonts DNS retry recovered). Browser tests against that build passed: started and pending distinction, exact legacy identity fallback, contest isolation, actual concurrent submission/summary and student/facet reads, and protection from slow older search responses. Browser APIs were mocked and all writes forbidden. No production candidate, email, judge, or cloud operations were used.
+
+## Leaderboard attendance follow-up
+
+Requested: apply green entry marking inside the leaderboard, with entrants above other participants. Use the same existing contest session evidence as Participants, independently of scores. Preserve server ranks/scores and relative scoring order within each group; the display explains the grouping. CSV export remains the authoritative scoring export. Missing session evidence is unconfirmed, not definitive absence (the existing session endpoint caps at 5000).
+
+Scope: LeaderboardPanel, a stable O(n) grouping helper in orgEntry, focused tests and this report. Grouping is memoized independently of search. Scoreboard and session reads start together and render independently; a failed session read retains the last confirmed evidence. Manual refresh, focus and polling share one in-flight request, polling waits for completion and pauses hidden pages; contest changes/unmount abort pending reads. No backend, cloud, API route, candidate app or dependency changes.
+
+Follow-up verification: independent review found no blockers; all 92 Node tests, TypeScript, scoped ESLint, diff whitespace check and isolated production build passed. Mocked production-browser checks passed for entrant-first grouping, green names, preserved ranks, search, slow/failed evidence, refresh deduplication and contest isolation. No real API mutations were used.

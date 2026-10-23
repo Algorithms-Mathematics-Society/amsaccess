@@ -13,3 +13,16 @@ export function enteredParticipantKeys(sessions: EntrySession[]): Set<string> {
 export function participantEntered(keys: Set<string>, participant: { user_uid: string; login_id: string }): boolean {
   return keys.has(`uid:${participant.user_uid}`) || keys.has(`login:${participant.login_id}`);
 }
+
+/** Stable, linear partition: preserve the server's scoring order within each group. */
+export function groupLeaderboardByEntry<T extends { user_uid: string; username: string }>(
+  rows: readonly T[], keys: Set<string>,
+): { row: T; entered: boolean }[] {
+  const entered: { row: T; entered: boolean }[] = [];
+  const unconfirmed: { row: T; entered: boolean }[] = [];
+  for (const row of rows) {
+    const confirmed = participantEntered(keys, { user_uid: row.user_uid, login_id: row.username });
+    (confirmed ? entered : unconfirmed).push({ row, entered: confirmed });
+  }
+  return entered.concat(unconfirmed);
+}
