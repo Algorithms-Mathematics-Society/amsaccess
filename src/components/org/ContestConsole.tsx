@@ -20,6 +20,10 @@ import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClass } from "@/lib/contestTypes";
 import { invalidate } from "@/lib/client/useApiQuery";
 import { startOrgPolling } from "@/lib/client/orgPolling";
+import { useOrgRole } from "@/lib/client/useOrgRole";
+import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
+import { OrgNotificationDrawer } from "./OrgNotificationDrawer";
+import { ParticipantModal } from "./ParticipantModal";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { LeaderboardPanel } from "./LeaderboardPanel";
 import { InvigilationPanel } from "./InvigilationPanel";
@@ -76,6 +80,12 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   const [summary, setSummary] = useState<SubmissionSummary | null>(null);
   const [error, setError] = useState("");
   const [tab, setTabState] = useState<Tab>("problems");
+  const { role, known } = useOrgRole();
+  const notificationsEnabled = Boolean(contest) && known &&
+    ["owner", "admin", "problemsetter", "contest_manager", "judge_manager"].includes(role ?? "");
+  const notifications = useOrgNotifications(contestUid, notificationsEnabled);
+  const [notificationParticipant, setNotificationParticipant] = useState<string | null>(null);
+
 
   // The tab lives in the URL fragment, so reloading keeps you where you
   // were. It was React state alone: Ctrl+R on the Leaderboard dropped you
@@ -336,7 +346,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             live={contest.status === "running"}
           />
         ) : tab === "invigilation" ? (
-          <InvigilationPanel contestUid={contest.uid} />
+          <InvigilationPanel contestUid={contest.uid} notificationsEnabled={notificationsEnabled} />
         ) : tab === "judging" ? (
           // Named rather than left as the trailing `else`. A fall-through
           // catches every tab nobody has got round to adding, which is how
@@ -351,6 +361,25 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           </div>
         ) : null}
       </div>
+      {notificationsEnabled && (
+        <OrgNotificationDrawer
+          items={notifications.items}
+          loading={notifications.loading}
+          updatedAt={notifications.updatedAt}
+          errors={notifications.errors}
+          busyIds={notifications.busyIds}
+          actionErrors={notifications.actionErrors}
+          onAction={notifications.act}
+          onRefresh={notifications.refresh}
+          onReview={(item) => {
+            const session = notifications.raw.sessions.find((row) => row.uid === item.targetUid);
+            const handle = session?.user_uid || session?.login_id || item.loginId;
+            if (handle) setNotificationParticipant(handle);
+            else setTab("invigilation");
+          }}
+        />
+      )}
+      <ParticipantModal handle={notificationParticipant} onClose={() => setNotificationParticipant(null)} />
     </div>
   );
 }

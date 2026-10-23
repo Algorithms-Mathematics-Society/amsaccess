@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
+import type { SessionRow } from "@/lib/client/orgNotifications";
 import { useOrgDesktopLayout } from "@/lib/client/useOrgDesktopLayout";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
@@ -36,54 +38,6 @@ type Override = {
   expires_at: string;
   revoked: boolean;
   granted_by: string;
-};
-
-type Incident = {
-  uid: string;
-  category: string;
-  message: string;
-  contact: string;
-  status: string;
-  created_at: string;
-  display_name: string;
-  login_id: string;
-};
-
-type ResumeRequest = {
-  uid: string;
-  status: string;
-  reason: string;
-  device_fingerprint: string;
-  created_at: string;
-  session_uid: string;
-  display_name: string;
-  login_id: string;
-  resume_count: number;
-};
-
-type SessionRow = {
-  uid: string;
-  /** The person, not the session. Null on a row the API served before this
-   *  field existed, which simply renders as unlinked text. */
-  user_uid: string | null;
-  login_id: string;
-  display_name: string;
-  status: string;
-  started_at: string | null;
-  last_seen_at: string | null;
-  violation_count: number;
-  resume_count: number;
-  // Computed by the API against its own clock, never here — a console laptop
-  // an hour out would otherwise paint the whole room as stalled.
-  idle_seconds: number | null;
-  resume_pending: boolean;
-  // Presence, not the image. The roster is polled every ten seconds by every
-  // open console, so the photographs themselves are fetched one at a time,
-  // for the candidate actually being looked at.
-  has_entry_photo: boolean;
-  has_exit_photo: boolean;
-  entry_photo_at: string | null;
-  exit_photo_at: string | null;
 };
 
 /** How long a session may go unheard from before it is worth looking at. */
@@ -265,7 +219,9 @@ function IdentityDialog({
   );
 }
 
-export function InvigilationPanel({ contestUid }: { contestUid: string }) {
+export function InvigilationPanel({ contestUid, notificationsEnabled = true }: { contestUid: string; notificationsEnabled?: boolean }) {
+  const notifications = useOrgNotifications(contestUid, notificationsEnabled);
+  const { incidents, resumes, sessions } = notifications.raw;
   const desktop = useOrgDesktopLayout();
   // Which candidate's photos are open, by session uid. Held here rather than
   // in the row so the dialog survives the ten-second roster refresh --
@@ -276,9 +232,6 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
   const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<ReadinessRow[]>([]);
   const [overrides, setOverrides] = useState<Override[]>([]);
-  const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [resumes, setResumes] = useState<ResumeRequest[]>([]);
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
   // Resolved from the live list rather than copied on click, so an open
   // dialog picks up the exit photo the moment that candidate finishes
   // instead of showing the roster as it was ten seconds ago.
@@ -302,19 +255,24 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
     const results = await Promise.all([
       view("readiness", setReadiness),
       view("overrides", setOverrides),
-      view("incidents", setIncidents),
-      view("resume-requests", setResumes),
-      view("sessions", setSessions),
     ]);
-    if (!signal.aborted) setError(results.some(Boolean) ? "" : "Could not load invigilation data.");
+    if (!signal.aborted) setError(results.some(Boolean) ? "" : "Could not refresh device checks or overrides.");
   }, [contestUid]);
   const { load, refreshAfterWrite } = useOrgReadTask(read);
-  useEffect(() => startOrgPolling(load, POLL_MS), [load]);
+  useEffect(() => {
+    if (!notificationsEnabled) return;
+    return startOrgPolling(load, POLL_MS);
+  }, [load, notificationsEnabled]);
 
   async function act(key: string, url: string, body?: unknown) {
     setBusy(key);
     setError("");
     try {
+      const action = new URL(url, window.location.origin).searchParams.get("action");
+      if (action === "approve-resume" || action === "reject-resume" || action === "resolve-incident") {
+        await notifications.act(`${action === "resolve-incident" ? "incident" : "resume"}:${key}`, action);
+        return;
+      }
       await json(
         await fetch(url, {
           method: "POST",
@@ -413,7 +371,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                           {},
                         )
                       }
-                      disabled={busy === request.uid}
+                      disabled={busy === request.uid || notifications.busyIds.has(`resume:${request.uid}`)}
                       className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40 md:flex-none md:justify-start md:py-1.5"
                     >
                       {busy === request.uid ? (
@@ -432,7 +390,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                           {},
                         )
                       }
-                      disabled={busy === request.uid}
+                      disabled={busy === request.uid || notifications.busyIds.has(`resume:${request.uid}`)}
                       className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 md:flex-none md:justify-start md:py-1.5"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -499,7 +457,7 @@ export function InvigilationPanel({ contestUid }: { contestUid: string }) {
                           `${base}?action=resolve-incident&uid=${incident.uid}`,
                         )
                       }
-                      disabled={busy === incident.uid}
+                      disabled={busy === incident.uid || notifications.busyIds.has(`incident:${incident.uid}`)}
                       className="inline-flex w-full flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 md:w-auto md:justify-start md:py-1.5"
                     >
                       {busy === incident.uid ? (

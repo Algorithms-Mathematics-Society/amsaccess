@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { startOrgPolling } from "@/lib/client/orgPolling";
-import { enteredParticipantKeys, participantEntered, type EntrySession } from "@/lib/client/orgEntry";
+import { fetchOrgSessions } from "@/lib/client/useOrgNotifications";
+import { enteredParticipantKeys, participantEntered } from "@/lib/client/orgEntry";
 import { SkeletonTable } from "@/components/org/Skeleton";
 import Link from "next/link";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
@@ -145,10 +146,7 @@ function ParticipantsContent({
     const controller = new AbortController();
     const stop = startOrgPolling(async () => {
       try {
-        const sessions = await json<EntrySession[]>(await fetch(
-          `/api/org/contests/${contestUid}/invigilation?view=sessions`,
-          { cache: "no-store", signal: controller.signal },
-        ));
+        const sessions = await fetchOrgSessions(contestUid);
         if (controller.signal.aborted) return;
         setEntered(enteredParticipantKeys(sessions));
         setEntryLoaded(true);

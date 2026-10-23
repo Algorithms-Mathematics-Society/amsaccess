@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { enteredParticipantKeys, groupLeaderboardByEntry, type EntrySession } from "@/lib/client/orgEntry";
+import { fetchOrgSessions } from "@/lib/client/useOrgNotifications";
+import { enteredParticipantKeys, groupLeaderboardByEntry } from "@/lib/client/orgEntry";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { SkeletonTable } from "@/components/org/Skeleton";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
@@ -104,9 +105,7 @@ function LeaderboardContent({
         })(),
         (async () => {
           try {
-            const res = await fetch(`/api/org/contests/${contestUid}/invigilation?view=sessions`, options);
-            if (!res.ok) throw new Error("Entry status could not refresh.");
-            const sessions = await res.json() as EntrySession[];
+            const sessions = await fetchOrgSessions(contestUid);
             if (controller.signal.aborted) return;
             setEntered(enteredParticipantKeys(sessions));
             setEntryLoaded(true);

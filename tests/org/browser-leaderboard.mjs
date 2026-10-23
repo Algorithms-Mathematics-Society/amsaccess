@@ -26,6 +26,7 @@ await page.route('**/*',async route=>{
   activeBoards++;maxActiveBoards=Math.max(maxActiveBoards,activeBoards);
   try{await wait(50);return await ok({contest_uid:url.pathname.split('/')[4],rows:boardRows,frozen:true,generated_at:new Date().toISOString()});}finally{activeBoards--;}
  }
+ if(url.pathname.endsWith('/invigilation')&&url.searchParams.get('view')!=='sessions')return ok([]);
  if(url.pathname.endsWith('/invigilation')){
   activeEvidence++;maxActiveEvidence=Math.max(maxActiveEvidence,activeEvidence);
   try{

@@ -26,6 +26,7 @@ await page.route('**/*',async route=>{
   {user_uid:'pending',login_id:'bob',display_name:'Pending Person',revoked:false,last_login_at:'2026-10-23',has_passphrase:true,email:'b@example.test',mail_status:'sent'},
   {user_uid:'legacy',login_id:'carol',display_name:'Legacy Person',revoked:false,last_login_at:null,has_passphrase:true,email:'c@example.test',mail_status:''},
  ]);
+ if(url.pathname.endsWith('/invigilation')&&url.searchParams.get('view')!=='sessions')return ok([]);
  if(url.pathname.endsWith('/invigilation'))return ok(url.pathname.includes('/a/')?[
   {user_uid:'entered',login_id:'alice',started_at:'2026-10-23T10:00:00Z'},
   {user_uid:'pending',login_id:'bob',started_at:null},

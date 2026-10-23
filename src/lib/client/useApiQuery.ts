@@ -8,11 +8,15 @@ export const DEFAULT_STALE_MS = 30_000;
 const SESSION_RESET = "ams-org-cache-reset";
 export function clearApiCache() {
   orgQueryCache.clear();
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("ams:org-session-reset"));
   try { localStorage.setItem(SESSION_RESET, `${Date.now()}:${Math.random()}`); } catch { /* Storage may be disabled. */ }
 }
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
-    if (event.key === SESSION_RESET) orgQueryCache.clear();
+    if (event.key === SESSION_RESET) {
+      orgQueryCache.clear();
+      window.dispatchEvent(new Event("ams:org-session-reset"));
+    }
   });
 }
 export const invalidate = orgQueryCache.invalidate;

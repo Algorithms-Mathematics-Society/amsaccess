@@ -102,7 +102,8 @@ try {
   await page.getByRole('button',{name:'Visible Student',exact:true}).first().waitFor({state:'attached'});
   assert(calls.some(c=>c.path.endsWith('/invigilation')&&c.query==='?view=readiness'));
   const reads=()=>calls.filter(c=>c.path.endsWith('/invigilation')).length;
-  const initial=reads(); await focus(); await focus(); await wait(100); assert.equal(reads(),initial);
+  const readinessReads=()=>calls.filter(c=>c.path.endsWith('/invigilation')&&c.query==='?view=readiness').length;
+  const initial=readinessReads(); await focus(); await focus(); await wait(100); assert.equal(readinessReads(),initial,'pending readiness read is deduplicated while independent streams can refresh');
   assert.equal(await page.getByRole('button',{name:'Visible Student',exact:true,includeHidden:true}).count(),1,'only desktop row tree mounted');
   await page.setViewportSize({width:390,height:844});
   await page.getByRole('button',{name:'Visible Student',exact:true}).waitFor();
