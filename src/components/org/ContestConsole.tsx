@@ -30,6 +30,7 @@ import { LeaderboardPanel } from "./LeaderboardPanel";
 import { InvigilationPanel } from "./InvigilationPanel";
 import { FleetPanel } from "./FleetPanel";
 import { ContestScale } from "./ContestScale";
+import { ReferenceSheetEditor } from "./ReferenceSheetEditor";
 
 const TABS = [
   "problems",
@@ -38,6 +39,7 @@ const TABS = [
   "submissions",
   "invigilation",
   "judging",
+  "reference",
 ] as const;
 
 type Tab = (typeof TABS)[number];
@@ -295,7 +297,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
-              {t}
+              {t === "reference" ? "Reference sheet" : t}
               {t === "submissions" && total > 0 && (
                 <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
                   {total.toLocaleString()}
@@ -331,6 +333,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
       )}
 
       <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6">
+        <ReferenceSheetEditor key={contest.uid} contestUid={contest.uid} active={tab === "reference"} startsAt={contest.starts_at} isPractice={contest.is_practice} />
         {tab === "problems" ? (
           <ProblemsTab contest={contest} onChange={loadContest} />
         ) : tab === "participants" ? (

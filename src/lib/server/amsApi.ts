@@ -59,15 +59,26 @@ export async function callAmsApi<T = unknown>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  let res: Response;
+  let responseStarted = false;
   try {
-    res = await fetch(`${baseUrl()}${path}`, {
+    const res = await fetch(`${baseUrl()}${path}`, {
       method,
       headers,
       signal: controller.signal,
       body: body !== null ? JSON.stringify(body) : undefined,
       cache: "no-store",
     });
+    responseStarted = true;
+    if (res.status === 204) {
+      return { ok: true, status: 204, data: null as T, requestId };
+    }
+
+    // The deadline covers the body too: headers alone do not complete a request.
+    const contentType = res.headers.get("content-type") ?? "";
+    const data = contentType.includes("application/json")
+      ? ((await res.json()) as T)
+      : ((await res.text()) as unknown as T);
+    return { ok: res.ok, status: res.status, data, requestId };
   } catch (err) {
     // A timeout and a refused connection are different operational problems;
     // conflating them makes an outage harder to diagnose from logs alone.
@@ -76,25 +87,22 @@ export async function callAmsApi<T = unknown>(
       ok: false,
       status: aborted ? 504 : 502,
       data: {
-        error: aborted ? "Upstream request timed out." : "Cannot reach the API.",
-        code: aborted ? "UPSTREAM_TIMEOUT" : "UPSTREAM_UNREACHABLE",
+        error: aborted
+          ? "Upstream request timed out."
+          : responseStarted
+            ? "Could not read the API response."
+            : "Cannot reach the API.",
+        code: aborted
+          ? "UPSTREAM_TIMEOUT"
+          : responseStarted
+            ? "UPSTREAM_INVALID_RESPONSE"
+            : "UPSTREAM_UNREACHABLE",
       } as T,
       requestId,
     };
   } finally {
     clearTimeout(timer);
   }
-
-  if (res.status === 204) {
-    return { ok: true, status: 204, data: null as T, requestId };
-  }
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const data = contentType.includes("application/json")
-    ? ((await res.json()) as T)
-    : ((await res.text()) as unknown as T);
-
-  return { ok: res.ok, status: res.status, data, requestId };
 }
 
 /** Pass an upstream response straight through to the browser. */
