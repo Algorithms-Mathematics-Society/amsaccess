@@ -237,7 +237,7 @@ function ParticipantsContent({
             aria-hidden="true"
           />
         )}
-        <div className="flex gap-2">
+        <div className="flex max-w-full flex-wrap items-center gap-2 [&>a]:min-h-9 [&>a]:whitespace-nowrap [&>button]:min-h-9 [&>button]:whitespace-nowrap [&>div>button]:min-h-9 [&>div>button]:whitespace-nowrap">
           <CredentialMail contestUid={contestUid} onChange={load} />
           {roster !== null && roster.length > 0 && (
             <a
@@ -1056,11 +1056,11 @@ const RosterTable = memo(function RosterTable({
   // Opened over the contest instead of navigating away: /org/participants
   // belongs to the Students section, so Back from there abandons the contest.
   const [openParticipant, setOpenParticipant] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
   const [reissued, setReissued] = useState<IssuedCredential | null>(null);
-  const [mailing, setMailing] = useState<string | null>(null);
-  const [mailed, setMailed] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [actions, setActions] = useState<Record<string, RowActionState>>({});
+  const pending = useRef(new Set<string>());
+  const reissueLock = useRef(false);
+  const [reissueLocked, setReissueLocked] = useState(false);
   const [filter, setFilter] = useState<PeopleFilter>(NO_FILTER);
 
   const osOptions = useMemo(
@@ -1101,11 +1101,17 @@ const RosterTable = memo(function RosterTable({
     [ordered, filter],
   );
 
-  async function act(loginId: string, action: "revoke" | "reissue") {
-    setBusy(loginId);
-    setError("");
+  const act = useCallback(async (loginId: string, action: RowAction) => {
+    // State updates alone cannot guard two clicks in the same event turn.
+    if (pending.current.has(loginId) || (action === "reissue" && reissueLock.current)) return;
+    pending.current.add(loginId);
+    if (action === "reissue") {
+      reissueLock.current = true;
+      setReissueLocked(true);
+    }
+    setActions((previous) => ({ ...previous, [loginId]: { pending: action, error: "", queued: false } }));
     try {
-      const result = await json<IssuedCredential | Participant>(
+      const result = await json<IssuedCredential | Participant | QueuedBatch>(
         await fetch(
           `/api/org/contests/${contestUid}/participants/${encodeURIComponent(loginId)}?action=${action}`,
           { method: "POST" },
@@ -1113,34 +1119,47 @@ const RosterTable = memo(function RosterTable({
       );
       if (action === "reissue") setReissued(result as IssuedCredential);
       else onChange();
+      setActions((previous) => ({ ...previous, [loginId]: { pending: null, error: "", queued: action === "reemail" } }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Could not ${action}.`);
+      setActions((previous) => ({ ...previous, [loginId]: {
+        pending: null, queued: false,
+        error: err instanceof Error ? err.message : `Could not ${action === "reemail" ? "queue the email" : action}.`,
+      } }));
+      if (action === "reissue") {
+        reissueLock.current = false;
+        setReissueLocked(false);
+      }
     } finally {
-      setBusy(null);
+      // A returned password is the only copy. Keep this login locked until
+      // its credential is acknowledged, even though the request has settled.
+      if (action !== "reissue" || !reissueLock.current) pending.current.delete(loginId);
     }
-  }
+  }, [contestUid, onChange]);
 
-  async function reemail(loginId: string) {
-    setMailing(loginId);
-    setMailed(null);
-    setError("");
-    try {
-      await json<QueuedBatch>(
-        await fetch(
-          `/api/org/contests/${contestUid}/participants/${encodeURIComponent(loginId)}?action=reemail`,
-          { method: "POST" },
-        ),
-      );
-      setMailed(loginId);
-      onChange();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not queue the email.",
-      );
-    } finally {
-      setMailing(null);
-    }
-  }
+  const credentialLoginId = reissued?.login_id;
+  // Opening a profile need not reconcile the entire roster. Filtering,
+  // live membership and action changes still rebuild this subtree.
+  const tableBody = useMemo(() => (
+    <tbody className="divide-y divide-slate-100">
+      {visible.map((row) => (
+        <RosterRow key={row.login_id} row={row} entered={participantEntered(entered, row)}
+          pending={actions[row.login_id]?.pending ?? null} error={actions[row.login_id]?.error ?? ""}
+          queued={actions[row.login_id]?.queued ?? false} reissueLocked={reissueLocked}
+          credentialLocked={credentialLoginId === row.login_id}
+          onOpen={setOpenParticipant} onAction={act} />
+      ))}
+      {visible.length === 0 && (
+        <tr>
+          <td
+            colSpan={6}
+            className="px-4 py-10 text-center text-sm text-slate-500"
+          >
+            Nobody matches that. {rows.length} people are on the roster.
+          </td>
+        </tr>
+      )}
+    </tbody>
+  ), [visible, entered, actions, reissueLocked, credentialLoginId, act, setOpenParticipant, rows.length]);
 
   return (
     <div>
@@ -1152,15 +1171,13 @@ const RosterTable = memo(function RosterTable({
         row={reissued}
         contestTitle={contestTitle}
         onClose={() => {
+          if (reissued) pending.current.delete(reissued.login_id);
           setReissued(null);
+          reissueLock.current = false;
+          setReissueLocked(false);
           onChange();
         }}
       />
-      {error && (
-        <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
       <PeopleFilters
         value={filter}
         onChange={setFilter}
@@ -1169,149 +1186,162 @@ const RosterTable = memo(function RosterTable({
         showing={visible.length}
         total={rows.length}
       />
+      <p className="mb-2 text-xs text-slate-500 lg:hidden">Scroll the table sideways to see email and actions.</p>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[820px] text-sm">
+        <table className="w-full min-w-[1120px] table-fixed text-sm" aria-label="Contest participants">
+          <colgroup>
+            <col className="w-[18%]" />
+            <col className="w-[20%]" />
+            <col className="w-[11%]" />
+            <col />
+            <col className="w-[224px]" />
+            <col className="w-[200px]" />
+          </colgroup>
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-2.5">Name</th>
               <th className="px-4 py-2.5">Handle</th>
               <th className="px-4 py-2.5">Status</th>
               <th className="px-4 py-2.5">Email</th>
+              <th className="px-4 py-2.5">Credential email</th>
               <th className="px-4 py-2.5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {visible.map((row) => (
-              <tr
-                key={row.login_id}
-                className={row.revoked ? "opacity-50" : undefined}
-              >
-                <td className="px-4 py-2.5 text-slate-700">
-                  {/* The profile is reachable from the Students directory but
-                      not from here, which is the screen staff are actually on
-                      when a name comes up mid-contest. Linked by uid rather
-                      than handle: this row carries the uid, and the profile
-                      route resolves either. */}
-                  <button
-                    type="button"
-                    onClick={() => setOpenParticipant(row.user_uid)}
-                    className={`text-left font-medium hover:underline ${participantEntered(entered, row) ? "text-emerald-700" : "text-slate-900"}`}
-                  >
-                    {row.display_name}
-                    {participantEntered(entered, row) && (
-                      <span className="sr-only"> — Entered this contest</span>
-                    )}
-                  </button>
-                </td>
-                <td className="px-4 py-2.5 font-mono text-slate-900">
-                  {row.login_id}
-                  <span className="text-slate-400">@access</span>
-                </td>
-                <td className="px-4 py-2.5">
-                  {row.revoked ? (
-                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                      revoked
-                    </span>
-                  ) : row.last_login_at ? (
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
-                      signed in
-                    </span>
-                  ) : !row.has_passphrase ? (
-                    <span
-                      title="Issued, but no passphrase yet. Sending the credential email or reissuing a slip gives them one."
-                      className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700"
-                    >
-                      no passphrase
-                    </span>
-                  ) : (
-                    <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500">
-                      not yet used
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-2.5">
-                  {row.email ? (
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-mono text-xs text-slate-600">
-                        {row.email}
-                      </span>
-                      <MailPill status={row.mail_status || "unsent"} />
-                      {(row.mail_status === "" ||
-                        row.mail_status === "bounced") && (
-                        <button
-                          type="button"
-                          onClick={() => void reemail(row.login_id)}
-                          disabled={mailing === row.login_id || row.revoked}
-                          title={
-                            row.revoked
-                              ? "Restore this login before emailing credentials"
-                              : "Queue a fresh credential email"
-                          }
-                          className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
-                        >
-                          {mailing === row.login_id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : mailed === row.login_id ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-600" />
-                          ) : (
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          )}
-                          {mailed === row.login_id ? "Queued" : "Re-email"}
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-slate-400">no email</span>
-                  )}
-                </td>
-                <td className="px-4 py-2.5">
-                  <div className="flex justify-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => act(row.login_id, "reissue")}
-                      disabled={busy === row.login_id}
-                      title="Issue a new password — for a lost slip"
-                      className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
-                    >
-                      {busy === row.login_id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <KeyRound className="h-3.5 w-3.5" />
-                      )}
-                      Reissue
-                    </button>
-                    {!row.revoked && (
-                      <button
-                        type="button"
-                        onClick={() => act(row.login_id, "revoke")}
-                        disabled={busy === row.login_id}
-                        title="Disable this login. The record is kept."
-                        className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
-                      >
-                        <Ban className="h-3.5 w-3.5" />
-                        Revoke
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {visible.length === 0 && (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-10 text-center text-sm text-slate-500"
-                >
-                  Nobody matches that. {rows.length} people are on the roster.
-                </td>
-              </tr>
-            )}
-          </tbody>
+          {tableBody}
         </table>
       </div>
     </div>
   );
 });
+
+type RowAction = "revoke" | "reissue" | "reemail";
+type RowActionState = { pending: RowAction | null; error: string; queued: boolean };
+
+const RosterRow = memo(function RosterRow({ row, entered, pending, error, queued, reissueLocked, credentialLocked, onOpen, onAction }: {
+  row: Participant;
+  entered: boolean;
+  pending: RowAction | null;
+  error: string;
+  queued: boolean;
+  reissueLocked: boolean;
+  credentialLocked: boolean;
+  onOpen: (uid: string) => void;
+  onAction: (loginId: string, action: RowAction) => void;
+}) {
+  return (
+    <tr
+      className={row.revoked ? "opacity-50" : undefined}
+    >
+      <td className="px-4 py-2.5 text-slate-700">
+        {/* The profile is reachable from the Students directory but
+            not from here, which is the screen staff are actually on
+            when a name comes up mid-contest. Linked by uid rather
+            than handle: this row carries the uid, and the profile
+            route resolves either. */}
+        <button
+          type="button"
+          onClick={() => onOpen(row.user_uid)}
+          className={`break-words text-left font-medium hover:underline ${entered ? "text-emerald-700" : "text-slate-900"}`}
+        >
+          {row.display_name}
+          {entered && (
+            <span className="ml-2 inline-block text-xs font-normal text-emerald-700">Entered</span>
+          )}
+        </button>
+      </td>
+      <td className="break-words px-4 py-2.5 font-mono text-xs text-slate-700">
+        {row.login_id}
+        <span className="text-slate-400">@access</span>
+      </td>
+      <td className="px-4 py-2.5">
+        {row.revoked ? (
+          <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+            revoked
+          </span>
+        ) : row.last_login_at ? (
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+            signed in
+          </span>
+        ) : !row.has_passphrase ? (
+          <span
+            title="Issued, but no passphrase yet. Sending the credential email or reissuing a slip gives them one."
+            className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700"
+          >
+            no passphrase
+          </span>
+        ) : (
+          <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500">
+            not yet used
+          </span>
+        )}
+      </td>
+      <td className="break-words px-4 py-2.5 text-xs text-slate-600" title={row.email || undefined}>
+        {row.email || <span className="text-slate-400">no email</span>}
+      </td>
+      <td className="px-4 py-2.5">
+        {row.email && <div className="flex items-center justify-between gap-2">
+          <MailPill status={row.mail_status || "unsent"} />
+          {(row.mail_status === "" || row.mail_status === "bounced") && (
+            <button type="button" onClick={() => void onAction(row.login_id, "reemail")}
+              disabled={pending !== null || credentialLocked || row.revoked}
+              title={row.revoked ? "Restore this login before emailing credentials" : queued ? "Email accepted into the queue; delivery is not yet confirmed" : "Queue a fresh credential email"}
+              className="inline-flex min-h-8 w-[108px] items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-50">
+              {pending === "reemail" ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 motion-safe:animate-spin" /> : queued ? <Check aria-hidden="true" className="h-3.5 w-3.5 text-emerald-600" /> : <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />}
+              {pending === "reemail" ? "Queueing…" : queued ? "Queued" : "Re-email"}
+            </button>
+          )}
+        </div>}
+      </td>
+      <td className="px-4 py-2.5">
+        <div className="flex justify-end gap-1">
+          <button
+            type="button"
+            onClick={() => onAction(row.login_id, "reissue")}
+            disabled={pending !== null || credentialLocked || reissueLocked}
+            title="Issue a new password — for a lost slip"
+            className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40"
+          >
+            {pending === "reissue" ? (
+              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 motion-safe:animate-spin" />
+            ) : (
+              <KeyRound className="h-3.5 w-3.5" />
+            )}
+            Reissue
+          </button>
+          {!row.revoked && (
+            <button
+              type="button"
+              onClick={() => onAction(row.login_id, "revoke")}
+              disabled={pending !== null || credentialLocked}
+              title="Disable this login. The record is kept."
+              className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:opacity-40"
+            >
+              <Ban className="h-3.5 w-3.5" />
+              Revoke
+            </button>
+          )}
+        </div>
+        {error && <p role="alert" className="mt-1 break-words text-xs text-red-700">{error}</p>}
+      </td>
+    </tr>
+  );
+}, (previous, next) =>
+  previous.entered === next.entered &&
+  previous.pending === next.pending &&
+  previous.error === next.error &&
+  previous.queued === next.queued &&
+  previous.reissueLocked === next.reissueLocked &&
+  previous.credentialLocked === next.credentialLocked &&
+  previous.onOpen === next.onOpen &&
+  previous.onAction === next.onAction &&
+  // Roster refreshes deserialize new objects. Compare every primitive field,
+  // not object identity, so a one-person update does not repaint all rows.
+  (previous.row === next.row ||
+    (Object.keys(previous.row).length === Object.keys(next.row).length &&
+      (Object.keys(previous.row) as (keyof Participant)[]).every(
+        (key) => Object.prototype.hasOwnProperty.call(next.row, key) && previous.row[key] === next.row[key],
+      )))
+);
 
 const MAIL_PILL: Record<string, string> = {
   unsent: "border-amber-200 bg-amber-50 text-amber-700",
@@ -1566,7 +1596,7 @@ function CredentialMail({
       </button>
 
       {open && (
-        <div className="absolute right-0 z-10 mt-2 w-[26rem] rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+        <div className="absolute left-0 z-10 mt-2 w-[min(26rem,calc(100vw-2rem))] rounded-xl sm:left-auto sm:right-0 border border-slate-200 bg-white p-4 shadow-lg">
           {plan === null ? (
             <SkeletonTable rows={3} bare />
           ) : queued ? (
