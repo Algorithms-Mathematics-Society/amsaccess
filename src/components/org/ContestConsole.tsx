@@ -27,6 +27,7 @@ import { OrgNotificationDrawer } from "./OrgNotificationDrawer";
 import { ParticipantModal } from "./ParticipantModal";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 import { LeaderboardPanel } from "./LeaderboardPanel";
+import { AnalyticsPanel } from "./AnalyticsPanel";
 import { InvigilationPanel } from "./InvigilationPanel";
 import { FleetPanel } from "./FleetPanel";
 import { ContestScale } from "./ContestScale";
@@ -35,6 +36,7 @@ const TABS = [
   "problems",
   "participants",
   "leaderboard",
+  "analytics",
   "submissions",
   "invigilation",
   "judging",
@@ -46,7 +48,9 @@ type Tab = (typeof TABS)[number];
  *  rather than rendering an empty console. */
 function tabFromHash(hash: string): Tab {
   const name = hash.replace(/^#/, "");
-  return (TABS as readonly string[]).includes(name) ? (name as Tab) : "problems";
+  return (TABS as readonly string[]).includes(name)
+    ? (name as Tab)
+    : "problems";
 }
 
 /** How many rows the submissions table holds. The contest may hold far more. */
@@ -61,7 +65,8 @@ type SubmissionSummary = {
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
+  if (!res.ok)
+    throw new Error((data as { error?: string }).error ?? "Request failed.");
   return data as T;
 }
 
@@ -82,11 +87,20 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   const [error, setError] = useState("");
   const [tab, setTabState] = useState<Tab>("problems");
   const { role, known } = useOrgRole();
-  const notificationsEnabled = Boolean(contest) && known &&
-    ["owner", "admin", "problemsetter", "contest_manager", "judge_manager"].includes(role ?? "");
+  const notificationsEnabled =
+    Boolean(contest) &&
+    known &&
+    [
+      "owner",
+      "admin",
+      "problemsetter",
+      "contest_manager",
+      "judge_manager",
+    ].includes(role ?? "");
   const notifications = useOrgNotifications(contestUid, notificationsEnabled);
-  const [notificationParticipant, setNotificationParticipant] = useState<string | null>(null);
-
+  const [notificationParticipant, setNotificationParticipant] = useState<
+    string | null
+  >(null);
 
   // The tab lives in the URL fragment, so reloading keeps you where you
   // were. It was React state alone: Ctrl+R on the Leaderboard dropped you
@@ -110,12 +124,17 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     window.history.replaceState(null, "", `#${next}`);
   }, []);
 
-  const reviewNotification = useCallback((item: OrgNotification) => {
-    const session = notifications.raw.sessions.find((row) => row.uid === item.targetUid);
-    const handle = session?.user_uid || session?.login_id || item.loginId;
-    if (handle) setNotificationParticipant(handle);
-    else setTab("invigilation");
-  }, [notifications.raw.sessions, setTab]);
+  const reviewNotification = useCallback(
+    (item: OrgNotification) => {
+      const session = notifications.raw.sessions.find(
+        (row) => row.uid === item.targetUid,
+      );
+      const handle = session?.user_uid || session?.login_id || item.loginId;
+      if (handle) setNotificationParticipant(handle);
+      else setTab("invigilation");
+    },
+    [notifications.raw.sessions, setTab],
+  );
 
   const loadContest = useCallback(async () => {
     invalidate("/api/org/contests");
@@ -127,41 +146,55 @@ function ContestContent({ contestUid }: { contestUid: string }) {
       );
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load the contest.");
+      setError(
+        err instanceof Error ? err.message : "Could not load the contest.",
+      );
     }
   }, [contestUid]);
 
   const submissionFlight = useRef<Promise<void> | null>(null);
   const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const loadSubmissions = useCallback((): Promise<void> => {
     if (submissionFlight.current) return submissionFlight.current;
     const request = (async () => {
-    try {
-      // The table is a page; the counts are the contest. Fetched together
-      // because showing one without the other is how "200" ended up beside
-      // a tab on a contest with a thousand submissions.
-      const [page, totals] = await Promise.all([
-        fetch(`/api/org/contests/${contestUid}/submissions?limit=${SUBMISSION_PAGE}`, {
+      try {
+        // The table is a page; the counts are the contest. Fetched together
+        // because showing one without the other is how "200" ended up beside
+        // a tab on a contest with a thousand submissions.
+        const [page, totals] = await Promise.all([
+          fetch(
+            `/api/org/contests/${contestUid}/submissions?limit=${SUBMISSION_PAGE}`,
+            {
+              cache: "no-store",
+            },
+          ).then((res) => json<ContestSubmission[]>(res)),
+          fetch(`/api/org/contests/${contestUid}/submissions/summary`, {
             cache: "no-store",
-          }).then((res) => json<ContestSubmission[]>(res)),
-        fetch(`/api/org/contests/${contestUid}/submissions/summary`, { cache: "no-store" })
-          .then((res) => json<SubmissionSummary>(res))
-          // An API that does not serve the summary yet must not blank the
-          // table: fall back to counting the page, which is what this did
-          // before, and say so in the UI rather than here.
-          .catch(() => null),
-      ]);
-      if (!mounted.current) return;
-      setSubmissions(page);
-      setSummary(totals);
-    } catch {
-      // A failed poll is not worth replacing the table with an error; the
-      // next tick usually succeeds and the stale rows stay readable.
-    }
+          })
+            .then((res) => json<SubmissionSummary>(res))
+            // An API that does not serve the summary yet must not blank the
+            // table: fall back to counting the page, which is what this did
+            // before, and say so in the UI rather than here.
+            .catch(() => null),
+        ]);
+        if (!mounted.current) return;
+        setSubmissions(page);
+        setSummary(totals);
+      } catch {
+        // A failed poll is not worth replacing the table with an error; the
+        // next tick usually succeeds and the stale rows stay readable.
+      }
     })();
     submissionFlight.current = request;
-    void request.finally(() => { if (submissionFlight.current === request) submissionFlight.current = null; });
+    void request.finally(() => {
+      if (submissionFlight.current === request) submissionFlight.current = null;
+    });
     return request;
   }, [contestUid]);
 
@@ -171,12 +204,17 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   }, [loadContest, loadSubmissions]);
 
   const pending = useMemo(
-    () => submissions.some((s) => s.status === "queued" || s.status === "running"),
+    () =>
+      submissions.some((s) => s.status === "queued" || s.status === "running"),
     [submissions],
   );
 
   useEffect(() => {
-    return startOrgPolling(loadSubmissions, pending ? POLL_BUSY_MS : POLL_IDLE_MS, { immediate: false });
+    return startOrgPolling(
+      loadSubmissions,
+      pending ? POLL_BUSY_MS : POLL_IDLE_MS,
+      { immediate: false },
+    );
   }, [pending, loadSubmissions]);
 
   if (error && !contest) {
@@ -199,7 +237,10 @@ function ContestContent({ contestUid }: { contestUid: string }) {
         <div className="mt-2 h-3 w-40 animate-pulse rounded bg-slate-100" />
         <div className="mt-6 flex gap-2">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-8 w-24 animate-pulse rounded-lg bg-slate-100" />
+            <div
+              key={i}
+              className="h-8 w-24 animate-pulse rounded-lg bg-slate-100"
+            />
           ))}
         </div>
         <div className="mt-6 h-64 animate-pulse rounded-xl bg-slate-100" />
@@ -210,7 +251,10 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   // it cannot. `total` carries which, so the table can be honest about it.
   const counts: Record<string, number> =
     summary !== null
-      ? { ...summary.verdicts, ...(summary.pending > 0 ? { judging: summary.pending } : {}) }
+      ? {
+          ...summary.verdicts,
+          ...(summary.pending > 0 ? { judging: summary.pending } : {}),
+        }
       : submissions.reduce<Record<string, number>>((acc, s) => {
           const key = s.verdict ?? s.status;
           acc[key] = (acc[key] ?? 0) + 1;
@@ -259,7 +303,9 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
               <span>
                 {formatWhen(contest.starts_at)} → {formatWhen(contest.ends_at)}{" "}
-                <span className="text-slate-400">({relativeWhen(contest.starts_at)})</span>
+                <span className="text-slate-400">
+                  ({relativeWhen(contest.starts_at)})
+                </span>
               </span>
               <Reschedule contest={contest} onChanged={loadContest} />
             </div>
@@ -267,7 +313,10 @@ function ContestContent({ contestUid }: { contestUid: string }) {
 
           <div className="flex items-center gap-3">
             {contest.status === "draft" && (
-              <PublishButton contestUid={contest.uid} onPublished={loadContest} />
+              <PublishButton
+                contestUid={contest.uid}
+                onPublished={loadContest}
+              />
             )}
             {contest.invite_code && <InviteCode code={contest.invite_code} />}
           </div>
@@ -275,9 +324,11 @@ function ContestContent({ contestUid }: { contestUid: string }) {
 
         {contest.status === "draft" && (
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
-            This contest is a <strong>draft</strong>. Nobody can join with the invite code until
-            you publish it
-            {contest.problems.length === 0 && " — and it needs at least one problem first"}.
+            This contest is a <strong>draft</strong>. Nobody can join with the
+            invite code until you publish it
+            {contest.problems.length === 0 &&
+              " — and it needs at least one problem first"}
+            .
           </p>
         )}
       </header>
@@ -312,7 +363,13 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           from a screen that has nothing to do with it. */}
       {tab === "submissions" && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 md:px-8">
-          <RejudgeButton contestUid={contest.uid} onDone={async () => { await submissionFlight.current; await loadSubmissions(); }} />
+          <RejudgeButton
+            contestUid={contest.uid}
+            onDone={async () => {
+              await submissionFlight.current;
+              await loadSubmissions();
+            }}
+          />
           <a
             href={`/api/org/contests/${contest.uid}/export?kind=standings`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
@@ -335,26 +392,33 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           <ProblemsTab contest={contest} onChange={loadContest} />
         ) : tab === "participants" ? (
           <ParticipantsPanel
-              contestUid={contest.uid}
-              contestTitle={contest.title}
-              isPractice={contest.is_practice}
-              live={contest.status === "running" || contest.status === "scheduled"}
-            />
+            contestUid={contest.uid}
+            contestTitle={contest.title}
+            isPractice={contest.is_practice}
+            live={
+              contest.status === "running" || contest.status === "scheduled"
+            }
+          />
         ) : tab === "submissions" ? (
           <SubmissionsTab
-              submissions={submissions}
-              counts={counts}
-              total={total}
-              pending={pending}
-            />
+            submissions={submissions}
+            counts={counts}
+            total={total}
+            pending={pending}
+          />
         ) : tab === "leaderboard" ? (
           <LeaderboardPanel
             contestUid={contest.uid}
             problemLabels={contest.problems.map((p) => p.label)}
             live={contest.status === "running"}
           />
+        ) : tab === "analytics" ? (
+          <AnalyticsPanel contestUid={contest.uid} />
         ) : tab === "invigilation" ? (
-          <InvigilationPanel contestUid={contest.uid} notificationsEnabled={notificationsEnabled} />
+          <InvigilationPanel
+            contestUid={contest.uid}
+            notificationsEnabled={notificationsEnabled}
+          />
         ) : tab === "judging" ? (
           // Named rather than left as the trailing `else`. A fall-through
           // catches every tab nobody has got round to adding, which is how
@@ -382,7 +446,10 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           onReview={reviewNotification}
         />
       )}
-      <ParticipantModal handle={notificationParticipant} onClose={() => setNotificationParticipant(null)} />
+      <ParticipantModal
+        handle={notificationParticipant}
+        onClose={() => setNotificationParticipant(null)}
+      />
     </div>
   );
 }
@@ -394,7 +461,13 @@ function ContestContent({ contestUid }: { contestUid: string }) {
  * is creating another one — orphaning the invite code, the roster, and any
  * problems already attached.
  */
-function Reschedule({ contest, onChanged }: { contest: Contest; onChanged: () => void }) {
+function Reschedule({
+  contest,
+  onChanged,
+}: {
+  contest: Contest;
+  onChanged: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [starts, setStarts] = useState(toLocalInput(contest.starts_at));
   const [ends, setEnds] = useState(toLocalInput(contest.ends_at));
@@ -488,7 +561,9 @@ function Reschedule({ contest, onChanged }: { contest: Contest; onChanged: () =>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <button
           type="button"
-          onClick={() => save(new Date(starts).toISOString(), new Date(ends).toISOString())}
+          onClick={() =>
+            save(new Date(starts).toISOString(), new Date(ends).toISOString())
+          }
           disabled={busy || invalid}
           className="rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
         >
@@ -573,7 +648,11 @@ function PublishButton({
         disabled={busy}
         className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-40"
       >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Send className="h-4 w-4" />
+        )}
         {busy ? "Publishing…" : "Publish"}
       </button>
       {error && <p className="mt-1 max-w-xs text-xs text-red-600">{error}</p>}
@@ -596,7 +675,9 @@ function InviteCode({ code }: { code: string }) {
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Invite code</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        Invite code
+      </p>
       <div className="mt-1 flex items-center gap-2">
         <code className="font-mono text-lg font-semibold tracking-[0.2em] text-slate-900">
           {code}
@@ -607,21 +688,32 @@ function InviteCode({ code }: { code: string }) {
           aria-label="Copy invite code"
           className="rounded p-1 text-slate-400 transition hover:bg-white hover:text-slate-900"
         >
-          {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+          {copied ? (
+            <Check className="h-4 w-4 text-emerald-600" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
         </button>
       </div>
     </div>
   );
 }
 
-function ProblemsTab({ contest, onChange }: { contest: Contest; onChange: () => void }) {
+function ProblemsTab({
+  contest,
+  onChange,
+}: {
+  contest: Contest;
+  onChange: () => void;
+}) {
   const [adding, setAdding] = useState(false);
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500">
-          {contest.problems.length} problem{contest.problems.length === 1 ? "" : "s"}
+          {contest.problems.length} problem
+          {contest.problems.length === 1 ? "" : "s"}
         </p>
         <button
           type="button"
@@ -663,15 +755,23 @@ function ProblemsTab({ contest, onChange }: { contest: Contest; onChange: () => 
             <tbody className="divide-y divide-slate-100">
               {contest.problems.map((p) => (
                 <tr key={p.uid}>
-                  <td className="px-4 py-3 font-semibold text-slate-900">{p.label}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-900">
+                    {p.label}
+                  </td>
                   <td className="px-4 py-3 text-slate-700">{p.title}</td>
                   <td className="px-4 py-3 text-slate-500">
                     {p.time_limit_ms ? `${p.time_limit_ms} ms` : "default"} ·{" "}
                     {p.memory_limit_mb ? `${p.memory_limit_mb} MB` : "default"}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-700">{p.score}</td>
+                  <td className="px-4 py-3 text-right text-slate-700">
+                    {p.score}
+                  </td>
                   <td className="px-4 py-3 text-right">
-                    <RemoveProblem contestUid={contest.uid} cpUid={p.uid} onDone={onChange} />
+                    <RemoveProblem
+                      contestUid={contest.uid}
+                      cpUid={p.uid}
+                      onDone={onChange}
+                    />
                   </td>
                 </tr>
               ))}
@@ -696,7 +796,9 @@ function AddProblemForm({
   const [versionUid, setVersionUid] = useState("");
   // Suggest the next free letter rather than making the setter work it out.
   const nextLabel =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").find((l) => !usedLabels.includes(l)) ?? "";
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      .split("")
+      .find((l) => !usedLabels.includes(l)) ?? "";
   const [label, setLabel] = useState(nextLabel);
   const [score, setScore] = useState(100);
   const [busy, setBusy] = useState(false);
@@ -705,16 +807,24 @@ function AddProblemForm({
   useEffect(() => {
     void (async () => {
       try {
-        setProblems(await json<Problem[]>(await fetch("/api/org/problems", { cache: "no-store" })));
+        setProblems(
+          await json<Problem[]>(
+            await fetch("/api/org/problems", { cache: "no-store" }),
+          ),
+        );
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load problems.");
+        setError(
+          err instanceof Error ? err.message : "Could not load problems.",
+        );
       }
     })();
   }, []);
 
   // Only versions with a package can actually judge anything.
   const options = problems.flatMap((p) =>
-    p.versions.filter((v) => v.has_package).map((v) => ({ problem: p, version: v })),
+    p.versions
+      .filter((v) => v.has_package)
+      .map((v) => ({ problem: p, version: v })),
   );
 
   async function submit(e: React.FormEvent) {
@@ -726,21 +836,32 @@ function AddProblemForm({
         await fetch(`/api/org/contests/${contestUid}/problems`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ problem_version_uid: versionUid, label, score }),
+          body: JSON.stringify({
+            problem_version_uid: versionUid,
+            label,
+            score,
+          }),
         }),
       );
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add the problem.");
+      setError(
+        err instanceof Error ? err.message : "Could not add the problem.",
+      );
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="mb-4 space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+    <form
+      onSubmit={submit}
+      className="mb-4 space-y-4 rounded-xl border border-slate-200 bg-white p-5"
+    >
       <div>
-        <label className="block text-sm font-medium text-slate-700">Problem version</label>
+        <label className="block text-sm font-medium text-slate-700">
+          Problem version
+        </label>
         <select
           value={versionUid}
           onChange={(e) => setVersionUid(e.target.value)}
@@ -755,25 +876,32 @@ function AddProblemForm({
         </select>
         {options.length === 0 && (
           <p className="mt-1 text-xs text-amber-700">
-            No problem has an uploaded package yet. Upload one under Problems first.
+            No problem has an uploaded package yet. Upload one under Problems
+            first.
           </p>
         )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-slate-700">Label</label>
+          <label className="block text-sm font-medium text-slate-700">
+            Label
+          </label>
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value.toUpperCase().slice(0, 8))}
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
           />
           {usedLabels.includes(label) && (
-            <p className="mt-1 text-xs text-red-600">That label is already used.</p>
+            <p className="mt-1 text-xs text-red-600">
+              That label is already used.
+            </p>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700">Score</label>
+          <label className="block text-sm font-medium text-slate-700">
+            Score
+          </label>
           <input
             type="number"
             min={0}
@@ -850,8 +978,8 @@ function SubmissionsTab({
       {total > submissions.length && (
         <p className="mb-2 text-xs text-slate-500">
           Showing the {submissions.length.toLocaleString()} most recent of{" "}
-          {total.toLocaleString()}. The counts above are for the whole contest; export the
-          CSV for every row.
+          {total.toLocaleString()}. The counts above are for the whole contest;
+          export the CSV for every row.
         </p>
       )}
 
@@ -874,8 +1002,12 @@ function SubmissionsTab({
                 <td className="whitespace-nowrap px-4 py-2.5 text-slate-500">
                   {new Date(s.created_at).toLocaleTimeString()}
                 </td>
-                <td className="px-4 py-2.5 text-slate-700">{s.display_name || s.username}</td>
-                <td className="px-4 py-2.5 font-medium text-slate-900">{s.problem_label}</td>
+                <td className="px-4 py-2.5 text-slate-700">
+                  {s.display_name || s.username}
+                </td>
+                <td className="px-4 py-2.5 font-medium text-slate-900">
+                  {s.problem_label}
+                </td>
                 <td className="px-4 py-2.5">
                   <span
                     className={`rounded-full border px-2 py-0.5 text-xs font-medium ${verdictClass(s.verdict ?? s.status)}`}
@@ -890,7 +1022,9 @@ function SubmissionsTab({
                   {s.max_runtime_ms ? `${s.max_runtime_ms} ms` : "—"}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
-                  {s.max_memory_kb ? `${Math.round(s.max_memory_kb / 1024)} MB` : "—"}
+                  {s.max_memory_kb
+                    ? `${Math.round(s.max_memory_kb / 1024)} MB`
+                    : "—"}
                 </td>
               </tr>
             ))}
@@ -901,7 +1035,6 @@ function SubmissionsTab({
   );
 }
 
-
 /** Re-run judging.
  *
  * Defaults to `SE` only, because that is the case worth repairing: a
@@ -909,7 +1042,13 @@ function SubmissionsTab({
  * an entire contest disturbs results that were already correct, so the
  * broader option is deliberately one click further away.
  */
-function RejudgeButton({ contestUid, onDone }: { contestUid: string; onDone: () => void }) {
+function RejudgeButton({
+  contestUid,
+  onDone,
+}: {
+  contestUid: string;
+  onDone: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState("");
@@ -919,9 +1058,12 @@ function RejudgeButton({ contestUid, onDone }: { contestUid: string; onDone: () 
     setResult("");
     try {
       const query = verdict ? `?verdict=${verdict}` : "";
-      const res = await fetch(`/api/org/contests/${contestUid}/rejudge${query}`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `/api/org/contests/${contestUid}/rejudge${query}`,
+        {
+          method: "POST",
+        },
+      );
       const data = (await res.json().catch(() => ({}))) as {
         queued?: number;
         error?: string;
@@ -929,7 +1071,9 @@ function RejudgeButton({ contestUid, onDone }: { contestUid: string; onDone: () 
       };
       if (!res.ok) throw new Error(data.error ?? "Could not rejudge.");
       setResult(
-        data.queued ? `${data.queued} queued — verdicts update as they finish` : "nothing matched",
+        data.queued
+          ? `${data.queued} queued — verdicts update as they finish`
+          : "nothing matched",
       );
       setOpen(false);
       onDone();
@@ -992,11 +1136,17 @@ function RemoveProblem({
   async function remove() {
     setError("");
     try {
-      const res = await fetch(`/api/org/contests/${contestUid}/problems/${cpUid}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/org/contests/${contestUid}/problems/${cpUid}`,
+        {
+          method: "DELETE",
+        },
+      );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not remove.");
+      if (!res.ok)
+        throw new Error(
+          (data as { error?: string }).error ?? "Could not remove.",
+        );
       onDone();
     } catch (err) {
       // The server refuses once anyone has submitted, and the reason is the

@@ -3,7 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { fetchOrgSessions } from "@/lib/client/useOrgNotifications";
-import { enteredParticipantKeys, participantEntered } from "@/lib/client/orgEntry";
+import {
+  enteredParticipantKeys,
+  participantEntered,
+} from "@/lib/client/orgEntry";
+import { PeopleFilters } from "@/components/org/PeopleFilters";
+import {
+  NO_FILTER,
+  applyPeopleFilter,
+  optionsFrom,
+  type PeopleFilter,
+} from "@/lib/client/peopleFilter.ts";
 import { SkeletonTable } from "@/components/org/Skeleton";
 import Link from "next/link";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
@@ -37,6 +47,10 @@ type Participant = {
   email: string;
   // The latest credential email for this contest: "" | queued | sent | failed | bounced…
   mail_status: string;
+  /** From the directory profile. "" when nobody filled it in. */
+  college: string;
+  /** The machine they sat *this* contest on, "" if they never checked in. */
+  device_os: string;
 };
 
 type CredentialPlan = {
@@ -60,7 +74,8 @@ type IssuedCredential = {
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
+  if (!res.ok)
+    throw new Error((data as { error?: string }).error ?? "Request failed.");
   return data as T;
 }
 
@@ -68,12 +83,16 @@ function toCsv(rows: IssuedCredential[]): string {
   const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
   return [
     "login_id,password,display_name",
-    ...rows.map((r) => [r.login_id, r.password, r.display_name].map(escape).join(",")),
+    ...rows.map((r) =>
+      [r.login_id, r.password, r.display_name].map(escape).join(","),
+    ),
   ].join("\n");
 }
 
 function download(filename: string, contents: string): void {
-  const url = URL.createObjectURL(new Blob([contents], { type: "text/csv;charset=utf-8" }));
+  const url = URL.createObjectURL(
+    new Blob([contents], { type: "text/csv;charset=utf-8" }),
+  );
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
@@ -81,7 +100,12 @@ function download(filename: string, contents: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function ParticipantsPanel(props: { contestUid: string; contestTitle: string; isPractice?: boolean; live?: boolean }) {
+export function ParticipantsPanel(props: {
+  contestUid: string;
+  contestTitle: string;
+  isPractice?: boolean;
+  live?: boolean;
+}) {
   return <ParticipantsContent key={props.contestUid} {...props} />;
 }
 
@@ -124,16 +148,20 @@ function ParticipantsContent({
     const controller = new AbortController();
     rosterRequest.current = controller;
     try {
-      const rows =
-        await json<Participant[]>(
-          await fetch(`/api/org/contests/${contestUid}/participants`, { cache: "no-store", signal: controller.signal }),
-        );
+      const rows = await json<Participant[]>(
+        await fetch(`/api/org/contests/${contestUid}/participants`, {
+          cache: "no-store",
+          signal: controller.signal,
+        }),
+      );
       if (controller.signal.aborted) return;
       setRoster(rows);
       setError("");
     } catch (err) {
       if (controller.signal.aborted) return;
-      setError(err instanceof Error ? err.message : "Could not load the roster.");
+      setError(
+        err instanceof Error ? err.message : "Could not load the roster.",
+      );
     }
   }, [contestUid]);
 
@@ -144,18 +172,25 @@ function ParticipantsContent({
 
   useEffect(() => {
     const controller = new AbortController();
-    const stop = startOrgPolling(async () => {
-      try {
-        const sessions = await fetchOrgSessions(contestUid);
-        if (controller.signal.aborted) return;
-        setEntered(enteredParticipantKeys(sessions));
-        setEntryLoaded(true);
-        setEntryError("");
-      } catch {
-        if (!controller.signal.aborted) setEntryError("Entry status could not refresh.");
-      }
-    }, live ? 10000 : null);
-    return () => { stop(); controller.abort(); };
+    const stop = startOrgPolling(
+      async () => {
+        try {
+          const sessions = await fetchOrgSessions(contestUid);
+          if (controller.signal.aborted) return;
+          setEntered(enteredParticipantKeys(sessions));
+          setEntryLoaded(true);
+          setEntryError("");
+        } catch {
+          if (!controller.signal.aborted)
+            setEntryError("Entry status could not refresh.");
+        }
+      },
+      live ? 10000 : null,
+    );
+    return () => {
+      stop();
+      controller.abort();
+    };
   }, [contestUid, live, entryRetry]);
 
   /** What to show after people were added, which depends on what was minted. */
@@ -183,11 +218,16 @@ function ParticipantsContent({
   }, [issued, saved]);
 
   const { active, loggedIn, unkeyed, rosterUids } = useMemo(() => {
-    let active = 0, loggedIn = 0, unkeyed = 0;
+    let active = 0,
+      loggedIn = 0,
+      unkeyed = 0;
     const rosterUids = new Set<string>();
     for (const row of roster ?? []) {
       rosterUids.add(row.user_uid);
-      if (!row.revoked) { active++; if (!row.has_passphrase) unkeyed++; }
+      if (!row.revoked) {
+        active++;
+        if (!row.has_passphrase) unkeyed++;
+      }
       if (row.last_login_at) loggedIn++;
     }
     return { active, loggedIn, unkeyed, rosterUids };
@@ -209,7 +249,6 @@ function ParticipantsContent({
     );
   }
 
-
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -221,7 +260,10 @@ function ParticipantsContent({
               }${roster.length - active > 0 ? ` · ${roster.length - active} revoked` : ""}`}
         </p>
         {roster === null && (
-          <div className="h-4 w-56 animate-pulse rounded bg-slate-200" aria-hidden="true" />
+          <div
+            className="h-4 w-56 animate-pulse rounded bg-slate-200"
+            aria-hidden="true"
+          />
         )}
         <div className="flex gap-2">
           <CredentialMail contestUid={contestUid} onChange={load} />
@@ -234,27 +276,29 @@ function ParticipantsContent({
               Export roster
             </a>
           )}
-          {isPractice && <SeedTestParticipants contestUid={contestUid} onSeeded={absorb} />}
+          {isPractice && (
+            <SeedTestParticipants contestUid={contestUid} onSeeded={absorb} />
+          )}
           {/* Both of these read the directory, which an intern may not, so
               for them they would be buttons that always fail. */}
           {!isIntern && (
             <>
-          <button
-            type="button"
-            onClick={() => setPickingFromAccess(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-900"
-          >
-            <Users className="h-4 w-4" />
-            Add from Access
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdding((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-          >
-            <Plus className="h-4 w-4" />
-            Add participants
-          </button>
+              <button
+                type="button"
+                onClick={() => setPickingFromAccess(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-900"
+              >
+                <Users className="h-4 w-4" />
+                Add from Access
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdding((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                <Plus className="h-4 w-4" />
+                Add participants
+              </button>
             </>
           )}
         </div>
@@ -299,7 +343,8 @@ function ParticipantsContent({
           </p>
           <p className="mt-1 text-emerald-800">
             They have a login and no passphrase yet. Send it with{" "}
-            <strong>Credentials by email</strong>, or use Reissue for a printed slip.
+            <strong>Credentials by email</strong>, or use Reissue for a printed
+            slip.
           </p>
           <button
             type="button"
@@ -318,20 +363,41 @@ function ParticipantsContent({
       )}
 
       <p className="mb-3 text-xs text-slate-500" role="status">
-        Green names have started this contest. Signing in alone does not confirm entry.
+        Green names have started this contest. Signing in alone does not confirm
+        entry.
         {!entryLoaded && !entryError && " Checking entry status…"}
-        {entryError && <> {entryError} {entryLoaded ? "Showing last confirmed entries." : "Entry is unconfirmed."}{" "}
-          <button type="button" className="underline" onClick={() => setEntryRetry((n) => n + 1)}>Retry entry status</button></>}
+        {entryError && (
+          <>
+            {" "}
+            {entryError}{" "}
+            {entryLoaded
+              ? "Showing last confirmed entries."
+              : "Entry is unconfirmed."}{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => setEntryRetry((n) => n + 1)}
+            >
+              Retry entry status
+            </button>
+          </>
+        )}
       </p>
       {roster === null && (
         /* The table's own shape. A bare "Loading…" under the tab strip said
            nothing and left the panel empty, so the page jumped when 1,300
            rows arrived. */
-        <div className="rounded-xl border border-slate-200 bg-white p-4" aria-busy="true">
+        <div
+          className="rounded-xl border border-slate-200 bg-white p-4"
+          aria-busy="true"
+        >
           <span className="sr-only">Loading participants</span>
           <div className="mb-3 h-8 w-full animate-pulse rounded bg-slate-100" />
           {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="mb-2 h-9 w-full animate-pulse rounded bg-slate-50" />
+            <div
+              key={i}
+              className="mb-2 h-9 w-full animate-pulse rounded bg-slate-50"
+            />
           ))}
         </div>
       )}
@@ -339,16 +405,24 @@ function ParticipantsContent({
       {roster !== null && roster.length === 0 && !adding ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
           <Users className="mx-auto h-8 w-8 text-slate-300" />
-          <p className="mt-3 text-sm font-medium text-slate-700">No participants yet</p>
+          <p className="mt-3 text-sm font-medium text-slate-700">
+            No participants yet
+          </p>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-            Add a roster and the platform issues each person a login ID and password to use in
-            the proctor app.
+            Add a roster and the platform issues each person a login ID and
+            password to use in the proctor app.
           </p>
         </div>
       ) : (
         roster !== null &&
         roster.length > 0 && (
-          <RosterTable contestUid={contestUid} entered={entered} rows={roster} onChange={load} onReissued={(row) => setIssued([row])} />
+          <RosterTable
+            contestUid={contestUid}
+            entered={entered}
+            rows={roster}
+            onChange={load}
+            onReissued={(row) => setIssued([row])}
+          />
         )
       )}
     </div>
@@ -408,7 +482,9 @@ function ImportCsv({
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "That file could not be read.");
+      setError(
+        err instanceof Error ? err.message : "That file could not be read.",
+      );
     } finally {
       setBusy(false);
     }
@@ -424,14 +500,17 @@ function ImportCsv({
     try {
       onAdded(
         await json<RosterAdd>(
-          await fetch(`/api/org/contests/${contestUid}/participants/from-directory`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              emails: toAdd.map((m) => m.email),
-              issue_passphrases: printSlips,
-            }),
-          }),
+          await fetch(
+            `/api/org/contests/${contestUid}/participants/from-directory`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                emails: toAdd.map((m) => m.email),
+                issue_passphrases: printSlips,
+              }),
+            },
+          ),
         ),
       );
     } catch (err) {
@@ -445,15 +524,20 @@ function ImportCsv({
 
   return (
     <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
-      <p className="text-sm font-medium text-slate-700">Import a CSV of emails</p>
+      <p className="text-sm font-medium text-slate-700">
+        Import a CSV of emails
+      </p>
       <p className="mb-3 text-xs text-slate-500">
-        One address per row, or any column that holds one — order does not matter and a header
-        row is ignored. Everyone must already be in{" "}
-        <Link href="/org/participants" className="underline hover:text-slate-900">
+        One address per row, or any column that holds one — order does not
+        matter and a header row is ignored. Everyone must already be in{" "}
+        <Link
+          href="/org/participants"
+          className="underline hover:text-slate-900"
+        >
           Participants
         </Link>
-        ; a contest does not create people, because that is where their college, reference and
-        resume live.
+        ; a contest does not create people, because that is where their college,
+        reference and resume live.
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -470,8 +554,12 @@ function ImportCsv({
             }}
           />
         </label>
-        {fileName && <span className="font-mono text-xs text-slate-500">{fileName}</span>}
-        {busy && !resolved && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+        {fileName && (
+          <span className="font-mono text-xs text-slate-500">{fileName}</span>
+        )}
+        {busy && !resolved && (
+          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+        )}
       </div>
 
       {resolved && (
@@ -479,17 +567,26 @@ function ImportCsv({
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="mb-2 text-xs font-medium text-slate-600">
               <span className="text-emerald-700">{toAdd.length} to add</span>
-              {already > 0 && <span className="text-slate-500">{` · ${already} already on the roster`}</span>}
+              {already > 0 && (
+                <span className="text-slate-500">{` · ${already} already on the roster`}</span>
+              )}
               {resolved.unknown.length > 0 && (
                 <span className="text-amber-700">{` · ${resolved.unknown.length} not in Access`}</span>
               )}
             </p>
             <ul className="max-h-40 space-y-0.5 overflow-y-auto text-xs">
               {toAdd.slice(0, 50).map((m) => (
-                <li key={m.uid} className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium text-slate-800">{m.display_name}</span>
+                <li
+                  key={m.uid}
+                  className="flex flex-wrap items-baseline gap-x-2"
+                >
+                  <span className="font-medium text-slate-800">
+                    {m.display_name}
+                  </span>
                   <span className="font-mono text-slate-500">{m.email}</span>
-                  {m.college && <span className="text-slate-400">{m.college}</span>}
+                  {m.college && (
+                    <span className="text-slate-400">{m.college}</span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -519,8 +616,9 @@ function ImportCsv({
 
           {resolved.invalid.length > 0 && (
             <p className="text-xs text-slate-500">
-              {resolved.invalid.length} cell{resolved.invalid.length === 1 ? "" : "s"} skipped as
-              not an address.
+              {resolved.invalid.length} cell
+              {resolved.invalid.length === 1 ? "" : "s"} skipped as not an
+              address.
             </p>
           )}
         </div>
@@ -536,8 +634,9 @@ function ImportCsv({
           className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300"
         />
         <span>
-          Generate passphrases now, for printed slips. Leave this off to email them instead —
-          a passphrase can only be shown once, and this page is that one time.
+          Generate passphrases now, for printed slips. Leave this off to email
+          them instead — a passphrase can only be shown once, and this page is
+          that one time.
         </span>
       </label>
 
@@ -697,7 +796,10 @@ function IssuedCredentials({
 
   function saveCsv() {
     const stamp = new Date().toISOString().slice(0, 10);
-    download(`credentials-${contestTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${stamp}.csv`, toCsv(rows));
+    download(
+      `credentials-${contestTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${stamp}.csv`,
+      toCsv(rows),
+    );
     onSaved();
   }
 
@@ -722,8 +824,9 @@ function IssuedCredentials({
               Save these now — they are shown once
             </p>
             <p className="mt-1 text-sm text-amber-800">
-              Passwords are stored only as hashes. Nobody, including you, can look them up again.
-              If you lose this screen you will have to reissue each credential.
+              Passwords are stored only as hashes. Nobody, including you, can
+              look them up again. If you lose this screen you will have to
+              reissue each credential.
             </p>
           </div>
         </div>
@@ -754,7 +857,11 @@ function IssuedCredentials({
           onClick={copyAll}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:border-slate-900"
         >
-          {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+          {copied ? (
+            <Check className="h-4 w-4 text-emerald-600" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
           {copied ? "Copied" : "Copy all"}
         </button>
 
@@ -769,7 +876,10 @@ function IssuedCredentials({
         </button>
       </div>
 
-      <div ref={printRef} className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div
+        ref={printRef}
+        className="overflow-x-auto rounded-xl border border-slate-200 bg-white"
+      >
         <table className="w-full min-w-[560px] text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -781,9 +891,15 @@ function IssuedCredentials({
           <tbody className="divide-y divide-slate-100">
             {rows.map((row) => (
               <tr key={row.login_id}>
-                <td className="px-4 py-2.5 text-slate-700">{row.display_name}</td>
-                <td className="px-4 py-2.5 font-mono text-slate-900">{row.login_id}</td>
-                <td className="px-4 py-2.5 font-mono font-medium text-slate-900">{row.password}</td>
+                <td className="px-4 py-2.5 text-slate-700">
+                  {row.display_name}
+                </td>
+                <td className="px-4 py-2.5 font-mono text-slate-900">
+                  {row.login_id}
+                </td>
+                <td className="px-4 py-2.5 font-mono font-medium text-slate-900">
+                  {row.password}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -791,8 +907,8 @@ function IssuedCredentials({
       </div>
 
       <p className="mt-3 text-xs text-slate-500">
-        {rows.length} credential{rows.length === 1 ? "" : "s"} for {contestTitle}. Participants
-        enter these in the AMS Access proctor app.
+        {rows.length} credential{rows.length === 1 ? "" : "s"} for{" "}
+        {contestTitle}. Participants enter these in the AMS Access proctor app.
       </p>
     </div>
   );
@@ -816,6 +932,45 @@ function RosterTable({
   const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [filter, setFilter] = useState<PeopleFilter>(NO_FILTER);
+
+  const osOptions = useMemo(
+    () => optionsFrom(rows, (row) => row.device_os),
+    [rows],
+  );
+  const collegeOptions = useMemo(
+    () => optionsFrom(rows, (row) => row.college),
+    [rows],
+  );
+
+  /**
+   * People who entered first, then the rest, each half keeping the roster's
+   * own order. Mid-contest the only names that matter are the ones sitting
+   * the paper, and they were scattered through two thousand rows of people
+   * who never showed up.
+   */
+  const ordered = useMemo(() => {
+    const here: Participant[] = [];
+    const absent: Participant[] = [];
+    for (const row of rows)
+      (participantEntered(entered, row) ? here : absent).push(row);
+    return here.concat(absent);
+  }, [rows, entered]);
+
+  const visible = useMemo(
+    () =>
+      applyPeopleFilter(ordered, filter, {
+        fields: (row) => [
+          row.display_name,
+          row.login_id,
+          row.email,
+          row.college,
+        ],
+        os: (row) => row.device_os,
+        college: (row) => row.college,
+      }),
+    [ordered, filter],
+  );
 
   async function act(loginId: string, action: "revoke" | "reissue") {
     setBusy(loginId);
@@ -838,12 +993,23 @@ function RosterTable({
 
   return (
     <div>
-      <ParticipantModal handle={openParticipant} onClose={() => setOpenParticipant(null)} />
+      <ParticipantModal
+        handle={openParticipant}
+        onClose={() => setOpenParticipant(null)}
+      />
       {error && (
         <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
+      <PeopleFilters
+        value={filter}
+        onChange={setFilter}
+        osOptions={osOptions}
+        collegeOptions={collegeOptions}
+        showing={visible.length}
+        total={rows.length}
+      />
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[820px] text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -856,8 +1022,11 @@ function RosterTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.map((row) => (
-              <tr key={row.login_id} className={row.revoked ? "opacity-50" : undefined}>
+            {visible.map((row) => (
+              <tr
+                key={row.login_id}
+                className={row.revoked ? "opacity-50" : undefined}
+              >
                 <td className="px-4 py-2.5 text-slate-700">
                   {/* The profile is reachable from the Students directory but
                       not from here, which is the screen staff are actually on
@@ -870,7 +1039,9 @@ function RosterTable({
                     className={`text-left font-medium hover:underline ${participantEntered(entered, row) ? "text-emerald-700" : "text-slate-900"}`}
                   >
                     {row.display_name}
-                    {participantEntered(entered, row) && <span className="sr-only"> — Entered this contest</span>}
+                    {participantEntered(entered, row) && (
+                      <span className="sr-only"> — Entered this contest</span>
+                    )}
                   </button>
                 </td>
                 <td className="px-4 py-2.5 font-mono text-slate-900">
@@ -902,7 +1073,9 @@ function RosterTable({
                 <td className="px-4 py-2.5">
                   {row.email ? (
                     <div className="flex items-center gap-2">
-                      <span className="truncate font-mono text-xs text-slate-600">{row.email}</span>
+                      <span className="truncate font-mono text-xs text-slate-600">
+                        {row.email}
+                      </span>
                       {row.mail_status && <MailPill status={row.mail_status} />}
                     </div>
                   ) : (
@@ -941,13 +1114,22 @@ function RosterTable({
                 </td>
               </tr>
             ))}
+            {visible.length === 0 && (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="px-4 py-10 text-center text-sm text-slate-500"
+                >
+                  Nobody matches that. {rows.length} people are on the roster.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
     </div>
   );
 }
-
 
 const MAIL_PILL: Record<string, string> = {
   queued: "border-slate-200 bg-white text-slate-500",
@@ -979,7 +1161,13 @@ function MailPill({ status }: { status: string }) {
  * made at the moment each one goes out. Separating them lets a roster be
  * built and checked weeks early and the emails released on the day.
  */
-function CredentialMail({ contestUid, onChange }: { contestUid: string; onChange: () => void }) {
+function CredentialMail({
+  contestUid,
+  onChange,
+}: {
+  contestUid: string;
+  onChange: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [plan, setPlan] = useState<CredentialPlan | null>(null);
   const [includeHolders, setIncludeHolders] = useState(false);
@@ -991,7 +1179,9 @@ function CredentialMail({ contestUid, onChange }: { contestUid: string; onChange
     try {
       setPlan(
         await json<CredentialPlan>(
-          await fetch(`/api/org/contests/${contestUid}/credentials`, { cache: "no-store" }),
+          await fetch(`/api/org/contests/${contestUid}/credentials`, {
+            cache: "no-store",
+          }),
         ),
       );
       setError("");
@@ -1008,7 +1198,12 @@ function CredentialMail({ contestUid, onChange }: { contestUid: string; onChange
     setBusy("issue");
     setError("");
     try {
-      await json(await fetch(`/api/org/contests/${contestUid}/credentials?action=issue`, { method: "POST" }));
+      await json(
+        await fetch(
+          `/api/org/contests/${contestUid}/credentials?action=issue`,
+          { method: "POST" },
+        ),
+      );
       await loadPlan();
       onChange();
     } catch (err) {
@@ -1041,7 +1236,9 @@ function CredentialMail({ contestUid, onChange }: { contestUid: string; onChange
       await loadPlan();
       onChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not queue the send.");
+      setError(
+        err instanceof Error ? err.message : "Could not queue the send.",
+      );
     } finally {
       setBusy(null);
     }
@@ -1068,8 +1265,8 @@ function CredentialMail({ contestUid, onChange }: { contestUid: string; onChange
                 Queued {queued.total} email{queued.total === 1 ? "" : "s"}
               </p>
               <p className="mt-1 text-sm text-slate-600">
-                They go out at about ten a second. Each person&apos;s row on the roster shows
-                when theirs was sent, and the send itself is on the{" "}
+                They go out at about ten a second. Each person&apos;s row on the
+                roster shows when theirs was sent, and the send itself is on the{" "}
                 <Link href="/org/mails" className="underline">
                   Mails
                 </Link>{" "}
@@ -1116,18 +1313,22 @@ function CredentialMail({ contestUid, onChange }: { contestUid: string; onChange
                 <p className="font-medium text-slate-900">2. Send</p>
                 <ul className="mt-1 space-y-0.5 text-slate-600">
                   <li>
-                    <strong className="text-slate-900">{plan.ready}</strong> ready — credential,
-                    no passphrase yet, has an email
+                    <strong className="text-slate-900">{plan.ready}</strong>{" "}
+                    ready — credential, no passphrase yet, has an email
                   </li>
                   {plan.holders > 0 && (
                     <li title={plan.holder_names.join(", ")}>
-                      <strong className="text-slate-900">{plan.holders}</strong> already hold a
-                      passphrase (slip or earlier email)
+                      <strong className="text-slate-900">{plan.holders}</strong>{" "}
+                      already hold a passphrase (slip or earlier email)
                     </li>
                   )}
                   {plan.no_email > 0 && (
-                    <li title={plan.no_email_names.join(", ")} className="text-amber-700">
-                      <strong>{plan.no_email}</strong> have no email — print slips for them
+                    <li
+                      title={plan.no_email_names.join(", ")}
+                      className="text-amber-700"
+                    >
+                      <strong>{plan.no_email}</strong> have no email — print
+                      slips for them
                     </li>
                   )}
                 </ul>
@@ -1140,15 +1341,19 @@ function CredentialMail({ contestUid, onChange }: { contestUid: string; onChange
                       className="mt-0.5"
                     />
                     <span>
-                      Also send to the {plan.holders} who already hold one. <strong>Rotates</strong>{" "}
-                      their passphrase — the slip or earlier email stops working.
+                      Also send to the {plan.holders} who already hold one.{" "}
+                      <strong>Rotates</strong> their passphrase — the slip or
+                      earlier email stops working.
                     </span>
                   </label>
                 )}
                 <button
                   type="button"
                   onClick={send}
-                  disabled={busy !== null || plan.ready + (includeHolders ? plan.holders : 0) === 0}
+                  disabled={
+                    busy !== null ||
+                    plan.ready + (includeHolders ? plan.holders : 0) === 0
+                  }
                   className="mt-2 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
                 >
                   {busy === "send" ? (

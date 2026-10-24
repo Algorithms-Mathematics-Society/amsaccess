@@ -8,8 +8,15 @@ import {
 } from "@/lib/client/orgEntry";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { SkeletonTable } from "@/components/org/Skeleton";
+import { PeopleFilters } from "@/components/org/PeopleFilters";
+import {
+  NO_FILTER,
+  applyPeopleFilter,
+  optionsFrom,
+  type PeopleFilter,
+} from "@/lib/client/peopleFilter.ts";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
-import { Download, Lock, RefreshCw, Search } from "lucide-react";
+import { Download, Lock, RefreshCw } from "lucide-react";
 
 /**
  * Where the contest actually stands.
@@ -90,7 +97,13 @@ function LeaderboardContent({
   // belongs to the Students section, so Back from there abandons the contest.
   const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [needle, setNeedle] = useState("");
+  const [filter, setFilter] = useState<PeopleFilter>(NO_FILTER);
+  // The standings carry scores, not people. College and OS live on the
+  // roster, so they are fetched alongside and joined by uid -- without them
+  // the two tabs would offer different filters over the same candidates.
+  const [people, setPeople] = useState<
+    Map<string, { college: string; os: string }>
+  >(new Map());
 
   const load = useCallback((): Promise<void> => {
     // Manual refresh, focus and the timer share one in-flight read per view.
@@ -133,6 +146,34 @@ function LeaderboardContent({
           } catch {
             if (!controller.signal.aborted)
               setEntryError("Entry status could not refresh.");
+          }
+        })(),
+        (async () => {
+          // Only for the OS and college filters. A failure here costs the
+          // two dropdowns and nothing else, so it stays silent rather than
+          // putting an error over a perfectly good scoreboard.
+          try {
+            const res = await fetch(
+              `/api/org/contests/${contestUid}/participants`,
+              options,
+            );
+            if (!res.ok) return;
+            const roster = (await res.json()) as {
+              user_uid: string;
+              college?: string;
+              device_os?: string;
+            }[];
+            if (controller.signal.aborted || !Array.isArray(roster)) return;
+            setPeople(
+              new Map(
+                roster.map((row) => [
+                  row.user_uid,
+                  { college: row.college ?? "", os: row.device_os ?? "" },
+                ]),
+              ),
+            );
+          } catch {
+            /* filters stay empty; the standings do not care */
           }
         })(),
       ]);
@@ -183,15 +224,24 @@ function LeaderboardContent({
     }
     return places;
   }, [grouped]);
-  const rows = useMemo(() => {
-    const term = needle.trim().toLowerCase();
-    if (!term) return grouped;
-    return grouped.filter(
-      ({ row }) =>
-        row.display_name.toLowerCase().includes(term) ||
-        row.username.toLowerCase().includes(term),
-    );
-  }, [grouped, needle]);
+  const osOptions = useMemo(
+    () => optionsFrom([...people.values()], (entry) => entry.os),
+    [people],
+  );
+  const collegeOptions = useMemo(
+    () => optionsFrom([...people.values()], (entry) => entry.college),
+    [people],
+  );
+
+  const rows = useMemo(
+    () =>
+      applyPeopleFilter(grouped, filter, {
+        fields: ({ row }) => [row.display_name, row.username],
+        os: ({ row }) => people.get(row.user_uid)?.os ?? "",
+        college: ({ row }) => people.get(row.user_uid)?.college ?? "",
+      }),
+    [grouped, filter, people],
+  );
 
   if (board === null && error) {
     return (
@@ -218,18 +268,15 @@ function LeaderboardContent({
         handle={openParticipant}
         onClose={() => setOpenParticipant(null)}
       />
+      <PeopleFilters
+        value={filter}
+        onChange={setFilter}
+        osOptions={osOptions}
+        collegeOptions={collegeOptions}
+        showing={rows.length}
+        total={grouped.length}
+      />
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            value={needle}
-            onChange={(event) => setNeedle(event.target.value)}
-            placeholder="Find a candidate…"
-            aria-label="Find a candidate on the leaderboard"
-            className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-900"
-          />
-        </div>
-
         {board.frozen && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">
             <Lock className="h-3.5 w-3.5" />
@@ -281,6 +328,13 @@ function LeaderboardContent({
       {board.rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-500">
           No leaderboard entries yet.
+        </p>
+      ) : rows.length === 0 ? (
+        /* Said separately from "no entries": one means the contest has not
+           started and the other means you filtered everyone out, and reading
+           the first when you meant the second wastes real time. */
+        <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-500">
+          Nobody matches that. {board.rows.length} candidates are on the board.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -347,7 +401,6 @@ function LeaderboardContent({
       )}
 
       <p className="mt-3 text-xs text-slate-400">
-        {needle && `${rows.length} of ${board.rows.length} shown · `}
         Updated {new Date(board.generated_at).toLocaleTimeString()}
         {live && ", refreshing about every 20 seconds while visible"}
       </p>
