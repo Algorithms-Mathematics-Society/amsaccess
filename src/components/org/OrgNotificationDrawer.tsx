@@ -100,6 +100,8 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
   const seenIds = useRef<Map<string, number | undefined> | null>(null);
   const inFlight = useRef(new Set<string>());
   const refreshInFlight = useRef(false);
+  const bulkInFlight = useRef(false);
+  const [approvingAll, setApprovingAll] = useState(false);
   const launcher = useRef<HTMLButtonElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const scrollArea = useRef<HTMLDivElement>(null);
@@ -173,6 +175,22 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
     catch { setLocalErrors(previous => ({ ...previous, [id]: "Action failed. Please refresh and try again." })); }
     finally { inFlight.current.delete(id); }
   }, [onAction]);
+  const approveAll = async () => {
+    if (bulkInFlight.current) return;
+    const entries = grouped.entries.filter(item => !busyIds.has(item.id) && !inFlight.current.has(item.id));
+    if (!entries.length || !window.confirm(`Allow re-entry for all ${entries.length} pending participants? This grants permission to resume under the contest’s existing rules.`)) return;
+    bulkInFlight.current = true;
+    setApprovingAll(true);
+    confirmationRef.current = null;
+    setConfirmation(null);
+    try {
+      await Promise.all(entries.map(item => act(item.id, "approve-resume")));
+      setAnnouncement("Bulk re-entry processing finished. Check remaining requests for any errors.");
+    } finally {
+      bulkInFlight.current = false;
+      setApprovingAll(false);
+    }
+  };
   const requestAction = useCallback((id: string, action: Action) => {
     confirmationTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     confirmationRef.current = {id, action};
@@ -244,7 +262,12 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
       </div>
       {errors.length > 0 && <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"><p className="font-medium">Some updates could not be loaded. Showing available notifications.</p>{errors.map((error, index) => <p key={`${index}:${error}`} className="mt-1 break-words">{error}</p>)}</div>}
       <div ref={scrollArea} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 [scrollbar-gutter:stable]">
-        {group === "entries" && <div className="mb-3"><h3 className="text-sm font-semibold text-slate-900">Entry requests</h3><p className="text-xs text-slate-500">Participants waiting for permission to re-enter. Each decision needs confirmation.</p></div>}
+        {group === "entries" && <div className="mb-3"><h3 className="text-sm font-semibold text-slate-900">Entry requests</h3><p className="text-xs text-slate-500">Participants waiting for permission to re-enter. Each decision needs confirmation.</p>
+          {grouped.entries.length > 0 && <button type="button" disabled={approvingAll || loading || grouped.entries.some(item => busyIds.has(item.id))} onClick={() => void approveAll()} className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50">
+            {approvingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+            {approvingAll ? "Allowing re-entries…" : `Allow all re-entries (${grouped.entries.length})`}
+          </button>}
+        </div>}
         {grouped[group].length === 0 ? <div className="py-10 text-center text-sm text-slate-500">{loading ? "Loading notifications…" : group === "history" ? "Handled requests stay here during this visit." : group === "entries" ? "No entry requests waiting." : "No notifications in this group."}</div> : <ul className="space-y-2" aria-label={`${LABELS[group]} notifications`}>{cards}</ul>}
         {grouped[group].length > limit && <button type="button" onClick={() => setLimit(value => value + PAGE_SIZE)} className={`mt-3 w-full bg-white ${buttonClass}`}>Show more ({grouped[group].length - limit} remaining)</button>}
       </div>
