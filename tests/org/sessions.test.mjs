@@ -112,3 +112,31 @@ test('post-action waiter cannot restart a disposed source after unmount',async()
   assert.equal(env.calls.length,1);assert.equal(env.timers.size,0);
  }finally{await flush();env.restore();}
 });
+
+test('passive freshness observers add no reads or pollers and see failure, reset and cleanup', async () => {
+ const env=environment();const store=createOrgSessionStore('one');let notifications=0;
+ const unobserve=store.observe(()=>notifications++);let stop;
+ try {
+  assert.equal(env.calls.length,0);assert.equal(env.timers.size,0);
+  stop=store.subscribe(()=>{});env.respond(0,[row()]);await flush();
+  assert.equal(notifications,1);const checked=store.getSnapshot().updatedAt;assert.equal(typeof checked,'number');
+  const timersBefore=env.timers.size;const second=store.observe(()=>{});
+  assert.equal(env.calls.length,1);assert.equal(env.timers.size,timersBefore);second();
+  const failure=store.refresh();env.calls[1].reject(new Error('offline'));await assert.rejects(failure);
+  assert.equal(notifications,2);assert.equal(store.getSnapshot().updatedAt,checked);
+  window.dispatchEvent(new Event('ams:org-session-reset'));await flush();
+  assert.equal(notifications,3);assert.equal(store.getSnapshot().updatedAt,null);
+  assert.equal(env.calls.length,2);assert.equal(env.timers.size,0);
+  unobserve();stop();await flush();assert.equal(notifications,3);
+ } finally {unobserve();stop?.();await flush();env.restore();}
+});
+
+test('passive observers do not keep a departed tab polling or retain its snapshot', async () => {
+ const env=environment();const store=createOrgSessionStore('one');let notifications=0;
+ const unobserve=store.observe(()=>notifications++);const stop=store.subscribe(()=>{});
+ try {
+  env.respond(0,[row()]);await flush();stop();await flush();
+  assert.equal(notifications,2);assert.equal(store.getSnapshot().updatedAt,null);
+  assert.equal(env.calls.length,1);assert.equal(env.timers.size,0);
+ } finally {unobserve();await flush();env.restore();}
+});

@@ -35,7 +35,7 @@ async function scenario(run, count = 4) {
   });
   const hold = () => { const g = gate(); releases.push(g.release); return g; };
   const row = i => page.getByRole('row').filter({ has: page.getByRole('button', { name: `Candidate ${String(i).padStart(4, '0')}`, exact: true }) });
-  const emailButton = i => row(i).getByRole('button', { name: /^(Re-email|Queueing…|Queued)$/ });
+  const emailButton = i => row(i).getByRole('button', { name: /^(Send email|Resend email|Queueing…|Queued)$/ });
   const load = async () => { await page.goto(base + '/org/contests/a#participants'); await row(0).waitFor(); };
   try { await run({ page, state, calls, hold, row, emailButton, load, context }); assert.deepEqual(errors, []); }
   finally { releases.forEach(release => release()); await context.close(); }
@@ -87,6 +87,39 @@ try {
       console.log(JSON.stringify({ run, rows: 1321, cpu: 4, pendingMs, ...searchTiming }));
     }, 1321);
   } else {
+    await scenario(async ({ page, state, row, load }) => {
+      state.roster[0].has_passphrase = false;
+      state.roster[1].mail_status = 'bounced';
+      state.roster[2].revoked = true;
+      state.sessions = [{ user_uid: 'u3', login_id: 'candidate-3', started_at: '2026-10-25T00:00:00Z' }];
+      await load();
+      await page.getByRole('button', { name: 'Needs attention · 2', exact: true }).click();
+      await until(async () => await page.locator('tbody tr').count() === 2, 'Attention view excludes revoked and ordinary non-entry');
+      await page.getByRole('button', { name: 'Email failed · 1', exact: true }).click();
+      await row(1).getByRole('button', { name: 'Resend email', exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Not entered · 2', exact: true }).click();
+      await until(async () => await page.locator('tbody tr').count() === 2, 'Not entered excludes revoked and entered');
+      await page.getByRole('button', { name: 'Reset all filters', exact: true }).click();
+      await until(async () => await page.locator('tbody tr').count() === 4, 'Reset restores default view');
+      const input = page.getByRole('textbox', { name: 'Find a candidate' });
+      await page.locator('body').click({ position: { x: 5, y: 5 } });
+      await page.keyboard.press('/');
+      assert(await input.evaluate(el => el === document.activeElement), 'Slash focuses roster search');
+      await input.fill('Candidate 0001');
+      await page.getByRole('combobox', { name: 'Filter by operating system' }).selectOption('Windows');
+      await page.getByRole('button', { name: 'Clear search', exact: true }).click();
+      assert.equal(await input.inputValue(), '');
+      assert.equal(await page.getByRole('combobox', { name: 'Filter by operating system' }).inputValue(), 'Windows');
+      await page.getByRole('button', { name: 'OS: Windows ×', exact: true }).click();
+      await until(async () => await page.locator('tbody tr').count() === 4, 'Removable OS chip preserves other filters');
+      await input.fill('Candidate 0000'); await input.press('Escape');
+      assert.equal(await input.inputValue(), '');
+      await page.getByRole('button', { name: 'Revoked · 1', exact: true }).click();
+      await until(async () => await page.locator('tbody tr').count() === 1, 'Revoked chip');
+      await row(2).getByText('revoked', { exact: true }).waitFor();
+      await page.getByText(/Entry status last checked/).waitFor();
+      console.log('PASS: counted status views, attention semantics, removable filters, reset, shortcuts and freshness');
+    });
     await scenario(async ({ page, state, calls, hold, emailButton, load }) => {
       const held = hold();
       state.write = async ({ respond }) => { await held.promise; return respond({ queued: 1 }); };
@@ -189,7 +222,7 @@ try {
       const dialog = page.getByRole('dialog', { name: 'New credential for Candidate 0000' }); await dialog.waitFor();
       assert(await row(1).getByRole('button', { name: 'Reissue', exact: true }).isDisabled(), 'Reissue globally locked until credential acknowledged');
       assert(await dialog.getByRole('button', { name: 'Done', exact: true }).isDisabled());
-      assert(await row(0).getByRole('button', { name: 'Re-email', exact: true }).isDisabled(), 'Same credential cannot be replaced by mail while slip is open');
+      assert(await row(0).getByRole('button', { name: 'Send email', exact: true }).isDisabled(), 'Same credential cannot be replaced by mail while slip is open');
       assert(await row(0).getByRole('button', { name: 'Revoke', exact: true }).isDisabled(), 'Same login cannot be revoked while slip is open');
       await page.keyboard.press('Escape'); assert(await dialog.isVisible());
       await dialog.getByRole('button', { name: 'Copy message', exact: true }).click();
@@ -197,7 +230,7 @@ try {
       await dialog.getByRole('button', { name: 'Done', exact: true }).click();
       await dialog.waitFor({ state: 'detached' });
       assert(await row(1).getByRole('button', { name: 'Reissue', exact: true }).isEnabled());
-      assert(await row(0).getByRole('button', { name: 'Re-email', exact: true }).isEnabled());
+      assert(await row(0).getByRole('button', { name: 'Send email', exact: true }).isEnabled());
       assert(await row(0).getByRole('button', { name: 'Revoke', exact: true }).isEnabled());
       assert.equal(calls.filter(c => c.method === 'POST').length, 1);
       console.log('PASS: reissue serialized, one-time credential copy/close retained');
@@ -210,7 +243,7 @@ try {
       await load(); await row(0).getByRole('button', { name: 'Revoke', exact: true }).click();
       await row(0).getByText('revoked', { exact: true }).waitFor();
       assert.equal(await row(0).getByRole('button', { name: 'Revoke', exact: true }).count(), 0);
-      assert(await row(0).getByRole('button', { name: 'Re-email', exact: true }).isDisabled());
+      assert(await row(0).getByRole('button', { name: 'Send email', exact: true }).isDisabled());
       assert.equal(calls.filter(c => c.method === 'POST').length, 1);
       console.log('PASS: revoke keeps exact endpoint and refreshes eligibility');
     });

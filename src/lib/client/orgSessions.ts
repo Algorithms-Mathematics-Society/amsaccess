@@ -14,6 +14,7 @@ export function createOrgSessionStore(contestUid: string, dispose = () => {}) {
   let suspended = false;
   let flight: { controller: AbortController; promise: Promise<SessionRow[]> } | null = null;
   const listeners = new Map<() => void, boolean>();
+  const observers = new Set<() => void>();
   let stop: (() => void) | null = null;
   let polling: boolean | null = null;
   const publish = (patch: Partial<SessionSnapshot>) => {
@@ -22,6 +23,7 @@ export function createOrgSessionStore(contestUid: string, dispose = () => {}) {
       entrySnapshot = { entered: snapshot.entered, loaded: snapshot.loaded, error: snapshot.error };
     }
     listeners.forEach((_live, fn) => fn());
+    observers.forEach(fn => fn());
   };
   const currentFlight = () => flight;
   const refresh = (): Promise<SessionRow[]> => {
@@ -64,6 +66,12 @@ export function createOrgSessionStore(contestUid: string, dispose = () => {}) {
   };
   const store = {
     getSnapshot: () => snapshot,
+    // Display-only observers share updates without starting reads or extending
+    // the lifetime of the active tab subscription.
+    observe(listener: () => void) {
+      observers.add(listener);
+      return () => { observers.delete(listener); };
+    },
     getEntrySnapshot: () => entrySnapshot,
     refresh,
     async refreshAfterWrite() {
@@ -92,6 +100,7 @@ export function createOrgSessionStore(contestUid: string, dispose = () => {}) {
             window.removeEventListener("ams:org-session-reset", reset);
             snapshot = empty();
             entrySnapshot = { entered: snapshot.entered, loaded: snapshot.loaded, error: snapshot.error };
+            observers.forEach(fn => fn());
             dispose();
           } else {
             const wantsPolling = [...listeners.values()].some(Boolean);
