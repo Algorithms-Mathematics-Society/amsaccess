@@ -31,9 +31,11 @@ import {
   Mail,
   Plus,
   Printer,
+  RefreshCw,
   Upload,
   Ban,
   Users,
+  X,
 } from "lucide-react";
 
 type Participant = {
@@ -99,6 +101,18 @@ function download(filename: string, contents: string): void {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function credentialMessage(row: IssuedCredential, contestTitle: string): string {
+  return [
+    `Hello ${row.display_name},`,
+    "",
+    `These are your credentials for ${contestTitle}:`,
+    `Login ID: ${row.login_id}@access`,
+    `Password: ${row.password}`,
+    "",
+    "Please keep these credentials private.",
+  ].join("\n");
 }
 
 export function ParticipantsPanel(props: {
@@ -420,10 +434,10 @@ function ParticipantsContent({
         roster.length > 0 && (
           <RosterTable
             contestUid={contestUid}
+            contestTitle={contestTitle}
             entered={entered}
             rows={roster}
             onChange={load}
-            onReissued={(row) => setIssued([row])}
           />
         )
       )}
@@ -1063,21 +1077,24 @@ function IssuedCredentials({
 
 function RosterTable({
   contestUid,
+  contestTitle,
   rows,
   entered,
   onChange,
-  onReissued,
 }: {
   contestUid: string;
+  contestTitle: string;
   rows: Participant[];
   entered: Set<string>;
   onChange: () => void;
-  onReissued: (row: IssuedCredential) => void;
 }) {
   // Opened over the contest instead of navigating away: /org/participants
   // belongs to the Students section, so Back from there abandons the contest.
   const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [reissued, setReissued] = useState<IssuedCredential | null>(null);
+  const [mailing, setMailing] = useState<string | null>(null);
+  const [mailed, setMailed] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<PeopleFilter>(NO_FILTER);
 
@@ -1129,7 +1146,7 @@ function RosterTable({
           { method: "POST" },
         ),
       );
-      if (action === "reissue") onReissued(result as IssuedCredential);
+      if (action === "reissue") setReissued(result as IssuedCredential);
       else onChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : `Could not ${action}.`);
@@ -1138,11 +1155,41 @@ function RosterTable({
     }
   }
 
+  async function reemail(loginId: string) {
+    setMailing(loginId);
+    setMailed(null);
+    setError("");
+    try {
+      await json<QueuedBatch>(
+        await fetch(
+          `/api/org/contests/${contestUid}/participants/${encodeURIComponent(loginId)}?action=reemail`,
+          { method: "POST" },
+        ),
+      );
+      setMailed(loginId);
+      onChange();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not queue the email.",
+      );
+    } finally {
+      setMailing(null);
+    }
+  }
+
   return (
     <div>
       <ParticipantModal
         handle={openParticipant}
         onClose={() => setOpenParticipant(null)}
+      />
+      <ReissuedCredentialModal
+        row={reissued}
+        contestTitle={contestTitle}
+        onClose={() => {
+          setReissued(null);
+          onChange();
+        }}
       />
       {error && (
         <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
@@ -1223,7 +1270,30 @@ function RosterTable({
                       <span className="truncate font-mono text-xs text-slate-600">
                         {row.email}
                       </span>
-                      {row.mail_status && <MailPill status={row.mail_status} />}
+                      <MailPill status={row.mail_status || "unsent"} />
+                      {(row.mail_status === "" ||
+                        row.mail_status === "bounced") && (
+                        <button
+                          type="button"
+                          onClick={() => void reemail(row.login_id)}
+                          disabled={mailing === row.login_id || row.revoked}
+                          title={
+                            row.revoked
+                              ? "Restore this login before emailing credentials"
+                              : "Queue a fresh credential email"
+                          }
+                          className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+                        >
+                          {mailing === row.login_id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : mailed === row.login_id ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          )}
+                          {mailed === row.login_id ? "Queued" : "Re-email"}
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <span className="text-xs text-slate-400">no email</span>
@@ -1279,6 +1349,7 @@ function RosterTable({
 }
 
 const MAIL_PILL: Record<string, string> = {
+  unsent: "border-amber-200 bg-amber-50 text-amber-700",
   queued: "border-slate-200 bg-white text-slate-500",
   sending: "border-sky-200 bg-sky-50 text-sky-700",
   sent: "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -1296,6 +1367,133 @@ function MailPill({ status }: { status: string }) {
       <Mail className="h-3 w-3" />
       {status}
     </span>
+  );
+}
+
+function ReissuedCredentialModal({
+  row,
+  contestTitle,
+  onClose,
+}: {
+  row: IssuedCredential | null;
+  contestTitle: string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!row) return;
+    setCopied(false);
+    copyButtonRef.current?.focus();
+    const previous = document.body.style.overflow;
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) =>
+      event.preventDefault();
+    document.body.style.overflow = "hidden";
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("beforeunload", warnBeforeLeaving);
+    };
+  }, [row]);
+
+  useEffect(() => {
+    if (!row || !copied) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [copied, onClose, row]);
+
+  if (!row) return null;
+
+  async function copyCredential() {
+    try {
+      await navigator.clipboard.writeText(credentialMessage(row!, contestTitle));
+      setCopied(true);
+    } catch {
+      // Keep the credential visible so it can still be selected manually.
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-4 sm:p-6"
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reissued-credential-title"
+        className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2
+              id="reissued-credential-title"
+              className="text-base font-semibold text-slate-900"
+            >
+              New credential for {row.display_name}
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              The previous password no longer works.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={!copied}
+            aria-label={copied ? "Close" : "Copy the credential before closing"}
+            title={copied ? "Close" : "Copy the credential before closing"}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-5">
+          <div className="rounded-xl bg-slate-950 p-4 text-sm text-white">
+            <p className="text-slate-400">Login ID</p>
+            <p className="mt-1 select-all font-mono text-base">
+              {row.login_id}@access
+            </p>
+            <p className="mt-4 text-slate-400">Password</p>
+            <p className="mt-1 select-all font-mono text-base font-semibold">
+              {row.password}
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            This password is shown once. Copy the message before closing.
+          </div>
+
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button
+              ref={copyButtonRef}
+              type="button"
+              onClick={() => void copyCredential()}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-emerald-300" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+              {copied ? "Message copied" : "Copy message"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={!copied}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
