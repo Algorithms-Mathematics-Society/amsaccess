@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { startOrgPolling } from "@/lib/client/orgPolling";
-import { fetchOrgSessions } from "@/lib/client/useOrgNotifications";
+import { useOrgSessions } from "@/lib/client/useOrgSessions";
 import {
-  enteredParticipantKeys,
   participantEntered,
 } from "@/lib/client/orgEntry";
 import { PeopleFilters } from "@/components/org/PeopleFilters";
@@ -136,10 +134,7 @@ function ParticipantsContent({
   isPractice?: boolean;
   live?: boolean;
 }) {
-  const [entered, setEntered] = useState<Set<string>>(new Set());
-  const [entryError, setEntryError] = useState("");
-  const [entryLoaded, setEntryLoaded] = useState(false);
-  const [entryRetry, setEntryRetry] = useState(0);
+  const { entered, error: entryError, loaded: entryLoaded, refresh: refreshEntry } = useOrgSessions(contestUid, live);
   const rosterRequest = useRef<AbortController | null>(null);
   const [roster, setRoster] = useState<Participant[] | null>(null);
   const [error, setError] = useState("");
@@ -184,29 +179,6 @@ function ParticipantsContent({
     void load();
     return () => rosterRequest.current?.abort();
   }, [load]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const stop = startOrgPolling(
-      async () => {
-        try {
-          const sessions = await fetchOrgSessions(contestUid);
-          if (controller.signal.aborted) return;
-          setEntered(enteredParticipantKeys(sessions));
-          setEntryLoaded(true);
-          setEntryError("");
-        } catch {
-          if (!controller.signal.aborted)
-            setEntryError("Entry status could not refresh.");
-        }
-      },
-      live ? 10000 : null,
-    );
-    return () => {
-      stop();
-      controller.abort();
-    };
-  }, [contestUid, live, entryRetry]);
 
   /** What to show after people were added, which depends on what was minted. */
   const absorb = useCallback(
@@ -392,7 +364,7 @@ function ParticipantsContent({
             <button
               type="button"
               className="underline"
-              onClick={() => setEntryRetry((n) => n + 1)}
+              onClick={() => void refreshEntry().catch(() => {})}
             >
               Retry entry status
             </button>

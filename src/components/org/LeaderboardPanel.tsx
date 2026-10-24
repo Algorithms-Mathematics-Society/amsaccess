@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchOrgSessions } from "@/lib/client/useOrgNotifications";
+import { useOrgSessions } from "@/lib/client/useOrgSessions";
 import {
-  enteredParticipantKeys,
   groupLeaderboardByEntry,
 } from "@/lib/client/orgEntry";
 import { startOrgPolling } from "@/lib/client/orgPolling";
@@ -84,9 +83,7 @@ function LeaderboardContent({
   /** Polls only while there is something to poll for. */
   live: boolean;
 }) {
-  const [entered, setEntered] = useState<Set<string>>(new Set());
-  const [entryLoaded, setEntryLoaded] = useState(false);
-  const [entryError, setEntryError] = useState("");
+  const { entered, loaded: entryLoaded, error: entryError, refresh: refreshEntry } = useOrgSessions(contestUid, live);
   const [refreshing, setRefreshing] = useState(false);
   const request = useRef<{
     controller: AbortController;
@@ -134,18 +131,6 @@ function LeaderboardContent({
                   ? err.message
                   : "Could not load the leaderboard.",
               );
-          }
-        })(),
-        (async () => {
-          try {
-            const sessions = await fetchOrgSessions(contestUid);
-            if (controller.signal.aborted) return;
-            setEntered(enteredParticipantKeys(sessions));
-            setEntryLoaded(true);
-            setEntryError("");
-          } catch {
-            if (!controller.signal.aborted)
-              setEntryError("Entry status could not refresh.");
           }
         })(),
         (async () => {
@@ -251,7 +236,7 @@ function LeaderboardContent({
           type="button"
           disabled={refreshing}
           className="underline"
-          onClick={() => void load()}
+          onClick={() => { void load(); void refreshEntry().catch(() => {}); }}
         >
           Retry
         </button>
@@ -286,7 +271,7 @@ function LeaderboardContent({
 
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={() => { void load(); void refreshEntry().catch(() => {}); }}
           disabled={refreshing}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-900"
         >

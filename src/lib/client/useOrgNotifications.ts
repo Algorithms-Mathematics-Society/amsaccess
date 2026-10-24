@@ -3,7 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { startOrgPolling } from "./orgPolling";
 import { reconcileNotifications, reuseNotificationRows } from "./orgNotifications";
-import type { NotificationAction, NotificationRaw, NotificationStream, OrgNotification, SessionRow } from "./orgNotifications";
+import type { NotificationAction, NotificationRaw, NotificationStream, OrgNotification } from "./orgNotifications";
 
 export type { OrgNotification } from "./orgNotifications";
 type Snapshot = { items: OrgNotification[]; raw: NotificationRaw; loading: boolean; updatedAt: number | null; errors: string[]; busyIds: ReadonlySet<string>; actionErrors: Record<string,string> };
@@ -12,42 +12,7 @@ const serverSnapshot = empty();
 const streams: NotificationStream[] = ["resumes","incidents","sessions"];
 const views = {resumes:"resume-requests",incidents:"incidents",sessions:"sessions"};
 
-const sessionFlights = new Map<string,{controller:AbortController;promise:Promise<SessionRow[]>}>();
-let sessionResetListening = false;
-let sessionGeneration = 0;
-function listenForSessionReset() {
-  if (sessionResetListening || typeof window === "undefined") return;
-  sessionResetListening = true;
-  window.addEventListener("ams:org-session-reset", () => {
-    sessionGeneration++;
-    sessionFlights.forEach(flight => flight.controller.abort());
-    sessionFlights.clear();
-  });
-}
-/** Share sessions reads with the leaderboard and participants without coupling caller cancellation. */
-export function fetchOrgSessions(contestUid:string):Promise<SessionRow[]> {
-  listenForSessionReset();
-  const epoch = sessionGeneration;
-  const existing = sessionFlights.get(contestUid);
-  if (existing) return existing.promise;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(),12_000);
-  const promise = (async () => {
-    try {
-      const response = await fetch(`/api/org/contests/${encodeURIComponent(contestUid)}/invigilation?view=sessions`,{cache:"no-store",signal:controller.signal});
-      if (!response.ok) throw new Error("Could not update sessions.");
-      const rows:unknown = await response.json();
-      if (!Array.isArray(rows)) throw new Error("Invalid sessions response.");
-      if (controller.signal.aborted || epoch !== sessionGeneration) throw new Error("Session changed. Reload before continuing.");
-      return rows as SessionRow[];
-    } finally {
-      clearTimeout(timer);
-      if (sessionFlights.get(contestUid)?.controller === controller) sessionFlights.delete(contestUid);
-    }
-  })();
-  sessionFlights.set(contestUid,{controller,promise});
-  return promise;
-}
+import { getOrgSessionStore } from "./orgSessions";
 
 type Store = ReturnType<typeof createStore>;
 const stores = new Map<string,Store>();
@@ -76,6 +41,10 @@ function createStore(contestUid:string) {
   const base = `/api/org/contests/${encodeURIComponent(contestUid)}/invigilation`;
   async function read(stream:NotificationStream):Promise<void> {
     if (suspended) return;
+    if (stream === "sessions") {
+      await getOrgSessionStore(contestUid).refresh().catch(() => {});
+      return;
+    }
     const existing = flights.get(stream);
     if (existing) return existing.promise;
     const controller = new AbortController();
@@ -85,8 +54,7 @@ function createStore(contestUid:string) {
     const promise = (async () => {
       try {
         let rows:unknown;
-        if (stream === "sessions") rows = await fetchOrgSessions(contestUid);
-        else {
+        {
           const response = await fetch(`${base}?view=${views[stream]}`,{cache:"no-store",signal:controller.signal});
           if (!response.ok) throw new Error(`Could not update ${views[stream]}.`);
           rows = await response.json();
@@ -114,7 +82,7 @@ function createStore(contestUid:string) {
         }
         if (stream === "resumes") raw.resumes = reuseNotificationRows(snapshot.raw.resumes,raw.resumes);
         else if (stream === "incidents") raw.incidents = reuseNotificationRows(snapshot.raw.incidents,raw.incidents);
-        else raw.sessions = reuseNotificationRows(snapshot.raw.sessions,raw.sessions);
+
         const stableRaw = raw[stream] === snapshot.raw[stream] ? snapshot.raw : raw;
         const observedAt = Date.now();
         patch = {raw:stableRaw,busyIds:busyIds(),actionErrors,updatedAt:observedAt,
@@ -135,6 +103,20 @@ function createStore(contestUid:string) {
     flights.set(stream,{controller,promise});
     return promise;
   }
+  const syncSessions = () => {
+    if (suspended) return;
+    const source = getOrgSessionStore(contestUid).getSnapshot();
+    if (source.error) failures.set("sessions", "Could not update sessions. Retrying automatically.");
+    else failures.delete("sessions");
+    if (source.loaded || source.error) loaded.add("sessions");
+    const raw = source.rows === snapshot.raw.sessions ? snapshot.raw : {...snapshot.raw, sessions:source.rows};
+    const errors = [...failures.values()];
+    publish({ raw, loading:loaded.size < streams.length,
+      errors:errors.length === snapshot.errors.length && errors.every((error,index) => error === snapshot.errors[index]) ? snapshot.errors : errors,
+      ...(source.updatedAt === null ? {} : {updatedAt:source.updatedAt}),
+      items:raw === snapshot.raw ? snapshot.items : reconcileNotifications(snapshot.items,contestUid,"sessions",raw,new Date(source.updatedAt ?? Date.now()).toISOString()),
+    });
+  };
   const refresh = async () => { await Promise.all(streams.map(read)); };
   const reset = () => {
     generation++;
@@ -199,7 +181,11 @@ function createStore(contestUid:string) {
       listeners.add(listener);
       if (listeners.size === 1 && stops.length === 0 && !suspended) {
         window.addEventListener("ams:org-session-reset",onSessionReset);
-        stops = streams.map(stream => startOrgPolling(() => read(stream),stream === "sessions" ? 10_000 : 3_000));
+        stops = [
+          getOrgSessionStore(contestUid).subscribe(syncSessions),
+          ...streams.filter(stream => stream !== "sessions").map(stream => startOrgPolling(() => read(stream),3_000)),
+        ];
+        syncSessions();
       }
       return () => {
         listeners.delete(listener);

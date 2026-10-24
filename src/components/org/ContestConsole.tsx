@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   Copy,
@@ -21,15 +22,37 @@ import { verdictClass } from "@/lib/contestTypes";
 import { invalidate } from "@/lib/client/useApiQuery";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
-import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
-import type { OrgNotification } from "@/lib/client/orgNotifications";
-import { OrgNotificationDrawer } from "./OrgNotificationDrawer";
-import { ParticipantModal } from "./ParticipantModal";
-import { ParticipantsPanel } from "./ParticipantsPanel";
-import { LeaderboardPanel } from "./LeaderboardPanel";
-import { AnalyticsPanel } from "./AnalyticsPanel";
-import { InvigilationPanel } from "./InvigilationPanel";
-import { ContestJudging } from "./ContestJudging";
+import { ContestNotifications } from "./ContestNotifications";
+
+const loadParticipants = () => import("./ParticipantsPanel");
+const loadLeaderboard = () => import("./LeaderboardPanel");
+const loadAnalytics = () => import("./AnalyticsPanel");
+const loadInvigilation = () => import("./InvigilationPanel");
+const loadJudging = () => import("./ContestJudging");
+
+function LoadingPanel() {
+  return <p role="status" className="py-6 text-sm text-slate-500">Loading panel…</p>;
+}
+
+const ParticipantsPanel = dynamic(() => loadParticipants().then(m => m.ParticipantsPanel), { loading: LoadingPanel });
+const LeaderboardPanel = dynamic(() => loadLeaderboard().then(m => m.LeaderboardPanel), { loading: LoadingPanel });
+const AnalyticsPanel = dynamic(() => loadAnalytics().then(m => m.AnalyticsPanel), { loading: LoadingPanel });
+const InvigilationPanel = dynamic(() => loadInvigilation().then(m => m.InvigilationPanel), { loading: LoadingPanel });
+const ContestJudging = dynamic(() => loadJudging().then(m => m.ContestJudging), { loading: LoadingPanel });
+
+function preloadTab(tab: Tab) {
+  const loaders: Partial<Record<Tab, () => Promise<unknown>>> = {
+    participants: loadParticipants,
+    leaderboard: loadLeaderboard,
+    analytics: loadAnalytics,
+    invigilation: loadInvigilation,
+    judging: loadJudging,
+  };
+  const load = loaders[tab];
+  // Speculative loading must not turn a network failure into an unhandled
+  // rejection. Opening the panel still uses Next's normal loading path.
+  if (load) void load().catch(() => {});
+}
 
 const TABS = [
   "problems",
@@ -96,10 +119,6 @@ function ContestContent({ contestUid }: { contestUid: string }) {
       "contest_manager",
       "judge_manager",
     ].includes(role ?? "");
-  const notifications = useOrgNotifications(contestUid, notificationsEnabled);
-  const [notificationParticipant, setNotificationParticipant] = useState<
-    string | null
-  >(null);
 
   // The tab lives in the URL fragment, so reloading keeps you where you
   // were. It was React state alone: Ctrl+R on the Leaderboard dropped you
@@ -122,18 +141,6 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     setTabState(next);
     window.history.replaceState(null, "", `#${next}`);
   }, []);
-
-  const reviewNotification = useCallback(
-    (item: OrgNotification) => {
-      const session = notifications.raw.sessions.find(
-        (row) => row.uid === item.targetUid,
-      );
-      const handle = session?.user_uid || session?.login_id || item.loginId;
-      if (handle) setNotificationParticipant(handle);
-      else setTab("invigilation");
-    },
-    [notifications.raw.sessions, setTab],
-  );
 
   const loadContest = useCallback(async () => {
     invalidate("/api/org/contests");
@@ -338,6 +345,8 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             <button
               key={t}
               type="button"
+              onPointerEnter={() => preloadTab(t)}
+              onFocus={() => preloadTab(t)}
               onClick={() => setTab(t)}
               className={`flex-shrink-0 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium capitalize transition ${
                 tab === t
@@ -429,22 +438,10 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           />
         ) : null}
       </div>
-      {notificationsEnabled && (
-        <OrgNotificationDrawer
-          items={notifications.items}
-          loading={notifications.loading}
-          updatedAt={notifications.updatedAt}
-          errors={notifications.errors}
-          busyIds={notifications.busyIds}
-          actionErrors={notifications.actionErrors}
-          onAction={notifications.act}
-          onRefresh={notifications.refresh}
-          onReview={reviewNotification}
-        />
-      )}
-      <ParticipantModal
-        handle={notificationParticipant}
-        onClose={() => setNotificationParticipant(null)}
+      <ContestNotifications
+        contestUid={contestUid}
+        enabled={notificationsEnabled}
+        onNavigate={setTab}
       />
     </div>
   );

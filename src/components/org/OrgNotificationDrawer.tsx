@@ -15,6 +15,7 @@ type Props = {
   onAction: (id: string, action: Action) => Promise<void>;
   onRefresh: () => Promise<void>;
   onReview?: (item: OrgNotification) => void;
+  onReviewIntent?: () => void;
 };
 type Group = "entries" | "help" | "flags" | "history";
 const GROUPS = ["entries", "help", "flags", "history"] as const;
@@ -27,13 +28,14 @@ function timestamp(value: string) {
   return Number.isNaN(date.getTime()) ? "" : timeFormat.format(date);
 }
 
-const NotificationCard = memo(function NotificationCard({ item, busy, error, confirmation, onCancel, onConfirm, onAction, onReview }: {
+const NotificationCard = memo(function NotificationCard({ item, busy, error, confirmation, onCancel, onConfirm, onAction, onReview, onReviewIntent }: {
   item: OrgNotification; busy: boolean; error?: string;
   confirmation?: Action;
   onCancel: () => void;
   onConfirm: (id: string, action: Action) => void;
   onAction: (id: string, action: Action) => void;
   onReview?: (item: OrgNotification) => void;
+  onReviewIntent?: () => void;
 }) {
   const cancelButton = useRef<HTMLButtonElement>(null);
   const actionButton = useRef<HTMLButtonElement | null>(null);
@@ -78,13 +80,13 @@ const NotificationCard = memo(function NotificationCard({ item, busy, error, con
         <button ref={cancelButton} type="button" onClick={cancel} className={buttonClass}>No, cancel</button>
       </div>
     </div>}
-    {item.kind === "flag" && onReview && <button type="button" onClick={() => onReview(item)} className={`mt-3 inline-flex items-center gap-1.5 ${buttonClass}`}><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Review participant</button>}
+    {item.kind === "flag" && onReview && <button type="button" onPointerEnter={onReviewIntent} onFocus={onReviewIntent} onClick={() => onReview(item)} className={`mt-3 inline-flex items-center gap-1.5 ${buttonClass}`}><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Review participant</button>}
     {error && <p role="alert" className="mt-2 text-xs text-red-700">{error}</p>}
   </li>;
 });
 
 /** Presentation only: the parent owns polling, authorization and retained records. */
-export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyIds, actionErrors, onAction, onRefresh, onReview }: Props) {
+export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyIds, actionErrors, onAction, onRefresh, onReview, onReviewIntent }: Props) {
   const [open, setOpen] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
   const [group, setGroup] = useState<Group>("entries");
@@ -218,8 +220,8 @@ export function OrgNotificationDrawer({ items, loading, updatedAt, errors, busyI
   // Keep the visible card tree stable during timestamp-only polls and launcher updates.
   // Lazily create it on first open, then retain it so closing transitions and scroll position stay smooth.
   const cards = useMemo(() => hasOpened ? grouped[group].slice(0, limit).map(item =>
-    <NotificationCard key={item.id} item={item} busy={busyIds.has(item.id)} error={actionErrors[item.id] || localErrors[item.id]} confirmation={confirmation?.id === item.id ? confirmation.action : undefined} onCancel={cancelAction} onConfirm={confirmAction} onAction={requestAction} onReview={onReview ? review : undefined} />
-  ) : null, [hasOpened, grouped, group, limit, busyIds, actionErrors, localErrors, confirmation, cancelAction, confirmAction, requestAction, onReview, review]);
+    <NotificationCard key={item.id} item={item} busy={busyIds.has(item.id)} error={actionErrors[item.id] || localErrors[item.id]} confirmation={confirmation?.id === item.id ? confirmation.action : undefined} onCancel={cancelAction} onConfirm={confirmAction} onAction={requestAction} onReview={onReview ? review : undefined} onReviewIntent={onReviewIntent} />
+  ) : null, [hasOpened, grouped, group, limit, busyIds, actionErrors, localErrors, confirmation, cancelAction, confirmAction, requestAction, onReview, onReviewIntent, review]);
 
   return <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-40 max-w-[calc(100vw-2rem)] text-left">
     <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>

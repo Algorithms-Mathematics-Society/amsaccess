@@ -16,7 +16,15 @@
 
 import { useEffect } from "react";
 import { X } from "lucide-react";
-import { ParticipantProfile } from "./ParticipantProfile";
+import dynamic from "next/dynamic";
+
+const loadProfile = () => import("./ParticipantProfile");
+export function preloadParticipantProfile() {
+  void loadProfile().catch(() => {});
+}
+const ParticipantProfile = dynamic(() => loadProfile().then(m => m.ParticipantProfile), {
+  loading: () => <p role="status" className="p-6 text-sm text-slate-500">Loading participant…</p>,
+});
 
 export function ParticipantModal({
   handle,
