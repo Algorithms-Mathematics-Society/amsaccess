@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchOrgSessions } from "@/lib/client/useOrgNotifications";
-import { enteredParticipantKeys, groupLeaderboardByEntry } from "@/lib/client/orgEntry";
+import {
+  enteredParticipantKeys,
+  groupLeaderboardByEntry,
+} from "@/lib/client/orgEntry";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { SkeletonTable } from "@/components/org/Skeleton";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
@@ -52,7 +55,11 @@ type Scoreboard = {
 
 const POLL_MS = 20_000;
 
-type LeaderboardProps = { contestUid: string; problemLabels: string[]; live: boolean };
+type LeaderboardProps = {
+  contestUid: string;
+  problemLabels: string[];
+  live: boolean;
+};
 
 export function LeaderboardPanel(props: LeaderboardProps) {
   return <LeaderboardContent key={props.contestUid} {...props} />;
@@ -74,7 +81,10 @@ function LeaderboardContent({
   const [entryLoaded, setEntryLoaded] = useState(false);
   const [entryError, setEntryError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const request = useRef<{ controller: AbortController; promise: Promise<void> } | null>(null);
+  const request = useRef<{
+    controller: AbortController;
+    promise: Promise<void>;
+  } | null>(null);
   const [board, setBoard] = useState<Scoreboard | null>(null);
   // Opened over the contest instead of navigating away: /org/participants
   // belongs to the Students section, so Back from there abandons the contest.
@@ -84,7 +94,8 @@ function LeaderboardContent({
 
   const load = useCallback((): Promise<void> => {
     // Manual refresh, focus and the timer share one in-flight read per view.
-    if (request.current && !request.current.controller.signal.aborted) return request.current.promise;
+    if (request.current && !request.current.controller.signal.aborted)
+      return request.current.promise;
     const controller = new AbortController();
     const options = { cache: "no-store" as const, signal: controller.signal };
     setRefreshing(true);
@@ -93,14 +104,23 @@ function LeaderboardContent({
       await Promise.allSettled([
         (async () => {
           try {
-            const res = await fetch(`/api/org/contests/${contestUid}/scoreboard`, options);
+            const res = await fetch(
+              `/api/org/contests/${contestUid}/scoreboard`,
+              options,
+            );
             const data = (await res.json()) as Scoreboard & { error?: string };
-            if (!res.ok) throw new Error(data.error ?? "Could not load the leaderboard.");
+            if (!res.ok)
+              throw new Error(data.error ?? "Could not load the leaderboard.");
             if (controller.signal.aborted) return;
             setBoard(data);
             setError("");
           } catch (err) {
-            if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Could not load the leaderboard.");
+            if (!controller.signal.aborted)
+              setError(
+                err instanceof Error
+                  ? err.message
+                  : "Could not load the leaderboard.",
+              );
           }
         })(),
         (async () => {
@@ -111,7 +131,8 @@ function LeaderboardContent({
             setEntryLoaded(true);
             setEntryError("");
           } catch {
-            if (!controller.signal.aborted) setEntryError("Entry status could not refresh.");
+            if (!controller.signal.aborted)
+              setEntryError("Entry status could not refresh.");
           }
         })(),
       ]);
@@ -126,15 +147,49 @@ function LeaderboardContent({
 
   useEffect(() => {
     const stop = startOrgPolling(load, live ? POLL_MS : null);
-    return () => { stop(); request.current?.controller.abort(); };
+    return () => {
+      stop();
+      request.current?.controller.abort();
+    };
   }, [load, live]);
 
-  const grouped = useMemo(() => groupLeaderboardByEntry(board?.rows ?? [], entered), [board, entered]);
+  const grouped = useMemo(
+    () => groupLeaderboardByEntry(board?.rows ?? [], entered),
+    [board, entered],
+  );
+
+  /**
+   * Standing among the people who actually sat the contest.
+   *
+   * The API ranks every name on the roster, all 1321 of them, and this board
+   * then moves the entrants to the top. Printing the API's rank down a list
+   * that has been reordered reads as broken numbering: 72, 74, 88, 91, where
+   * the missing numbers are entrants lifted above. Nobody can tell that from
+   * a mis-sort.
+   *
+   * So the number is recomputed over the entrants, in the order the board
+   * already has them, which is score order. Someone who never entered has no
+   * standing to show and gets none. Computed from `grouped` rather than the
+   * filtered rows, so searching for one person still shows their real
+   * position instead of "1".
+   */
+  const standing = useMemo(() => {
+    const places = new Map<string, number>();
+    let place = 0;
+    for (const { row, entered: hasEntered } of grouped) {
+      if (!hasEntered) continue;
+      place += 1;
+      places.set(row.user_uid, place);
+    }
+    return places;
+  }, [grouped]);
   const rows = useMemo(() => {
     const term = needle.trim().toLowerCase();
     if (!term) return grouped;
-    return grouped.filter(({ row }) =>
-      row.display_name.toLowerCase().includes(term) || row.username.toLowerCase().includes(term),
+    return grouped.filter(
+      ({ row }) =>
+        row.display_name.toLowerCase().includes(term) ||
+        row.username.toLowerCase().includes(term),
     );
   }, [grouped, needle]);
 
@@ -142,7 +197,14 @@ function LeaderboardContent({
     return (
       <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
         {error}{" "}
-        <button type="button" disabled={refreshing} className="underline" onClick={() => void load()}>Retry</button>
+        <button
+          type="button"
+          disabled={refreshing}
+          className="underline"
+          onClick={() => void load()}
+        >
+          Retry
+        </button>
       </p>
     );
   }
@@ -152,7 +214,10 @@ function LeaderboardContent({
 
   return (
     <div>
-      <ParticipantModal handle={openParticipant} onClose={() => setOpenParticipant(null)} />
+      <ParticipantModal
+        handle={openParticipant}
+        onClose={() => setOpenParticipant(null)}
+      />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -190,13 +255,27 @@ function LeaderboardContent({
         </a>
       </div>
 
-      {error && <p className="mb-3 text-xs text-amber-700">{error} Showing the last board.</p>}
+      {error && (
+        <p className="mb-3 text-xs text-amber-700">
+          {error} Showing the last board.
+        </p>
+      )}
 
       <p role="status" className="mb-3 text-xs text-slate-500">
-        Green names have entered this contest and appear first. Other participants appear below.
-        {" "}Scoring ranks are unchanged.
+        Green names have entered this contest and appear first, numbered by
+        their standing among them. The rest are on the roster but never sat it,
+        so they are listed without a position.
         {!entryLoaded && !entryError && " Checking entry status…"}
-        {entryError && <> {entryError} {entryLoaded ? "Showing last confirmed entries." : "Entry is unconfirmed; showing scoring order."} Use Refresh to retry.</>}
+        {entryError && (
+          <>
+            {" "}
+            {entryError}{" "}
+            {entryLoaded
+              ? "Showing last confirmed entries."
+              : "Entry is unconfirmed; showing scoring order."}{" "}
+            Use Refresh to retry.
+          </>
+        )}
       </p>
 
       {board.rows.length === 0 ? (
@@ -208,7 +287,12 @@ function LeaderboardContent({
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="w-14 px-4 py-2.5 text-right" title="Scoring rank; entrants are grouped first">Rank</th>
+                <th
+                  className="w-14 px-4 py-2.5 text-right"
+                  title="Scoring rank; entrants are grouped first"
+                >
+                  Rank
+                </th>
                 <th className="px-4 py-2.5">Candidate</th>
                 <th className="px-3 py-2.5 text-right">Solved</th>
                 <th className="px-3 py-2.5 text-right">Score</th>
@@ -224,7 +308,7 @@ function LeaderboardContent({
               {rows.map(({ row, entered: hasEntered }) => (
                 <tr key={row.user_uid} className="hover:bg-slate-50">
                   <td className="px-4 py-2 text-right font-medium tabular-nums text-slate-500">
-                    {row.rank}
+                    {standing.get(row.user_uid) ?? ""}
                   </td>
                   <td className="px-4 py-2">
                     <button
@@ -233,12 +317,20 @@ function LeaderboardContent({
                       className={`text-left font-medium hover:underline ${hasEntered ? "text-emerald-700" : "text-slate-900"}`}
                     >
                       {row.display_name}
-                      {hasEntered && <span className="sr-only"> — Entered this contest</span>}
+                      {hasEntered && (
+                        <span className="sr-only"> — Entered this contest</span>
+                      )}
                     </button>
-                    <span className="ml-2 font-mono text-xs text-slate-400">{row.username}</span>
+                    <span className="ml-2 font-mono text-xs text-slate-400">
+                      {row.username}
+                    </span>
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{row.solved}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium">{row.score}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {row.solved}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">
+                    {row.score}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums text-slate-500">
                     {row.penalty}
                   </td>
