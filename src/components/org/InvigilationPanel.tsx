@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
 import type { SessionRow } from "@/lib/client/orgNotifications";
 import { useOrgDesktopLayout } from "@/lib/client/useOrgDesktopLayout";
@@ -238,6 +238,8 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
   const photoRow = useMemo(() => sessions.find((row) => row.uid === photoRowUid) ?? null, [sessions, photoRowUid]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [approvingAll, setApprovingAll] = useState(false);
+  const bulkInFlight = useRef(false);
 
   const read = useCallback(async (signal: AbortSignal) => {
     const base = `/api/org/contests/${contestUid}/invigilation`;
@@ -293,6 +295,25 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
   const blocked = useMemo(() => readiness.filter((r) => !r.passed), [readiness]);
   const liveOverrides = useMemo(() => overrides.filter((o) => !o.revoked), [overrides]);
   const waiting = useMemo(() => resumes.filter((r) => r.status === "pending"), [resumes]);
+  async function allowAllReentries() {
+    if (bulkInFlight.current) return;
+    const requests = waiting.filter(request => !notifications.busyIds.has(`resume:${request.uid}`));
+    if (!requests.length || !window.confirm(`Allow re-entry for all ${requests.length} pending participants? Existing contest rules and time limits still apply.`)) return;
+    bulkInFlight.current = true;
+    setApprovingAll(true);
+    setError("");
+    try {
+      const results = await Promise.allSettled(requests.map(request =>
+        notifications.act(`resume:${request.uid}`, "approve-resume"),
+      ));
+      const failed = results.filter(result => result.status === "rejected").length;
+      if (failed) setError(`${failed} re-entry request${failed === 1 ? "" : "s"} could not be approved. Check the remaining requests and try again.`);
+    } finally {
+      bulkInFlight.current = false;
+      setApprovingAll(false);
+    }
+  }
+
   const quiet = useMemo(() => sessions.filter(
     (row) =>
       (row.status === "active" || row.status === "pending") &&
@@ -307,6 +328,18 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
           {error}
         </p>
       )}
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => void allowAllReentries()}
+          disabled={!notificationsEnabled || notifications.loading || approvingAll || waiting.length === 0 || waiting.some(request => notifications.busyIds.has(`resume:${request.uid}`))}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40"
+        >
+          {approvingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+          {approvingAll ? "Allowing re-entries…" : `Allow all re-entries (${waiting.length})`}
+        </button>
+      </div>
 
       {/* Waiting to resume, above everything: a candidate is locked out of an
           exam that is still running, and only a person can let them back in. */}
