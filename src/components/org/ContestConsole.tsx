@@ -29,8 +29,7 @@ import { ParticipantsPanel } from "./ParticipantsPanel";
 import { LeaderboardPanel } from "./LeaderboardPanel";
 import { AnalyticsPanel } from "./AnalyticsPanel";
 import { InvigilationPanel } from "./InvigilationPanel";
-import { FleetPanel } from "./FleetPanel";
-import { ContestScale } from "./ContestScale";
+import { ContestJudging } from "./ContestJudging";
 
 const TABS = [
   "problems",
@@ -423,14 +422,11 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           // Named rather than left as the trailing `else`. A fall-through
           // catches every tab nobody has got round to adding, which is how
           // the fleet controls came to sit underneath the standings.
-          <div className="space-y-4">
-            <ContestScale
-              contestUid={contest.uid}
-              isPractice={contest.is_practice}
-              isDraft={contest.status === "draft"}
-            />
-            <FleetPanel />
-          </div>
+          <ContestJudging
+            contestUid={contest.uid}
+            isPractice={contest.is_practice}
+            isDraft={contest.status === "draft"}
+          />
         ) : null}
       </div>
       {notificationsEnabled && (

@@ -15,6 +15,8 @@ import {
   Zap,
 } from "lucide-react";
 import { formatWhen, relativeWhen } from "@/lib/orgTypes";
+import { readFleetJson } from "@/lib/client/fleetRead";
+import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
 import { canSpend, useOrgRole } from "@/lib/client/useOrgRole";
 
 /**
@@ -106,11 +108,6 @@ type FleetRun = {
 
 const POLL_MS = 10_000;
 
-async function json<T>(res: Response): Promise<T> {
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
-  return data as T;
-}
 
 /**
  * The whole screen in one value.
@@ -219,7 +216,10 @@ function readable(err: unknown): string {
   return raw || "That did not work.";
 }
 
-export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
+export function FleetPanel({ inset = false, onFleetChange }: {
+  inset?: boolean;
+  onFleetChange?: (fleet: Fleet) => void;
+} = {}) {
   const { role, known } = useOrgRole();
   // Watching the fleet is open to any staff member; changing its size is
   // not. The buttons used to render for everyone and fail on click with the
@@ -233,25 +233,31 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
   const [showDetails, setShowDetails] = useState(false);
   const [benchCount, setBenchCount] = useState(100);
 
-  const load = useCallback(async () => {
+  const readFleet = useCallback(async (signal: AbortSignal) => {
     try {
-      // Two independent fetches: a runs endpoint the deployed API does not
-      // serve yet must not take the whole screen down with it.
-      const [f, r] = await Promise.all([
-        json<Fleet>(await fetch("/api/org/fleet", { cache: "no-store" })),
-        fetch("/api/org/fleet/runs", { cache: "no-store" })
-          .then((res) => json<FleetRun[]>(res))
-          .catch(() => null),
-      ]);
-      setFleet(f);
-      if (r) setRuns(r);
+      const value = await readFleetJson<Fleet>("/api/org/fleet", signal);
+      if (signal.aborted) return;
+      setFleet(value);
+      onFleetChange?.(value);
       setError("");
     } catch (err) {
-      // Deliberately does not blank the page: a stale answer beats no answer
-      // on the screen you read when things are going wrong.
-      setError(err instanceof Error ? err.message : "Could not load judging status.");
+      if (!signal.aborted)
+        setError(err instanceof Error ? err.message : "Could not load judging status.");
+    }
+  }, [onFleetChange]);
+  const readRuns = useCallback(async (signal: AbortSignal) => {
+    try {
+      const value = await readFleetJson<FleetRun[]>("/api/org/fleet/runs", signal);
+      if (!signal.aborted) setRuns(value);
+    } catch {
+      // Run history is optional; retain the previous snapshot on failure.
     }
   }, []);
+  const { load: loadFleet, refreshAfterWrite: refreshFleet } = useOrgReadTask(readFleet);
+  const { load: loadRuns, refreshAfterWrite: refreshRuns } = useOrgReadTask(readRuns);
+  const load = useCallback(async () => {
+    await Promise.all([loadFleet(), loadRuns()]);
+  }, [loadFleet, loadRuns]);
 
   useEffect(() => {
     void load();
@@ -264,7 +270,7 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
     setError("");
     try {
       await run();
-      await load();
+      await Promise.all([refreshFleet(), refreshRuns()]);
     } catch (err) {
       setError(readable(err));
     } finally {
