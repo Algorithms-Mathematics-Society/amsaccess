@@ -216,8 +216,9 @@ function readable(err: unknown): string {
   return raw || "That did not work.";
 }
 
-export function FleetPanel({ inset = false, onFleetChange }: {
+export function FleetPanel({ inset = false, onFleetChange, contestContext }: {
   inset?: boolean;
+  contestContext?: { isPractice: boolean };
   onFleetChange?: (fleet: Fleet) => void;
 } = {}) {
   const { role, known } = useOrgRole();
@@ -301,12 +302,21 @@ export function FleetPanel({ inset = false, onFleetChange }: {
         </p>
       )}
 
+      {contestContext && (
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-slate-900">Shared judging status</h2>
+          <p className="text-sm text-slate-600">Workers and queue counts below are shared across contests, not totals for this contest alone.</p>
+          {contestContext.isPractice && <p className="text-sm text-slate-600">This practice contest uses the always-on judge and does not request extra fleet capacity. A zero shared-worker count alone does not establish whether that judge is healthy; use Test judging for a fresh check.</p>}
+          {error && fleet && <p className="text-xs text-amber-800">An operation failed. Values below are the last successfully received status snapshot.</p>}
+        </div>
+      )}
+
       {/* The answer. Everything else on this page is optional reading. */}
       <div className={`flex gap-3 rounded-xl border p-5 ${tone.box}`}>
         <tone.Icon className={`mt-0.5 h-6 w-6 flex-shrink-0 ${tone.icon}`} />
         <div className="min-w-0">
-          <p className="text-base font-semibold text-slate-900">{situation.headline}</p>
-          {situation.detail && <p className="mt-1 text-sm text-slate-600">{situation.detail}</p>}
+          <p className="text-base font-semibold text-slate-900">{contestContext && situation.kind === "idle" ? "No shared fleet workers reporting" : situation.headline}</p>
+          {situation.detail && <p className="mt-1 text-sm text-slate-600">{contestContext?.isPractice && situation.kind === "idle" ? "No shared fleet workers are currently reporting. This is separate from the always-on judging path used by practice contests." : situation.detail}</p>}
 
           {fleet?.upcoming.length ? (
             <p className="mt-3 text-sm text-slate-600">
@@ -318,6 +328,22 @@ export function FleetPanel({ inset = false, onFleetChange }: {
           ) : null}
         </div>
       </div>
+
+      {contestContext && fleet && (
+        <>
+          <dl className="grid gap-3 sm:grid-cols-3" aria-label="Shared judging metrics">
+            <Metric label="Workers reporting" value={String(fleet.live)} detail={`${fleet.desired} requested · ${fleet.stale} stale reports`} />
+            <Metric label="Waiting in shared queue" value={fleet.queue_error ? "Unknown" : String(fleet.queue_waiting ?? fleet.queued_jobs)} detail={fleet.queue_error ? "Queue reading unavailable; this does not mean zero waiting." : "Waiting work across contests; not an estimated completion time."} />
+            <Metric label="Jobs running on workers" value={String(fleet.running_jobs)} detail="Reported worker activity; queue delivery counts can differ." />
+          </dl>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600">
+            <p>Refreshes every 10 seconds while this panel is open. Refresh checks again now.</p>
+            {fleet.state?.reported_at && <p className="mt-1">Controller last reported: <time dateTime={fleet.state.reported_at}>{formatWhen(fleet.state.reported_at)}</time>{fleet.state.stale ? " · Report is stale" : ""}.</p>}
+            {fleet.override && <p className="mt-1 font-medium">Manual override: {fleet.override.mode === "standdown" ? "stand-down" : fleet.override.mode} until {formatWhen(fleet.override.expires_at)}. This applies to the shared fleet.</p>}
+          </div>
+          <p className="text-xs text-slate-600">Test judging sends one test submission. Start judges now requests shared capacity for 4 hours and may incur costs; it is not limited to this contest.</p>
+        </>
+      )}
 
       {/* Only the actions that make sense right now, for someone allowed to
           take them. Watching is open to all staff; spending is not. */}
@@ -401,10 +427,19 @@ export function FleetPanel({ inset = false, onFleetChange }: {
         </p>
       )}
 
+      {contestContext && (
+        <p className="text-xs text-slate-500">
+          {lastProbe ? "The last test is a historical result, not a live health guarantee." : "No test result is available in the loaded history."}
+          {lastProbe?.started_at && <> Test started: <time dateTime={lastProbe.started_at}>{formatWhen(lastProbe.started_at)}</time>.</>}
+          {" "}Details contains worker reports, manual controls and load-test history.
+        </p>
+      )}
+
       {/* Everything an operator might want when the answer above looks wrong. */}
       <div>
         <button
           type="button"
+          aria-expanded={showDetails}
           onClick={() => setShowDetails((v) => !v)}
           className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900"
         >
@@ -564,4 +599,12 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="min-w-0 break-words text-right text-slate-900">{value}</span>
     </div>
   );
+}
+
+function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <dt className="text-xs font-medium text-slate-600">{label}</dt>
+    <dd className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</dd>
+    <dd className="mt-1 text-xs text-slate-500">{detail}</dd>
+  </div>;
 }

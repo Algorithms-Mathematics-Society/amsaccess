@@ -7,7 +7,7 @@ const context = await browser.newContext();
 await context.addCookies([{name:'ams_session',value:`test.${Math.floor(Date.now()/1000)+3600}.test`,url:base}]);
 const page = await context.newPage();
 page.on('pageerror', error => console.error(error.message));
-let fleetReads=0, runReads=0, releaseRuns, writes=0, failFleet=false;
+let fleetReads=0, runReads=0, releaseRuns, writes=0, failFleet=false, practice=false;
 const runsGate = new Promise(r=>{releaseRuns=r;});
 const fleet={workers:[],live:2,stale:0,running_jobs:0,queued_jobs:0,desired:2,driver:'schedule',detail:'Ready test fleet',override:null,state:null,upcoming:[{contest_uid:'a',title:'Test contest',starts_at:'2026-01-01',ends_at:'2027-01-01',participants:100,instances:2,reason:'running'}],queue_waiting:0,queue_inflight:0,queue_error:'',ceiling:40};
 await page.route('**/*',async route=>{
@@ -24,7 +24,7 @@ await page.route('**/*',async route=>{
  if(url.pathname==='/api/auth/me') return ok({role:'admin'});
  if(url.pathname==='/api/org/fleet') {fleetReads++;if(failFleet) return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Fleet unavailable'})});return ok(fleet);}
  if(url.pathname==='/api/org/fleet/runs') {runReads++;if(runReads===1) await runsGate;return ok([]);}
- if(url.pathname==='/api/org/contests/a') return ok({uid:'a',title:'Test contest',status:'running',starts_at:'2026-01-01',ends_at:'2027-01-01',is_practice:false,problems:[],frozen:false});
+ if(url.pathname==='/api/org/contests/a') return ok({uid:'a',title:'Test contest',status:'running',starts_at:'2026-01-01',ends_at:'2027-01-01',is_practice:practice,problems:[],frozen:false});
  if(url.pathname.endsWith('/submissions/summary')) return ok({total:0,pending:0,verdicts:{}});
  return ok([]);
 });
@@ -62,6 +62,21 @@ try {
  await page.getByText('Fleet unavailable',{exact:true}).waitFor();
  assert.equal(await page.getByText('Ready — 3 judges available',{exact:true}).count(),1,'failed read retains last good fleet');
  failFleet=false;
+ fleet.queue_error='Fixture queue error'; fleet.queue_waiting=42;
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.getByText('Unknown',{exact:true}).waitFor();
+ assert.equal(await page.getByText('42',{exact:true}).count(),0,'Unavailable queue is not shown as a trustworthy count');
+ practice=true; fleet.live=0; fleet.desired=2; fleet.upcoming=[]; fleet.queue_error=''; fleet.queue_waiting=0;
+ fleet.override={mode:'warm',instances:2,expires_at:'2027-01-01T00:00:00Z',reason:'fixture'};
+ await page.reload();
+ await page.getByText('No shared fleet workers reporting',{exact:true}).waitFor();
+ await page.getByText(/This practice contest uses the always-on judge/).waitFor();
+ await page.getByText(/2 requested/).waitFor();
+ assert.equal(await page.getByText(/No additional fleet capacity is currently scheduled/).count(),0,'Warm request is not described as absent');
+ await page.getByText(/No test result is available in the loaded history/).waitFor();
+ await page.setViewportSize({width:390,height:844});
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Judging UI fits mobile');
+ fleet.live=3; fleet.override=null;
  await page.goto(base+'/org/fleet');
  await page.getByText('Ready — 3 judges available',{exact:true}).waitFor();
  console.log('Judging browser checks passed: shared reads, slow history, non-overlap, remount, action refresh, errors, standalone page');

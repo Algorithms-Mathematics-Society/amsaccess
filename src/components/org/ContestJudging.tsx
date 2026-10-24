@@ -14,7 +14,7 @@ export function ContestJudging(props: {
   return (
     <div className="space-y-4">
       <ContestScale {...props} fleet={fleet} />
-      <FleetPanel onFleetChange={setFleet} />
+      <FleetPanel onFleetChange={setFleet} contestContext={{ isPractice: props.isPractice }} />
     </div>
   );
 }
