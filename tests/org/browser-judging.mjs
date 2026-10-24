@@ -7,7 +7,7 @@ const context = await browser.newContext();
 await context.addCookies([{name:'ams_session',value:`test.${Math.floor(Date.now()/1000)+3600}.test`,url:base}]);
 const page = await context.newPage();
 page.on('pageerror', error => console.error(error.message));
-let fleetReads=0, runReads=0, releaseRuns, writes=0, failFleet=false, practice=false;
+let fleetReads=0, runReads=0, releaseRuns, writes=0, failFleet=false, practice=false, failRuns=false, runs=[];
 const runsGate = new Promise(r=>{releaseRuns=r;});
 const fleet={workers:[],live:2,stale:0,running_jobs:0,queued_jobs:0,desired:2,driver:'schedule',detail:'Ready test fleet',override:null,state:null,upcoming:[{contest_uid:'a',title:'Test contest',starts_at:'2026-01-01',ends_at:'2027-01-01',participants:100,instances:2,reason:'running'}],queue_waiting:0,queue_inflight:0,queue_error:'',ceiling:40};
 await page.route('**/*',async route=>{
@@ -23,7 +23,7 @@ await page.route('**/*',async route=>{
  assert.equal(route.request().method(),'GET');
  if(url.pathname==='/api/auth/me') return ok({role:'admin'});
  if(url.pathname==='/api/org/fleet') {fleetReads++;if(failFleet) return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Fleet unavailable'})});return ok(fleet);}
- if(url.pathname==='/api/org/fleet/runs') {runReads++;if(runReads===1) await runsGate;return ok([]);}
+ if(url.pathname==='/api/org/fleet/runs') {runReads++;if(runReads===1) await runsGate;if(failRuns) return route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({error:"History unavailable"})});return ok(runs);}
  if(url.pathname==='/api/org/contests/a') return ok({uid:'a',title:'Test contest',status:'running',starts_at:'2026-01-01',ends_at:'2027-01-01',is_practice:practice,problems:[],frozen:false});
  if(url.pathname.endsWith('/submissions/summary')) return ok({total:0,pending:0,verdicts:{}});
  return ok([]);
@@ -74,9 +74,21 @@ try {
  await page.getByText(/2 requested/).waitFor();
  assert.equal(await page.getByText(/No additional fleet capacity is currently scheduled/).count(),0,'Warm request is not described as absent');
  await page.getByText(/No test result is available in the loaded history/).waitFor();
+ const diagnostics=page.getByRole('complementary',{name:'Judging diagnostics'});
+ await diagnostics.getByText('No tests in the available history. Use Test judging for a fresh check.',{exact:true}).waitFor();
+ runs=[{uid:'failed-check',kind:'probe',status:'failed',total:1,completed:0,failed:1,started_at:'2026-10-25T00:00:00Z',last_error:'Judge could not finish the test',latency_ms:{},throughput:null}];
+ fleet.state={desired:2,actual:0,ceiling:40,per_region:{},driver:'schedule',last_error:'Controller message '+ 'x'.repeat(500),last_scaled_at:null,reported_at:'2026-10-25T00:00:00Z',stale:true};
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await diagnostics.getByText('Problem reported',{exact:true}).waitFor();
+ await diagnostics.getByText('The controller reported a problem managing judges',{exact:true}).waitFor();
+ await diagnostics.getByText('Show reported message',{exact:true}).first().click();
+ failRuns=true;
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await diagnostics.getByText(/Test history could not be refreshed/).waitFor();
+ assert.equal(await diagnostics.getByText('Problem reported',{exact:true}).count(),1,'history failure retains historical failures');
  await page.setViewportSize({width:390,height:844});
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Judging UI fits mobile');
- fleet.live=3; fleet.override=null;
+ fleet.live=3; fleet.override=null; fleet.state=null;
  await page.goto(base+'/org/fleet');
  await page.getByText('Ready — 3 judges available',{exact:true}).waitFor();
  console.log('Judging browser checks passed: shared reads, slow history, non-overlap, remount, action refresh, errors, standalone page');
