@@ -15,6 +15,7 @@ import { Skeleton } from "@astryxdesign/core/Skeleton";
 import { HStack, VStack } from "@astryxdesign/core/Stack";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
+import { SupportAttention } from "./SupportInbox";
 import { OrgAstryxTheme } from "@/components/org/OrgAstryxTheme";
 import type { Fleet } from "@/components/org/FleetPanel";
 import type { Contest, Problem } from "@/lib/orgTypes";
@@ -190,6 +191,7 @@ function Dashboard() {
         gap={6}
         style={{ padding: "var(--spacing-6) clamp(var(--spacing-3), 3vw, var(--spacing-8))", minWidth: 0 }}
       >
+        <SupportAttention />
         {isEmpty ? (
           <GettingStarted
             problems={problems.data!.length}
