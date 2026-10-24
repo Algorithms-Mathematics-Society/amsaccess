@@ -41,7 +41,28 @@ async function scenario(run, count = 4) {
   finally { releases.forEach(release => release()); await context.close(); }
 }
 try {
-  if (benchmark) {
+  if (process.env.ROSTER_SEARCH_BENCHMARK === '1') {
+    for (let run = 1; run <= 3; run++) await scenario(async ({ page, context, load }) => {
+      const session = await context.newCDPSession(page);
+      await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+      await load(); await page.locator('tbody tr').nth(1320).waitFor({ state: 'attached' });
+      const input = page.getByRole('textbox', { name: 'Find a candidate' });
+      await input.evaluate(input => {
+        window.searchPaint = [];
+        input.addEventListener('input', () => {
+          const start = performance.now();
+          requestAnimationFrame(() => requestAnimationFrame(() => window.searchPaint.push(performance.now() - start)));
+        });
+      });
+      const started = Date.now();
+      await input.pressSequentially('Candidate 1320', { delay: 20 });
+      assert.equal(await input.inputValue(), 'Candidate 1320');
+      await until(async () => await page.locator('tbody tr').count() === 1 && (await page.locator('tbody').innerText()).includes('Candidate 1320'), 'Final search result');
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const paints = await page.evaluate(() => window.searchPaint);
+      console.log(JSON.stringify({ run, rows: 1321, cpu: 4, typingAndResultsMs: Date.now() - started, inputPaintMedianMs: [...paints].sort((a,b) => a-b)[Math.floor(paints.length / 2)], inputPaintMaxMs: Math.max(...paints), inputEvents: paints.length }));
+    }, 1321);
+  } else if (benchmark) {
     for (let run = 1; run <= 3; run++) await scenario(async ({ page, context, state, hold, row, emailButton, load }) => {
       const session = await context.newCDPSession(page); await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
       const blocked = hold(); state.write = async ({ respond }) => { await blocked.promise; return respond({ queued: 1 }); };
@@ -66,6 +87,44 @@ try {
       console.log(JSON.stringify({ run, rows: 1321, cpu: 4, pendingMs, ...searchTiming }));
     }, 1321);
   } else {
+    await scenario(async ({ page, state, calls, hold, emailButton, load }) => {
+      const held = hold();
+      state.write = async ({ respond }) => { await held.promise; return respond({ queued: 1 }); };
+      await load();
+      const input = page.getByRole('textbox', { name: 'Find a candidate' });
+      const initialInputWidth = (await input.boundingBox()).width;
+      await emailButton(0).click();
+      await input.pressSequentially('Candidate 0003', { delay: 10 });
+      held.release();
+      await until(async () => await page.locator('tbody tr').count() === 1 && (await page.locator('tbody').innerText()).includes('Candidate 0003'), 'Latest fast-typed word survives action refresh');
+      assert.equal(await input.inputValue(), 'Candidate 0003');
+      assert.equal((await input.boundingBox()).width, initialInputWidth, 'Result controls do not shift the input while typing');
+      await input.fill('Candidate 0002');
+      await page.getByRole('button', { name: 'Clear', exact: true }).click();
+      await delay(250);
+      assert.equal(await input.inputValue(), '');
+      assert.equal(await page.locator('tbody tr').count(), 4, 'Clear cancels an older pending search');
+      await emailButton(0).getByText('Queued', { exact: true }).waitFor();
+      await input.fill('Candidate 000');
+      await page.getByRole('combobox', { name: 'Filter by operating system' }).selectOption('Linux');
+      await until(async () => await page.locator('tbody tr').count() === 2, 'Dropdown combines with newest typed text');
+      await input.fill('candidate3@example.test');
+      await page.getByText('Nobody matches that.', { exact: false }).waitFor();
+      await page.getByRole('button', { name: 'Clear', exact: true }).click();
+      await until(async () => await page.locator('tbody tr').count() === 4, 'Clear restores roster');
+      await input.dispatchEvent('compositionstart');
+      await input.fill('Candidate 0002');
+      await delay(250);
+      assert.equal(await page.locator('tbody tr').count(), 4, 'IME intermediate text does not filter');
+      await input.dispatchEvent('compositionend', { data: 'Candidate 0002' });
+      await until(async () => await page.locator('tbody tr').count() === 1 && (await page.locator('tbody').innerText()).includes('Candidate 0002'), 'IME completed text filters');
+      await input.press('ControlOrMeta+A'); await input.press('Backspace');
+      await until(async () => await page.locator('tbody tr').count() === 4, 'Keyboard deletion restores roster');
+      await input.fill('candidate3@example.test');
+      await until(async () => await page.locator('tbody tr').count() === 1 && (await page.locator('tbody').innerText()).includes('Candidate 0003'), 'Pasted email matches');
+      assert.equal(calls.filter(c => c.method === 'POST').length, 1, 'Typing never duplicates mutations');
+      console.log('PASS: fast typing, action refresh, clear cancellation, combined dropdown, IME, deletion and pasted email');
+    });
     await scenario(async ({ page, state, calls, load }) => {
       state.roster[1].last_login_at = '2026-10-25T00:00:00Z';
       await load();

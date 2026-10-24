@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useContestRead } from "@/lib/client/useContestRead";
 import { useOrgSessions } from "@/lib/client/useOrgSessions";
 import {
@@ -1040,6 +1040,31 @@ function IssuedCredentials({
   );
 }
 
+/** Keep urgent text edits local; a burst of typing publishes one roster filter.
+ * The delay also avoids repeated expensive DOM removals while a word is typed.
+ * Composition text is committed only after the IME finishes.
+ */
+function RosterFilters(props: ComponentProps<typeof PeopleFilters>) {
+  const [draft, setDraft] = useState(props.value);
+  const [composing, setComposing] = useState(false);
+  const { value, onChange } = props;
+  const pending = draft.needle !== value.needle || draft.os !== value.os || draft.college !== value.college;
+
+  useEffect(() => {
+    if (!pending || composing) return;
+    // Dropdowns and Clear apply immediately; only text edits wait for a pause.
+    const delay = draft.os !== value.os || draft.college !== value.college || !draft.needle ? 0 : 120;
+    const timer = setTimeout(() => startTransition(() => onChange(draft)), delay);
+    return () => clearTimeout(timer);
+  }, [draft, value, onChange, pending, composing]);
+
+  return (
+    <div onCompositionStartCapture={() => setComposing(true)} onCompositionEndCapture={() => setComposing(false)}>
+      <PeopleFilters {...props} value={draft} onChange={setDraft} pending={pending || composing} />
+    </div>
+  );
+}
+
 const RosterTable = memo(function RosterTable({
   contestUid,
   contestTitle,
@@ -1178,7 +1203,7 @@ const RosterTable = memo(function RosterTable({
           onChange();
         }}
       />
-      <PeopleFilters
+      <RosterFilters
         value={filter}
         onChange={setFilter}
         osOptions={osOptions}
