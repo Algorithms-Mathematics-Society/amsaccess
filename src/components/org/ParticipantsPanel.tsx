@@ -23,6 +23,7 @@ import { AddFromAccess } from "./AddFromAccess";
 import {
   AlertTriangle,
   Check,
+  ClipboardList,
   Copy,
   Download,
   KeyRound,
@@ -283,6 +284,7 @@ function ParticipantsContent({
               for them they would be buttons that always fail. */}
           {!isIntern && (
             <>
+              <CopyFromRoster contestUid={contestUid} onCopied={absorb} />
               <button
                 type="button"
                 onClick={() => setPickingFromAccess(true)}
@@ -673,6 +675,151 @@ function ImportCsv({
  *
  * Their slips come back once, as slips always do.
  */
+type RosterSource = {
+  uid: string;
+  title: string;
+  status: string;
+  is_practice: boolean;
+  starts_at: string;
+  participants: number;
+};
+
+/**
+ * Copy another contest's roster onto this one.
+ *
+ * The same round is routinely run twice, a practice sitting and then the
+ * real one, against the same people. Doing that meant exporting a CSV from
+ * one contest and importing it into the other, which resolved everybody by
+ * email and reported anyone whose address had since changed as missing from
+ * the directory. The people were already there; only the spreadsheet had
+ * gone stale.
+ */
+function CopyFromRoster({
+  contestUid,
+  onCopied,
+}: {
+  contestUid: string;
+  onCopied: (result: RosterAdd) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [sources, setSources] = useState<RosterSource[] | null>(null);
+  const [chosen, setChosen] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open || sources !== null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await json<RosterSource[]>(
+          await fetch(`/api/org/contests/${contestUid}/participants/sources`, {
+            cache: "no-store",
+          }),
+        );
+        if (!cancelled) setSources(rows);
+      } catch (err) {
+        if (!cancelled) {
+          setSources([]);
+          setError(
+            err instanceof Error ? err.message : "Could not list contests.",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, sources, contestUid]);
+
+  async function copy() {
+    if (!chosen) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await json<RosterAdd>(
+        await fetch(
+          `/api/org/contests/${contestUid}/participants/from-contest`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ source_contest_uid: chosen }),
+          },
+        ),
+      );
+      setOpen(false);
+      setChosen("");
+      onCopied(result);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not copy that roster.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-900"
+      >
+        <ClipboardList className="h-4 w-4" />
+        Add from roster
+      </button>
+    );
+  }
+
+  const picked = sources?.find((row) => row.uid === chosen);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <select
+        value={chosen}
+        onChange={(event) => setChosen(event.target.value)}
+        disabled={sources === null || busy}
+        aria-label="Copy the roster from"
+        className="max-w-[260px] rounded-lg border border-slate-300 px-2 py-1.5 text-sm disabled:opacity-50"
+      >
+        <option value="">
+          {sources === null
+            ? "Loading contests…"
+            : sources.length === 0
+              ? "No other contest has a roster"
+              : "Copy from…"}
+        </option>
+        {(sources ?? []).map((row) => (
+          <option key={row.uid} value={row.uid}>
+            {row.title} ({row.participants})
+            {row.is_practice ? " · practice" : ""}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={() => void copy()}
+        disabled={busy || !chosen}
+        className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+      >
+        {busy ? "Copying…" : picked ? `Add ${picked.participants}` : "Add"}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(false);
+          setError("");
+        }}
+        className="rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:text-slate-900"
+      >
+        Cancel
+      </button>
+      {error && <span className="text-xs text-red-600">{error}</span>}
+    </div>
+  );
+}
+
 function SeedTestParticipants({
   contestUid,
   onSeeded,
