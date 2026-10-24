@@ -330,7 +330,8 @@ function Conversation({
 
   async function send(event: FormEvent) {
     event.preventDefault();
-    if (!ready || inFlight.current) return;
+    if (!ready || inFlight.current || (!pending && thread?.status !== "open"))
+      return;
     const message = pending ?? { uid: crypto.randomUUID(), body: draft.trim() };
     if (!message.body) return;
     inFlight.current = true;
@@ -470,10 +471,10 @@ function Conversation({
             <Banner
               status="warning"
               title="Reply awaiting confirmation"
-              description="This issue was resolved while a reply was pending. Reopen it, then retry the saved reply to confirm delivery safely."
+              description="This issue is resolved. Retry the saved reply to confirm delivery without reopening it. If the server says it was not sent, reopen the issue before retrying."
             />
           )}
-          {thread.status === "open" && (
+          {(thread.status === "open" || pending) && (
             <form onSubmit={(e) => void send(e)}>
               <VStack gap={3}>
                 <TextArea

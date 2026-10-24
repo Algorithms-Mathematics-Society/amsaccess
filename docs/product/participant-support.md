@@ -31,8 +31,11 @@ reply is confirmed. Closing the browser tab removes this local draft recovery;
 confirmed conversations and messages remain stored on the server.
 
 A reply awaiting confirmation prevents resolution. If another staff member
-resolves the issue while a reply is pending, reopen the issue and retry that saved
-reply to confirm delivery. Reopening and resolving do not remove its history.
+resolves the issue while a reply is pending, retry the saved reply to confirm
+delivery without reopening it. A reply already stored is acknowledged safely.
+If the server rejects an unsent reply because the issue is resolved, use **Reopen
+issue** before retrying. New replies require an open issue. Reopening and
+resolving do not remove its history.
 
 ## Deployment
 
