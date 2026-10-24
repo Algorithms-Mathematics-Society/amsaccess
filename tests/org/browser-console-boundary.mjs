@@ -125,7 +125,8 @@ try {
   const readsBefore = calls.filter(c => c.path.endsWith('/participants')).length;
   await participants.focus();
   await wait(100);
-  assert.equal(calls.filter(c => c.path.endsWith('/participants')).length, readsBefore, 'intent loads code without mounting/fetching inactive panel');
+  assert.equal(calls.filter(c => c.path.endsWith('/participants')).length, readsBefore + 1, 'intent prefetches only the target panel read');
+  assert.equal(calls.filter(c => c.path.endsWith('/submissions')).length, 0, 'intent does not fetch unrelated submissions');
   await participants.click();
   await until(() => calls.some(c => c.path.endsWith('/participants')));
   assert.equal(await page.evaluate(() => location.hash), '#participants');

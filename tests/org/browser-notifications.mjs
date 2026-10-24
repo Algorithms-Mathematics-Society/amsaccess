@@ -210,10 +210,10 @@ try{
  const pending=readGate;readGate=null;pending.release();await wait(150);
  assert.equal(await page.getByRole('button',{name:'Dismiss notification preview; keep in drawer'}).count(),0,'auth reset clears stale preview');
  assert.equal(await page.getByRole('status').filter({hasText:'Old Session Preview'}).count(),0,'auth reset clears old announcement');
- await launcher().click();
- assert.equal(await drawer().getByText('Late Old Request',{exact:true}).count(),0);
- await drawer().getByText(/Session changed/).waitFor();
- assert.equal(await drawer().getByRole('button',{name:'Allow re-entry'}).count(),0);
+ await page.getByRole('alert').filter({hasText:'Your session changed.'}).waitFor();
+ assert.equal(await launcher().count(),0,'reset suspends the entire contest console');
+ assert.equal(await page.getByText('Late Old Request',{exact:true}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'Allow re-entry'}).count(),0);
  console.log('PASS: auth reset clears notifications and rejects late responses');
 
  await page.goto(base+'/org/contests/b#problems');await launcher().click();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -23,6 +23,8 @@ import { invalidate } from "@/lib/client/useApiQuery";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { ContestNotifications } from "./ContestNotifications";
+import { ContestReadProvider, useContestReadStore } from "@/lib/client/useContestRead";
+import type { ContestReadResource } from "@/lib/client/contestReads";
 
 const loadParticipants = () => import("./ParticipantsPanel");
 const loadLeaderboard = () => import("./LeaderboardPanel");
@@ -92,6 +94,29 @@ async function json<T>(res: Response): Promise<T> {
   return data as T;
 }
 
+// A stalled proxy/body must release the shared flight so the next poll can retry.
+const READ_TIMEOUT = new Error("Request timed out. Please retry.");
+function readCancelled(controller: AbortController) {
+  return controller.signal.aborted && controller.signal.reason !== READ_TIMEOUT;
+}
+async function readConsoleJson<T>(url: string, controller: AbortController, onAccessLost?: () => void): Promise<T> {
+  const aborted = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true });
+  });
+  const timer = setTimeout(() => controller.abort(READ_TIMEOUT), 15_000);
+  try {
+    const response = await Promise.race([
+      fetch(url, { cache: "no-store", signal: controller.signal }), aborted,
+    ]);
+    if (response.status === 401 || response.status === 403) onAccessLost?.();
+    const data = await Promise.race([response.json(), aborted]);
+    if (!response.ok) throw new Error(data?.error ?? "Request failed.");
+    return data as T;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Judging usually settles in seconds, so poll quickly while anything is
 // pending and back right off when nothing is. A setter watching an idle
 // contest should not generate steady load for hours.
@@ -99,13 +124,32 @@ const POLL_BUSY_MS = 2_000;
 const POLL_IDLE_MS = 20_000;
 
 export function ContestConsole({ contestUid }: { contestUid: string }) {
-  return <ContestContent key={contestUid} contestUid={contestUid} />;
+  return (
+    <ContestReadProvider key={contestUid} contestUid={contestUid}>
+      <ContestContent contestUid={contestUid} />
+    </ContestReadProvider>
+  );
 }
 
 function ContestContent({ contestUid }: { contestUid: string }) {
+  const readStore = useContestReadStore();
+  const [sessionReset, setSessionReset] = useState(false);
+  const suspended = useRef(false);
+  const prepareTab = useCallback((next: Tab, navigation = false) => {
+    if (suspended.current) return;
+    preloadTab(next);
+    const resources: ContestReadResource[] = next === "participants" ? ["participants"]
+      : next === "leaderboard" ? ["scoreboard", "participants"]
+      : next === "analytics" ? ["analytics"] : [];
+    if (navigation) readStore.navigate(resources);
+    else resources.forEach(resource => { void readStore.prefetch(resource); });
+  }, [readStore]);
   const [contest, setContest] = useState<Contest | null>(null);
-  const [submissions, setSubmissions] = useState<ContestSubmission[]>([]);
+  const [submissions, setSubmissions] = useState<ContestSubmission[] | null>(null);
+  const [submissionError, setSubmissionError] = useState("");
+  const [submissionsRefreshing, setSubmissionsRefreshing] = useState(false);
   const [summary, setSummary] = useState<SubmissionSummary | null>(null);
+  const [summaryError, setSummaryError] = useState("");
   const [error, setError] = useState("");
   const [tab, setTabState] = useState<Tab>("problems");
   const { role, known } = useOrgRole();
@@ -129,99 +173,175 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   // Adopted after mount rather than in the initial state: the server has no
   // fragment, and reading one during render is a hydration mismatch.
   useEffect(() => {
-    const read = () => setTabState(tabFromHash(window.location.hash));
+    const read = () => {
+      const selected = tabFromHash(window.location.hash);
+      // Each read authenticates independently; begin alongside metadata so
+      // chunk loading and contest details are not prerequisites to data.
+      prepareTab(selected, true);
+      setTabState(selected);
+    };
     read();
     window.addEventListener("hashchange", read);
     return () => window.removeEventListener("hashchange", read);
-  }, []);
+  }, [prepareTab]);
 
   // replaceState, not push: Back should leave the contest the way it
   // arrived, not walk backwards through every tab that was glanced at.
   const setTab = useCallback((next: Tab) => {
+    prepareTab(next, true);
     setTabState(next);
     window.history.replaceState(null, "", `#${next}`);
+  }, [prepareTab]);
+
+  const mounted = useRef(true);
+  const contestRequest = useRef<AbortController | null>(null);
+  const submissionFlight = useRef<{ controller: AbortController; promise: Promise<void> } | null>(null);
+  const summaryFlight = useRef<{ controller: AbortController; promise: Promise<void> } | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    const reset = () => {
+      suspended.current = true;
+      contestRequest.current?.abort();
+      submissionFlight.current?.controller.abort();
+      summaryFlight.current?.controller.abort();
+      setContest(null);
+      setSubmissions(null);
+      setSummary(null);
+      setSessionReset(true);
+    };
+    window.addEventListener("ams:org-session-reset", reset);
+    return () => {
+      window.removeEventListener("ams:org-session-reset", reset);
+      mounted.current = false;
+      contestRequest.current?.abort();
+      submissionFlight.current?.controller.abort();
+      summaryFlight.current?.controller.abort();
+    };
   }, []);
 
   const loadContest = useCallback(async () => {
+    if (suspended.current) return;
     invalidate("/api/org/contests");
+    contestRequest.current?.abort();
+    const controller = new AbortController();
+    contestRequest.current = controller;
     try {
-      setContest(
-        await json<Contest>(
-          await fetch(`/api/org/contests/${contestUid}`, { cache: "no-store" }),
-        ),
-      );
+      const data = await readConsoleJson<Contest>(`/api/org/contests/${contestUid}`, controller);
+      if (!mounted.current || readCancelled(controller)) return;
+      setContest(data);
       setError("");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not load the contest.",
-      );
+      if (!mounted.current || readCancelled(controller)) return;
+      setError(err instanceof Error ? err.message : "Could not load the contest.");
     }
   }, [contestUid]);
 
-  const submissionFlight = useRef<Promise<void> | null>(null);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  const loadSubmissions = useCallback((): Promise<void> => {
-    if (submissionFlight.current) return submissionFlight.current;
-    const request = (async () => {
+  const refreshContestAfterWrite = useCallback(() => {
+    readStore.invalidate("scoreboard");
+    readStore.invalidate("analytics");
+    return loadContest();
+  }, [readStore, loadContest]);
+
+  // Counts remain live on every tab; the heavy table is read only when open.
+  // These requests settle independently so a slow summary cannot hide rows.
+  const loadSummary = useCallback((force = false): Promise<void> => {
+    if (suspended.current) return Promise.resolve();
+    if (summaryFlight.current && !summaryFlight.current.controller.signal.aborted) {
+      if (!force) return summaryFlight.current.promise;
+      summaryFlight.current.controller.abort();
+    }
+    const controller = new AbortController();
+    const promise = (async () => {
       try {
-        // The table is a page; the counts are the contest. Fetched together
-        // because showing one without the other is how "200" ended up beside
-        // a tab on a contest with a thousand submissions.
-        const [page, totals] = await Promise.all([
-          fetch(
-            `/api/org/contests/${contestUid}/submissions?limit=${SUBMISSION_PAGE}`,
-            {
-              cache: "no-store",
-            },
-          ).then((res) => json<ContestSubmission[]>(res)),
-          fetch(`/api/org/contests/${contestUid}/submissions/summary`, {
-            cache: "no-store",
-          })
-            .then((res) => json<SubmissionSummary>(res))
-            // An API that does not serve the summary yet must not blank the
-            // table: fall back to counting the page, which is what this did
-            // before, and say so in the UI rather than here.
-            .catch(() => null),
-        ]);
-        if (!mounted.current) return;
-        setSubmissions(page);
-        setSummary(totals);
+        const totals = await readConsoleJson<SubmissionSummary>(
+          `/api/org/contests/${contestUid}/submissions/summary`, controller,
+          () => { if (mounted.current && !readCancelled(controller)) setSummary(null); },
+        );
+        if (!totals || !Number.isFinite(totals.total) || !Number.isFinite(totals.pending)
+          || !totals.verdicts || typeof totals.verdicts !== "object" || Array.isArray(totals.verdicts)
+          || Object.values(totals.verdicts).some(value => !Number.isFinite(value)))
+          throw new Error("Invalid submission totals response.");
+        if (mounted.current && !controller.signal.aborted) {
+          setSummary(totals);
+          setSummaryError("");
+        }
       } catch {
-        // A failed poll is not worth replacing the table with an error; the
-        // next tick usually succeeds and the stale rows stay readable.
+        // Older APIs may not serve totals. Only the visible table can supply
+        // fallback counts; never fetch a hidden page just to count its rows.
+        if (mounted.current && !readCancelled(controller))
+          setSummaryError("Submission totals could not refresh.");
       }
     })();
-    submissionFlight.current = request;
-    void request.finally(() => {
-      if (submissionFlight.current === request) submissionFlight.current = null;
+    summaryFlight.current = { controller, promise };
+    void promise.finally(() => {
+      if (summaryFlight.current?.controller === controller) summaryFlight.current = null;
     });
-    return request;
+    return promise;
   }, [contestUid]);
 
+  const loadSubmissions = useCallback((force = false): Promise<void> => {
+    if (suspended.current) return Promise.resolve();
+    if (submissionFlight.current && !submissionFlight.current.controller.signal.aborted) {
+      if (!force) return submissionFlight.current.promise;
+      submissionFlight.current.controller.abort();
+    }
+    const controller = new AbortController();
+    setSubmissionsRefreshing(true);
+    const promise = (async () => {
+      try {
+        const page = await readConsoleJson<ContestSubmission[]>(
+          `/api/org/contests/${contestUid}/submissions?limit=${SUBMISSION_PAGE}`, controller,
+          () => { if (mounted.current && !readCancelled(controller)) setSubmissions(null); },
+        );
+        if (!Array.isArray(page)) throw new Error("Invalid submissions response.");
+        if (!mounted.current || readCancelled(controller)) return;
+        setSubmissions(page);
+        setSubmissionError("");
+      } catch (err) {
+        if (!mounted.current || readCancelled(controller)) return;
+        setSubmissionError(err instanceof Error ? err.message : "Could not load submissions.");
+      } finally {
+        if (mounted.current && !readCancelled(controller)) setSubmissionsRefreshing(false);
+      }
+    })();
+    submissionFlight.current = { controller, promise };
+    void promise.finally(() => {
+      if (submissionFlight.current?.controller === controller) submissionFlight.current = null;
+    });
+    return promise;
+  }, [contestUid]);
+
+  useEffect(() => { void loadContest(); }, [loadContest]);
+
+  const pagePending = (submissions ?? []).some(s => s.status === "queued" || s.status === "running");
+  // Independent reads can observe different instants: a healthy zero summary
+  // must not slow updates while the visible page still shows queued work.
+  // Hidden stale rows must not keep an otherwise idle contest polling quickly.
+  const pending = summary !== null
+    ? summary.pending > 0 || ((tab === "submissions" || Boolean(summaryError)) && pagePending)
+    : pagePending;
+  const pollMs = pending ? POLL_BUSY_MS : POLL_IDLE_MS;
+
   useEffect(() => {
-    void loadContest();
+    if (sessionReset) return;
+    return startOrgPolling(loadSummary, pollMs, { immediate: false });
+  }, [pollMs, loadSummary, sessionReset]);
+  useEffect(() => { void loadSummary(); }, [loadSummary]);
+
+  useEffect(() => {
+    if (tab !== "submissions" || sessionReset) return;
     void loadSubmissions();
-  }, [loadContest, loadSubmissions]);
-
-  const pending = useMemo(
-    () =>
-      submissions.some((s) => s.status === "queued" || s.status === "running"),
-    [submissions],
-  );
-
+  }, [tab, loadSubmissions, sessionReset]);
   useEffect(() => {
-    return startOrgPolling(
-      loadSubmissions,
-      pending ? POLL_BUSY_MS : POLL_IDLE_MS,
-      { immediate: false },
-    );
-  }, [pending, loadSubmissions]);
+    if (tab !== "submissions" || sessionReset) return;
+    return startOrgPolling(loadSubmissions, pollMs, { immediate: false });
+  }, [tab, pollMs, loadSubmissions, sessionReset]);
+
+  if (sessionReset) return (
+    <p role="alert" className="px-6 py-5 text-sm text-slate-600">
+      Your session changed. <button type="button" className="underline" onClick={() => window.location.reload()}>Reload this page</button> to continue.
+    </p>
+  );
 
   if (error && !contest) {
     return (
@@ -261,12 +381,12 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           ...summary.verdicts,
           ...(summary.pending > 0 ? { judging: summary.pending } : {}),
         }
-      : submissions.reduce<Record<string, number>>((acc, s) => {
+      : (submissions ?? []).reduce<Record<string, number>>((acc, s) => {
           const key = s.verdict ?? s.status;
           acc[key] = (acc[key] ?? 0) + 1;
           return acc;
         }, {});
-  const total = summary?.total ?? submissions.length;
+  const total = summary?.total ?? submissions?.length ?? 0;
 
   return (
     <div>
@@ -313,7 +433,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
                   ({relativeWhen(contest.starts_at)})
                 </span>
               </span>
-              <Reschedule contest={contest} onChanged={loadContest} />
+              <Reschedule contest={contest} onChanged={refreshContestAfterWrite} />
             </div>
           </div>
 
@@ -321,7 +441,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             {contest.status === "draft" && (
               <PublishButton
                 contestUid={contest.uid}
-                onPublished={loadContest}
+                onPublished={refreshContestAfterWrite}
               />
             )}
             {contest.invite_code && <InviteCode code={contest.invite_code} />}
@@ -345,8 +465,8 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             <button
               key={t}
               type="button"
-              onPointerEnter={() => preloadTab(t)}
-              onFocus={() => preloadTab(t)}
+              onPointerEnter={() => prepareTab(t)}
+              onFocus={() => prepareTab(t)}
               onClick={() => setTab(t)}
               className={`flex-shrink-0 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium capitalize transition ${
                 tab === t
@@ -365,6 +485,12 @@ function ContestContent({ contestUid }: { contestUid: string }) {
         </nav>
       </div>
 
+      {summaryError && summary !== null && (
+        <p role="status" className="px-6 pt-2 text-xs text-amber-700">
+          {summaryError} Showing the last totals.
+        </p>
+      )}
+
       {/* Rejudge and the exports belong to submissions, and used to sit pinned
           above every tab — so the Problems tab offered to download a
           submissions CSV, and Rejudge was one stray click away at all times
@@ -374,8 +500,9 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           <RejudgeButton
             contestUid={contest.uid}
             onDone={async () => {
-              await submissionFlight.current;
-              await loadSubmissions();
+              readStore.invalidate("scoreboard");
+              readStore.invalidate("analytics");
+              await Promise.all([loadSubmissions(true), loadSummary(true)]);
             }}
           />
           <a
@@ -397,7 +524,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
 
       <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6">
         {tab === "problems" ? (
-          <ProblemsTab contest={contest} onChange={loadContest} />
+          <ProblemsTab contest={contest} onChange={refreshContestAfterWrite} />
         ) : tab === "participants" ? (
           <ParticipantsPanel
             contestUid={contest.uid}
@@ -410,6 +537,10 @@ function ContestContent({ contestUid }: { contestUid: string }) {
         ) : tab === "submissions" ? (
           <SubmissionsTab
             submissions={submissions}
+            error={submissionError}
+            refreshing={submissionsRefreshing}
+            onRetry={() => void loadSubmissions()}
+            summaryAvailable={summary !== null}
             counts={counts}
             total={total}
             pending={pending}
@@ -929,26 +1060,48 @@ function AddProblemForm({
 
 function SubmissionsTab({
   submissions,
+  error,
+  refreshing,
+  onRetry,
+  summaryAvailable,
   counts,
   total,
   pending,
 }: {
-  submissions: ContestSubmission[];
+  submissions: ContestSubmission[] | null;
+  error: string;
+  refreshing: boolean;
+  onRetry: () => void;
+  summaryAvailable: boolean;
   counts: Record<string, number>;
   /** Every submission in the contest, which is usually more than are listed. */
   total: number;
   pending: boolean;
 }) {
+  if (submissions === null) {
+    return error ? (
+      <p role="alert" className="text-sm text-red-700">
+        {error} <button type="button" className="underline" onClick={onRetry}>Retry</button>
+      </p>
+    ) : <LoadingPanel />;
+  }
   if (submissions.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-500">
-        No submissions yet.
-      </p>
+      <div>
+        {refreshing && <p role="status" className="mb-2 text-xs text-slate-500">Refreshing submissions…</p>}
+        {error && <p role="alert" className="mb-2 text-xs text-amber-700">{error} Showing the last read. <button type="button" className="underline" onClick={onRetry}>Retry</button></p>}
+        <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-500">
+          No submissions yet.
+        </p>
+      </div>
     );
   }
 
   return (
     <div>
+      {refreshing && <p role="status" className="mb-2 text-xs text-slate-500">Refreshing submissions…</p>}
+      {error && <p role="alert" className="mb-2 text-xs text-amber-700">{error} Showing the last read.</p>}
+      {!summaryAvailable && <p className="mb-2 text-xs text-slate-500">Counts are for the loaded page; contest totals are unavailable.</p>}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {pending && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">

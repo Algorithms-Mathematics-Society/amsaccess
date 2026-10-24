@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useContestRead } from "@/lib/client/useContestRead";
 import { useOrgSessions } from "@/lib/client/useOrgSessions";
 import {
   participantEntered,
@@ -135,9 +136,12 @@ function ParticipantsContent({
   live?: boolean;
 }) {
   const { entered, error: entryError, loaded: entryLoaded, refresh: refreshEntry } = useOrgSessions(contestUid, live);
-  const rosterRequest = useRef<AbortController | null>(null);
-  const [roster, setRoster] = useState<Participant[] | null>(null);
-  const [error, setError] = useState("");
+  const { data: latestRoster, error, refreshing, open, load: retryRoster, refreshAfterWrite: load } = useContestRead<Participant[]>("participants");
+  // Keep the initial large table out of the tab-click render. Adopt this
+  // visit's read only once it settles; later refreshes retain the current
+  // table, while authorization loss still clears its data immediately.
+  const [rosterReady, setRosterReady] = useState(false);
+  const roster = rosterReady ? latestRoster : null;
   const [adding, setAdding] = useState(false);
   const [pickingFromAccess, setPickingFromAccess] = useState(false);
 
@@ -153,32 +157,12 @@ function ParticipantsContent({
   const { role } = useOrgRole();
   const isIntern = role === "intern";
 
-  const load = useCallback(async () => {
-    rosterRequest.current?.abort();
-    const controller = new AbortController();
-    rosterRequest.current = controller;
-    try {
-      const rows = await json<Participant[]>(
-        await fetch(`/api/org/contests/${contestUid}/participants`, {
-          cache: "no-store",
-          signal: controller.signal,
-        }),
-      );
-      if (controller.signal.aborted) return;
-      setRoster(rows);
-      setError("");
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(
-        err instanceof Error ? err.message : "Could not load the roster.",
-      );
-    }
-  }, [contestUid]);
-
   useEffect(() => {
-    void load();
-    return () => rosterRequest.current?.abort();
-  }, [load]);
+    let active = true;
+    const settled = () => { if (active) setRosterReady(true); };
+    void open().then(settled, settled);
+    return () => { active = false; };
+  }, [open]);
 
   /** What to show after people were added, which depends on what was minted. */
   const absorb = useCallback(
@@ -238,6 +222,7 @@ function ParticipantsContent({
 
   return (
     <div>
+      {roster && refreshing && <p role="status" className="mb-2 text-xs text-slate-500">Updating roster…</p>}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
           {roster === null
@@ -246,7 +231,7 @@ function ParticipantsContent({
                 unkeyed > 0 ? ` · ${unkeyed} awaiting a passphrase` : ""
               }${roster.length - active > 0 ? ` · ${roster.length - active} revoked` : ""}`}
         </p>
-        {roster === null && (
+        {roster === null && (!error || refreshing) && (
           <div
             className="h-4 w-56 animate-pulse rounded bg-slate-200"
             aria-hidden="true"
@@ -345,8 +330,16 @@ function ParticipantsContent({
       )}
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}{roster !== null && " Showing the last roster."}{" "}
+          <button
+            type="button"
+            className="underline disabled:opacity-50"
+            disabled={refreshing}
+            onClick={() => void retryRoster()}
+          >
+            {refreshing ? "Retrying roster…" : "Retry roster"}
+          </button>
         </p>
       )}
 
@@ -371,7 +364,7 @@ function ParticipantsContent({
           </>
         )}
       </p>
-      {roster === null && (
+      {roster === null && (!error || refreshing) && (
         /* The table's own shape. A bare "Loading…" under the tab strip said
            nothing and left the panel empty, so the page jumped when 1,300
            rows arrived. */
@@ -1047,7 +1040,7 @@ function IssuedCredentials({
   );
 }
 
-function RosterTable({
+const RosterTable = memo(function RosterTable({
   contestUid,
   contestTitle,
   rows,
@@ -1318,7 +1311,7 @@ function RosterTable({
       </div>
     </div>
   );
-}
+});
 
 const MAIL_PILL: Record<string, string> = {
   unsent: "border-amber-200 bg-amber-50 text-amber-700",
