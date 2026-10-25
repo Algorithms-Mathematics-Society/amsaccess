@@ -1229,7 +1229,7 @@ const RosterTable = memo(function RosterTable({
     setActions((previous) => ({ ...previous, [loginId]: { pending: action, error: "", queued: false, unknown: unknownEmails.current.has(loginId) } }));
     const controller = new AbortController();
     requests.current.add(controller);
-    const timeout = !refresh ? window.setTimeout(() => controller.abort(), 30_000) : undefined;
+    const timeout = (!refresh || action === "reissue") ? window.setTimeout(() => controller.abort(), 30_000) : undefined;
     let httpRejected = false;
     try {
       let requestBody: string | undefined;

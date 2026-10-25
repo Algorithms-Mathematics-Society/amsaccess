@@ -42,7 +42,7 @@ assert.ok(start > 0 && end > start);
 const action = compile(panel.slice(start, end + "\n  }, [contestUid, onChange]);".length) + "\nglobalThis.act = act;");
 
 function harness(replies) {
-  const calls = [], states = [];
+  const calls = [], states = [], timers = [], signals = [];
   let sequence = 0;
   const context = {
     useCallback: (callback) => callback,
@@ -54,13 +54,37 @@ function harness(replies) {
     setActions: (update) => states.push(update({})),
     crypto: { randomUUID: () => `synthetic-request-${++sequence}` },
     AbortController, Error,
-    window: { clearTimeout() {} },
+    window: { setTimeout: (callback) => { timers.push(callback); return timers.length; }, clearTimeout() {} },
     json: async (response) => { if (!response.ok) throw Error("Reissue already completed"); return response.json(); },
-    fetch: async (_, options) => { calls.push(JSON.parse(options.body)); return replies.shift()(); },
+    fetch: async (_, options) => { calls.push(JSON.parse(options.body)); signals.push(options.signal); return replies.shift()(options); },
   };
   vm.runInNewContext(action, context);
-  return { calls, states, act: () => context.act("candidate", "reissue") };
+  return { calls, states, timers, signals, locked: () => context.reissueLock.current, act: () => context.act("candidate", "reissue") };
 }
+
+test("a stalled credential response times out and the next click reuses its request ID", async () => {
+  let bodyStarted;
+  const reading = new Promise((resolve) => { bodyStarted = resolve; });
+  const h = harness([
+    (options) => ({
+      ok: true, status: 200,
+      json: () => {
+        bodyStarted();
+        return new Promise((_, reject) => options.signal.addEventListener("abort", () => reject(Error("Body aborted"))));
+      },
+    }),
+    () => ({ ok: false, status: 409 }),
+  ]);
+  const first = h.act();
+  await reading;
+  assert.equal(h.timers.length, 1);
+  h.timers[0]();
+  await first;
+  assert.equal(h.signals[0].aborted, true);
+  assert.equal(h.locked(), false);
+  await h.act();
+  assert.equal(h.calls[0].request_id, h.calls[1].request_id);
+});
 
 test("interrupted reissue reuses its key; a confirmed conflict requires another explicit click", async () => {
   const h = harness([
