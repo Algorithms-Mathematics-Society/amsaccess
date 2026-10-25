@@ -21,12 +21,27 @@ export async function POST(
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });
   }
 
+  let body: Record<string, unknown> = {};
+  if (action === "reissue") {
+    try {
+      const input: unknown = await request.json();
+      const requestId = input && typeof input === "object" && "request_id" in input
+        ? input.request_id : undefined;
+      if (typeof requestId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
+        return NextResponse.json({ error: "A valid reissue request ID is required." }, { status: 400 });
+      }
+      body = { request_id: requestId };
+    } catch {
+      return NextResponse.json({ error: "A valid reissue request ID is required." }, { status: 400 });
+    }
+  }
+
   const res = await callAmsApi(
     "POST",
     `/contests/${uid}/participants/${encodeURIComponent(loginId)}/${action}`,
-    {},
+    body,
     subject,
   );
   if (!res.ok) return NextResponse.json({ error: errorMessage(res.data) }, { status: res.status });
-  return NextResponse.json(res.data);
+  return NextResponse.json(res.data, { headers: { "Cache-Control": "no-store" } });
 }

@@ -1115,6 +1115,9 @@ const RosterTable = memo(function RosterTable({
   const [actions, setActions] = useState<Record<string, RowActionState>>({});
   const pending = useRef(new Set<string>());
   const reissueLock = useRef(false);
+  // Retain a request ID after an interrupted response. A retry must not rotate
+  // the password again if the API already committed the first request.
+  const reissueRequestIds = useRef(new Map<string, string>());
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkSummary, setBulkSummary] = useState("");
@@ -1226,21 +1229,42 @@ const RosterTable = memo(function RosterTable({
     setActions((previous) => ({ ...previous, [loginId]: { pending: action, error: "", queued: false, unknown: unknownEmails.current.has(loginId) } }));
     const controller = new AbortController();
     requests.current.add(controller);
-    const timeout = !refresh ? window.setTimeout(() => controller.abort(), 30_000) : undefined;
+    const timeout = (!refresh || action === "reissue") ? window.setTimeout(() => controller.abort(), 30_000) : undefined;
     let httpRejected = false;
     try {
+      let requestBody: string | undefined;
+      if (action === "reissue") {
+        const requestId = reissueRequestIds.current.get(loginId) ?? crypto.randomUUID();
+        reissueRequestIds.current.set(loginId, requestId);
+        requestBody = JSON.stringify({ request_id: requestId });
+      }
       const response = await fetch(
           `/api/org/contests/${contestUid}/participants/${encodeURIComponent(loginId)}?action=${action}`,
-          { method: "POST", signal: controller.signal },
+          {
+            method: "POST", signal: controller.signal,
+            ...(requestBody ? { headers: { "Content-Type": "application/json" }, body: requestBody } : {}),
+          },
         );
+      if (action === "reissue" && response.status === 409) {
+        // Show the API's completed-request explanation first. Only a later,
+        // explicit click may request a new one-time password.
+        reissueRequestIds.current.delete(loginId);
+      }
       httpRejected = !response.ok;
       // A successful status with an unreadable body is ambiguous for an email
       // mutation. The general helper tolerates empty JSON, so parse this path
       // strictly to keep it out of automatic bulk retries.
-      const result = action === "reemail" && response.ok
+      const result = (action === "reemail" || action === "reissue") && response.ok
         ? await response.json() as QueuedBatch
         : await json<IssuedCredential | Participant | QueuedBatch>(response);
-      if (action === "reissue") setReissued(result as IssuedCredential);
+      if (action === "reissue") {
+        const credential = result as IssuedCredential;
+        if (typeof credential?.login_id !== "string" || typeof credential.password !== "string" || !credential.password) {
+          throw new Error("Credential response was incomplete. Retry to check whether the reissue completed.");
+        }
+        reissueRequestIds.current.delete(loginId);
+        setReissued(credential);
+      }
       else if (refresh && mounted.current) onChange();
       if (action === "reemail") acceptedEmails.current.add(loginId);
       setActions((previous) => ({ ...previous, [loginId]: { pending: null, error: "", queued: action === "reemail" || acceptedEmails.current.has(loginId), unknown: unknownEmails.current.has(loginId) } }));
@@ -1253,7 +1277,9 @@ const RosterTable = memo(function RosterTable({
       }
       setActions((previous) => ({ ...previous, [loginId]: {
         pending: null, queued: false, unknown: unknownEmails.current.has(loginId),
-        error: unknown ? "Request interrupted; its result is unknown. Refresh and check status before retrying." : err instanceof Error ? err.message : `Could not ${action === "reemail" ? "queue the email" : action}.`,
+        error: action === "reissue" && !httpRejected
+          ? "Request interrupted; the reissue may have completed. Retry to check its status before issuing another password."
+          : unknown ? "Request interrupted; its result is unknown. Refresh and check status before retrying." : err instanceof Error ? err.message : `Could not ${action === "reemail" ? "queue the email" : action}.`,
       } }));
       if (action === "reissue") {
         reissueLock.current = false;
