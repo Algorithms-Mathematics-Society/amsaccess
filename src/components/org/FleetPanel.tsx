@@ -15,6 +15,8 @@ import {
   Zap,
 } from "lucide-react";
 import { formatWhen, relativeWhen } from "@/lib/orgTypes";
+import { readFleetJson } from "@/lib/client/fleetRead";
+import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
 import { canSpend, useOrgRole } from "@/lib/client/useOrgRole";
 
 /**
@@ -106,11 +108,6 @@ type FleetRun = {
 
 const POLL_MS = 10_000;
 
-async function json<T>(res: Response): Promise<T> {
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
-  return data as T;
-}
 
 /**
  * The whole screen in one value.
@@ -219,7 +216,11 @@ function readable(err: unknown): string {
   return raw || "That did not work.";
 }
 
-export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
+export function FleetPanel({ inset = false, onFleetChange, contestContext }: {
+  inset?: boolean;
+  contestContext?: { isPractice: boolean };
+  onFleetChange?: (fleet: Fleet) => void;
+} = {}) {
   const { role, known } = useOrgRole();
   // Watching the fleet is open to any staff member; changing its size is
   // not. The buttons used to render for everyone and fail on click with the
@@ -228,30 +229,38 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
   const spender = canSpend(role, known);
   const [fleet, setFleet] = useState<Fleet | null>(null);
   const [runs, setRuns] = useState<FleetRun[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [benchCount, setBenchCount] = useState(100);
 
-  const load = useCallback(async () => {
+  const readFleet = useCallback(async (signal: AbortSignal) => {
     try {
-      // Two independent fetches: a runs endpoint the deployed API does not
-      // serve yet must not take the whole screen down with it.
-      const [f, r] = await Promise.all([
-        json<Fleet>(await fetch("/api/org/fleet", { cache: "no-store" })),
-        fetch("/api/org/fleet/runs", { cache: "no-store" })
-          .then((res) => json<FleetRun[]>(res))
-          .catch(() => null),
-      ]);
-      setFleet(f);
-      if (r) setRuns(r);
+      const value = await readFleetJson<Fleet>("/api/org/fleet", signal);
+      if (signal.aborted) return;
+      setFleet(value);
+      onFleetChange?.(value);
       setError("");
     } catch (err) {
-      // Deliberately does not blank the page: a stale answer beats no answer
-      // on the screen you read when things are going wrong.
-      setError(err instanceof Error ? err.message : "Could not load judging status.");
+      if (!signal.aborted)
+        setError(err instanceof Error ? err.message : "Could not load judging status.");
+    }
+  }, [onFleetChange]);
+  const readRuns = useCallback(async (signal: AbortSignal) => {
+    try {
+      const value = await readFleetJson<FleetRun[]>("/api/org/fleet/runs", signal);
+      if (!signal.aborted) { setRuns(value); setHistoryStatus("ready"); }
+    } catch {
+      // Retain history, but make its freshness explicit in diagnostics.
+      if (!signal.aborted) setHistoryStatus("error");
     }
   }, []);
+  const { load: loadFleet, refreshAfterWrite: refreshFleet } = useOrgReadTask(readFleet);
+  const { load: loadRuns, refreshAfterWrite: refreshRuns } = useOrgReadTask(readRuns);
+  const load = useCallback(async () => {
+    await Promise.all([loadFleet(), loadRuns()]);
+  }, [loadFleet, loadRuns]);
 
   useEffect(() => {
     void load();
@@ -264,7 +273,7 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
     setError("");
     try {
       await run();
-      await load();
+      await Promise.all([refreshFleet(), refreshRuns()]);
     } catch (err) {
       setError(readable(err));
     } finally {
@@ -288,19 +297,29 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
   const lastProbe = runs.find((r) => r.kind === "probe");
 
   return (
-    <div className={inset ? "max-w-3xl space-y-4 px-8 py-6" : "max-w-3xl space-y-4"}>
+    <div className={contestContext ? "grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : ""}>
+    <div className={inset ? "min-w-0 max-w-3xl space-y-4 px-8 py-6" : "min-w-0 max-w-3xl space-y-4"}>
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       )}
 
+      {contestContext && (
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-slate-900">Shared judging status</h2>
+          <p className="text-sm text-slate-600">Workers and queue counts below are shared across contests, not totals for this contest alone.</p>
+          {contestContext.isPractice && <p className="text-sm text-slate-600">This practice contest uses the always-on judge and does not request extra fleet capacity. A zero shared-worker count alone does not establish whether that judge is healthy; use Test judging for a fresh check.</p>}
+          {error && fleet && <p className="text-xs text-amber-800">An operation failed. Values below are the last successfully received status snapshot.</p>}
+        </div>
+      )}
+
       {/* The answer. Everything else on this page is optional reading. */}
       <div className={`flex gap-3 rounded-xl border p-5 ${tone.box}`}>
         <tone.Icon className={`mt-0.5 h-6 w-6 flex-shrink-0 ${tone.icon}`} />
         <div className="min-w-0">
-          <p className="text-base font-semibold text-slate-900">{situation.headline}</p>
-          {situation.detail && <p className="mt-1 text-sm text-slate-600">{situation.detail}</p>}
+          <p className="text-base font-semibold text-slate-900">{contestContext && situation.kind === "idle" ? "No shared fleet workers reporting" : situation.headline}</p>
+          {situation.detail && <p className="mt-1 text-sm text-slate-600">{contestContext?.isPractice && situation.kind === "idle" ? "No shared fleet workers are currently reporting. This is separate from the always-on judging path used by practice contests." : situation.detail}</p>}
 
           {fleet?.upcoming.length ? (
             <p className="mt-3 text-sm text-slate-600">
@@ -312,6 +331,22 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
           ) : null}
         </div>
       </div>
+
+      {contestContext && fleet && (
+        <>
+          <dl className="grid gap-3 sm:grid-cols-3" aria-label="Shared judging metrics">
+            <Metric label="Workers reporting" value={String(fleet.live)} detail={`${fleet.desired} requested · ${fleet.stale} stale reports`} />
+            <Metric label="Waiting in shared queue" value={fleet.queue_error ? "Unknown" : String(fleet.queue_waiting ?? fleet.queued_jobs)} detail={fleet.queue_error ? "Queue reading unavailable; this does not mean zero waiting." : "Waiting work across contests; not an estimated completion time."} />
+            <Metric label="Jobs running on workers" value={String(fleet.running_jobs)} detail="Reported worker activity; queue delivery counts can differ." />
+          </dl>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-600">
+            <p>Refreshes every 10 seconds while this panel is open. Refresh checks again now.</p>
+            {fleet.state?.reported_at && <p className="mt-1">Controller last reported: <time dateTime={fleet.state.reported_at}>{formatWhen(fleet.state.reported_at)}</time>{fleet.state.stale ? " · Report is stale" : ""}.</p>}
+            {fleet.override && <p className="mt-1 font-medium">Manual override: {fleet.override.mode === "standdown" ? "stand-down" : fleet.override.mode} until {formatWhen(fleet.override.expires_at)}. This applies to the shared fleet.</p>}
+          </div>
+          <p className="text-xs text-slate-600">Test judging sends one test submission. Start judges now requests shared capacity for 4 hours and may incur costs; it is not limited to this contest.</p>
+        </>
+      )}
 
       {/* Only the actions that make sense right now, for someone allowed to
           take them. Watching is open to all staff; spending is not. */}
@@ -395,10 +430,19 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
         </p>
       )}
 
+      {contestContext && (
+        <p className="text-xs text-slate-500">
+          {lastProbe ? "The last test is a historical result, not a live health guarantee." : "No test result is available in the loaded history."}
+          {lastProbe?.started_at && <> Test started: <time dateTime={lastProbe.started_at}>{formatWhen(lastProbe.started_at)}</time>.</>}
+          {" "}Details contains worker reports, manual controls and load-test history.
+        </p>
+      )}
+
       {/* Everything an operator might want when the answer above looks wrong. */}
       <div>
         <button
           type="button"
+          aria-expanded={showDetails}
           onClick={() => setShowDetails((v) => !v)}
           className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900"
         >
@@ -544,6 +588,8 @@ export function FleetPanel({ inset = false }: { inset?: boolean } = {}) {
         )}
       </div>
     </div>
+    {contestContext && <JudgingDiagnostics fleet={fleet} runs={runs} historyStatus={historyStatus} snapshotUncertain={Boolean(error)} />}
+    </div>
   );
 }
 
@@ -558,4 +604,68 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="min-w-0 break-words text-right text-slate-900">{value}</span>
     </div>
   );
+}
+
+function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <dt className="text-xs font-medium text-slate-600">{label}</dt>
+    <dd className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</dd>
+    <dd className="mt-1 text-xs text-slate-500">{detail}</dd>
+  </div>;
+}
+
+
+function DiagnosticMessage({ title, message }: { title: string; message: string }) {
+  return <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+    <p className="text-sm font-medium text-amber-900">{title}</p>
+    <details className="mt-2 text-xs text-slate-700">
+      <summary className="cursor-pointer rounded focus-visible:outline focus-visible:outline-2">Show reported message</summary>
+      <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono [overflow-wrap:anywhere]">{message}</pre>
+    </details>
+  </div>;
+}
+
+function JudgingDiagnostics({ fleet, runs, historyStatus, snapshotUncertain }: {
+  fleet: Fleet | null; runs: FleetRun[]; historyStatus: "loading" | "ready" | "error"; snapshotUncertain: boolean;
+}) {
+  const recent = runs.slice(0, 5);
+  return <aside aria-label="Judging diagnostics" className="min-w-0 rounded-xl border border-slate-200 bg-white p-5">
+    <h2 className="text-base font-semibold text-slate-900">Judging diagnostics</h2>
+    <p className="mt-1 text-sm text-slate-600">Reported errors and recent tests for the shared judging service, across contests.</p>
+    <p className="mt-2 text-xs text-slate-500">Uses the existing 10-second refresh. These are status reports, not raw judge logs.</p>
+    <section className="mt-5 space-y-3" aria-label="Latest status reports">
+      <h3 className="text-sm font-semibold text-slate-900">Latest status reports</h3>
+      {!fleet ? <p className="text-sm text-slate-500">Judging status is not available yet.</p> : <>
+        {snapshotUncertain && <p className="text-xs text-amber-800">An operation failed. These reports are from the last successfully loaded snapshot.</p>}
+        {fleet.state?.reported_at && <p className="text-xs text-slate-500">Controller reported: {formatWhen(fleet.state.reported_at)}</p>}
+        {fleet.state?.last_error && <DiagnosticMessage title="The controller reported a problem managing judges" message={fleet.state.last_error} />}
+        {fleet.queue_error && <DiagnosticMessage title="Queue status could not be read" message={fleet.queue_error} />}
+        {fleet.state?.stale && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">The controller report is out of date. Current judge capacity may differ from this snapshot.</p>}
+        {!fleet.state && <p className="text-sm text-slate-500">No controller report is available.</p>}
+        {!fleet.state?.last_error && !fleet.queue_error && <p className="text-sm text-slate-600">No error message in the available status reports. This does not confirm that judging is healthy.</p>}
+      </>}
+    </section>
+    <section className="mt-5 border-t border-slate-100 pt-4" aria-label="Recent judging tests">
+      <h3 className="text-sm font-semibold text-slate-900">Recent judging tests</h3>
+      <p className="mt-1 text-xs text-slate-500">Latest five available results. Past tests do not guarantee current health.</p>
+      {historyStatus === "loading" && <p className="mt-3 text-sm text-slate-500">Loading test history…</p>}
+      {historyStatus === "error" && <p className="mt-3 text-sm text-amber-800">Test history could not be refreshed. Any results below are from an earlier successful read.</p>}
+      {historyStatus === "ready" && recent.length === 0 && <p className="mt-3 text-sm text-slate-500">No tests in the available history. Use Test judging for a fresh check.</p>}
+      <ul className="mt-3 space-y-3">
+        {recent.map(run => {
+          const hasFailure = run.status === "failed" || run.failed > 0 || Boolean(run.last_error);
+          const label = hasFailure ? "Problem reported" : run.status === "completed" ? "Completed" : run.status === "running" ? "Running" : run.status;
+          return <li key={run.uid} className="rounded-lg border border-slate-200 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-medium text-slate-900">{run.kind === "probe" ? "Judging check" : run.kind === "bench" ? "Load test" : run.kind}</span>
+              <span className={hasFailure ? "text-xs font-medium text-red-700" : "text-xs text-slate-600"}>{label}</span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">{run.started_at ? `Started ${formatWhen(run.started_at)}` : "Start time unavailable"}</p>
+            <p className="mt-2 text-xs text-slate-600">{run.completed} completed · {run.failed} failed · {run.total} total</p>
+            {run.last_error && <div className="mt-3"><DiagnosticMessage title="Test reported an error" message={run.last_error} /></div>}
+          </li>;
+        })}
+      </ul>
+    </section>
+  </aside>;
 }

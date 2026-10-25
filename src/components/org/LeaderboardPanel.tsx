@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchOrgSessions } from "@/lib/client/useOrgNotifications";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useContestRead } from "@/lib/client/useContestRead";
+import { useOrgSessions } from "@/lib/client/useOrgSessions";
 import {
-  enteredParticipantKeys,
   groupLeaderboardByEntry,
 } from "@/lib/client/orgEntry";
 import { startOrgPolling } from "@/lib/client/orgPolling";
@@ -84,115 +84,26 @@ function LeaderboardContent({
   /** Polls only while there is something to poll for. */
   live: boolean;
 }) {
-  const [entered, setEntered] = useState<Set<string>>(new Set());
-  const [entryLoaded, setEntryLoaded] = useState(false);
-  const [entryError, setEntryError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
-  const request = useRef<{
-    controller: AbortController;
-    promise: Promise<void>;
-  } | null>(null);
-  const [board, setBoard] = useState<Scoreboard | null>(null);
+  const { entered, loaded: entryLoaded, error: entryError, refresh: refreshEntry } = useOrgSessions(contestUid, live);
+  const { data: board, error, refreshing: boardRefreshing, load: loadBoard, open: openBoard } = useContestRead<Scoreboard>("scoreboard");
+  const { data: roster, refreshing: rosterRefreshing, load: loadRoster, open: openRoster } = useContestRead<{ user_uid: string; college?: string; device_os?: string }[]>("participants");
+  const refreshing = boardRefreshing || rosterRefreshing;
   // Opened over the contest instead of navigating away: /org/participants
   // belongs to the Students section, so Back from there abandons the contest.
   const [openParticipant, setOpenParticipant] = useState<string | null>(null);
-  const [error, setError] = useState("");
   const [filter, setFilter] = useState<PeopleFilter>(NO_FILTER);
   // The standings carry scores, not people. College and OS live on the
   // roster, so they are fetched alongside and joined by uid -- without them
   // the two tabs would offer different filters over the same candidates.
-  const [people, setPeople] = useState<
-    Map<string, { college: string; os: string }>
-  >(new Map());
-
-  const load = useCallback((): Promise<void> => {
-    // Manual refresh, focus and the timer share one in-flight read per view.
-    if (request.current && !request.current.controller.signal.aborted)
-      return request.current.promise;
-    const controller = new AbortController();
-    const options = { cache: "no-store" as const, signal: controller.signal };
-    setRefreshing(true);
-    const promise = (async () => {
-      // Settle each independently: entry lookup must never block the standings.
-      await Promise.allSettled([
-        (async () => {
-          try {
-            const res = await fetch(
-              `/api/org/contests/${contestUid}/scoreboard`,
-              options,
-            );
-            const data = (await res.json()) as Scoreboard & { error?: string };
-            if (!res.ok)
-              throw new Error(data.error ?? "Could not load the leaderboard.");
-            if (controller.signal.aborted) return;
-            setBoard(data);
-            setError("");
-          } catch (err) {
-            if (!controller.signal.aborted)
-              setError(
-                err instanceof Error
-                  ? err.message
-                  : "Could not load the leaderboard.",
-              );
-          }
-        })(),
-        (async () => {
-          try {
-            const sessions = await fetchOrgSessions(contestUid);
-            if (controller.signal.aborted) return;
-            setEntered(enteredParticipantKeys(sessions));
-            setEntryLoaded(true);
-            setEntryError("");
-          } catch {
-            if (!controller.signal.aborted)
-              setEntryError("Entry status could not refresh.");
-          }
-        })(),
-        (async () => {
-          // Only for the OS and college filters. A failure here costs the
-          // two dropdowns and nothing else, so it stays silent rather than
-          // putting an error over a perfectly good scoreboard.
-          try {
-            const res = await fetch(
-              `/api/org/contests/${contestUid}/participants`,
-              options,
-            );
-            if (!res.ok) return;
-            const roster = (await res.json()) as {
-              user_uid: string;
-              college?: string;
-              device_os?: string;
-            }[];
-            if (controller.signal.aborted || !Array.isArray(roster)) return;
-            setPeople(
-              new Map(
-                roster.map((row) => [
-                  row.user_uid,
-                  { college: row.college ?? "", os: row.device_os ?? "" },
-                ]),
-              ),
-            );
-          } catch {
-            /* filters stay empty; the standings do not care */
-          }
-        })(),
-      ]);
-      if (!controller.signal.aborted) setRefreshing(false);
-    })();
-    request.current = { controller, promise };
-    void promise.finally(() => {
-      if (request.current?.controller === controller) request.current = null;
-    });
-    return promise;
-  }, [contestUid]);
-
+  const people = useMemo(() => new Map((roster ?? []).map(row => [row.user_uid, { college: row.college ?? "", os: row.device_os ?? "" }])), [roster]);
+  const load = useCallback(async () => {
+    await Promise.all([loadBoard(), loadRoster()]);
+  }, [loadBoard, loadRoster]);
   useEffect(() => {
-    const stop = startOrgPolling(load, live ? POLL_MS : null);
-    return () => {
-      stop();
-      request.current?.controller.abort();
-    };
-  }, [load, live]);
+    void openBoard();
+    void openRoster();
+    return startOrgPolling(load, live ? POLL_MS : null, { immediate: false });
+  }, [load, openBoard, openRoster, live]);
 
   const grouped = useMemo(
     () => groupLeaderboardByEntry(board?.rows ?? [], entered),
@@ -251,7 +162,7 @@ function LeaderboardContent({
           type="button"
           disabled={refreshing}
           className="underline"
-          onClick={() => void load()}
+          onClick={() => { void load(); void refreshEntry().catch(() => {}); }}
         >
           Retry
         </button>
@@ -286,7 +197,7 @@ function LeaderboardContent({
 
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={() => { void load(); void refreshEntry().catch(() => {}); }}
           disabled={refreshing}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-900"
         >

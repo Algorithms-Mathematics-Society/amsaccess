@@ -12,7 +12,8 @@
  * this bundle, and none of these need more than a bar.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useContestRead } from "@/lib/client/useContestRead";
 import { RefreshCw } from "lucide-react";
 import { SkeletonBlock } from "@/components/org/Skeleton";
 import { osLabel } from "@/lib/client/peopleFilter.ts";
@@ -52,33 +53,9 @@ const VERDICT_TONE: Record<string, string> = {
   SE: "bg-fuchsia-500",
 };
 
-export function AnalyticsPanel({ contestUid }: { contestUid: string }) {
-  const [data, setData] = useState<Analytics | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/org/contests/${contestUid}/analytics`, {
-        cache: "no-store",
-      });
-      const body = (await res.json()) as Analytics & { error?: string };
-      if (!res.ok) throw new Error(body.error ?? "Could not load analytics.");
-      setData(body);
-      setError("");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not load analytics.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, [contestUid]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+export function AnalyticsPanel(_props: { contestUid: string }) {
+  const { data, error, refreshing: busy, load, open } = useContestRead<Analytics>("analytics");
+  useEffect(() => { void open(); }, [open]);
 
   const colleges = useMemo(() => {
     if (!data) return { shown: [] as Count[], rest: 0 };

@@ -300,7 +300,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
   ), [sessions]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 pb-20">
       <ParticipantModal handle={openParticipant} onClose={() => setOpenParticipant(null)} />
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -311,15 +311,15 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
       {/* Waiting to resume, above everything: a candidate is locked out of an
           exam that is still running, and only a person can let them back in. */}
       {waiting.length > 0 && (
-        <section>
-          <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
+        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+          <h3 className="mb-2 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
             <DoorOpen className="h-4 w-4" />
             Waiting to resume
             <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
               {waiting.length}
             </span>
           </h3>
-          <p className="mb-3 text-xs text-slate-500">
+          <p className="mb-4 max-w-4xl text-sm leading-relaxed text-slate-500">
             Their app closed mid-exam. Approving issues a 15-minute window to
             rejoin — it does not reopen a session that has already been
             submitted, and it does not give extra time.
@@ -405,8 +405,8 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
       )}
 
       {/* Help requests first: someone is waiting. */}
-      <section>
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+      <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <h3 className="mb-3 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
           <LifeBuoy className="h-4 w-4" />
           Help requests
           {openIncidents.length > 0 && (
@@ -417,7 +417,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
         </h3>
 
         {incidents.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-slate-500">
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
             Nobody has asked for help.
           </p>
         ) : (
@@ -480,8 +480,8 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
       {/* The room. Nothing else says who is actually sitting this contest, so
           a session going quiet used to be invisible until the candidate found
           somebody to tell — and the reaper marked rows nobody could see. */}
-      <section>
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
+      <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <h3 className="mb-2 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
           <Users className="h-4 w-4" />
           Live sessions
           {quiet.length > 0 && (
@@ -490,10 +490,10 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
             </span>
           )}
         </h3>
-        <p className="mb-3 text-xs text-slate-500">
-          Sorted so the ones needing a person come first. A row whose last
-          contact keeps climbing is a candidate whose machine stopped talking to
-          us — worth a look before they find you.
+        <p className="mb-4 max-w-4xl text-sm leading-relaxed text-slate-500">
+          Sessions needing attention appear first. Quiet means no check-in yet,
+          or no contact for at least 2 minutes while active or pending. Check with
+          the candidate; quiet sessions and flags are signals to review, not a verdict.
         </p>
 
         {/* Below md each candidate is a card: the same fields and the same
@@ -524,7 +524,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
                           <button
                             type="button"
                             onClick={() => setOpenParticipant(row.user_uid)}
-                            className="text-left font-medium text-slate-900 hover:underline"
+                            className="break-words text-left font-medium text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                           >
                             {row.display_name || "Unknown"}
                           </button>
@@ -545,7 +545,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
                       )}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                      <span className="text-slate-700">{row.status}</span>
+                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">{row.status}</span>
                       {row.resume_pending && (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-800">
                           waiting on you
@@ -576,21 +576,22 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
         )}
 
         {sessions.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-slate-500">
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
             Nobody has started this contest yet.
           </p>
         ) : desktop ? (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
-            <table className="w-full min-w-[780px] text-sm">
+            <table aria-label="Live contest sessions" className="w-full min-w-[780px] table-fixed text-sm">
+              <colgroup><col className="w-16" /><col /><col className="w-40" /><col className="w-40" /><col className="w-32" /></colgroup>
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-2.5">
+                  <th scope="col" className="px-4 py-2.5">
                     <span className="sr-only">Photo</span>
                   </th>
-                  <th className="px-4 py-2.5">Candidate</th>
-                  <th className="px-4 py-2.5">State</th>
-                  <th className="px-4 py-2.5">Last contact</th>
-                  <th className="px-4 py-2.5 text-right">Flags</th>
+                  <th scope="col" className="px-4 py-2.5">Candidate</th>
+                  <th scope="col" className="px-4 py-2.5">State</th>
+                  <th scope="col" className="px-4 py-2.5">Last contact</th>
+                  <th scope="col" className="px-4 py-2.5 text-right">Flags</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -618,7 +619,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
                           <button
                             type="button"
                             onClick={() => setOpenParticipant(row.user_uid)}
-                            className="text-left font-medium text-slate-900 hover:underline"
+                            className="break-words text-left font-medium text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                           >
                             {row.display_name || "Unknown"}
                           </button>
@@ -627,12 +628,12 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
                             {row.display_name || "Unknown"}
                           </span>
                         )}{" "}
-                        <span className="font-mono text-xs text-slate-400">
+                        <span className="mt-1 block break-all font-mono text-xs text-slate-500">
                           {row.login_id}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-slate-700">
-                        {row.status}
+                        <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">{row.status}</span>
                         {row.resume_pending && (
                           <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
                             waiting on you
@@ -640,22 +641,24 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
                         )}
                       </td>
                       <td
-                        className={`px-4 py-2.5 ${isQuiet ? "font-medium text-amber-800" : "text-slate-500"}`}
+                        className={`px-4 py-3 tabular-nums ${isQuiet ? "font-medium text-amber-800" : "text-slate-500"}`}
                       >
                         {/* Only meaningful while a session is meant to be
                             live. After the bell, a long silence is just a
                             candidate who finished and closed their laptop. */}
                         {running ? idleLabel(row.idle_seconds) : "—"}
+                        {isQuiet && <span className="mt-1 block text-xs font-normal">No recent contact</span>}
                       </td>
-                      <td className="px-4 py-2.5 text-right text-xs text-slate-500">
+                      <td className="px-4 py-3 text-right text-xs text-slate-500">
                         {row.violation_count > 0 && (
                           <span className="mr-2 inline-flex items-center gap-1 text-amber-700">
                             <AlertTriangle className="h-3.5 w-3.5" />
-                            {row.violation_count}
+                            {row.violation_count} flags
                           </span>
                         )}
+                        {row.violation_count === 0 && row.resume_count === 0 && <span aria-label="No flags or reopenings">—</span>}
                         {row.resume_count > 0 && (
-                          <span>reopened {row.resume_count}×</span>
+                          <span className="block">reopened {row.resume_count}×</span>
                         )}
                       </td>
                     </tr>
@@ -676,12 +679,12 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
       )}
 
       {/* Devices that failed their own readiness check. */}
-      <section>
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900">
+      <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <h3 className="mb-2 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
           <MonitorCheck className="h-4 w-4" />
           Entry-gate reports
         </h3>
-        <p className="mb-3 text-xs text-slate-500">
+        <p className="mb-4 max-w-4xl text-sm leading-relaxed text-slate-500">
           What each device reported about itself. The proctor app enforces these
           locally — the platform records them. Waive a check to let a candidate
           through when a detector misfires.
@@ -734,18 +737,18 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
         )}
 
         {readiness.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center text-sm text-slate-500">
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
             No devices have reported yet.
           </p>
         ) : desktop ? (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
-            <table className="w-full min-w-[720px] text-sm">
+            <table aria-label="Entry-gate device reports" className="w-full min-w-[720px] text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-2.5">Candidate</th>
-                  <th className="px-4 py-2.5">Device</th>
-                  <th className="px-4 py-2.5">Result</th>
-                  <th className="px-4 py-2.5 text-right">Waive a check</th>
+                  <th scope="col" className="px-4 py-2.5">Candidate</th>
+                  <th scope="col" className="px-4 py-2.5">Device</th>
+                  <th scope="col" className="px-4 py-2.5">Result</th>
+                  <th scope="col" className="px-4 py-2.5 text-right">Waive a check</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -755,7 +758,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
                       {row.display_name || "—"}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className="font-mono text-xs text-slate-600">
+                      <span title={row.device_fingerprint} className="break-all font-mono text-xs text-slate-600">
                         {row.device_fingerprint.slice(0, 20)}
                       </span>
                       <span className="ml-2 text-xs text-slate-400">
@@ -801,8 +804,8 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
 
       {/* Waivers currently in force. */}
       {overrides.length > 0 && (
-        <section>
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+          <h3 className="mb-3 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
             <ShieldOff className="h-4 w-4" />
             Waivers
             {liveOverrides.length > 0 && (
@@ -849,13 +852,13 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
             ))}
           </ul>}
           {desktop && <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
-            <table className="w-full min-w-[640px] text-sm">
+            <table aria-label="Device check waivers" className="w-full min-w-[640px] text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-2.5">Check</th>
-                  <th className="px-4 py-2.5">Device</th>
-                  <th className="px-4 py-2.5">Expires</th>
-                  <th className="px-4 py-2.5 text-right"></th>
+                  <th scope="col" className="px-4 py-2.5">Check</th>
+                  <th scope="col" className="px-4 py-2.5">Device</th>
+                  <th scope="col" className="px-4 py-2.5">Expires</th>
+                  <th scope="col" className="px-4 py-2.5 text-right"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -935,6 +938,7 @@ function GrantWaiver({
   return (
     <div className="ml-auto space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left md:max-w-xs">
       <select
+        aria-label="Check to waive"
         value={checkKind}
         onChange={(e) => setCheckKind(e.target.value)}
         className="w-full rounded border border-slate-300 px-2 py-2 text-base md:py-1 md:text-xs"
@@ -946,6 +950,7 @@ function GrantWaiver({
         ))}
       </select>
       <input
+        aria-label="Reason for waiver"
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Why — e.g. verified in person"

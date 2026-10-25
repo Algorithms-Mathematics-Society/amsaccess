@@ -18,6 +18,7 @@ export function PeopleFilters({
   collegeOptions,
   showing,
   total,
+  pending = false,
   placeholder = "Find a candidate by name or handle…",
 }: {
   value: PeopleFilter;
@@ -27,6 +28,8 @@ export function PeopleFilters({
   /** How many rows survive, so the count answers "did I filter too hard". */
   showing: number;
   total: number;
+  /** Results still reflect the previously applied filter. */
+  pending?: boolean;
   placeholder?: string;
 }) {
   const active = Boolean(value.needle.trim() || value.os || value.college);
@@ -80,21 +83,23 @@ export function PeopleFilters({
         </select>
       )}
 
-      {active && (
-        <>
-          <span className="text-xs tabular-nums text-slate-500">
-            {showing} of {total}
+      <div
+        className={`flex w-36 shrink-0 items-center justify-end gap-2 ${active || pending ? "" : "invisible"}`}
+        aria-hidden={!active && !pending}
+      >
+          <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">
+            {pending ? "Updating…" : `${showing} of ${total}`}
           </span>
           <button
             type="button"
+            disabled={!active && !pending}
             onClick={() => onChange({ needle: "", os: "", college: "" })}
             className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-slate-500 hover:text-slate-900"
           >
             <X className="h-3.5 w-3.5" />
             Clear
           </button>
-        </>
-      )}
+      </div>
     </div>
   );
 }

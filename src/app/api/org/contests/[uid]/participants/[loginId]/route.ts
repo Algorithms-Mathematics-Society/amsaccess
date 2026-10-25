@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { callAmsApi, errorMessage } from "@/lib/server/amsApi";
 import { requireSubject } from "@/lib/server/session";
 
-/** `?action=revoke` disables a login; `?action=reissue` returns a new password. */
+/**
+ * `?action=revoke` disables a login.
+ * `?action=reissue` returns a new password once.
+ * `?action=reemail` queues a fresh credential email for this participant.
+ */
 export async function POST(
   request: Request,
   ctx: { params: Promise<{ uid: string; loginId: string }> },
@@ -13,7 +17,7 @@ export async function POST(
   const { uid, loginId } = await ctx.params;
   const action = new URL(request.url).searchParams.get("action");
 
-  if (action !== "revoke" && action !== "reissue") {
+  if (action !== "revoke" && action !== "reissue" && action !== "reemail") {
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });
   }
 

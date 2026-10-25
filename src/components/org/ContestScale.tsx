@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Cpu } from "lucide-react";
 import type { Fleet, Upcoming } from "./FleetPanel";
 
@@ -92,37 +91,16 @@ const TONE: Record<Scale["tone"], string> = {
 };
 
 export function ContestScale({
+  fleet,
   contestUid,
   isPractice,
   isDraft = false,
 }: {
+  fleet: Fleet | null;
   contestUid: string;
   isPractice: boolean;
   isDraft?: boolean;
 }) {
-  const [fleet, setFleet] = useState<Fleet | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/org/fleet", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = (await res.json()) as Fleet;
-        if (!cancelled) setFleet(data);
-      } catch {
-        // A contest page must not break because the fleet view is unreachable.
-        // Showing nothing is correct here: this strip is context, not control.
-      }
-    };
-    void load();
-    const t = setInterval(load, 20_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, []);
-
   const scale = scaleOf(fleet, contestUid, isPractice, isDraft);
   if (!scale) return null;
 

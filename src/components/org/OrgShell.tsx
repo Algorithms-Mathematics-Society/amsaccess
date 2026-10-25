@@ -66,7 +66,13 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     if (!nav) return;
     const update = () => {
       const max = nav.scrollWidth - nav.clientWidth;
-      setEdges({ start: nav.scrollLeft > 1, end: nav.scrollLeft < max - 1 });
+      const start = nav.scrollLeft > 1;
+      const end = nav.scrollLeft < max - 1;
+      // Most scroll events leave both fades unchanged. Preserve state so
+      // those events do not trigger another shell render.
+      setEdges(previous => previous.start === start && previous.end === end
+        ? previous
+        : { start, end });
     };
     update();
     nav.addEventListener("scroll", update, { passive: true });
