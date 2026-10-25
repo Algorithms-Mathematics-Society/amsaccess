@@ -138,7 +138,7 @@ export function SubmissionSourceModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto p-4">
+        <div className="min-h-0 flex-1 overflow-hidden p-4">
           {loading && <p className="py-6 text-sm text-slate-500">Loading source…</p>}
           {error && <p className="py-6 text-sm text-rose-600">{error}</p>}
           {data && (
