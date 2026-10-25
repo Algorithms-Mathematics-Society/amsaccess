@@ -186,6 +186,9 @@ function Inbox() {
                   {item.category.toLowerCase().replaceAll("_", " ")}
                 </Text>
               </HStack>
+              {item.chat_enabled === false && (
+                <Text type="supporting">One-way · contact-only</Text>
+              )}
               <Text type="supporting">
                 {item.email} · {item.phone}
               </Text>
@@ -195,8 +198,12 @@ function Inbox() {
               <Button
                 label={
                   selected === item.uid
-                    ? "Viewing conversation"
-                    : `Open conversation with ${item.name}`
+                    ? item.chat_enabled === false
+                      ? "Viewing one-way issue"
+                      : "Viewing conversation"
+                    : item.chat_enabled === false
+                      ? `View issue from ${item.name}`
+                      : `Open conversation with ${item.name}`
                 }
                 variant={selected === item.uid ? "primary" : "secondary"}
                 onClick={() => setSelected(item.uid)}
@@ -330,7 +337,12 @@ function Conversation({
 
   async function send(event: FormEvent) {
     event.preventDefault();
-    if (!ready || inFlight.current || (!pending && thread?.status !== "open"))
+    if (
+      !ready ||
+      inFlight.current ||
+      thread?.chat_enabled === false ||
+      (!pending && thread?.status !== "open")
+    )
       return;
     const message = pending ?? { uid: crypto.randomUUID(), body: draft.trim() };
     if (!message.body) return;
@@ -421,6 +433,13 @@ function Conversation({
             Contact details are self-reported and unverified. Never use this
             chat alone to authorize a credential reset.
           </Text>
+          {thread.chat_enabled === false && (
+            <Banner
+              status="info"
+              title="One-way contact-only issue"
+              description="Participant chat is unavailable for this issue. Follow up with the participant by email or phone using the contact details above."
+            />
+          )}
           <Text type="supporting">
             Reference: {thread.uid} · {thread.status}
           </Text>
@@ -467,45 +486,52 @@ function Conversation({
               description={error}
             />
           )}
-          {thread.status === "resolved" && pending && (
-            <Banner
-              status="warning"
-              title="Reply awaiting confirmation"
-              description="This issue is resolved. Retry the saved reply to confirm delivery without reopening it. If the server says it was not sent, reopen the issue before retrying."
-            />
-          )}
-          {(thread.status === "open" || pending) && (
-            <form onSubmit={(e) => void send(e)}>
-              <VStack gap={3}>
-                <TextArea
-                  label="Reply to participant"
-                  value={draft}
-                  onChange={editDraft}
-                  rows={3}
-                  maxLength={4000}
-                  isDisabled={!ready || busy || Boolean(pending)}
-                />
-                {pending && (
-                  <Text type="supporting">
-                    Delivery awaits confirmation. Retry reuses the same reply.
-                    The reply is saved for this conversation in this browser
-                    tab.
-                  </Text>
-                )}
-                <HStack justify="end">
-                  <Button
-                    type="submit"
-                    label={
-                      busy ? "Sending…" : pending ? "Retry reply" : "Send reply"
-                    }
-                    variant="primary"
-                    isLoading={busy}
-                    isDisabled={!ready || busy || (!pending && !draft.trim())}
+          {thread.chat_enabled !== false &&
+            thread.status === "resolved" &&
+            pending && (
+              <Banner
+                status="warning"
+                title="Reply awaiting confirmation"
+                description="This issue is resolved. Retry the saved reply to confirm delivery without reopening it. If the server says it was not sent, reopen the issue before retrying."
+              />
+            )}
+          {thread.chat_enabled !== false &&
+            (thread.status === "open" || pending) && (
+              <form onSubmit={(e) => void send(e)}>
+                <VStack gap={3}>
+                  <TextArea
+                    label="Reply to participant"
+                    value={draft}
+                    onChange={editDraft}
+                    rows={3}
+                    maxLength={4000}
+                    isDisabled={!ready || busy || Boolean(pending)}
                   />
-                </HStack>
-              </VStack>
-            </form>
-          )}
+                  {pending && (
+                    <Text type="supporting">
+                      Delivery awaits confirmation. Retry reuses the same reply.
+                      The reply is saved for this conversation in this browser
+                      tab.
+                    </Text>
+                  )}
+                  <HStack justify="end">
+                    <Button
+                      type="submit"
+                      label={
+                        busy
+                          ? "Sending…"
+                          : pending
+                            ? "Retry reply"
+                            : "Send reply"
+                      }
+                      variant="primary"
+                      isLoading={busy}
+                      isDisabled={!ready || busy || (!pending && !draft.trim())}
+                    />
+                  </HStack>
+                </VStack>
+              </form>
+            )}
           <HStack justify="end">
             <Button
               label={

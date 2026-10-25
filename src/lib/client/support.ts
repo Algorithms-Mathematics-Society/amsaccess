@@ -12,6 +12,8 @@ export type SupportSummary = {
   category: string;
   status: "open" | "resolved";
   updated_at: string;
+  /** Older servers omit this field; absent means the existing chat behavior. */
+  chat_enabled?: boolean;
 };
 export type SupportThread = SupportSummary & {
   messages: SupportMessage[];
@@ -82,6 +84,8 @@ export function isSupportSummary(value: unknown): value is SupportSummary {
     typeof value.name === "string" &&
     typeof value.category === "string" &&
     (value.status === "open" || value.status === "resolved") &&
+    (value.chat_enabled === undefined ||
+      typeof value.chat_enabled === "boolean") &&
     isDate(value.updated_at)
   );
 }
