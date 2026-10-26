@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { AMS_TEAM_EMAIL } from "@/lib/ams-contact";
+import type { ContactTopic } from "@/lib/contact-entry";
 import styles from "./Contact.module.css";
 
 const topics = [
@@ -49,10 +50,14 @@ const topics = [
     email: AMS_TEAM_EMAIL,
   },
 ] as const;
-type Topic = (typeof topics)[number]["value"];
-
-export function ContactForm() {
-  const [category, setCategory] = useState<Topic>("Sales");
+export function ContactForm({
+  initialCategory = "Sales",
+  signInHelp = false,
+}: {
+  initialCategory?: ContactTopic;
+  signInHelp?: boolean;
+}) {
+  const [category, setCategory] = useState<ContactTopic>(initialCategory);
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState("");
   const [sentEmail, setSentEmail] = useState("");
@@ -106,7 +111,11 @@ export function ContactForm() {
         setError(
           response.status === 429
             ? "Please wait a moment before trying again. Your message is still here, or you can email us directly."
-            : "We couldn’t confirm your message was sent. Your details are still here. Try again or email us directly.",
+            : response.status === 400
+              ? "Please check your name, email and message before trying again. Your details are still here."
+              : response.status === 503
+                ? "The contact form is temporarily unavailable. Your details are still here. You can email us directly."
+                : "We couldn’t confirm your message was sent. Your details are still here. Trying again or emailing may send a duplicate.",
         );
         setStatus("idle");
         return;
@@ -119,7 +128,7 @@ export function ContactForm() {
       setStatus("sent");
     } catch {
       setError(
-        "We couldn’t confirm your message was sent. Your details are still here. Check your connection, try again, or email us directly.",
+        "We couldn’t confirm your message was sent. Your details are still here. Check your connection before trying again. A retry or email may send a duplicate.",
       );
       setStatus("idle");
     } finally {
@@ -178,8 +187,16 @@ export function ContactForm() {
             <p>{topic.intro}</p>
             {category === "Support" && (
               <div className={styles.contextNote}>
-                In a live assessment? Contact your organizer for round-specific
-                help. This form is not a live support channel.
+                {signInHelp && (
+                  <p>
+                    You don’t need to sign in to use this form. It contacts AMS
+                    support. Use an email address you can access and describe
+                    the sign-in problem; you can paste the details reviewed in
+                    Access. Never include your password.
+                  </p>
+                )}
+                For credential reissue or help during a live assessment, contact
+                your organizer. This form is not a live support channel.
               </div>
             )}
             {category === "Security" && (
@@ -221,11 +238,12 @@ export function ContactForm() {
                 <span className={styles.successIcon}>
                   <Check size={24} aria-hidden="true" />
                 </span>
-                <p className={styles.eyebrow}>Message sent</p>
+                <p className={styles.eyebrow}>Accepted for sending</p>
                 <h2>Thank you for your message.</h2>
                 <p>
-                  Your enquiry is on its way to the team. Any follow-up will go
-                  to <strong>{sentEmail}</strong>.
+                  Our email service accepted your message for the Access team.
+                  This does not confirm inbox delivery or that someone has read
+                  it. Any follow-up will go to <strong>{sentEmail}</strong>.
                 </p>
                 <p>There’s no need to send it again.</p>
                 <button
