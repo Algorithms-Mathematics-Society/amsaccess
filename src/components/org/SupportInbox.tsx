@@ -8,7 +8,7 @@ import { Heading } from "@astryxdesign/core/Heading";
 import { Button } from "@astryxdesign/core/Button";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { Banner } from "@astryxdesign/core/Banner";
-import { startOrgPolling } from "@/lib/client/orgPolling";
+import { startSupportPolling } from "@/lib/client/support-poll";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import {
   supportApi,
@@ -36,17 +36,21 @@ export function SupportAttention() {
   useEffect(() => {
     if (!known || role === "intern" || !role) return;
     let stopped = false;
-    const stop = startOrgPolling(async () => {
-      try {
-        const d = await loadSupportInbox("open");
-        if (!stopped) {
-          setData(d);
-          setError("");
+    const stop = startSupportPolling(
+      async (signal) => {
+        try {
+          const d = await loadSupportInbox("open", 0, signal);
+          if (!stopped) {
+            setData(d);
+            setError("");
+          }
+        } catch (e) {
+          if (!stopped) setError(messageError(e));
+          throw e;
         }
-      } catch (e) {
-        if (!stopped) setError(messageError(e));
-      }
-    }, 15000);
+      },
+      { minimumMs: 30000, maximumMs: 45000 },
+    );
     return () => {
       stopped = true;
       stop();
@@ -104,17 +108,21 @@ function Inbox() {
     let stopped = false;
     setData(null);
     setError("");
-    const stop = startOrgPolling(async () => {
-      try {
-        const d = await loadSupportInbox(filter, offset);
-        if (!stopped) {
-          setData(d);
-          setError("");
+    const stop = startSupportPolling(
+      async (signal) => {
+        try {
+          const d = await loadSupportInbox(filter, offset, signal);
+          if (!stopped) {
+            setData(d);
+            setError("");
+          }
+        } catch (e) {
+          if (!stopped) setError(messageError(e));
+          throw e;
         }
-      } catch (e) {
-        if (!stopped) setError(messageError(e));
-      }
-    }, 10000);
+      },
+      { minimumMs: 15000, maximumMs: 20000 },
+    );
     return () => {
       stopped = true;
       stop();
@@ -259,6 +267,9 @@ function Conversation({
     null,
   );
   const [busy, setBusy] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<
+    "open" | "resolved" | null
+  >(null);
   const [ready, setReady] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
   const [error, setError] = useState("");
@@ -302,30 +313,36 @@ function Conversation({
   }
   useEffect(() => {
     let stopped = false;
-    const stop = startOrgPolling(async () => {
-      try {
-        let more = true;
-        while (more && !stopped) {
-          const last = messages.current.at(-1)?.uid;
-          const d = await loadSupportThread(uid, last);
-          if (stopped) return;
-          const seen = new Set(messages.current.map((m) => m.uid));
-          const nextMessages = [
-            ...messages.current,
-            ...d.messages.filter((m) => !seen.has(m.uid)),
-          ];
-          if (d.has_more && nextMessages.at(-1)?.uid === last) {
-            throw new Error("Chat history did not advance. Refresh to retry.");
+    const stop = startSupportPolling(
+      async (signal) => {
+        try {
+          let more = true;
+          for (let page = 0; more && page < 3 && !stopped; page += 1) {
+            const last = messages.current.at(-1)?.uid;
+            const d = await loadSupportThread(uid, last, signal);
+            if (stopped) return;
+            const seen = new Set(messages.current.map((m) => m.uid));
+            const nextMessages = [
+              ...messages.current,
+              ...d.messages.filter((m) => !seen.has(m.uid)),
+            ];
+            if (d.has_more && nextMessages.at(-1)?.uid === last) {
+              throw new Error(
+                "Chat history did not advance. Refresh to retry.",
+              );
+            }
+            messages.current = nextMessages;
+            setThread({ ...d, messages: messages.current });
+            setReadError("");
+            more = d.has_more;
           }
-          messages.current = nextMessages;
-          setThread({ ...d, messages: messages.current });
-          setReadError("");
-          more = d.has_more;
+        } catch (e) {
+          if (!stopped) setReadError(messageError(e));
+          throw e;
         }
-      } catch (e) {
-        if (!stopped) setReadError(messageError(e));
-      }
-    }, 4000);
+      },
+      { minimumMs: 4000, maximumMs: 6000 },
+    );
     return () => {
       stopped = true;
       stop();
@@ -384,11 +401,23 @@ function Conversation({
     inFlight.current = true;
     setBusy(true);
     setError("");
+    const desired =
+      pendingStatus ?? (thread.status === "open" ? "resolved" : "open");
+    setPendingStatus(desired);
     try {
-      await supportApi(`/${uid}`, "PATCH", {
-        status: thread.status === "open" ? "resolved" : "open",
-      });
+      const ack = await supportApi<{ uid: string; status: string }>(
+        `/${uid}`,
+        "PATCH",
+        {
+          status: desired,
+        },
+      );
+      if (ack.uid !== uid || ack.status !== desired)
+        throw new Error(
+          "Status change was not confirmed. Retry the same action safely.",
+        );
       if (!mounted.current) return;
+      setPendingStatus(null);
       setRefresh((n) => n + 1);
       onChange();
     } catch (e) {
@@ -429,6 +458,9 @@ function Conversation({
           <Text>
             {thread.email} · {thread.phone}
           </Text>
+          {thread.contest_uid && (
+            <Text type="supporting">Contest context: {thread.contest_uid}</Text>
+          )}
           <Text type="supporting">
             Contact details are self-reported and unverified. Never use this
             chat alone to authorize a credential reset.
@@ -535,7 +567,13 @@ function Conversation({
           <HStack justify="end">
             <Button
               label={
-                thread.status === "open" ? "Resolve issue" : "Reopen issue"
+                pendingStatus
+                  ? pendingStatus === "resolved"
+                    ? "Retry resolve"
+                    : "Retry reopen"
+                  : thread.status === "open"
+                    ? "Resolve issue"
+                    : "Reopen issue"
               }
               variant="secondary"
               isDisabled={

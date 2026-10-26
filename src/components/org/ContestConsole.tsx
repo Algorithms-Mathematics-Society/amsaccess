@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Download,
   Trash2,
+  Megaphone,
 } from "lucide-react";
 import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
@@ -39,6 +40,11 @@ function LoadingPanel() {
 const ParticipantsPanel = dynamic(() => loadParticipants().then(m => m.ParticipantsPanel), { loading: LoadingPanel });
 const LeaderboardPanel = dynamic(() => loadLeaderboard().then(m => m.LeaderboardPanel), { loading: LoadingPanel });
 const AnalyticsPanel = dynamic(() => loadAnalytics().then(m => m.AnalyticsPanel), { loading: LoadingPanel });
+// Loaded on demand: most visits to a contest never issue an announcement,
+// and the one that does is not in a hurry for a few kilobytes.
+const IssueAnnouncementModal = dynamic(
+  () => import("./IssueAnnouncementModal").then(m => m.IssueAnnouncementModal),
+);
 const InvigilationPanel = dynamic(() => loadInvigilation().then(m => m.InvigilationPanel), { loading: LoadingPanel });
 const ContestJudging = dynamic(() => loadJudging().then(m => m.ContestJudging), { loading: LoadingPanel });
 
@@ -149,6 +155,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   const [submissionError, setSubmissionError] = useState("");
   const [submissionsRefreshing, setSubmissionsRefreshing] = useState(false);
   const [summary, setSummary] = useState<SubmissionSummary | null>(null);
+  const [announcing, setAnnouncing] = useState(false);
   const [summaryError, setSummaryError] = useState("");
   const [error, setError] = useState("");
   const [tab, setTabState] = useState<Tab>("problems");
@@ -444,6 +451,19 @@ function ContestContent({ contestUid }: { contestUid: string }) {
                 onPublished={refreshContestAfterWrite}
               />
             )}
+            {/* Only once there is somebody to reach. A draft has no
+                candidates, so the control would be an offer the contest
+                cannot honour. */}
+            {contest.status !== "draft" && (
+              <button
+                type="button"
+                onClick={() => setAnnouncing(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+              >
+                <Megaphone className="h-4 w-4 text-slate-400" aria-hidden />
+                Issue announcement
+              </button>
+            )}
             {contest.invite_code && <InviteCode code={contest.invite_code} />}
           </div>
         </div>
@@ -458,6 +478,14 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           </p>
         )}
       </header>
+
+      {announcing && (
+        <IssueAnnouncementModal
+          contestUid={contest.uid}
+          contestTitle={contest.title}
+          onClose={() => setAnnouncing(false)}
+        />
+      )}
 
       <div className="border-b border-slate-200 bg-white px-4 sm:px-6 md:px-8">
         <nav className="flex gap-6 overflow-x-auto md:overflow-visible">

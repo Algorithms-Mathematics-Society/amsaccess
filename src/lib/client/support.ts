@@ -1,3 +1,4 @@
+import { SupportRequestError, supportRetryAfterMs } from "./support-poll.ts";
 export type SupportMessage = {
   uid: string;
   sender: "participant" | "staff";
@@ -6,6 +7,7 @@ export type SupportMessage = {
 };
 export type SupportSummary = {
   uid: string;
+  contest_uid?: string | null;
   email: string;
   phone: string;
   name: string;
@@ -25,9 +27,13 @@ export async function supportApi<T>(
   path: string,
   method = "GET",
   body?: unknown,
+  options: { signal?: AbortSignal } = {},
 ): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const abort = () => controller.abort();
+  options.signal?.addEventListener("abort", abort, { once: true });
+  if (options.signal?.aborted) abort();
+  const timer = setTimeout(abort, 15000);
   try {
     const response = await fetch(`/api/org/support${path}`, {
       method,
@@ -44,13 +50,17 @@ export async function supportApi<T>(
         "The server response was incomplete. Delivery is unconfirmed; retry safely.",
       );
     }
+    if (controller.signal.aborted)
+      throw new DOMException("Request aborted", "AbortError");
     if (!response.ok)
-      throw new Error(
+      throw new SupportRequestError(
         typeof data.detail === "string"
           ? data.detail
           : typeof data.error === "string"
             ? data.error
             : "Support request failed. Retry when connected.",
+        response.status,
+        supportRetryAfterMs(response.headers.get("Retry-After")),
       );
     return data as T;
   } catch (e) {
@@ -64,6 +74,7 @@ export async function supportApi<T>(
       "Connection interrupted. Delivery is unconfirmed; retry sends the same reply safely.",
     );
   } finally {
+    options.signal?.removeEventListener("abort", abort);
     clearTimeout(timer);
   }
 }
@@ -102,8 +113,14 @@ export function isSupportMessage(value: unknown): value is SupportMessage {
 export async function loadSupportInbox(
   status: "open" | "resolved",
   offset = 0,
+  signal?: AbortSignal,
 ): Promise<SupportInbox> {
-  const data = await supportApi<unknown>(`?status=${status}&offset=${offset}`);
+  const data = await supportApi<unknown>(
+    `?status=${status}&offset=${offset}`,
+    "GET",
+    undefined,
+    { signal },
+  );
   if (
     !isRecord(data) ||
     !Array.isArray(data.items) ||
@@ -118,9 +135,13 @@ export async function loadSupportInbox(
 export async function loadSupportThread(
   uid: string,
   after?: string,
+  signal?: AbortSignal,
 ): Promise<SupportThread> {
   const data = await supportApi<unknown>(
     `/${uid}${after ? `?after=${after}` : ""}`,
+    "GET",
+    undefined,
+    { signal },
   );
   if (
     !isSupportSummary(data) ||

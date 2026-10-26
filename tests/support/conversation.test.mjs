@@ -93,8 +93,8 @@ function harness({
     },
     "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" },
     "next/navigation": { useRouter: () => ({}) },
-    "@/lib/client/orgPolling": {
-      startOrgPolling: (task) => {
+    "@/lib/client/support-poll": {
+      startSupportPolling: (task) => {
         jobs.push(task());
         return () => {};
       },
@@ -193,7 +193,7 @@ test("an unsent pending reply remains retryable with explicit reopen after the s
     request: async (_path, method) => {
       if (method === "POST")
         throw new Error("This issue is resolved. Reopen it before sending.");
-      return { status: "open" };
+      return { uid, status: "open" };
     },
   });
   h.render();
@@ -248,4 +248,32 @@ test("a resolved issue without a pending reply never offers a new message compos
     false,
   );
   assert.equal(h.calls.length, 0);
+});
+
+test("a lost resolve acknowledgement never turns a retry into reopening the issue", async () => {
+  let attempt = 0;
+  const thread = { ...resolved, status: "open" };
+  const h = harness({
+    thread,
+    pending: null,
+    request: async () => {
+      if (++attempt === 1) throw new Error("Delivery unconfirmed");
+      return { uid, status: "resolved" };
+    },
+  });
+  h.render();
+  await h.settle();
+  h.nodes()
+    .find((n) => n.type === "Button" && n.props.label === "Resolve issue")
+    .props.onClick();
+  await h.settle();
+  thread.status = "resolved";
+  h.render();
+  h.nodes()
+    .find((n) => n.type === "Button" && n.props.label === "Retry resolve")
+    .props.onClick();
+  await h.settle();
+  assert.equal(h.calls.length, 2);
+  assert.equal(h.calls[0][2].status, "resolved");
+  assert.equal(h.calls[1][2].status, "resolved");
 });

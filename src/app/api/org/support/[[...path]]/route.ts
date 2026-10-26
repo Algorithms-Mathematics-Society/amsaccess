@@ -45,6 +45,7 @@ async function handle(request: Request, ctx: Context) {
     `/org/support${path.length ? "/" + path.join("/") : ""}${query.size ? "?" + query : ""}`,
     body,
     subject,
+    { signal: request.signal, timeoutMs: 10000 },
   );
   response.headers.set("Cache-Control", "no-store");
   return response;
