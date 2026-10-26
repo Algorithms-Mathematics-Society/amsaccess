@@ -45,8 +45,29 @@ type Feed = { sitting: number; announcements: AnnouncementRecord[] };
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
+  if (!res.ok) throw new Error(reason(res.status, (data as { error?: string }).error));
   return data as T;
+}
+
+/**
+ * What went wrong, and what to do about it.
+ *
+ * The backend's own words are right for a refusal it reasoned about, but a
+ * bare "Not Found" from a route the server does not have yet told an
+ * organizer nothing they could act on, in the middle of the incident this
+ * feature exists for. Each of these names the recovery, and says whether
+ * anything was sent.
+ */
+function reason(status: number, detail?: string): string {
+  if (status === 404)
+    return "This server does not have announcements yet. It needs the current API deployed before one can be issued.";
+  if (status === 401) return "Your session has expired. Sign in again, then retry.";
+  if (status === 403) return "Your account cannot issue announcements for this contest.";
+  if (status === 422)
+    return detail ?? "The headline or message is too long. Shorten it and try again.";
+  if (status >= 500)
+    return "The server could not accept it. Nothing was sent, so retrying is safe.";
+  return detail ?? "Could not issue the announcement. Nothing was sent.";
 }
 
 function timeOf(iso: string): string {
