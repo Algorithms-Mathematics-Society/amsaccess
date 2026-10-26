@@ -19,6 +19,7 @@ export type ApiResult<T = unknown> = {
   status: number;
   data: T;
   requestId: string;
+  retryAfter?: string;
 };
 
 const DEFAULT_TIMEOUT_MS = 25_000;
@@ -33,6 +34,7 @@ export async function callAmsApi<T = unknown>(
   body: Record<string, unknown> | null,
   subject: string | null,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  signal?: AbortSignal,
 ): Promise<ApiResult<T>> {
   const secret = process.env.AMS_INTERNAL_API_SECRET ?? "";
   const requestId = crypto.randomUUID();
@@ -57,17 +59,36 @@ export async function callAmsApi<T = unknown>(
   if (body !== null) headers["Content-Type"] = "application/json";
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const abort = () => controller.abort();
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
+  const timer = setTimeout(abort, timeoutMs);
 
-  let res: Response;
+  let receivedHeaders = false;
   try {
-    res = await fetch(`${baseUrl()}${path}`, {
+    const res = await fetch(`${baseUrl()}${path}`, {
       method,
       headers,
       signal: controller.signal,
       body: body !== null ? JSON.stringify(body) : undefined,
       cache: "no-store",
     });
+    receivedHeaders = true;
+    const data =
+      res.status === 204
+        ? null
+        : res.headers.get("content-type")?.includes("application/json")
+          ? await res.json()
+          : await res.text();
+    if (controller.signal.aborted)
+      throw new DOMException("Request aborted", "AbortError");
+    return {
+      ok: res.ok,
+      status: res.status,
+      data: data as T,
+      requestId,
+      retryAfter: res.headers.get("Retry-After") ?? undefined,
+    };
   } catch (err) {
     // A timeout and a refused connection are different operational problems;
     // conflating them makes an outage harder to diagnose from logs alone.
@@ -76,25 +97,23 @@ export async function callAmsApi<T = unknown>(
       ok: false,
       status: aborted ? 504 : 502,
       data: {
-        error: aborted ? "Upstream request timed out." : "Cannot reach the API.",
-        code: aborted ? "UPSTREAM_TIMEOUT" : "UPSTREAM_UNREACHABLE",
+        error: aborted
+          ? "Upstream request timed out. Delivery is unconfirmed; check the conversation and retry safely."
+          : receivedHeaders
+            ? "The API response was incomplete. Delivery is unconfirmed; retry safely."
+            : "Cannot reach the API.",
+        code: aborted
+          ? "UPSTREAM_TIMEOUT"
+          : receivedHeaders
+            ? "UPSTREAM_UNCONFIRMED"
+            : "UPSTREAM_UNREACHABLE",
       } as T,
       requestId,
     };
   } finally {
+    signal?.removeEventListener("abort", abort);
     clearTimeout(timer);
   }
-
-  if (res.status === 204) {
-    return { ok: true, status: 204, data: null as T, requestId };
-  }
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const data = contentType.includes("application/json")
-    ? ((await res.json()) as T)
-    : ((await res.text()) as unknown as T);
-
-  return { ok: res.ok, status: res.status, data, requestId };
 }
 
 /** Pass an upstream response straight through to the browser. */
@@ -103,12 +122,23 @@ export async function proxyToAmsApi(
   path: string,
   body: Record<string, unknown> | null,
   subject: string | null,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<NextResponse> {
-  const res = await callAmsApi(method, path, body, subject);
+  const res = await callAmsApi(
+    method,
+    path,
+    body,
+    subject,
+    options.timeoutMs,
+    options.signal,
+  );
   if (res.status === 204) return new NextResponse(null, { status: 204 });
   return NextResponse.json(res.data, {
     status: res.status,
-    headers: { "X-Request-ID": res.requestId },
+    headers: {
+      "X-Request-ID": res.requestId,
+      ...(res.retryAfter ? { "Retry-After": res.retryAfter } : {}),
+    },
   });
 }
 
@@ -136,11 +166,17 @@ const PLAINER: readonly [RegExp, string][] = [
     /^not a member of this organization$/i,
     "Your account is not a member of this organization yet, so nothing here is available to it.",
   ],
-  [/^user belongs to no organization$/i, "Your account is not attached to an organization."],
+  [
+    /^user belongs to no organization$/i,
+    "Your account is not attached to an organization.",
+  ],
 ];
 
 /** FastAPI reports errors as `{detail: "..."}`; the UI wants a plain string. */
-export function errorMessage(data: unknown, fallback = "Something went wrong."): string {
+export function errorMessage(
+  data: unknown,
+  fallback = "Something went wrong.",
+): string {
   return plainer(rawErrorMessage(data, fallback));
 }
 
@@ -154,8 +190,9 @@ function plainer(message: string): string {
 function rawErrorMessage(data: unknown, fallback: string): string {
   if (typeof data === "string" && data.trim()) return data;
   if (data && typeof data === "object") {
-    const detail = (data as { detail?: unknown; error?: unknown }).detail
-      ?? (data as { error?: unknown }).error;
+    const detail =
+      (data as { detail?: unknown; error?: unknown }).detail ??
+      (data as { error?: unknown }).error;
     if (typeof detail === "string" && detail.trim()) return detail;
     if (Array.isArray(detail) && detail.length > 0) {
       const first = detail[0] as { msg?: string };
@@ -185,7 +222,10 @@ export async function uploadToAmsApi<T = unknown>(
     return {
       ok: false,
       status: 503,
-      data: { error: "AMS_INTERNAL_API_SECRET is not configured.", code: "SERVER_ERROR" } as T,
+      data: {
+        error: "AMS_INTERNAL_API_SECRET is not configured.",
+        code: "SERVER_ERROR",
+      } as T,
       requestId,
     };
   }
@@ -248,7 +288,10 @@ export async function downloadFromAmsApi(
 ): Promise<NextResponse> {
   const secret = process.env.AMS_INTERNAL_API_SECRET ?? "";
   if (!secret) {
-    return NextResponse.json({ error: "Server is not configured." }, { status: 503 });
+    return NextResponse.json(
+      { error: "Server is not configured." },
+      { status: 503 },
+    );
   }
 
   const headers: Record<string, string> = {
@@ -293,9 +336,11 @@ export async function downloadFromAmsApi(
   return new NextResponse(await res.text(), {
     status: 200,
     headers: {
-      "Content-Type": res.headers.get("content-type") ?? "text/csv; charset=utf-8",
+      "Content-Type":
+        res.headers.get("content-type") ?? "text/csv; charset=utf-8",
       "Content-Disposition":
-        res.headers.get("content-disposition") ?? `attachment; filename="${fallbackFilename}"`,
+        res.headers.get("content-disposition") ??
+        `attachment; filename="${fallbackFilename}"`,
       "Cache-Control": "no-store",
     },
   });

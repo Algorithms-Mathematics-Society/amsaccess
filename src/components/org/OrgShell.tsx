@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import "@/styles/access-theme.css";
 import "@/styles/org-theme-bridge.css";
-import { CalendarDays, FileCode2, LayoutDashboard, Mail, Users } from "lucide-react";
+import { CalendarDays, FileCode2, LayoutDashboard, Mail, MessageSquare, Users } from "lucide-react";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 
 const NAV = [
@@ -13,6 +13,7 @@ const NAV = [
   { href: "/org/problems", label: "Problems", icon: FileCode2 },
   { href: "/org/contests", label: "Contests", icon: CalendarDays },
   { href: "/org/participants", label: "Students", icon: Users },
+  { href: "/org/support", label: "Support", icon: MessageSquare },
   { href: "/org/mails", label: "Mails", icon: Mail },
 ] as const;
 
@@ -26,6 +27,7 @@ const INTERN_HIDDEN: readonly string[] = [
   "/org/problems",
   "/org/participants",
   "/org/mails",
+  "/org/support",
   // /org/fleet is no longer in NAV at all, so there is no tab to hide. The
   // route still refuses an intern server side, which is what actually
   // closed that door; this list only decides what the sidebar offers.
