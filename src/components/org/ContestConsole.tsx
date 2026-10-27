@@ -626,6 +626,9 @@ function Reschedule({
   const [judges, setJudges] = useState(
     contest.judge_instances ? String(contest.judge_instances) : "",
   );
+  const [expected, setExpected] = useState(
+    contest.expected_candidates ? String(contest.expected_candidates) : "",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -646,6 +649,7 @@ function Reschedule({
             // roster, which is a different instruction from "leave it
             // alone" and needs a value of its own to say so.
             judge_instances: judges.trim() === "" ? 0 : Number(judges),
+            expected_candidates: expected.trim() === "" ? 0 : Number(expected),
           }),
         }),
       );
@@ -705,8 +709,20 @@ function Reschedule({
             className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1 text-xs"
           />
         </label>
+        <label className="text-xs text-slate-600">
+          Expected candidates
+          <input
+            type="number"
+            min={1}
+            value={expected}
+            onChange={(e) => setExpected(e.target.value)}
+            placeholder="From the roster"
+            className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1 text-xs"
+          />
+        </label>
         <p className="self-end text-xs text-slate-400">
-          Blank lets the roster decide. They start an hour before the contest.
+          Blank lets the roster decide. An empty roster with no expected count warms
+          one judge. They start an hour before the contest.
         </p>
       </div>
 

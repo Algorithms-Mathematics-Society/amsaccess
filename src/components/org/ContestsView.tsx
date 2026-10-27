@@ -277,6 +277,10 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
   // cases the roster cannot predict: a rehearsal, or a round whose roster
   // lands on the morning.
   const [judges, setJudges] = useState("");
+  // How many people are expected. Separate from Judges on purpose: this is
+  // a headcount, which staff know, and the fleet works out how many judges
+  // that needs. Judges is an override for when they want to say exactly.
+  const [expected, setExpected] = useState("");
   const [practice, setPractice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -300,6 +304,7 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
             ends_at: new Date(endsAt).toISOString(),
             freeze_minutes_before_end: freeze,
             judge_instances: judges.trim() === "" ? 0 : Number(judges),
+            expected_candidates: expected.trim() === "" ? 0 : Number(expected),
             is_practice: practice,
           }),
         }),
@@ -390,7 +395,28 @@ function NewContestForm({ onDone }: { onDone: () => void }) {
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
           />
           <p className="mt-1 text-xs text-slate-500">
-            Leave blank and the roster decides. They start an hour before the contest.
+            Leave blank and the headcount decides. They start an hour before the contest.
+          </p>
+        </div>
+        <div>
+          <label
+            htmlFor="new-contest-expected"
+            className="block text-sm font-medium text-slate-700"
+          >
+            Expected candidates
+          </label>
+          <input
+            id="new-contest-expected"
+            type="number"
+            min={1}
+            value={expected}
+            onChange={(e) => setExpected(e.target.value)}
+            placeholder="From the roster"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            Set this if the roster is not imported yet. Without it a contest with an
+            empty roster warms one judge.
           </p>
         </div>
       </div>

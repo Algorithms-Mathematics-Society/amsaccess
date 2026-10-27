@@ -69,8 +69,10 @@ export type Upcoming = {
   participants: number;
   instances: number;
   reason: string;
-  /** True when staff pinned the count rather than the roster implying it. */
+  /** True when staff pinned the count rather than a headcount implying it. */
   pinned?: boolean;
+  /** Where the number came from: "roster", "expected" or "pinned". */
+  source?: "roster" | "expected" | "pinned";
 };
 
 export type Fleet = {

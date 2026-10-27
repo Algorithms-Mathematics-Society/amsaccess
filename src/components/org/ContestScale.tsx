@@ -69,7 +69,16 @@ export function scaleOf(
   // "4 judges" means something different when a person typed it: the roster
   // no longer explains the number, so saying where it came from is the only
   // way the strip stays self-explanatory.
-  const because = mine.pinned ? `${judges} judges set for this contest` : `${roster.toLocaleString()} on the roster \u2192 ${judges} judge${judges === 1 ? "" : "s"}`;
+  const plural = judges === 1 ? "" : "s";
+  // Say which of the three numbers produced this one. "Expected" matters
+  // most: it is the case where the roster is still empty, so a reader who
+  // assumes the roster is the source would read 30 judges as 30 people.
+  const because =
+    mine.source === "pinned" || mine.pinned
+      ? `${judges} judges set for this contest`
+      : mine.source === "expected"
+        ? `${mine.participants.toLocaleString()} on the roster so far, ${judges} judge${plural} for the expected turnout`
+        : `${roster.toLocaleString()} on the roster \u2192 ${judges} judge${plural}`;
   // `live` is platform-wide: the fleet is shared, so it is the honest number
   // for "how many are answering", even though the contest asked for `judges`.
   const up = Math.min(fleet.live, judges);

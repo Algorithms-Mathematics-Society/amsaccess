@@ -26,6 +26,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ uid: stri
     ends_at?: string;
     freeze_minutes_before_end?: number;
     judge_instances?: number;
+    expected_candidates?: number;
   };
   try {
     body = await request.json();

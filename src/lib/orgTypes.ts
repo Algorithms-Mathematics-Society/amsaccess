@@ -97,6 +97,8 @@ export type Contest = {
   verification_window_minutes: number;
   /** Null when nobody has pinned a count and the roster decides. */
   judge_instances: number | null;
+  /** Null when no estimate was given, leaving the roster as the only headcount. */
+  expected_candidates: number | null;
 };
 
 export type ContestSubmission = {

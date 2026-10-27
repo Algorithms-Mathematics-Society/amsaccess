@@ -64,6 +64,11 @@ export async function POST(request: Request) {
       // and the right answer almost always. Only a positive number pins it.
       judge_instances:
         Number(body.judge_instances ?? 0) > 0 ? Number(body.judge_instances) : null,
+      // The headcount staff expect, which lets the fleet be warmed before
+      // the roster is imported. Same convention: 0 or absent means "no
+      // estimate", and the roster is then the only number.
+      expected_candidates:
+        Number(body.expected_candidates ?? 0) > 0 ? Number(body.expected_candidates) : null,
     },
     subject,
   );
