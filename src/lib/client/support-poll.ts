@@ -18,8 +18,9 @@ export function startSupportPolling(
     window,
     now: Date.now,
     random: Math.random,
-    setTimeout,
-    clearTimeout,
+    // Browser timers require the Window receiver, not our runtime object.
+    setTimeout: globalThis.setTimeout.bind(globalThis),
+    clearTimeout: globalThis.clearTimeout.bind(globalThis),
   },
 ): () => void {
   const minimum = options.minimumMs ?? 8000;

@@ -160,3 +160,34 @@ test("cooldowns accept seconds or HTTP dates and reject malformed values", () =>
   for (const value of [null, "invalid", "-1"])
     assert.equal(supportRetryAfterMs(value, 0), 0);
 });
+
+test("default browser runtime preserves the native timer receiver", async () => {
+  const saved = Object.fromEntries(["window", "document", "setTimeout", "clearTimeout"].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const clock = fake();
+  let stop;
+  try {
+    globalThis.window = clock.runtime.window;
+    globalThis.document = clock.document;
+    globalThis.setTimeout = function (fn, ms) {
+      assert.equal(this, globalThis, "native setTimeout needs the Window receiver");
+      return clock.runtime.setTimeout(fn, ms);
+    };
+    globalThis.clearTimeout = function (id) {
+      assert.equal(this, globalThis, "native clearTimeout needs the Window receiver");
+      return clock.runtime.clearTimeout(id);
+    };
+    stop = startSupportPolling(async () => {});
+    await flush();
+    assert.equal(clock.timers.size, 1);
+    clock.handlers.get("focus")();
+    assert.equal(clock.timers.size, 1);
+    stop();
+    assert.equal(clock.timers.size, 0);
+  } finally {
+    stop?.();
+    for (const [key, descriptor] of Object.entries(saved)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
