@@ -319,7 +319,7 @@ function ParticipantsContent({
           </p>
           <p className="mt-1 text-emerald-800">
             They have a login and no passphrase yet. Send it with{" "}
-            <strong>Credentials by email</strong>, or use Reissue for a printed
+            <strong>Credentials by email</strong>, or use Show Credentials for a printed
             slip.
           </p>
           <button
@@ -437,10 +437,7 @@ function ImportCsv({
   onCancel: () => void;
 }) {
   const [fileName, setFileName] = useState("");
-  // Off by default, and that default is the fix. Minting a passphrase for
-  // everyone at import time spends the one chance to show it on a panel
-  // most people close, and leaves the credential email with nobody to send
-  // to — it can then only offer to rotate all five hundred.
+  // Defer first-password hashing during bulk import unless slips are needed.
   const [printSlips, setPrintSlips] = useState(false);
   const [resolved, setResolved] = useState<Resolved | null>(null);
   const [busy, setBusy] = useState(false);
@@ -619,9 +616,8 @@ function ImportCsv({
           className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300"
         />
         <span>
-          Generate passphrases now, for printed slips. Leave this off to email
-          them instead — a passphrase can only be shown once, and this page is
-          that one time.
+          Create credentials now for printed slips. Existing passwords stay unchanged.
+          Leave this off to send credentials by email later.
         </span>
       </label>
 
@@ -951,12 +947,11 @@ function IssuedCredentials({
           <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
           <div>
             <p className="text-sm font-semibold text-amber-900">
-              Save these now — they are shown once
+              Save or share these credentials
             </p>
             <p className="mt-1 text-sm text-amber-800">
-              Passwords are stored only as hashes. Nobody, including you, can
-              look them up again. If you lose this screen you will have to
-              reissue each credential.
+              Use Show Credentials in the roster to view a saved password again.
+              Adding this person to another contest does not change it.
             </p>
           </div>
         </div>
@@ -1115,9 +1110,7 @@ const RosterTable = memo(function RosterTable({
   const [actions, setActions] = useState<Record<string, RowActionState>>({});
   const pending = useRef(new Set<string>());
   const reissueLock = useRef(false);
-  // Retain a request ID after an interrupted response. A retry must not rotate
-  // the password again if the API already committed the first request.
-  const reissueRequestIds = useRef(new Map<string, string>());
+
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkSummary, setBulkSummary] = useState("");
@@ -1208,7 +1201,7 @@ const RosterTable = memo(function RosterTable({
 
   const act = useCallback(async (loginId: string, action: RowAction, refresh = true) => {
     // State updates alone cannot guard two clicks in the same event turn.
-    if (!mounted.current || pending.current.has(loginId) || (action === "reissue" && reissueLock.current)) return null;
+    if (!mounted.current || pending.current.has(loginId) || (action === "credentials" && reissueLock.current)) return null;
     if (action === "reemail") {
       const row = currentRows.current.find((candidate) => candidate.login_id === loginId);
       if (!row || !canEmailParticipant(row)) return null;
@@ -1216,53 +1209,40 @@ const RosterTable = memo(function RosterTable({
       const accepted = acceptedEmails.current.has(loginId);
       if (uncertain || accepted) {
         if (!refresh || (!uncertain && row.mail_status !== "bounced")) return null;
-        if (!window.confirm(`Review retry for ${row.display_name}: the prior email request may still deliver. Retrying replaces their existing password/slip again, so previous credentials will stop working. Check their latest email status before continuing. Queue another credential email?`)) return null;
+        if (!window.confirm(`Review retry for ${row.display_name}: the prior email request may still deliver. Retrying sends another copy of the same credentials. Check their latest email status before continuing. Queue another credential email?`)) return null;
         unknownEmails.current.delete(loginId);
         acceptedEmails.current.delete(loginId);
       }
     }
     pending.current.add(loginId);
-    if (action === "reissue") {
+    if (action === "credentials") {
       reissueLock.current = true;
       setReissueLocked(true);
     }
     setActions((previous) => ({ ...previous, [loginId]: { pending: action, error: "", queued: false, unknown: unknownEmails.current.has(loginId) } }));
     const controller = new AbortController();
     requests.current.add(controller);
-    const timeout = (!refresh || action === "reissue") ? window.setTimeout(() => controller.abort(), 30_000) : undefined;
+    const timeout = (!refresh || action === "credentials") ? window.setTimeout(() => controller.abort(), 30_000) : undefined;
     let httpRejected = false;
     try {
-      let requestBody: string | undefined;
-      if (action === "reissue") {
-        const requestId = reissueRequestIds.current.get(loginId) ?? crypto.randomUUID();
-        reissueRequestIds.current.set(loginId, requestId);
-        requestBody = JSON.stringify({ request_id: requestId });
-      }
       const response = await fetch(
           `/api/org/contests/${contestUid}/participants/${encodeURIComponent(loginId)}?action=${action}`,
           {
             method: "POST", signal: controller.signal,
-            ...(requestBody ? { headers: { "Content-Type": "application/json" }, body: requestBody } : {}),
           },
         );
-      if (action === "reissue" && response.status === 409) {
-        // Show the API's completed-request explanation first. Only a later,
-        // explicit click may request a new one-time password.
-        reissueRequestIds.current.delete(loginId);
-      }
       httpRejected = !response.ok;
       // A successful status with an unreadable body is ambiguous for an email
       // mutation. The general helper tolerates empty JSON, so parse this path
       // strictly to keep it out of automatic bulk retries.
-      const result = (action === "reemail" || action === "reissue") && response.ok
+      const result = (action === "reemail" || action === "credentials") && response.ok
         ? await response.json() as QueuedBatch
         : await json<IssuedCredential | Participant | QueuedBatch>(response);
-      if (action === "reissue") {
+      if (action === "credentials") {
         const credential = result as IssuedCredential;
         if (typeof credential?.login_id !== "string" || typeof credential.password !== "string" || !credential.password) {
-          throw new Error("Credential response was incomplete. Retry to check whether the reissue completed.");
+          throw new Error("Credential response was incomplete. Try Show Credentials again.");
         }
-        reissueRequestIds.current.delete(loginId);
         setReissued(credential);
       }
       else if (refresh && mounted.current) onChange();
@@ -1277,11 +1257,11 @@ const RosterTable = memo(function RosterTable({
       }
       setActions((previous) => ({ ...previous, [loginId]: {
         pending: null, queued: false, unknown: unknownEmails.current.has(loginId),
-        error: action === "reissue" && !httpRejected
-          ? "Request interrupted; the reissue may have completed. Retry to check its status before issuing another password."
+        error: action === "credentials" && !httpRejected
+          ? "Could not load credentials. Retry to show the same password."
           : unknown ? "Request interrupted; its result is unknown. Refresh and check status before retrying." : err instanceof Error ? err.message : `Could not ${action === "reemail" ? "queue the email" : action}.`,
       } }));
-      if (action === "reissue") {
+      if (action === "credentials") {
         reissueLock.current = false;
         setReissueLocked(false);
       }
@@ -1289,9 +1269,8 @@ const RosterTable = memo(function RosterTable({
     } finally {
       window.clearTimeout(timeout);
       requests.current.delete(controller);
-      // A returned password is the only copy. Keep this login locked until
-      // its credential is acknowledged, even though the request has settled.
-      if (action !== "reissue" || !reissueLock.current) pending.current.delete(loginId);
+      // Keep one credential dialog open at a time.
+      if (action !== "credentials" || !reissueLock.current) pending.current.delete(loginId);
     }
   }, [contestUid, onChange]);
 
@@ -1308,8 +1287,7 @@ const RosterTable = memo(function RosterTable({
     const confirmed = new Map(currentRows.current.filter(row => recipientIds.has(row.login_id)).map(row => [row.login_id, {
       email: row.email, has_passphrase: row.has_passphrase, mail_status: row.mail_status,
     }]));
-    const replacing = [...confirmed.values()].filter(row => row.has_passphrase).length;
-    if (!window.confirm(`Queue credential emails for ${recipients.length} selected participants? This includes selected participants hidden by filters. Sending replaces existing passwords/slips for ${replacing} participants; their previous passwords will stop working. Delivery is not immediate.`)) return;
+    if (!window.confirm(`Queue credential emails for ${recipients.length} selected participants? This includes selected participants hidden by filters. Existing passwords stay unchanged. Delivery is not immediate.`)) return;
     bulkLock.current = true;
     setBulkBusy(true);
     setBulkSummary(`Queueing emails for ${recipients.length} participants…`);
@@ -1380,7 +1358,7 @@ const RosterTable = memo(function RosterTable({
         handle={openParticipant}
         onClose={() => setOpenParticipant(null)}
       />
-      <ReissuedCredentialModal
+      <CredentialModal
         row={reissued}
         contestTitle={contestTitle}
         onClose={() => {
@@ -1462,7 +1440,7 @@ function canEmailParticipant(row: Participant) {
   return Boolean(row.email) && !row.revoked && (row.mail_status === "" || row.mail_status === "bounced");
 }
 
-type RowAction = "revoke" | "reissue" | "reemail";
+type RowAction = "revoke" | "credentials" | "reemail";
 type RowActionState = { pending: RowAction | null; error: string; queued: boolean; unknown: boolean };
 
 const RosterRow = memo(function RosterRow({ row, entered, pending, error, queued, unknown, reissueLocked, credentialLocked, selected, onSelect, onOpen, onAction }: {
@@ -1553,17 +1531,17 @@ const RosterRow = memo(function RosterRow({ row, entered, pending, error, queued
         <div className="flex justify-end gap-1">
           <button
             type="button"
-            onClick={() => onAction(row.login_id, "reissue")}
+            onClick={() => onAction(row.login_id, "credentials")}
             disabled={pending !== null || credentialLocked || reissueLocked}
-            title="Issue a new password — for a lost slip"
+            title="Show the existing password without changing it"
             className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40"
           >
-            {pending === "reissue" ? (
+            {pending === "credentials" ? (
               <Loader2 aria-hidden="true" className="h-3.5 w-3.5 motion-safe:animate-spin" />
             ) : (
               <KeyRound className="h-3.5 w-3.5" />
             )}
-            Reissue
+            Show Credentials
           </button>
           {!row.revoked && (
             <button
@@ -1625,7 +1603,7 @@ function MailPill({ status }: { status: string }) {
   );
 }
 
-function ReissuedCredentialModal({
+function CredentialModal({
   row,
   contestTitle,
   onClose,
@@ -1642,18 +1620,14 @@ function ReissuedCredentialModal({
     setCopied(false);
     copyButtonRef.current?.focus();
     const previous = document.body.style.overflow;
-    const warnBeforeLeaving = (event: BeforeUnloadEvent) =>
-      event.preventDefault();
     document.body.style.overflow = "hidden";
-    window.addEventListener("beforeunload", warnBeforeLeaving);
     return () => {
       document.body.style.overflow = previous;
-      window.removeEventListener("beforeunload", warnBeforeLeaving);
     };
   }, [row]);
 
   useEffect(() => {
-    if (!row || !copied) return;
+    if (!row) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
@@ -1689,18 +1663,18 @@ function ReissuedCredentialModal({
               id="reissued-credential-title"
               className="text-base font-semibold text-slate-900"
             >
-              New credential for {row.display_name}
+              Credentials for {row.display_name}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              The previous password no longer works.
+              The same login and password work for every contest this person is registered for.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            disabled={!copied}
-            aria-label={copied ? "Close" : "Copy the credential before closing"}
-            title={copied ? "Close" : "Copy the credential before closing"}
+
+            aria-label="Close"
+            title="Close"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-35"
           >
             <X className="h-4 w-4" />
@@ -1720,7 +1694,7 @@ function ReissuedCredentialModal({
           </div>
 
           <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            This password is shown once. Copy the message before closing.
+            You can show these credentials again whenever needed.
           </div>
 
           <div className="mt-5 flex items-center justify-end gap-2">
@@ -1740,7 +1714,7 @@ function ReissuedCredentialModal({
             <button
               type="button"
               onClick={onClose}
-              disabled={!copied}
+
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Done
@@ -1814,14 +1788,6 @@ function CredentialMail({
   }
 
   async function send() {
-    const rotating = includeHolders && (plan?.holders ?? 0) > 0;
-    if (
-      rotating &&
-      !window.confirm(
-        `${plan?.holders} people already hold a passphrase. Sending to them replaces it — any slip or earlier email they have stops working. Continue?`,
-      )
-    )
-      return;
     setBusy("send");
     setError("");
     try {
@@ -1942,8 +1908,7 @@ function CredentialMail({
                     />
                     <span>
                       Also send to the {plan.holders} who already hold one.{" "}
-                      <strong>Rotates</strong> their passphrase — the slip or
-                      earlier email stops working.
+                      Sends the same saved passphrase. Existing slips and emails remain valid.
                     </span>
                   </label>
                 )}

@@ -32,7 +32,7 @@ type IssuedCredential = {
 };
 
 /** What `from-directory` answers with. `credentials` is empty unless slips
- *  were asked for, because a passphrase can only ever be shown once. */
+ *  were asked for, without revealing existing passwords in a bulk roster operation. */
 type RosterAdd = {
   added: number;
   already_on_roster: number;

@@ -9,7 +9,7 @@ const compile = (source) => ts.transpileModule(source, {
 }).outputText;
 const route = compile(readFileSync(new URL("../../src/app/api/org/contests/[uid]/participants/[loginId]/route.ts", import.meta.url), "utf8"));
 
-test("proxy forwards a stable reissue ID, rejects invalid input and never caches passwords", async () => {
+test("proxy requests stored credentials and never caches passwords", async () => {
   const calls = [];
   const context = {
     exports: {}, URL,
@@ -24,14 +24,14 @@ test("proxy forwards a stable reissue ID, rejects invalid input and never caches
     },
   };
   vm.runInNewContext(route, context);
-  const requestId = "11111111-1111-4111-8111-111111111111";
-  const send = (body) => context.exports.POST({ url: "https://portal.test/?action=reissue", json: async () => body }, { params: Promise.resolve({ uid: "contest", loginId: "candidate" }) });
-  for (const body of [{}, null, { request_id: "invalid" }]) assert.equal((await send(body)).status, 400);
+  const send = (action) => context.exports.POST({ url: `https://portal.test/?action=${action}` }, { params: Promise.resolve({ uid: "contest", loginId: "candidate" }) });
+  assert.equal((await send("unknown")).status, 400);
   assert.equal(calls.length, 0);
   for (let index = 0; index < 2; index++) {
-    const result = await send({ request_id: requestId });
+    const result = await send("credentials");
     assert.equal(result.headers["Cache-Control"], "no-store");
-    assert.equal(calls.at(-1)[2].request_id, requestId);
+    assert.equal(calls.at(-1)[1], "/contests/contest/participants/candidate/credentials");
+    assert.equal(Object.keys(calls.at(-1)[2]).length, 0);
   }
 });
 
@@ -56,13 +56,13 @@ function harness(replies) {
     AbortController, Error,
     window: { setTimeout: (callback) => { timers.push(callback); return timers.length; }, clearTimeout() {} },
     json: async (response) => { if (!response.ok) throw Error("Reissue already completed"); return response.json(); },
-    fetch: async (_, options) => { calls.push(JSON.parse(options.body)); signals.push(options.signal); return replies.shift()(options); },
+    fetch: async (_, options) => { calls.push(options.body); signals.push(options.signal); return replies.shift()(options); },
   };
   vm.runInNewContext(action, context);
-  return { calls, states, timers, signals, locked: () => context.reissueLock.current, act: () => context.act("candidate", "reissue") };
+  return { calls, states, timers, signals, locked: () => context.reissueLock.current, act: () => context.act("candidate", "credentials") };
 }
 
-test("a stalled credential response times out and the next click reuses its request ID", async () => {
+test("a stalled credential response times out and allows a safe retry", async () => {
   let bodyStarted;
   const reading = new Promise((resolve) => { bodyStarted = resolve; });
   const h = harness([
@@ -83,10 +83,10 @@ test("a stalled credential response times out and the next click reuses its requ
   assert.equal(h.signals[0].aborted, true);
   assert.equal(h.locked(), false);
   await h.act();
-  assert.equal(h.calls[0].request_id, h.calls[1].request_id);
+  assert.equal(h.calls[0], h.calls[1]);
 });
 
-test("interrupted reissue reuses its key; a confirmed conflict requires another explicit click", async () => {
+test("interrupted retrieval and legacy conflict both release the UI lock", async () => {
   const h = harness([
     () => { throw Error("Connection lost"); },
     () => ({ ok: false, status: 409 }),
@@ -95,20 +95,20 @@ test("interrupted reissue reuses its key; a confirmed conflict requires another 
   await h.act();
   assert.equal(h.calls.length, 1);
   await h.act();
-  assert.equal(h.calls[0].request_id, h.calls[1].request_id);
+  assert.equal(h.calls[0], h.calls[1]);
   assert.match(h.states.at(-1).candidate.error, /already completed/);
   await h.act();
-  assert.notEqual(h.calls[1].request_id, h.calls[2].request_id);
+  assert.equal(h.locked(), true);
   assert.equal(h.calls.length, 3);
 });
 
-test("an unreadable success does not discard the retry key", async () => {
+test("an unreadable success allows another retrieval", async () => {
   const h = harness([
     () => ({ ok: true, status: 200, json: async () => ({}) }),
     () => ({ ok: false, status: 409 }),
   ]);
   await h.act(); await h.act();
-  assert.equal(h.calls[0].request_id, h.calls[1].request_id);
+  assert.equal(h.calls[0], h.calls[1]);
 });
 
 test("a malformed credential response never exposes parser contents in the UI", async () => {
@@ -116,7 +116,7 @@ test("a malformed credential response never exposes parser contents in the UI", 
     () => ({ ok: true, status: 200, json: async () => { throw Error("synthetic secret in parser detail"); } }),
   ]);
   await h.act();
-  assert.match(h.states.at(-1).candidate.error, /reissue may have completed/);
+  assert.match(h.states.at(-1).candidate.error, /Could not load credentials/);
   assert.doesNotMatch(h.states.at(-1).candidate.error, /synthetic secret/);
 });
 

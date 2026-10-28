@@ -4,7 +4,7 @@ import { requireSubject } from "@/lib/server/session";
 
 /**
  * `?action=revoke` disables a login.
- * `?action=reissue` returns a new password once.
+ * `?action=credentials` returns the person’s permanent credential.
  * `?action=reemail` queues a fresh credential email for this participant.
  */
 export async function POST(
@@ -17,24 +17,11 @@ export async function POST(
   const { uid, loginId } = await ctx.params;
   const action = new URL(request.url).searchParams.get("action");
 
-  if (action !== "revoke" && action !== "reissue" && action !== "reemail") {
+  if (action !== "revoke" && action !== "credentials" && action !== "reemail") {
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });
   }
 
-  let body: Record<string, unknown> = {};
-  if (action === "reissue") {
-    try {
-      const input: unknown = await request.json();
-      const requestId = input && typeof input === "object" && "request_id" in input
-        ? input.request_id : undefined;
-      if (typeof requestId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
-        return NextResponse.json({ error: "A valid reissue request ID is required." }, { status: 400 });
-      }
-      body = { request_id: requestId };
-    } catch {
-      return NextResponse.json({ error: "A valid reissue request ID is required." }, { status: 400 });
-    }
-  }
+  const body = {};
 
   const res = await callAmsApi(
     "POST",
