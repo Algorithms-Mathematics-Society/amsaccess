@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/check-built-auth.cjs",
     "start": "next start",
     "lint": "next lint",
     "theme:build": "node scripts/build-org-theme.mjs",

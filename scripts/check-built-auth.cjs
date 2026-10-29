@@ -5,12 +5,17 @@ delete process.env.AMS_DEV_SUBJECT;
 require("next/dist/server/node-environment");
 const assert = require("node:assert/strict");
 const { NextRequest } = require("next/server");
+const { getSortedRoutes } = require("next/dist/shared/lib/router/utils/sorted-routes");
 
 async function main() {
+  // Handler checks alone miss failures in Next's global matcher initialization.
+  const paths = require("../.next/app-path-routes-manifest.json");
+  getSortedRoutes(Object.values(paths));
+  console.log("PASS complete compiled route tree");
   globalThis.fetch = async () => {
     throw new Error("Anonymous request unexpectedly contacted an upstream");
   };
-  for (const route of ["auth/me", "org/contests", "org/problems"]) {
+  for (const route of ["auth/me", "org/contests", "org/problems", "org/problems/[uid]/versions/[versionUid]/preview"]) {
     const { routeModule } = require(`../.next/server/app/api/${route}/route.js`);
     const response = await routeModule.handle(
       new NextRequest(`https://portal.invalid/api/${route}`),
