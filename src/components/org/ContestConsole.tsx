@@ -27,6 +27,9 @@ import { ContestNotifications } from "./ContestNotifications";
 import { ContestReadProvider, useContestReadStore } from "@/lib/client/useContestRead";
 import type { ContestReadResource } from "@/lib/client/contestReads";
 
+const loadTeamRound = () => import("./TeamRoundPanel");
+const TeamRoundPanel = dynamic(() => loadTeamRound().then(m => m.TeamRoundPanel), { loading: LoadingPanel });
+
 const loadParticipants = () => import("./ParticipantsPanel");
 const loadLeaderboard = () => import("./LeaderboardPanel");
 const loadAnalytics = () => import("./AnalyticsPanel");
@@ -50,6 +53,7 @@ const ContestJudging = dynamic(() => loadJudging().then(m => m.ContestJudging), 
 
 function preloadTab(tab: Tab) {
   const loaders: Partial<Record<Tab, () => Promise<unknown>>> = {
+    "team-round": loadTeamRound,
     participants: loadParticipants,
     leaderboard: loadLeaderboard,
     analytics: loadAnalytics,
@@ -64,6 +68,7 @@ function preloadTab(tab: Tab) {
 
 const TABS = [
   "problems",
+  "team-round",
   "participants",
   "leaderboard",
   "analytics",
@@ -502,7 +507,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
-              {t}
+              {t === "team-round" ? "Team round" : t}
               {t === "submissions" && total > 0 && (
                 <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
                   {total.toLocaleString()}
@@ -512,6 +517,8 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           ))}
         </nav>
       </div>
+
+      {tab === "team-round" && <TeamRoundPanel key={contestUid} contestUid={contestUid} onChanged={refreshContestAfterWrite} />}
 
       {summaryError && summary !== null && (
         <p role="status" className="px-6 pt-2 text-xs text-amber-700">
