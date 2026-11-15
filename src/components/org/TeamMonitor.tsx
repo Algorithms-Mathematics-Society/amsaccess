@@ -2,14 +2,15 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { startOrgPolling } from "@/lib/client/orgPolling";
+import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
 import { useNow } from "@/components/org/dashboard/useClock";
 import {
   onlineUsers, phaseOf, teamState, voiceKey, voicePresence,
-  type MonitorRound, type MonitorTeam, type Phase, type SessionLite, type VoiceEvent,
+  type MonitorRound, type MonitorTeam, type Phase, type VoiceEvent,
 } from "@/lib/teamMonitor";
 
 type BoardTeam = { uid: string; rank: number; score: number; integration_passed: boolean };
-type Feed = { round: MonitorRound | null; teams: MonitorTeam[]; board: BoardTeam[] | null; voice: VoiceEvent[] | null; sessions: SessionLite[] | null };
+type Feed = { round: MonitorRound | null; teams: MonitorTeam[]; board: BoardTeam[] | null; voice: VoiceEvent[] | null };
 
 const POLL_MS = 10_000;
 const PHASE_LABEL: Record<Phase, string> = {
@@ -45,9 +46,12 @@ function countdown(ms: number) {
 
 /**
  * Live, read-only view of a team round built only on existing endpoints:
- * the round, the teams, the team board, the voice log and the session roster.
+ * the round, the teams, the team board and the voice log, plus the session
+ * roster the console already polls (staff roles only).
  */
-export function TeamMonitor({ contestUid, startsAt, endsAt }: { contestUid: string; startsAt: string; endsAt: string }) {
+export function TeamMonitor({ contestUid, startsAt, endsAt, notificationsEnabled }: { contestUid: string; startsAt: string; endsAt: string; notificationsEnabled: boolean }) {
+  const sessionFeed = useOrgNotifications(contestUid, notificationsEnabled);
+  const sessions = notificationsEnabled && !sessionFeed.loading ? sessionFeed.raw.sessions : null;
   const base = `/api/org/contests/${encodeURIComponent(contestUid)}`;
   const [feed, setFeed] = useState<Feed | null>(null);
   const [error, setError] = useState("");
@@ -60,13 +64,12 @@ export function TeamMonitor({ contestUid, startsAt, endsAt }: { contestUid: stri
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
     try {
-      const [round, teams, board, voice, sessions] = await Promise.allSettled([
+      const [round, teams, board, voice] = await Promise.allSettled([
         get<MonitorRound>(`${base}/team-round`, controller.signal),
         get<MonitorTeam[]>(`${base}/team-round/teams`, controller.signal),
         get<{ teams: BoardTeam[] }>(`${base}/team-round/board`, controller.signal),
         // shortcut: the voice log returns every event of the round; add a `since` cursor to ams-api if rounds get long.
         get<VoiceEvent[]>(`${base}/team-round/voice-events`, controller.signal),
-        get<SessionLite[]>(`${base}/invigilation?view=sessions`, controller.signal),
       ]);
       if (round.status === "rejected" || teams.status === "rejected") {
         const reason = (round.status === "rejected" ? round.reason : teams.status === "rejected" ? teams.reason : null) as Error | null;
@@ -79,7 +82,6 @@ export function TeamMonitor({ contestUid, startsAt, endsAt }: { contestUid: stri
         // Optional feeds keep their last good value when one read fails.
         board: board.status === "fulfilled" ? board.value.teams : previous?.board ?? null,
         voice: voice.status === "fulfilled" ? voice.value : previous?.voice ?? null,
-        sessions: sessions.status === "fulfilled" ? sessions.value : previous?.sessions ?? null,
       }));
       setError("");
       setUpdatedAt(Date.now());
@@ -96,7 +98,7 @@ export function TeamMonitor({ contestUid, startsAt, endsAt }: { contestUid: stri
     if (!feed?.round) return null;
     const round = feed.round;
     const phase = phaseOf(round, now, startsAt, endsAt);
-    const online = feed.sessions ? onlineUsers(feed.sessions) : null;
+    const online = sessions ? onlineUsers(sessions) : null;
     const voice = feed.voice ? voicePresence(feed.voice) : null;
     const board = new Map((feed.board ?? []).map((b) => [b.uid, b]));
     const rows = feed.teams.map((team) => {
@@ -112,7 +114,7 @@ export function TeamMonitor({ contestUid, startsAt, endsAt }: { contestUid: stri
       : phase === "building" ? { label: "Deadline in", at: Date.parse(round.submit_deadline ?? endsAt) }
       : null;
     return { round, phase, rows, online, voice, nextAt };
-  }, [feed, now, startsAt, endsAt]);
+  }, [feed, sessions, now, startsAt, endsAt]);
 
   if (!feed) {
     return error
