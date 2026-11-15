@@ -11,6 +11,28 @@ function clock(ms: number) {
   return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
 }
 
+/** Pending re-entries and unresolved help requests, from the shared notification store. */
+function useWaitingOnStaff(contestUid: string, enabled: boolean) {
+  const feed = useOrgNotifications(contestUid, enabled);
+  return {
+    feed,
+    waiting: feed.raw.resumes.filter((r) => r.status === "pending").length,
+    openHelp: feed.raw.incidents.filter((i) => i.status !== "resolved").length,
+  };
+}
+
+/** Its own component so feed refreshes re-render the badge, not the whole console. */
+export function WaitingOnStaffBadge({ contestUid, enabled }: { contestUid: string; enabled: boolean }) {
+  const { waiting, openHelp } = useWaitingOnStaff(contestUid, enabled);
+  if (waiting + openHelp === 0) return null;
+  return (
+    <span className="ml-2 rounded-full bg-red-50 px-1.5 py-0.5 text-xs font-semibold text-red-700">
+      {waiting + openHelp}
+      <span className="sr-only"> waiting on staff</span>
+    </span>
+  );
+}
+
 function endTime(iso: string) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
 }
@@ -38,10 +60,8 @@ export function LiveStatusStrip({
   onNavigate: (tab: Target) => void;
 }) {
   const now = useNow(1000);
-  const feed = useOrgNotifications(contestUid, notificationsEnabled);
-  const { resumes, incidents, sessions } = feed.raw;
-  const waiting = resumes.filter((r) => r.status === "pending").length;
-  const openHelp = incidents.filter((i) => i.status !== "resolved").length;
+  const { feed, waiting, openHelp } = useWaitingOnStaff(contestUid, notificationsEnabled);
+  const { sessions } = feed.raw;
   const sitting = sessions.filter((s) => s.status === "active" || s.status === "pending").length;
   const started = new Date(startsAt).getTime() <= now;
   const remaining = new Date(endsAt).getTime() - now;

@@ -80,11 +80,12 @@ try {
     const before=count(suffix); await tab(name).click();
     await until(()=>count(suffix)>before,'Revisit must revalidate immediately');
     if(name==='participants') {
-      assert.equal(await content().count(),0,'Participants avoids mounting the cached full roster during navigation');
+      // Visited tabs stay mounted (#14): the kept roster stays usable while the fresh read runs.
+      assert(await content().isVisible(),'Kept-alive roster stays visible while revalidating');
       assert.equal(await page.getByText('Fresh Revisit Candidate',{exact:true}).count(),0);
       refresh.release();await page.getByText('Fresh Revisit Candidate',{exact:true}).waitFor();
       assert.equal(await content().count(),0,'First populated roster uses the completed fresh read');
-      console.log('PASS: participants revisit waits for current read then renders fresh rows');
+      console.log('PASS: participants revisit keeps the roster, revalidates, then renders fresh rows');
     } else {
       await content().waitFor();
       assert(await content().isVisible(),'Cached content is usable before refresh response');

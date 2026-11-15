@@ -25,8 +25,7 @@ import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { ContestNotifications } from "./ContestNotifications";
 import { useConfirm } from "./ConfirmDialog";
-import { LiveStatusStrip } from "./LiveStatusStrip";
-import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
+import { LiveStatusStrip, WaitingOnStaffBadge } from "./LiveStatusStrip";
 import { ContestReadProvider, useContestReadStore } from "@/lib/client/useContestRead";
 import type { ContestReadResource } from "@/lib/client/contestReads";
 
@@ -226,11 +225,8 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     setVisited((previous) => previous.has(tab) ? previous : new Set(previous).add(tab));
   }, [tab]);
 
-  // Same shared store as the drawer and the status strip: no extra requests.
-  const attentionFeed = useOrgNotifications(contestUid, notificationsEnabled);
-  const attention =
-    attentionFeed.raw.resumes.filter((r) => r.status === "pending").length +
-    attentionFeed.raw.incidents.filter((i) => i.status !== "resolved").length;
+  const keepAlive = (t: Tab, panel: React.ReactNode) =>
+    (visited.has(t) || tab === t) && <div hidden={tab !== t}>{panel}</div>;
 
   // replaceState, not push: Back should leave the contest the way it
   // arrived, not walk backwards through every tab that was glanced at.
@@ -554,12 +550,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
               }`}
             >
               {t === "team-round" ? "Team round" : t}
-              {t === "invigilation" && attention > 0 && (
-                <span className="ml-2 rounded-full bg-red-50 px-1.5 py-0.5 text-xs font-semibold text-red-700">
-                  {attention}
-                  <span className="sr-only"> waiting on staff</span>
-                </span>
-              )}
+              {t === "invigilation" && <WaitingOnStaffBadge contestUid={contestUid} enabled={notificationsEnabled} />}
               {t === "submissions" && total > 0 && (
                 <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
                   {total.toLocaleString()}
@@ -613,21 +604,15 @@ function ContestContent({ contestUid }: { contestUid: string }) {
 
       <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6">
         {/* Visited tabs stay mounted but hidden; each one polls only while shown. */}
-        {(visited.has("problems") || tab === "problems") && (
-          <div hidden={tab !== "problems"}>
-            <ProblemsTab contest={contest} onChange={refreshContestAfterWrite} />
-          </div>
-        )}
-        {(visited.has("participants") || tab === "participants") && (
-          <div hidden={tab !== "participants"}>
-            <ParticipantsPanel
-              contestUid={contest.uid}
-              contestTitle={contest.title}
-              isPractice={contest.is_practice}
-              live={tab === "participants" && (contest.status === "running" || contest.status === "scheduled")}
-            />
-          </div>
-        )}
+        {keepAlive("problems", <ProblemsTab contest={contest} onChange={refreshContestAfterWrite} />)}
+        {keepAlive("participants", (
+          <ParticipantsPanel
+            contestUid={contest.uid}
+            contestTitle={contest.title}
+            isPractice={contest.is_practice}
+            live={tab === "participants" && (contest.status === "running" || contest.status === "scheduled")}
+          />
+        ))}
         {tab === "submissions" && (
           <SubmissionsTab
             submissions={submissions}
@@ -640,29 +625,21 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             pending={pending}
           />
         )}
-        {(visited.has("leaderboard") || tab === "leaderboard") && (
-          <div hidden={tab !== "leaderboard"}>
-            <LeaderboardPanel
-              contestUid={contest.uid}
-              problemLabels={contest.problems.map((p) => p.label)}
-              live={tab === "leaderboard" && contest.status === "running"}
-            />
-          </div>
-        )}
-        {(visited.has("analytics") || tab === "analytics") && (
-          <div hidden={tab !== "analytics"}>
-            <AnalyticsPanel contestUid={contest.uid} />
-          </div>
-        )}
-        {(visited.has("invigilation") || tab === "invigilation") && (
-          <div hidden={tab !== "invigilation"}>
-            <InvigilationPanel
-              contestUid={contest.uid}
-              notificationsEnabled={notificationsEnabled}
-              active={tab === "invigilation"}
-            />
-          </div>
-        )}
+        {keepAlive("leaderboard", (
+          <LeaderboardPanel
+            contestUid={contest.uid}
+            problemLabels={contest.problems.map((p) => p.label)}
+            live={tab === "leaderboard" && contest.status === "running"}
+          />
+        ))}
+        {keepAlive("analytics", <AnalyticsPanel contestUid={contest.uid} />)}
+        {keepAlive("invigilation", (
+          <InvigilationPanel
+            contestUid={contest.uid}
+            notificationsEnabled={notificationsEnabled}
+            active={tab === "invigilation"}
+          />
+        ))}
         {/* Not kept alive: the fleet panel polls on its own timer. */}
         {tab === "judging" && (
           <ContestJudging
