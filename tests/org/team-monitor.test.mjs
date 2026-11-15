@@ -7,6 +7,7 @@ import {
   SLOW_RESULT_MS,
   byAttention,
   parseTeamRoster,
+  readErrorMessage,
   scheduledPhase,
   submitDeadline,
   summarize,
@@ -483,4 +484,15 @@ test("a 2000-team roster parses, classifies and summarizes in under 100 ms", (t)
   t.diagnostic(
     `${MAX_TEAMS} teams: ${perRound.toFixed(2)} ms per parse + view + summary`,
   );
+});
+
+test("read failures get staff-facing wording that says they retry", () => {
+  assert.match(readErrorMessage(new DOMException("aborted", "AbortError"), true), /timed out.*retry/);
+  assert.match(readErrorMessage(new TypeError("Failed to fetch"), false), /Could not reach the server.*retry/);
+  assert.equal(
+    readErrorMessage(new Error("Your organization role cannot perform this team operation."), false),
+    "Your organization role cannot perform this team operation.",
+  );
+  for (const odd of [new Error(""), "boom", null, undefined])
+    assert.match(readErrorMessage(odd, false), /read failed.*retry/);
 });

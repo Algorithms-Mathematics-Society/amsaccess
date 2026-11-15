@@ -7,6 +7,7 @@ import {
   PHASE_LABEL,
   byAttention,
   parseTeamRoster,
+  readErrorMessage,
   scheduledPhase,
   submitDeadline,
   summarize,
@@ -125,13 +126,7 @@ export function TeamRoundMonitor({
       setError("");
     } catch (e) {
       if (!mounted.current) return;
-      setError(
-        abort.signal.aborted
-          ? "The team roster read timed out. It will retry automatically."
-          : e instanceof Error
-            ? e.message
-            : "The team roster read failed.",
-      );
+      setError(readErrorMessage(e, abort.signal.aborted));
     } finally {
       clearTimeout(timer);
       if (controller.current === abort) controller.current = null;

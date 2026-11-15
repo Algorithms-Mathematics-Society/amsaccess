@@ -38,4 +38,4 @@ Once teams are published, the top of the Team round tab shows a read-only live m
 
 It shows the scheduled phase (the API's rule, using contest times when round times are blank), claims, approvals, submissions and the latest completed result per team, and lists first any team that needs attention: a part unassigned after the lock, no submission 1+ minute after the deadline, or no result 10+ minutes after submission. Ready flags, per-team early locks and queued or failed runs are not in this response, so the monitor cannot show them.
 
-`tests/org/browser-team-monitor.mjs` covers it against mocked API responses in the production bundle, using a fake clock for the polling cadence. Run it like the setup test above.
+`tests/org/browser-team-monitor.mjs` covers it against mocked API responses in the production bundle, using a fake clock for the polling cadence. `tests/org/browser-team-monitor-edges.mjs` covers failure wording, empty and unpublished rounds, each phase, hostile or extreme names, a phone-width viewport and a 500-team round. Run both like the setup test above.

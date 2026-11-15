@@ -299,6 +299,16 @@ export function trackPending(
   return next;
 }
 
+/** Staff-facing wording for a failed roster read; every case retries on its own. */
+export function readErrorMessage(error: unknown, timedOut: boolean): string {
+  if (timedOut) return "The team roster read timed out. It will retry automatically.";
+  // fetch() rejects with a TypeError when the network or server cannot be reached.
+  if (error instanceof TypeError)
+    return "Could not reach the server. Check the connection; it will retry automatically.";
+  if (error instanceof Error && error.message) return error.message;
+  return "The team roster read failed. It will retry automatically.";
+}
+
 export const PHASE_LABEL: Record<Phase, string> = {
   unscheduled: "Not scheduled",
   waiting: "Waiting for the lobby",
