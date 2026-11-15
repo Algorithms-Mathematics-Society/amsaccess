@@ -31,3 +31,11 @@ Mutations require explicit confirmation and run one at a time. They are not auto
 Run `npm test`, `npx tsc --noEmit`, and `npm run build`. The build includes compiled authentication-route checks.
 
 `tests/org/browser-team-setup.mjs` exercises inspection, import, settings, seeding and publication against mocked API responses in the production website bundle. Start the local production server on port 3124 first. Set `PLAYWRIGHT_MODULE` to an installed Playwright module and optionally `CHROMIUM_PATH` to an installed Chromium executable, then run the script with Node. It creates no production records. This browser test does not replace an authorized organizer test against the real API.
+
+## Live monitor
+
+Once teams are published, the top of the Team round tab shows a read-only live monitor. It reads only the existing `GET .../team-round/teams` route: no new proxy operation, no writes. It refreshes every 15 seconds while the tab is visible (one read at a time, 10-second timeout) and keeps the last good read on screen if a read fails.
+
+It shows the scheduled phase (the API's rule, using contest times when round times are blank), claims, approvals, submissions and the latest completed result per team, and lists first any team that needs attention: a part unassigned after the lock, no submission 1+ minute after the deadline, or no result 10+ minutes after submission. Ready flags, per-team early locks and queued or failed runs are not in this response, so the monitor cannot show them.
+
+`tests/org/browser-team-monitor.mjs` covers it against mocked API responses in the production bundle, using a fake clock for the polling cadence. Run it like the setup test above.

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOrgRole } from '@/lib/client/useOrgRole';
 import { PROJECT_LIMIT, TEAM_WRITERS, validateTeamBody } from '@/lib/teamSetup';
+import { TeamRoundMonitor } from './TeamRoundMonitor';
 
 type Round = { team_size: number; discussion_seconds: number; selection_opens_at: string | null; allocation_locks_at: string | null; submit_deadline: string | null; seeded_at: string | null; published_at: string | null; allocation_locked_at: string | null; rank_sum_spread: number | null; project: { uid: string; name: string } | null; parts: { label: string }[] };
 type Team = { uid: string; name: string; revision: number; members: { user_uid: string; display_name: string; seed_rank: number; part_label: string | null }[] };
@@ -14,7 +15,7 @@ function localTime(value: string | null) {
   const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function TeamRoundPanel({ contestUid, onChanged }: { contestUid: string; onChanged: () => void }) {
+export function TeamRoundPanel({ contestUid, onChanged, contestStartsAt = null, contestEndsAt = null }: { contestUid: string; onChanged: () => void; contestStartsAt?: string | null; contestEndsAt?: string | null }) {
   const { role, known } = useOrgRole();
   const canWrite = known && role !== null && TEAM_WRITERS.includes(role);
   const [round, setRound] = useState<Round | null>(null);
@@ -92,6 +93,7 @@ export function TeamRoundPanel({ contestUid, onChanged }: { contestUid: string; 
     {notice && <p role="status" className="text-green-800">{notice}</p>}
     {busy && <p role="status">Working…</p>}
     {!loaded && !busy && <p>Could not load team settings. Refresh before making changes.</p>}
+    {round?.published_at && <TeamRoundMonitor base={base} schedule={{ selection_opens_at: round.selection_opens_at, discussion_seconds: round.discussion_seconds, allocation_locks_at: round.allocation_locks_at, allocation_locked_at: round.allocation_locked_at, submit_deadline: round.submit_deadline, contest_starts_at: contestStartsAt, contest_ends_at: contestEndsAt }} />}
     <fieldset disabled={!canWrite || busy || !loaded} className="space-y-4 rounded border p-4">
       <legend className="px-2 font-semibold">1. Project pack</legend>
       <p className="text-sm text-slate-600">Preview a .cxxpkg before importing (maximum 32 MiB). Importing adds it to the organization catalog; binding it below replaces this contest’s existing team parts.</p>
