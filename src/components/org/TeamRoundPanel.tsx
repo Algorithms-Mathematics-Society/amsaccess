@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOrgRole } from '@/lib/client/useOrgRole';
 import { PROJECT_LIMIT, TEAM_WRITERS, validateTeamBody } from '@/lib/teamSetup';
+import { TeamMonitor } from './TeamMonitor';
 
 type Round = { team_size: number; discussion_seconds: number; selection_opens_at: string | null; allocation_locks_at: string | null; submit_deadline: string | null; seeded_at: string | null; published_at: string | null; allocation_locked_at: string | null; rank_sum_spread: number | null; project: { uid: string; name: string } | null; parts: { label: string }[] };
 type Team = { uid: string; name: string; revision: number; members: { user_uid: string; display_name: string; seed_rank: number; part_label: string | null }[] };
@@ -14,7 +15,7 @@ function localTime(value: string | null) {
   const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function TeamRoundPanel({ contestUid, onChanged }: { contestUid: string; onChanged: () => void }) {
+export function TeamRoundPanel({ contestUid, onChanged, startsAt, endsAt }: { contestUid: string; onChanged: () => void; startsAt: string; endsAt: string }) {
   const { role, known } = useOrgRole();
   const canWrite = known && role !== null && TEAM_WRITERS.includes(role);
   const [round, setRound] = useState<Round | null>(null);
@@ -87,6 +88,8 @@ export function TeamRoundPanel({ contestUid, onChanged }: { contestUid: string; 
   }
   return <section className="space-y-6 p-6" aria-label="Team round setup">
     <div className="flex items-center justify-between"><div><h2 className="text-lg font-semibold">Team round</h2><p className="text-sm text-slate-600">Import a project, configure the round, then review and publish teams.</p></div><button className={button} disabled={busy} onClick={() => void action(load)}>Refresh state</button></div>
+    {round?.seeded_at && <TeamMonitor contestUid={contestUid} startsAt={startsAt} endsAt={endsAt} />}
+    {round?.seeded_at && <h3 className="border-t pt-6 text-base font-semibold">Setup</h3>}
     {!canWrite && <p role="status" className="rounded bg-amber-50 p-3 text-sm">{known ? 'Your role cannot change team rounds or import projects, including practice rounds. Ask an authorized organizer. These new organizer controls require a non-intern staff role.' : 'Checking your organization role…'}</p>}
     {error && <p role="alert" className="rounded bg-red-50 p-3 text-red-800">{error}</p>}
     {notice && <p role="status" className="text-green-800">{notice}</p>}

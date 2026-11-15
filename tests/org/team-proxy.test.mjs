@@ -25,6 +25,7 @@ test('team proxy enforces target/action validation and preserves backend conflic
  const route=compile('app/api/org/contests/[uid]/team-round/[[...action]]/route.ts',{'@/lib/server/teamAccess':{teamAccess:async()=>'staff'},'@/lib/teamSetup':rules,'@/lib/server/amsApi':{callAmsApi:async(...args)=>{calls.push(args);return {ok:false,status:409,data:{detail:'already published'}}},errorMessage:d=>d.detail}});
  const ctx=action=>({params:Promise.resolve({uid,action})});
  assert.equal((await route.POST(new Request('https://test',{method:'POST'}),ctx(['unpublish']))).status,404);
+ assert.equal(rules.teamAction('GET',['board']),'/board');assert.equal(rules.teamAction('GET',['voice-events']),'/voice-events');assert.equal(rules.teamAction('POST',['board']),null);
  assert.equal(calls.length,0);
  const request=new Request('https://test',{method:'POST',body:JSON.stringify({source_contest_uid:uid,take:136,method:'snake',reset:false})});
  const result=await route.POST(request,ctx(['seed']));

@@ -5,7 +5,7 @@ export const TEAM_WRITERS = ['owner', 'admin', 'problemsetter', 'contest_manager
 export function teamAction(method: string, action: string[]): string | null {
   if (!action.length && ['GET', 'PUT'].includes(method)) return '';
   if (action.length !== 1) return null;
-  if (method === 'GET' && action[0] === 'teams') return '/teams';
+  if (method === 'GET' && ['teams', 'board', 'voice-events'].includes(action[0])) return '/' + action[0];
   if (method === 'POST' && ['seed', 'publish', 'lock-allocation'].includes(action[0])) return '/' + action[0];
   return null;
 }
