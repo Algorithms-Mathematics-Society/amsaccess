@@ -6,7 +6,7 @@ import { ReleaseRequirements } from "@/components/ReleaseRequirements";
 import { MONITORING_GUIDE_PATH } from "@/lib/assessment-information";
 import { ArrowUpRight } from "lucide-react";
 import { ORGANIZER_SIGN_IN_URL, RECRUITER_SIGN_IN_URL } from "@/lib/product-links";
-import { fetchLatestRelease } from "@/lib/releases";
+import { fetchLatestRelease, fetchRecentRelease } from "@/lib/releases";
 import { DownloadChoices } from "./DownloadChoices";
 import { downloadOptions } from "./download-options";
 import styles from "./download.module.css";
@@ -28,11 +28,12 @@ export default async function DownloadPage({ searchParams }: {
   const refreshLimit = fresh
     ? await checkRequestRateLimitAsync(
         new NextRequest("https://app.amsaccess.com/download", { headers: await headers() }),
-        "publicRead", ["release-download"],
+        "releaseDownload", ["release-download"],
       )
     : null;
-  // Share the download API's budget: refreshing must not bypass upstream protection.
-  const release = refreshLimit?.limited ? null : await fetchLatestRelease({ fresh });
+  // Share the download API's budget and metadata snapshot: refreshing must not bypass upstream protection,
+  // and the refreshed links match what the download route will check.
+  const release = refreshLimit?.limited ? null : await (fresh ? fetchRecentRelease() : fetchLatestRelease());
   const published = release?.publishedAt ? new Date(release.publishedAt) : null;
   const releaseDate =
     published && Number.isFinite(published.getTime())
