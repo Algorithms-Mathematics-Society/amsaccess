@@ -100,6 +100,7 @@ test("a realistic roster keeps the monitored fields and drops the rest", () => {
   assert.deepEqual(t.members[0], {
     user_uid: uid(1004),
     display_name: "Tester 4",
+    seed_rank: 4,
     part_label: "1",
     assigned_by: "claim",
   });
@@ -495,4 +496,21 @@ test("read failures get staff-facing wording that says they retry", () => {
   );
   for (const odd of [new Error(""), "boom", null, undefined])
     assert.match(readErrorMessage(odd, false), /read failed.*retry/);
+});
+
+test("seed_rank is carried for the setup panel and degrades to null when invalid", () => {
+  const [t] = parseTeamRoster([
+    team(1, {
+      members: [
+        member(1),
+        { ...member(2), seed_rank: "2" },
+        { ...member(3), seed_rank: -1 },
+        { ...member(4), seed_rank: undefined },
+      ],
+    }),
+  ]);
+  assert.deepEqual(
+    t.members.map((m) => m.seed_rank),
+    [1, null, null, null],
+  );
 });
