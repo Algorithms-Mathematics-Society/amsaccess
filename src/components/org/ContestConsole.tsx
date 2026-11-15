@@ -518,7 +518,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
         </nav>
       </div>
 
-      {tab === "team-round" && <TeamRoundPanel key={contestUid} contestUid={contestUid} onChanged={refreshContestAfterWrite} />}
+      {tab === "team-round" && <TeamRoundPanel key={contestUid} contestUid={contestUid} onChanged={refreshContestAfterWrite} contestStartsAt={contest?.starts_at ?? null} contestEndsAt={contest?.ends_at ?? null} />}
 
       {summaryError && summary !== null && (
         <p role="status" className="px-6 pt-2 text-xs text-amber-700">
