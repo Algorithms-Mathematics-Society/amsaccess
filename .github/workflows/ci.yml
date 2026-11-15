@@ -24,17 +24,20 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      # Vercel installs from pnpm-lock.yaml (packageManager: pnpm), so CI tests
+      # the same dependency set production builds with.
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       # node --test auto-discovers **/*.test.mjs (tests/**); browser-*.mjs are not matched.
-      - run: npm test
-      - run: npx tsc --noEmit
+      - run: pnpm test
+      - run: pnpm exec tsc --noEmit
       # next build, then scripts/check-built-auth.cjs (anonymous API routes must 401).
       # Needs no env vars or secrets.
-      - run: npm run build
+      - run: pnpm run build
 
   browser:
     name: Browser tests
@@ -42,13 +45,16 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      # Vercel installs from pnpm-lock.yaml (packageManager: pnpm), so CI tests
+      # the same dependency set production builds with.
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       # Own build so this job runs in parallel with gates instead of after it.
-      - run: npm run build
+      - run: pnpm run build
       # Installed outside the project so package.json and the lockfile stay untouched.
       - name: Install Playwright and Chromium
         run: |

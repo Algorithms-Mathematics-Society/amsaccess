@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs every tests/org/browser-*.mjs against `next start` on the existing
-# production build (run `npm run build` first). All API traffic is mocked
+# production build (run `pnpm run build` first). All API traffic is mocked
 # inside each test, so no backend, credentials or secrets are involved.
 #
 # Requires PLAYWRIGHT_MODULE (path to an installed playwright module entry).
