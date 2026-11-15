@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Supersede stale PR runs; never cancel a run on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  PLAYWRIGHT_VERSION: "1.63.0"
+
+jobs:
+  gates:
+    name: Unit tests, typecheck, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # node --test auto-discovers **/*.test.mjs (tests/**); browser-*.mjs are not matched.
+      - run: npm test
+      - run: npx tsc --noEmit
+      # next build, then scripts/check-built-auth.cjs (anonymous API routes must 401).
+      # Needs no env vars or secrets.
+      - run: npm run build
+
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Own build so this job runs in parallel with gates instead of after it.
+      - run: npm run build
+      # Installed outside the project so package.json and the lockfile stay untouched.
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pw" --no-package-lock "playwright@$PLAYWRIGHT_VERSION"
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          module="$RUNNER_TEMP/pw/node_modules/playwright/index.mjs"
+          echo "PLAYWRIGHT_MODULE=$module" >> "$GITHUB_ENV"
+          echo "CHROMIUM_PATH=$(node -e 'import(process.argv[1]).then(m=>console.log(m.chromium.executablePath()))' "$module")" >> "$GITHUB_ENV"
+      - run: bash .github/scripts/browser-tests.sh
