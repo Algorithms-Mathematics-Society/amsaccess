@@ -33,6 +33,8 @@ await page.route('**/*',async route=>{
   return ok([{uid:'p',slug:'p',title:problemTitle,versions:[],tags:[]}]);
  }
  if(url.pathname==='/api/org/topics')return ok({groups:[]});
+ // The dashboard's support-attention card.
+ if(url.pathname==='/api/org/support')return ok({items:[],has_more:false});
  if(url.pathname==='/api/org/fleet')return ok({live:0,running_jobs:0,queued_jobs:0,desired:0,queue_waiting:0,override:null,state:null,upcoming:[]});
  throw new Error('Unexpected API '+url.pathname);
 });

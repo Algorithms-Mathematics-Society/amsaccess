@@ -43,15 +43,15 @@ await page.route('**/*',async route=>{
 });
 try{
  await page.goto(base+'/org/contests/a#participants');
- const entered=page.getByRole('button',{name:'Entered Person — Entered this contest',exact:true});
+ const entered=page.getByRole('button',{name:/^Entered Person\s*Entered$/});
  await entered.waitFor();
  assert((await entered.getAttribute('class')).includes('text-emerald-700'));
  assert(!(await page.getByRole('button',{name:'Pending Person',exact:true}).getAttribute('class')).includes('text-emerald-700'));
- await page.getByRole('button',{name:'Legacy Person — Entered this contest',exact:true}).waitFor();
- const submission=calls.find(c=>c.path.endsWith('/submissions'));
- const summary=calls.find(c=>c.path.endsWith('/submissions/summary'));
- assert(summary.at-submission.at<500,'summary must start before the 700ms submissions read completes');
- console.log('PASS contest entry, pending check-in exclusion, legacy handle matching and concurrent submissions reads');
+ await page.getByRole('button',{name:/^Legacy Person\s*Entered$/}).waitFor();
+ // The submissions list is read only on the Submissions tab; the header needs just the summary.
+ assert(calls.some(c=>c.path.endsWith('/submissions/summary')),'summary is read for the header');
+ assert(!calls.some(c=>c.path.endsWith('/submissions')),'participants tab does not read the submissions list');
+ console.log('PASS contest entry, pending check-in exclusion, legacy handle matching and summary-only submissions read');
  await page.goto(base+'/org/contests/b#participants');
  await page.getByRole('button',{name:'Entered Person',exact:true}).waitFor();
  await page.waitForTimeout(150);
