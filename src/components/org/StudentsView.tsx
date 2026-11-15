@@ -214,6 +214,7 @@ export function StudentsView() {
           )}
           <a
             href={`/api/org/students/export.csv?${queryString(filters)}`}
+            download
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-700 transition hover:border-slate-900"
           >
             <Download className="h-4 w-4" />
@@ -484,6 +485,7 @@ function StudentDetail({ student, onChange }: { student: Student; onChange: () =
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
+            e.target.value = ""; // so picking the same file again fires onChange
             if (f) void uploadResume(f);
           }}
         />
@@ -671,6 +673,7 @@ function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: (
         disabled={busy}
         onChange={(e) => {
           const f = e.target.files?.[0];
+          e.target.value = ""; // so picking the same file again fires onChange
           if (f) void upload(f);
         }}
         className="mt-3 block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:text-slate-700"
