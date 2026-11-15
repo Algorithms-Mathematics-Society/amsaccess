@@ -89,6 +89,32 @@ export async function fetchLatestRelease({ fresh = false }: { fresh?: boolean } 
   } catch { return null; }
 }
 
+// Download path metadata: one upstream fetch is shared by concurrent callers
+// (single flight) and reused for a short window, so a room of candidates
+// downloading at once costs one GitHub API call instead of one each.
+// Safety: the download route only redirects when the requested identity
+// (release id, version, asset id, filename, size, checksum) exactly matches a
+// snapshot GitHub returned at most RECENT_RELEASE_TTL_MS ago, and the redirect
+// target is that same snapshot's asset URL. A cached snapshot can therefore
+// only confirm a file the candidate's page already showed; a newer release
+// shows up as a mismatch (409), never as a different file.
+export const RECENT_RELEASE_TTL_MS = 30_000;
+let recentRelease: { release: LatestRelease; fetchedAt: number } | null = null;
+let recentFetch: Promise<LatestRelease | null> | null = null;
+export function fetchRecentRelease(maxAgeMs = RECENT_RELEASE_TTL_MS): Promise<LatestRelease | null> {
+  if (recentRelease && Date.now() - recentRelease.fetchedAt < maxAgeMs) return Promise.resolve(recentRelease.release);
+  if (!recentFetch) {
+    // Age is measured from the request start, so the snapshot is never younger than it claims.
+    const startedAt = Date.now();
+    recentFetch = fetchLatestRelease({ fresh: true }).then(release => {
+      // Failures are not cached: the next caller retries upstream.
+      if (release) recentRelease = { release, fetchedAt: startedAt };
+      return release;
+    }).finally(() => { recentFetch = null; });
+  }
+  return recentFetch;
+}
+
 // Retained for the legacy history presentation; public pages use curated release metadata.
 export interface ReleaseSummary {
   version: string;

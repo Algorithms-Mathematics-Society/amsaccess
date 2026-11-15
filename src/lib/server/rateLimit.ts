@@ -15,6 +15,12 @@ export const rateLimitPolicies = {
   waitlist: { limit: 10, windowMs: 10 * 60_000 },
   // publicRead: for unauthenticated endpoints (tighter than privateRead)
   publicRead: { limit: 30, windowMs: 60_000 },
+  // releaseDownload: installer downloads and the download page refresh. Sized
+  // for an exam room of up to ~150 candidates behind one campus NAT address,
+  // each clicking a few times. Abuse stays bounded: every request is a cheap
+  // identity check against cached release metadata (see fetchRecentRelease),
+  // so this limit caps invocations, not GitHub API calls.
+  releaseDownload: { limit: 600, windowMs: 60_000 },
   privateRead: { limit: 120, windowMs: 60_000 },
   adminWrite: { limit: 30, windowMs: 60_000 },
   orgWrite: { limit: 30, windowMs: 60_000 },
