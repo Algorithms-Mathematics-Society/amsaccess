@@ -11,6 +11,8 @@
 export type MonitorMember = {
   user_uid: string;
   display_name: string;
+  /** Null when missing or invalid, so the setup panel can say so instead of failing. */
+  seed_rank: number | null;
   part_label: string | null;
   assigned_by: "claim" | "auto" | null;
 };
@@ -119,6 +121,7 @@ function member(v: unknown, at: string): MonitorMember {
   return {
     user_uid: v.user_uid,
     display_name: label(v.display_name, label(v.username, "(no name)")),
+    seed_rank: count(v.seed_rank) ? v.seed_rank : null,
     part_label: v.part_label,
     assigned_by:
       v.assigned_by === "claim" || v.assigned_by === "auto" ? v.assigned_by : null,
