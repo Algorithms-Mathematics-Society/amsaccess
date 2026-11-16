@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import "@/styles/access-theme.css";
 import "@/styles/org-theme-bridge.css";
-import { CalendarDays, FileCode2, LayoutDashboard, Mail, MessageSquare, Users } from "lucide-react";
+import {
+  CalendarDays,
+  FileCode2,
+  LayoutDashboard,
+  Mail,
+  MessageSquare,
+  Users,
+} from "lucide-react";
+import { useEdgeMask } from "@/lib/client/useEdgeMask";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { SessionExpiryNotice } from "./SessionExpiryNotice";
 
@@ -46,10 +54,12 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
   // "intern" on a network blip would lock an admin out of their own sidebar.
   const { role } = useOrgRole();
 
-  const nav = role === "intern" ? NAV.filter((i) => !INTERN_HIDDEN.includes(i.href)) : NAV;
+  const nav =
+    role === "intern"
+      ? NAV.filter((i) => !INTERN_HIDDEN.includes(i.href))
+      : NAV;
   const headerRef = useRef<HTMLElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
-  const [edges, setEdges] = useState({ start: false, end: false });
 
   // Center the active link by scrolling only the nav itself. scrollIntoView
   // would also move the browser's sequential focus starting point, so the
@@ -58,32 +68,12 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     const nav = mobileNavRef.current;
     const active = nav?.querySelector<HTMLElement>('[aria-current="page"]');
     if (!nav || !active) return;
-    nav.scrollLeft = active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
+    nav.scrollLeft =
+      active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
   }, [pathname]);
 
   // Fade the edge the nav can still scroll toward, so hidden sections show.
-  useEffect(() => {
-    const nav = mobileNavRef.current;
-    if (!nav) return;
-    const update = () => {
-      const max = nav.scrollWidth - nav.clientWidth;
-      const start = nav.scrollLeft > 1;
-      const end = nav.scrollLeft < max - 1;
-      // Most scroll events leave both fades unchanged. Preserve state so
-      // those events do not trigger another shell render.
-      setEdges(previous => previous.start === start && previous.end === end
-        ? previous
-        : { start, end });
-    };
-    update();
-    nav.addEventListener("scroll", update, { passive: true });
-    const ro = new ResizeObserver(update);
-    ro.observe(nav);
-    return () => {
-      nav.removeEventListener("scroll", update);
-      ro.disconnect();
-    };
-  }, []);
+  const navMask = useEdgeMask(mobileNavRef);
 
   // Below lg the header is sticky: keep focused and scrolled-to elements, and
   // their focus ring (2px plus 2px offset), out from under it by padding the
@@ -106,14 +96,6 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const fade = "1.5rem";
-  const navMask =
-    edges.start || edges.end
-      ? `linear-gradient(to right, ${edges.start ? `transparent, black ${fade}` : "black"}, ${
-          edges.end ? `black calc(100% - ${fade}), transparent` : "black"
-        })`
-      : undefined;
-
   const isActive = (href: (typeof NAV)[number]["href"]) =>
     href === "/org/dashboard" ? pathname === href : pathname.startsWith(href);
 
@@ -135,7 +117,9 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
       </a>
       <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
         <div className="px-5 py-6">
-          <p className="text-sm font-semibold tracking-tight text-slate-950">AMS Access</p>
+          <p className="text-sm font-semibold tracking-tight text-slate-950">
+            AMS Access
+          </p>
           <p className="text-xs text-slate-400">Organization</p>
         </div>
 
@@ -161,13 +145,16 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-
       </aside>
 
-      <header ref={headerRef} className="sticky top-0 z-30 border-b border-slate-200 bg-white lg:hidden">
+      <header
+        ref={headerRef}
+        className="sticky top-0 z-30 border-b border-slate-200 bg-white lg:hidden"
+      >
         <div className="flex h-12 items-center px-4">
           <p className="text-sm font-semibold tracking-tight text-slate-950">
-            AMS Access <span className="font-normal text-slate-500">· Organization</span>
+            AMS Access{" "}
+            <span className="font-normal text-slate-500">· Organization</span>
           </p>
         </div>
         <nav
@@ -175,7 +162,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
           aria-label="Organization"
           // pt-1 leaves room for the focus ring, which the scroller would clip.
           className="flex gap-1 overflow-x-auto px-2 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={navMask ? { maskImage: navMask, WebkitMaskImage: navMask } : undefined}
+          style={navMask}
         >
           {nav.map(({ href, label, icon: Icon }) => {
             const active = isActive(href);
@@ -185,9 +172,12 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 onFocus={(event) =>
-                  event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" })
+                  event.currentTarget.scrollIntoView({
+                    block: "nearest",
+                    inline: "nearest",
+                  })
                 }
-                className={`scroll-mx-2 flex min-h-10 flex-none items-center gap-2 rounded-lg px-3 text-sm transition ${FOCUS} ${
+                className={`scroll-mx-2 flex min-h-11 flex-none items-center gap-2 rounded-lg px-3 text-sm transition ${FOCUS} ${
                   active
                     ? "bg-slate-900 font-medium text-white"
                     : "text-slate-600 hover:bg-slate-100"
@@ -201,8 +191,14 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
 
-      <main id="org-main" tabIndex={-1} className="min-w-0 w-full flex-1 outline-none">
-        {children}
+      <main
+        id="org-main"
+        tabIndex={-1}
+        className="min-w-0 w-full flex-1 outline-none"
+      >
+        {/* Keep streamed route hydration inside the content boundary so a slow
+            child cannot suspend and restart the persistent shell. */}
+        <Suspense fallback={null}>{children}</Suspense>
         <SessionExpiryNotice />
       </main>
     </div>
@@ -221,7 +217,9 @@ export function PageHeader({
   return (
     <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 bg-white px-4 py-5 sm:px-6 md:px-8 md:py-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+          {title}
+        </h1>
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
       </div>
       {action}
