@@ -6,6 +6,7 @@ import type { SessionRow } from "@/lib/client/orgNotifications";
 import { useOrgDesktopLayout } from "@/lib/client/useOrgDesktopLayout";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
+import { idleLabel } from "@/lib/client/personPanel";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
 import { IssuesInbox } from "@/components/org/IssuesInbox";
 import type { Override, ReadinessRow } from "@/lib/client/issuesInbox";
@@ -13,14 +14,6 @@ import { AlertTriangle, MonitorCheck, ShieldOff, Users, X } from "lucide-react";
 
 /** How long a session may go unheard from before it is worth looking at. */
 const QUIET_AFTER_SECONDS = 120;
-
-function idleLabel(seconds: number | null): string {
-  if (seconds === null) return "never checked in";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
-}
 
 // Staff watch this during a contest, so it must be current — but it is one
 // screen among several, so not aggressively so.
@@ -318,6 +311,21 @@ export function InvigilationPanel({
     }
   }
 
+  // Inbox rows carry login IDs; only a matching session proves the person's UID.
+  const renderPerson = (displayName: string, loginId: string) => {
+    const person = sessions.find((row) => row.login_id === loginId)?.user_uid;
+    return person ? (
+      <button
+        type="button"
+        onClick={() => setOpenParticipant(person)}
+        className="break-words text-left font-medium text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        {displayName || "Unknown"}
+      </button>
+    ) : (
+      displayName || "Unknown"
+    );
+  };
   const base = `/api/org/contests/${contestUid}/invigilation`;
   const blocked = useMemo(
     () => readiness.filter((r) => !r.passed),
@@ -343,6 +351,7 @@ export function InvigilationPanel({
       <ParticipantModal
         handle={openParticipant}
         onClose={() => setOpenParticipant(null)}
+        contest={{ uid: contestUid, live: notificationsEnabled }}
       />
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -375,6 +384,7 @@ export function InvigilationPanel({
         active={active}
         readiness={readiness}
         overrides={overrides}
+        renderPerson={renderPerson}
         renderEntryAction={(row) =>
           row.failed_checks.length > 0 && (
             <GrantWaiver

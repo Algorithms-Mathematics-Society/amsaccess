@@ -42,6 +42,7 @@ export function IssuesInbox({
   readiness,
   overrides,
   renderEntryAction,
+  renderPerson,
 }: {
   contestUid: string;
   enabled: boolean;
@@ -49,6 +50,7 @@ export function IssuesInbox({
   readiness: ReadinessRow[];
   overrides: Override[];
   renderEntryAction: (row: ReadinessRow) => React.ReactNode;
+  renderPerson: (displayName: string, loginId: string) => React.ReactNode;
 }) {
   const { feed, waiting, openHelp } = useWaitingOnStaff(contestUid, enabled);
   const [status, setStatus] = useState<"open" | "resolved">("open");
@@ -284,7 +286,7 @@ export function IssuesInbox({
                       {!item.open && ` · ${item.status.replaceAll("_", " ")}`}
                     </p>
                     <p className="text-sm font-medium text-slate-900">
-                      {item.person}{" "}
+                      {renderPerson(item.person, item.loginId)}{" "}
                       {item.loginId && (
                         <span className="break-all font-mono text-xs text-slate-400">
                           {item.loginId}
