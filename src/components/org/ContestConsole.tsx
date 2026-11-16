@@ -602,7 +602,8 @@ function ContestContent({ contestUid }: { contestUid: string }) {
         </div>
       )}
 
-      <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6">
+      {/* pb-24 lets the last row scroll clear of the floating notifications button. */}
+      <div className="px-4 pt-5 pb-24 sm:px-6 md:px-8 md:pt-6">
         {/* Visited tabs stay mounted but hidden; each one polls only while shown. */}
         {keepAlive("problems", <ProblemsTab contest={contest} onChange={refreshContestAfterWrite} />)}
         {keepAlive("participants", (

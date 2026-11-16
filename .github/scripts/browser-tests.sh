@@ -15,21 +15,9 @@ if [[ -n "${CHROMIUM_PATH:-}" ]]; then
   export PLAYWRIGHT_EXECUTABLE_PATH="$CHROMIUM_PATH"
 fi
 
-# Files deliberately kept out of CI. Each entry needs a reason. These fail on
-# every run against current main (not flaky): the product UI moved on and the
-# tests were not updated. Remove an entry once its test is brought up to date.
-EXCLUDE=(
-  # Mock throws on /api/org/support, added later by the support inbox.
-  browser-cache.mjs
-  # Waits for an "Entered Person, Entered this contest" button the roster no longer renders.
-  browser-current.mjs
-  # Expects "replaces existing passwords/slips" confirm copy that no longer exists.
-  browser-roster-admin.mjs
-  # Waits for a per-row "Reissue" button that no longer exists.
-  browser-roster-ui.mjs
-  # Waits for a "Re-email" button that no longer exists.
-  browser-tab-reads.mjs
-)
+# Files deliberately kept out of CI, one reason comment per entry. Empty: every
+# browser test is expected to pass.
+EXCLUDE=()
 
 cd "$(dirname "$0")/../.."
 # Refuse to run against a server this script did not start.

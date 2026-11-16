@@ -113,7 +113,7 @@ try {
       assert.equal(request.method(),'POST');assert.equal(url.searchParams.get('action'),'reemail');await respond({queued:1});
     });
     await tab('participants').hover(); await until(()=>reads===1);
-    await page.getByRole('button',{name:'Re-email',exact:true}).click();
+    await page.getByRole('button',{name:'Send email',exact:true}).click();
     await page.getByText('Fresh Candidate',{exact:true}).waitFor();
     old.release(); await delay(100);
     assert.equal(await page.getByText('Stale Candidate',{exact:true}).count(),0);
@@ -127,9 +127,10 @@ try {
     });
     await page.goto(base+'/org/contests/a#participants');
     await page.getByText('Original Candidate',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'Re-email',exact:true}).click(); await until(()=>started);
+    await page.getByRole('button',{name:'Send email',exact:true}).click(); await until(()=>started);
     await tab(destination).click();
-    const content=()=>destination==='analytics'?page.getByText('Operating system',{exact:true}):page.getByText('Original Candidate',{exact:true});
+    // The kept-alive roster stays in the DOM (hidden), so match only what is visible.
+    const content=()=>page.locator(destination==='analytics'?'text="Operating system" >> visible=true':'text="Original Candidate" >> visible=true');
     await content().waitFor();
     const suffix=destination==='analytics'?'/analytics':'/scoreboard'; const before=count(suffix);
     state.hooks.set('/api/org/contests/a'+suffix,async ({respond})=>{
