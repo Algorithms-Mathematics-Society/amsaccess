@@ -7,6 +7,7 @@ import "@/styles/access-theme.css";
 import "@/styles/org-theme-bridge.css";
 import { CalendarDays, FileCode2, LayoutDashboard, Mail, MessageSquare, Users } from "lucide-react";
 import { useOrgRole } from "@/lib/client/useOrgRole";
+import { SessionExpiryNotice } from "./SessionExpiryNotice";
 
 const NAV = [
   { href: "/org/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -202,6 +203,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
 
       <main id="org-main" tabIndex={-1} className="min-w-0 w-full flex-1 outline-none">
         {children}
+        <SessionExpiryNotice />
       </main>
     </div>
   );

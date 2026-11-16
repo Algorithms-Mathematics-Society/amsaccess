@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { startOrgPolling } from '../../src/lib/client/orgPolling.ts';
+import { ORG_SIGNED_OUT_EVENT, orgBackoffMs, orgSignedOut, reportOrgResponse, resumeOrgPolling, startOrgPolling } from '../../src/lib/client/orgPolling.ts';
 
 const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 
@@ -59,4 +59,80 @@ test('failed reads still schedule a retry and inactive contests never schedule p
     stop = startOrgPolling(async () => {}, null);
     await flush(); assert.equal(timers.size, 0);
   } finally { stop?.(); Object.assign(globalThis, original); }
+});
+
+test('backoff starts on the second failure, doubles, caps at a minute and never drops below the cadence', () => {
+  assert.equal(orgBackoffMs(3000, 0), 3000);
+  assert.equal(orgBackoffMs(3000, 1), 3000, 'one failure retries on the normal cadence');
+  assert.equal(orgBackoffMs(3000, 2), 6000);
+  assert.equal(orgBackoffMs(3000, 4), 24000);
+  assert.equal(orgBackoffMs(3000, 9), 60000);
+  assert.equal(orgBackoffMs(120000, 4), 120000, 'a slow poll is not shortened');
+});
+
+function fakeRuntime() {
+  const original = { document: globalThis.document, window: globalThis.window, setTimeout, clearTimeout };
+  globalThis.document = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+  globalThis.window = new EventTarget();
+  const timers = new Map(); let nextId = 0;
+  globalThis.setTimeout = (fn, delay) => { timers.set(++nextId, { fn, delay }); return nextId; };
+  globalThis.clearTimeout = id => timers.delete(id);
+  const delay = () => [...timers.values()][0]?.delay;
+  const fire = async () => { const [[id, { fn }]] = [...timers]; timers.delete(id); fn(); await flush(); };
+  return { timers, delay, fire, restore: () => Object.assign(globalThis, original) };
+}
+
+test('failed reads back off, focus cannot bypass the backoff, and success restores the cadence', async () => {
+  const rt = fakeRuntime(); let stop; let fail = true; let calls = 0;
+  try {
+    stop = startOrgPolling(async () => { calls++; if (fail) throw new Error('offline'); }, 2000);
+    await flush();
+    assert.equal(rt.delay(), 2000);
+    await rt.fire();
+    assert.equal(rt.delay(), 4000);
+    await rt.fire();
+    assert.equal(rt.delay(), 8000);
+    window.dispatchEvent(new Event('focus')); await flush();
+    assert.equal(calls, 3, 'focus waits out the backoff');
+    fail = false; await rt.fire();
+    assert.equal(rt.delay(), 2000);
+  } finally { stop?.(); rt.restore(); }
+});
+
+test('server errors seen on any response slow pollers whose tasks swallow errors', async () => {
+  const rt = fakeRuntime(); let stop; let status = 503;
+  try {
+    stop = startOrgPolling(async () => { reportOrgResponse(status); }, 2000);
+    await flush();
+    assert.equal(rt.delay(), 2000);
+    await rt.fire();
+    assert.equal(rt.delay(), 4000);
+    await rt.fire();
+    assert.equal(rt.delay(), 8000);
+    status = 200; await rt.fire();
+    assert.equal(rt.delay(), 2000, 'one healthy response restores the cadence');
+    status = 403; await rt.fire();
+    assert.equal(rt.delay(), 2000, 'a refusal is not an outage');
+  } finally { stop?.(); rt.restore(); }
+});
+
+test('a 401 pauses every poller once, and a confirmed re-sign-in resumes them', async () => {
+  const rt = fakeRuntime(); let stop; let calls = 0; let announced = 0;
+  try {
+    window.addEventListener(ORG_SIGNED_OUT_EVENT, () => announced++);
+    stop = startOrgPolling(async () => { calls++; if (calls === 1) reportOrgResponse(401); }, 2000);
+    await flush();
+    assert.equal(orgSignedOut(), true);
+    assert.equal(rt.timers.size, 0, 'no further reads while signed out');
+    reportOrgResponse(401);
+    assert.equal(announced, 1, 'announced once');
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flush();
+    assert.equal(calls, 1);
+    resumeOrgPolling(); await flush();
+    assert.equal(calls, 2);
+    assert.equal(orgSignedOut(), false);
+    assert.equal(rt.delay(), 2000);
+  } finally { stop?.(); rt.restore(); }
 });
