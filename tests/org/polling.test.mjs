@@ -9,6 +9,7 @@ import {
   reportOrgResponse,
   resumeOrgPolling,
   startOrgPolling,
+  startOrgSupportPolling,
 } from "../../src/lib/client/orgPolling.ts";
 
 const flush = async () => {
@@ -328,6 +329,123 @@ test("response observer scopes staff auth, preserves other wrappers and becomes 
     );
   } finally {
     cleanup?.();
+    resumeOrgPolling();
+    rt.restore();
+  }
+});
+
+test("staff support polling pauses at local expiry and restarts after reauthentication", async () => {
+  const rt = fakeRuntime();
+  let stop;
+  let calls = 0;
+  let signal;
+  try {
+    stop = startOrgSupportPolling(
+      async (nextSignal) => {
+        calls++;
+        signal = nextSignal;
+      },
+      { minimumMs: 30000, maximumMs: 30000 },
+    );
+    await flush();
+    assert.equal(calls, 1);
+    assert.equal(rt.timers.size, 1);
+    pauseOrgPolling();
+    assert.equal(rt.timers.size, 0);
+    resumeOrgPolling();
+    await flush();
+    assert.equal(calls, 2);
+    stop();
+    assert.equal(rt.timers.size, 0);
+    resumeOrgPolling();
+    await flush();
+    assert.equal(calls, 2, "cleanup removes reauthentication listener");
+  } finally {
+    stop?.();
+    resumeOrgPolling();
+    rt.restore();
+  }
+});
+
+test("staff support waits when already signed out and aborts an in-flight read on expiry", async () => {
+  const rt = fakeRuntime();
+  let stop;
+  let signal;
+  let finish;
+  let calls = 0;
+  try {
+    pauseOrgPolling();
+    stop = startOrgSupportPolling((nextSignal) => {
+      calls++;
+      signal = nextSignal;
+      return new Promise((_resolve, reject) => {
+        finish = reject;
+      });
+    });
+    assert.equal(calls, 0);
+    resumeOrgPolling();
+    assert.equal(calls, 1);
+    pauseOrgPolling();
+    assert.equal(signal.aborted, true);
+    const rejectOld = finish;
+    resumeOrgPolling();
+    assert.equal(calls, 2);
+    rejectOld(Object.assign(new Error("Old session expired"), { status: 401 }));
+    await flush();
+    assert.equal(
+      orgSignedOut(),
+      false,
+      "cancelled old read cannot expire the recovered session",
+    );
+    assert.equal(rt.timers.size, 0);
+  } finally {
+    stop?.();
+    resumeOrgPolling();
+    rt.restore();
+  }
+});
+
+test("account reset never resumes the previous staff support subscription", async () => {
+  const rt = fakeRuntime();
+  let stop;
+  let calls = 0;
+  try {
+    stop = startOrgSupportPolling(async () => {
+      calls++;
+    });
+    await flush();
+    window.dispatchEvent(new Event("ams:org-session-reset"));
+    assert.equal(rt.timers.size, 0);
+    resumeOrgPolling();
+    await flush();
+    assert.equal(calls, 1);
+    assert.equal(rt.timers.size, 0);
+  } finally {
+    stop?.();
+    rt.restore();
+  }
+});
+
+test("staff support recovers from a401 halt after confirmed reauthentication", async () => {
+  const rt = fakeRuntime();
+  let stop;
+  let calls = 0;
+  try {
+    stop = startOrgSupportPolling(async () => {
+      calls++;
+      if (calls === 1) {
+        throw Object.assign(new Error("Signed out"), { status: 401 });
+      }
+    });
+    await flush();
+    assert.equal(orgSignedOut(), true);
+    assert.equal(rt.timers.size, 0);
+    resumeOrgPolling();
+    await flush();
+    assert.equal(calls, 2);
+    assert.equal(rt.timers.size, 1);
+  } finally {
+    stop?.();
     resumeOrgPolling();
     rt.restore();
   }

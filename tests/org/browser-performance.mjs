@@ -29,6 +29,7 @@ await page.route('**/*', async route => {
     retried=true; return ok({});
   }
   if(url.pathname==='/api/auth/me') return ok({role:'admin'});
+  if(url.pathname==='/api/org/support') return ok({items:[],has_more:false});
   if(url.pathname==='/api/org/mail/templates') {
     if(url.searchParams.has('variables')) return ok({variables:[]});
     await templateGate.promise;

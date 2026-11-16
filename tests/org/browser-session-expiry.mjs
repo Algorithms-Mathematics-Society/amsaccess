@@ -71,6 +71,8 @@ await page.route("**/*", async (route) => {
   if (expired) return ok({ error: "Not signed in." }, 401);
   if (url.pathname === "/api/auth/me") return ok(me);
   if (url.pathname === "/api/org/contests") return ok([contest]);
+  if (url.pathname === "/api/org/support")
+    return ok({ items: [], offset: 0, has_more: false });
   if (url.pathname === "/api/org/contests/a") return ok(contest);
   if (
     url.pathname.endsWith("/invigilation") &&
@@ -138,16 +140,30 @@ try {
   );
 
   // Keep a real React-controlled draft, not a DOM node inserted by the test.
-  await page.getByRole("button", { name: "Waive…", exact: true }).click();
-  const draft = page.getByRole("textbox", { name: "Reason for waiver" });
+  const deviceReports = page.getByRole("table", {
+    name: "Entry-gate device reports",
+  });
+  await deviceReports
+    .getByRole("button", { name: "Waive…", exact: true })
+    .click();
+  const draft = deviceReports.getByRole("textbox", {
+    name: "Reason for waiver",
+  });
   await draft.fill("unsaved draft");
   await until(async () => feedReads() > 0);
   expired = true;
   await signedOut().waitFor({ timeout: 10_000 });
   await wait(200);
   const pausedAt = feedReads();
+  const supportPausedAt = calls.filter((c) =>
+    c.startsWith("/api/org/support"),
+  ).length;
   await wait(7_000);
   assert.equal(feedReads(), pausedAt, "every poll pauses once signed out");
+  assert.equal(
+    calls.filter((c) => c.startsWith("/api/org/support")).length,
+    supportPausedAt,
+  );
   assert.equal(await draft.inputValue(), "unsaved draft");
   await page.getByRole("heading", { name: "Session test contest" }).waitFor();
   assert.equal(
@@ -168,6 +184,11 @@ try {
       (await signedOut().count()) === 0 && (await warning().count()) === 0,
   );
   await until(async () => feedReads() > pausedAt);
+  await until(
+    () =>
+      calls.filter((c) => c.startsWith("/api/org/support")).length >
+      supportPausedAt,
+  );
   assert.equal(await draft.inputValue(), "unsaved draft");
   console.log(
     "PASS: re-sign-in as the same account resumes polling with the page intact",
