@@ -6,6 +6,11 @@ const uid = '3fbf9cee-8b6e-4872-947f-c52b46bb572e';
 test('proxy route allowlist excludes traversal and unsupported operations', () => {
   assert.equal(teamAction('POST', ['seed']), '/seed');
   assert.equal(teamAction('GET', ['teams']), '/teams');
+  // Read-only feeds for the live monitor; never writable.
+  assert.equal(teamAction('GET', ['board']), '/board');
+  assert.equal(teamAction('GET', ['voice-events']), '/voice-events');
+  assert.equal(teamAction('POST', ['board']), null);
+  assert.equal(teamAction('GET', ['benchmarks']), null);
   assert.equal(teamAction('PUT', []), '');
   for (const action of [['unpublish'], ['..'], ['teams', uid, 'rejudge'], ['seed/../../end']]) assert.equal(teamAction('POST', action), null);
   assert.equal(teamAction('DELETE', []), null);

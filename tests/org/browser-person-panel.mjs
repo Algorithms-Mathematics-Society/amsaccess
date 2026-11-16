@@ -168,6 +168,7 @@ try {
     if (p.endsWith("/participants") && req.method() === "GET")
       return ok(roster);
     if (p === "/api/org/students/u1/profile") return ok(profile);
+    if (p === "/api/org/support") return ok({ items: [], has_more: false });
     if (p.endsWith("/invigilation") && req.method() === "POST") {
       const action = u.searchParams.get("action"),
         target = u.searchParams.get("uid");
@@ -208,11 +209,19 @@ try {
   const panel = page.getByRole("dialog", { name: "Participant", exact: true });
   const here = panel.getByRole("region", { name: "In this contest" });
 
-  // From invigilation: the name in "Waiting to resume" opens the panel.
+  // The combined inbox carries the person links for both re-entry and help.
   await page.goto(base + `/org/contests/${uid}#invigilation`);
-  const trigger = page
-    .getByRole("button", { name: "Person 1", exact: true })
-    .first();
+  const inbox = page.getByRole("region", { name: /Issues waiting on staff/ });
+  const trigger = inbox
+    .getByRole("listitem")
+    .filter({ hasText: "Laptop restarted" })
+    .getByRole("button", { name: "Person 1", exact: true });
+  await trigger.waitFor();
+  assert.equal(
+    await inbox.getByRole("button", { name: "Person 2", exact: true }).count(),
+    0,
+    "a login without a matching session UID is not treated as a person UID",
+  );
   await trigger.click();
   await here.getByText("State:", { exact: false }).waitFor();
   await here.getByText("2 violations", { exact: true }).waitFor();
@@ -245,6 +254,20 @@ try {
   );
   console.log(
     "PASS person panel from invigilation: session, roster state, own requests only, cancel is a no-op, Escape restores focus",
+  );
+
+  const helpTrigger = inbox
+    .getByRole("listitem")
+    .filter({ hasText: "Camera frozen" })
+    .getByRole("button", { name: "Person 1", exact: true });
+  await helpTrigger.click();
+  await here.getByText("2 violations", { exact: true }).waitFor();
+  await here.getByText("Camera frozen", { exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  await panel.waitFor({ state: "detached" });
+  assert(
+    await helpTrigger.evaluate((el) => el === document.activeElement),
+    "help row receives focus after closing its person panel",
   );
 
   // From the roster: decisions inline, each behind the shared confirm.

@@ -16,6 +16,7 @@ await page.route('**/*',async route=>{
  if(!url.pathname.startsWith('/api/'))return route.continue();
  const ok=data=>route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
  if(url.pathname==='/api/auth/me')return ok({role:'admin'});
+ if(url.pathname==='/api/org/support')return ok({items:[],has_more:false});
  if(url.pathname==='/api/org/contests/a')return ok({uid:'a',title:'Invigilation UI fixture',status:'running',starts_at:'2026-01-01',ends_at:'2027-01-01',is_practice:false,problems:[],frozen:false});
  if(url.pathname.endsWith('/submissions/summary'))return ok({total:0,pending:0,verdicts:{}});
  if(url.pathname.includes('/invigilation/photo/'))return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7XkAAAAASUVORK5CYII=','base64')});

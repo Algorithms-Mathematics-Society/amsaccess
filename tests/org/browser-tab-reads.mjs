@@ -30,6 +30,7 @@ async function scenario(run) {
     if(hook && await hook({url,request,respond,route})!==false) return;
     assert.equal(request.method(),'GET','Unexpected write: '+url.pathname);
     if(url.pathname==='/api/auth/me') return respond({role:'admin'});
+    if(url.pathname==='/api/org/support') return respond({items:[],has_more:false});
     if(/^\/api\/org\/contests\/[ab]$/.test(url.pathname)) return respond({uid:url.pathname.split('/').at(-1),title:'Read fixture',status:'running',starts_at:'2026-01-01',ends_at:'2027-01-01',is_practice:false,problems:[],frozen:false,description:''});
     if(url.pathname.endsWith('/participants')) return respond(state.roster);
     if(url.pathname.endsWith('/scoreboard')) return respond({rows:state.roster.map(p=>({...p,username:p.login_id,rank:1,solved:0,score:0,partial:0,penalty:0,cells:{}})),frozen:false,generated_at:new Date().toISOString()});
