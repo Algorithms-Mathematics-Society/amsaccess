@@ -1,3 +1,5 @@
+import { reportOrgResponse } from "./orgPolling.ts";
+
 /** Read-only snapshots owned by one mounted contest console. Never persisted. */
 export type ContestReadResource = "participants" | "scoreboard" | "analytics";
 export type ContestReadSnapshot = {
@@ -95,6 +97,8 @@ export function createContestReadStore(contestUid: string, timeoutMs = 15_000) {
           ),
           aborted,
         ]);
+        if (!controller.signal.aborted && states.get(resource) === state)
+          reportOrgResponse(response.status);
         lostAccess = response.status === 401 || response.status === 403;
         if (lostAccess && states.get(resource) === state) {
           state = { ...state, data: null };

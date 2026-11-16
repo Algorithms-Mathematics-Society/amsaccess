@@ -2,7 +2,7 @@
 
 import { useConfirm } from "./ConfirmDialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { startOrgPolling } from "@/lib/client/orgPolling";
+import { reportOrgResponse, startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
 import { SkeletonText } from "@/components/org/Skeleton";
 import {
@@ -74,7 +74,8 @@ type BatchDetail = Batch & { messages: Message[] };
 
 const POLL_MS = 5000;
 
-async function json<T>(res: Response): Promise<T> {
+async function json<T>(res: Response, signal?: AbortSignal): Promise<T> {
+  if (!signal?.aborted) reportOrgResponse(res.status);
   const data = await res.json().catch(() => ({}));
   if (!res.ok)
     throw new Error((data as { error?: string }).error ?? "Request failed.");
@@ -147,6 +148,7 @@ function Sends() {
     try {
       const next = await json<Batch[]>(
         await fetch("/api/org/mail/batches", { cache: "no-store", signal }),
+        signal,
       );
       if (signal.aborted) return;
       setBatches(next);
@@ -512,6 +514,7 @@ function BatchView({ uid, onBack }: { uid: string; onBack: () => void }) {
             cache: "no-store",
             signal,
           }),
+          signal,
         );
         if (signal.aborted) return;
         setBatch(next);

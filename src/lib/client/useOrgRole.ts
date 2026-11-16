@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { reportOrgResponse } from "./orgPolling";
 
 /**
  * Which role the signed-in staff member holds, for deciding what to render.
@@ -33,20 +34,32 @@ export type OrgRole =
 /** Roles that may spend money: start judges, run a load test, stand down. */
 const SPENDING: readonly OrgRole[] = ["owner", "admin"];
 
-export type OrgMe = { role?: unknown; uid?: unknown; session_expires_at?: unknown };
+export type OrgMe = {
+  role?: unknown;
+  uid?: unknown;
+  session_expires_at?: unknown;
+};
 let inFlight: Promise<OrgMe | null> | null = null;
 
 /** The shared `/api/auth/me` read; `fresh` replaces it, e.g. after re-sign-in. */
 export function fetchOrgMe(fresh = false): Promise<OrgMe | null> {
   if (fresh) inFlight = null;
-  inFlight ??= fetch("/api/auth/me")
-    .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null);
+  if (!inFlight) {
+    const request = fetch("/api/auth/me")
+      .then((r) => {
+        if (inFlight === request) reportOrgResponse(r.status);
+        return r.ok ? r.json() : null;
+      })
+      .catch(() => null);
+    inFlight = request;
+  }
   return inFlight;
 }
 
 function fetchRole(): Promise<OrgRole | null> {
-  return fetchOrgMe().then((me) => (me && typeof me.role === "string" ? (me.role as OrgRole) : null));
+  return fetchOrgMe().then((me) =>
+    me && typeof me.role === "string" ? (me.role as OrgRole) : null,
+  );
 }
 
 export function useOrgRole(): { role: OrgRole | null; known: boolean } {

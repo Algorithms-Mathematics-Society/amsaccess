@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { startOrgPolling } from "@/lib/client/orgPolling";
+import { reportOrgResponse, startOrgPolling } from "@/lib/client/orgPolling";
 import {
   emptySessionSnapshot,
   getOrgSessionStore,
@@ -149,7 +149,11 @@ export function TeamRoundMonitor({
     // Optional feeds are independent: failures must not look like current presence.
     const optional = (path: string) =>
       fetch(`${base}/${path}`, { cache: "no-store", signal: abort.signal })
-        .then((r) => (r.ok ? r.json() : null))
+        .then((r) => {
+          if (!abort.signal.aborted && mounted.current)
+            reportOrgResponse(r.status);
+          return r.ok ? r.json() : null;
+        })
         .catch(() => null);
     const boardRead = optional("board");
     const voiceRead = optional("voice-events");
@@ -158,6 +162,8 @@ export function TeamRoundMonitor({
         cache: "no-store",
         signal: abort.signal,
       });
+      if (!abort.signal.aborted && mounted.current)
+        reportOrgResponse(response.status);
       const data: unknown = await response.json().catch(() => null);
       if (!response.ok) {
         const message =
