@@ -612,6 +612,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             contestTitle={contest.title}
             isPractice={contest.is_practice}
             live={tab === "participants" && (contest.status === "running" || contest.status === "scheduled")}
+            notificationsEnabled={notificationsEnabled}
           />
         ))}
         {tab === "submissions" && (

@@ -7,6 +7,7 @@ import { useOrgDesktopLayout } from "@/lib/client/useOrgDesktopLayout";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
+import { idleLabel } from "@/lib/client/personPanel";
 import {
   AlertTriangle,
   Check,
@@ -42,14 +43,6 @@ type Override = {
 
 /** How long a session may go unheard from before it is worth looking at. */
 const QUIET_AFTER_SECONDS = 120;
-
-function idleLabel(seconds: number | null): string {
-  if (seconds === null) return "never checked in";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
-}
 
 // Staff watch this during a contest, so it must be current — but it is one
 // screen among several, so not aggressively so.
@@ -300,6 +293,14 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
   const blocked = useMemo(() => readiness.filter((r) => !r.passed), [readiness]);
   const liveOverrides = useMemo(() => overrides.filter((o) => !o.revoked), [overrides]);
   const waiting = useMemo(() => resumes.filter((r) => r.status === "pending"), [resumes]);
+  // Requests and incidents carry only the contest login; the session row has the person's uid.
+  const personFor = (loginId: string) => sessions.find((row) => row.login_id === loginId)?.user_uid ?? null;
+  const name = (displayName: string, loginId: string) => {
+    const person = personFor(loginId);
+    return person ? (
+      <button type="button" onClick={() => setOpenParticipant(person)} className="break-words text-left font-medium text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">{displayName || "Unknown"}</button>
+    ) : (displayName || "Unknown");
+  };
   const quiet = useMemo(() => sessions.filter(
     (row) =>
       (row.status === "active" || row.status === "pending") &&
@@ -308,7 +309,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
 
   return (
     <div className="space-y-5 pb-20">
-      <ParticipantModal handle={openParticipant} onClose={() => setOpenParticipant(null)} />
+      <ParticipantModal handle={openParticipant} onClose={() => setOpenParticipant(null)} contest={{ uid: contestUid, live: notificationsEnabled }} />
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -349,7 +350,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-slate-900">
-                      {request.display_name || "Unknown"}{" "}
+                      {name(request.display_name, request.login_id)}{" "}
                       <span className="break-all font-mono text-xs text-slate-400">
                         {request.login_id}
                       </span>
@@ -449,7 +450,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-slate-900">
-                      {incident.display_name || "Unknown"}{" "}
+                      {name(incident.display_name, incident.login_id)}{" "}
                       <span className="break-all font-mono text-xs text-slate-400">
                         {incident.login_id}
                       </span>
