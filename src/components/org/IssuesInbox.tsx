@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Check, ExternalLink, Inbox, Loader2, X } from "lucide-react";
 import { useWaitingOnStaff } from "./LiveStatusStrip";
 import { useConfirm } from "./ConfirmDialog";
-import { startSupportPolling } from "@/lib/client/support-poll";
+import { startOrgSupportPolling } from "@/lib/client/orgPolling";
 import type { SupportSummary } from "@/lib/client/support";
 import {
   INBOX_KINDS,
@@ -67,7 +67,7 @@ export function IssuesInbox({
   useEffect(() => {
     if (!enabled || !active) return;
     let stopped = false;
-    const stop = startSupportPolling(
+    const stop = startOrgSupportPolling(
       async (signal) => {
         try {
           const result = await loadContestTickets(contestUid, status, signal);

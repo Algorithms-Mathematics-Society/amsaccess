@@ -42,7 +42,9 @@ function ResultCell({ view }: { view: TeamView }) {
   if (!r)
     return (
       <span className="text-slate-500">
-        {view.stage === "awaiting" ? "No result for this revision yet" : "None yet"}
+        {view.stage === "awaiting"
+          ? "No result for this revision yet"
+          : "None yet"}
       </span>
     );
   const current = r.revision === view.team.submitted_revision;
@@ -127,6 +129,7 @@ export function TeamRoundMonitor({
     } catch (e) {
       if (!mounted.current) return;
       setError(readErrorMessage(e, abort.signal.aborted));
+      return false;
     } finally {
       clearTimeout(timer);
       if (controller.current === abort) controller.current = null;

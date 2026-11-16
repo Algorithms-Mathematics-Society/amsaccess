@@ -1,8 +1,20 @@
 /** Read-only snapshots owned by one mounted contest console. Never persisted. */
 export type ContestReadResource = "participants" | "scoreboard" | "analytics";
-export type ContestReadSnapshot = { data: unknown; error: string; refreshing: boolean };
-export const EMPTY_CONTEST_READ: ContestReadSnapshot = { data: null, error: "", refreshing: false };
-const resources: ContestReadResource[] = ["participants", "scoreboard", "analytics"];
+export type ContestReadSnapshot = {
+  data: unknown;
+  error: string;
+  refreshing: boolean;
+};
+export const EMPTY_CONTEST_READ: ContestReadSnapshot = {
+  data: null,
+  error: "",
+  refreshing: false,
+};
+const resources: ContestReadResource[] = [
+  "participants",
+  "scoreboard",
+  "analytics",
+];
 
 /** Exact JSON-value equality; object key order is immaterial, array order is not.
  * Iterative traversal avoids recursion limits on nested response data. */
@@ -11,16 +23,31 @@ export function equivalentJson(left: unknown, right: unknown): boolean {
   while (pending.length) {
     const [a, b] = pending.pop()!;
     if (Object.is(a, b)) continue;
-    if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+    if (
+      a === null ||
+      b === null ||
+      typeof a !== "object" ||
+      typeof b !== "object"
+    )
+      return false;
     if (Array.isArray(a) !== Array.isArray(b)) return false;
-    if (Array.isArray(a) && Array.isArray(b) && a.length !== b.length) return false;
+    if (Array.isArray(a) && Array.isArray(b) && a.length !== b.length)
+      return false;
     // Inputs originate in response.json(); reject non-JSON object types defensively.
-    if (!Array.isArray(a) && (Object.getPrototypeOf(a) !== Object.prototype || Object.getPrototypeOf(b) !== Object.prototype)) return false;
+    if (
+      !Array.isArray(a) &&
+      (Object.getPrototypeOf(a) !== Object.prototype ||
+        Object.getPrototypeOf(b) !== Object.prototype)
+    )
+      return false;
     const keys = Object.keys(a);
     if (keys.length !== Object.keys(b).length) return false;
     for (const key of keys) {
       if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
-      pending.push([(a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]]);
+      pending.push([
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+      ]);
     }
   }
   return true;
@@ -28,27 +55,46 @@ export function equivalentJson(left: unknown, right: unknown): boolean {
 
 export function createContestReadStore(contestUid: string, timeoutMs = 15_000) {
   const states = new Map<ContestReadResource, ContestReadSnapshot>();
-  const flights = new Map<ContestReadResource, { controller: AbortController; promise: Promise<void> }>();
+  const flights = new Map<
+    ContestReadResource,
+    { controller: AbortController; promise: Promise<boolean | void> }
+  >();
   const prepared = new Map<ContestReadResource, number>();
   const navigation = new Set<ContestReadResource>();
   const PREFETCH_HANDOFF_MS = 1_000;
   const listeners = new Map<ContestReadResource, Set<() => void>>();
   let suspended = false;
-  const snapshot = (resource: ContestReadResource) => states.get(resource) ?? EMPTY_CONTEST_READ;
-  const notify = () => { for (const group of listeners.values()) for (const listener of group) listener(); };
-  const load = (resource: ContestReadResource): Promise<void> => {
+  const snapshot = (resource: ContestReadResource) =>
+    states.get(resource) ?? EMPTY_CONTEST_READ;
+  const notify = () => {
+    for (const group of listeners.values())
+      for (const listener of group) listener();
+  };
+  const load = (resource: ContestReadResource): Promise<boolean | void> => {
     if (suspended) return Promise.resolve();
     const existing = flights.get(resource);
     if (existing) return existing.promise;
     const controller = new AbortController();
     let state = { ...snapshot(resource), refreshing: true };
     states.set(resource, state);
-    const aborted = new Promise<never>((_, reject) => controller.signal.addEventListener("abort", () => reject(new Error("Read cancelled or timed out. Please retry.")), { once: true }));
+    const aborted = new Promise<never>((_, reject) =>
+      controller.signal.addEventListener(
+        "abort",
+        () => reject(new Error("Read cancelled or timed out. Please retry.")),
+        { once: true },
+      ),
+    );
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const promise = (async () => {
       let lostAccess = false;
       try {
-        const response = await Promise.race([fetch(`/api/org/contests/${encodeURIComponent(contestUid)}/${resource}`, { cache: "no-store", signal: controller.signal }), aborted]);
+        const response = await Promise.race([
+          fetch(
+            `/api/org/contests/${encodeURIComponent(contestUid)}/${resource}`,
+            { cache: "no-store", signal: controller.signal },
+          ),
+          aborted,
+        ]);
         lostAccess = response.status === 401 || response.status === 403;
         if (lostAccess && states.get(resource) === state) {
           state = { ...state, data: null };
@@ -56,16 +102,29 @@ export function createContestReadStore(contestUid: string, timeoutMs = 15_000) {
           notify();
         }
         const data = await Promise.race([response.json(), aborted]);
-        if (!response.ok) throw new Error(data?.error ?? `Could not load ${resource}.`);
-        if (resource === "participants" && !Array.isArray(data)) throw new Error("Invalid roster response.");
+        if (!response.ok)
+          throw new Error(data?.error ?? `Could not load ${resource}.`);
+        if (resource === "participants" && !Array.isArray(data))
+          throw new Error("Invalid roster response.");
         if (!controller.signal.aborted && states.get(resource) === state)
-          states.set(resource, { data: equivalentJson(state.data, data) ? state.data : data, error: "", refreshing: false });
+          states.set(resource, {
+            data: equivalentJson(state.data, data) ? state.data : data,
+            error: "",
+            refreshing: false,
+          });
       } catch (cause) {
         if (states.get(resource) === state)
-          states.set(resource, { ...state, data: lostAccess ? null : state.data, refreshing: false, error: cause instanceof Error ? cause.message : "Could not load." });
+          states.set(resource, {
+            ...state,
+            data: lostAccess ? null : state.data,
+            refreshing: false,
+            error: cause instanceof Error ? cause.message : "Could not load.",
+          });
+        return false;
       } finally {
         clearTimeout(timer);
-        if (flights.get(resource)?.controller === controller) flights.delete(resource);
+        if (flights.get(resource)?.controller === controller)
+          flights.delete(resource);
         notify();
       }
     })();
@@ -76,7 +135,10 @@ export function createContestReadStore(contestUid: string, timeoutMs = 15_000) {
   const invalidate = (resource: ContestReadResource, clear = false) => {
     prepared.delete(resource);
     navigation.delete(resource);
-    states.set(resource, clear ? EMPTY_CONTEST_READ : { ...snapshot(resource), refreshing: false });
+    states.set(
+      resource,
+      clear ? EMPTY_CONTEST_READ : { ...snapshot(resource), refreshing: false },
+    );
     flights.get(resource)?.controller.abort();
     flights.delete(resource);
   };
@@ -89,9 +151,14 @@ export function createContestReadStore(contestUid: string, timeoutMs = 15_000) {
     snapshot,
     subscribe(resource: ContestReadResource, listener: () => void) {
       let group = listeners.get(resource);
-      if (!group) { group = new Set(); listeners.set(resource, group); }
+      if (!group) {
+        group = new Set();
+        listeners.set(resource, group);
+      }
       group.add(listener);
-      return () => { group.delete(listener); };
+      return () => {
+        group.delete(listener);
+      };
     },
     load,
     invalidate(resource: ContestReadResource) {
@@ -111,11 +178,14 @@ export function createContestReadStore(contestUid: string, timeoutMs = 15_000) {
     navigate(selected: ContestReadResource[]): Promise<void> {
       navigation.clear();
       if (suspended) return Promise.resolve();
-      const reads = [...new Set(selected)].map(resource => {
+      const reads = [...new Set(selected)].map((resource) => {
         const at = prepared.get(resource);
         prepared.delete(resource);
         navigation.add(resource);
-        if (flights.has(resource) || (at !== undefined && Date.now() - at < PREFETCH_HANDOFF_MS))
+        if (
+          flights.has(resource) ||
+          (at !== undefined && Date.now() - at < PREFETCH_HANDOFF_MS)
+        )
           return flights.get(resource)?.promise ?? Promise.resolve();
         return load(resource);
       });
@@ -149,7 +219,11 @@ export function createContestReadStore(contestUid: string, timeoutMs = 15_000) {
       suspended = true;
       for (const resource of resources) {
         invalidate(resource);
-        states.set(resource, { data: null, refreshing: false, error: "Session changed. Reload this page before continuing." });
+        states.set(resource, {
+          data: null,
+          refreshing: false,
+          error: "Session changed. Reload this page before continuing.",
+        });
       }
       notify();
     },

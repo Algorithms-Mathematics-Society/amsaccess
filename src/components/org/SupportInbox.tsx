@@ -8,7 +8,7 @@ import { Heading } from "@astryxdesign/core/Heading";
 import { Button } from "@astryxdesign/core/Button";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { Banner } from "@astryxdesign/core/Banner";
-import { startSupportPolling } from "@/lib/client/support-poll";
+import { startOrgSupportPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import {
   supportApi,
@@ -36,7 +36,7 @@ export function SupportAttention() {
   useEffect(() => {
     if (!known || role === "intern" || !role) return;
     let stopped = false;
-    const stop = startSupportPolling(
+    const stop = startOrgSupportPolling(
       async (signal) => {
         try {
           const d = await loadSupportInbox("open", 0, signal);
@@ -107,14 +107,19 @@ function Inbox() {
   // Opened from a contest's issues inbox as /org/support?t=<ticket uid>; read after hydration.
   useEffect(() => {
     const ticket = new URLSearchParams(window.location.search).get("t");
-    if (ticket && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(ticket))
+    if (
+      ticket &&
+      /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
+        ticket,
+      )
+    )
       setSelected(ticket);
   }, []);
   useEffect(() => {
     let stopped = false;
     setData(null);
     setError("");
-    const stop = startSupportPolling(
+    const stop = startOrgSupportPolling(
       async (signal) => {
         try {
           const d = await loadSupportInbox(filter, offset, signal);
@@ -319,7 +324,7 @@ function Conversation({
   }
   useEffect(() => {
     let stopped = false;
-    const stop = startSupportPolling(
+    const stop = startOrgSupportPolling(
       async (signal) => {
         try {
           let more = true;

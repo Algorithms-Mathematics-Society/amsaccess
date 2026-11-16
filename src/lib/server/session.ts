@@ -18,7 +18,8 @@ export const SESSION_COOKIE = "ams_session";
 // Long enough that a contestant is not signed out mid-contest.
 const MAX_AGE_SECONDS = 12 * 60 * 60;
 
-export type Session = { subject: string; source: "cookie" | "dev" };
+/** `expiresAt` is epoch milliseconds; absent for the dev bypass. */
+export type Session = { subject: string; source: "cookie" | "dev"; expiresAt?: number };
 
 function signingKey(): string {
   // Reuses the internal API secret: both are server-side shared secrets with
@@ -39,6 +40,10 @@ export function mintSessionValue(subject: string): string {
 }
 
 export function readSessionValue(raw: string): string | null {
+  return verifySessionValue(raw)?.subject ?? null;
+}
+
+function verifySessionValue(raw: string): { subject: string; expiresAt: number } | null {
   const parts = raw.split(".");
   if (parts.length !== 3) return null;
   const [subject, expiry, signature] = parts;
@@ -55,7 +60,7 @@ export function readSessionValue(raw: string): string | null {
   const expiresAt = Number(expiry);
   if (!Number.isFinite(expiresAt) || expiresAt < Date.now() / 1000) return null;
 
-  return subject || null;
+  return subject ? { subject, expiresAt: expiresAt * 1000 } : null;
 }
 
 export function sessionCookieOptions() {
@@ -73,8 +78,8 @@ export async function getSession(): Promise<Session | null> {
 
   const signed = store.get(SESSION_COOKIE)?.value;
   if (signed) {
-    const subject = readSessionValue(signed);
-    if (subject) return { subject, source: "cookie" };
+    const verified = verifySessionValue(signed);
+    if (verified) return { ...verified, source: "cookie" };
   }
 
   // Local development against seeded users. Guarded twice on purpose: this
