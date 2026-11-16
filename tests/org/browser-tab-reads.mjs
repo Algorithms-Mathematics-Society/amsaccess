@@ -80,11 +80,12 @@ try {
     const before=count(suffix); await tab(name).click();
     await until(()=>count(suffix)>before,'Revisit must revalidate immediately');
     if(name==='participants') {
-      assert.equal(await content().count(),0,'Participants avoids mounting the cached full roster during navigation');
+      // Visited tabs stay mounted (#14): the kept roster stays usable while the fresh read runs.
+      assert(await content().isVisible(),'Kept-alive roster stays visible while revalidating');
       assert.equal(await page.getByText('Fresh Revisit Candidate',{exact:true}).count(),0);
       refresh.release();await page.getByText('Fresh Revisit Candidate',{exact:true}).waitFor();
       assert.equal(await content().count(),0,'First populated roster uses the completed fresh read');
-      console.log('PASS: participants revisit waits for current read then renders fresh rows');
+      console.log('PASS: participants revisit keeps the roster, revalidates, then renders fresh rows');
     } else {
       await content().waitFor();
       assert(await content().isVisible(),'Cached content is usable before refresh response');
@@ -112,7 +113,7 @@ try {
       assert.equal(request.method(),'POST');assert.equal(url.searchParams.get('action'),'reemail');await respond({queued:1});
     });
     await tab('participants').hover(); await until(()=>reads===1);
-    await page.getByRole('button',{name:'Re-email',exact:true}).click();
+    await page.getByRole('button',{name:'Send email',exact:true}).click();
     await page.getByText('Fresh Candidate',{exact:true}).waitFor();
     old.release(); await delay(100);
     assert.equal(await page.getByText('Stale Candidate',{exact:true}).count(),0);
@@ -126,9 +127,10 @@ try {
     });
     await page.goto(base+'/org/contests/a#participants');
     await page.getByText('Original Candidate',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'Re-email',exact:true}).click(); await until(()=>started);
+    await page.getByRole('button',{name:'Send email',exact:true}).click(); await until(()=>started);
     await tab(destination).click();
-    const content=()=>destination==='analytics'?page.getByText('Operating system',{exact:true}):page.getByText('Original Candidate',{exact:true});
+    // The kept-alive roster stays in the DOM (hidden), so match only what is visible.
+    const content=()=>page.locator(destination==='analytics'?'text="Operating system" >> visible=true':'text="Original Candidate" >> visible=true');
     await content().waitFor();
     const suffix=destination==='analytics'?'/analytics':'/scoreboard'; const before=count(suffix);
     state.hooks.set('/api/org/contests/a'+suffix,async ({respond})=>{

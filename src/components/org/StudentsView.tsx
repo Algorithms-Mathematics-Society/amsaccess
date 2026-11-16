@@ -23,7 +23,8 @@ import type { Student } from "@/lib/orgTypes";
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
+  if (!res.ok)
+    throw new Error((data as { error?: string }).error ?? "Request failed.");
   return data as T;
 }
 
@@ -57,7 +58,10 @@ type Facets = {
   graduation_years: Facet[];
 };
 
-function queryString(filters: Filters, extra: Record<string, string> = {}): string {
+function queryString(
+  filters: Filters,
+  extra: Record<string, string> = {},
+): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries({ ...filters, ...extra })) {
     if (value) params.set(key, value);
@@ -86,10 +90,13 @@ export function StudentsView() {
       // it left out, which is how "500 students" came to be printed on a
       // directory holding two and a half thousand.
       const [rows, totals] = await Promise.all([
-        fetch(`/api/org/students?${queryString(active, { limit: String(PAGE) })}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        }).then((res) => json<Student[]>(res)),
+        fetch(
+          `/api/org/students?${queryString(active, { limit: String(PAGE) })}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        ).then((res) => json<Student[]>(res)),
         fetch(`/api/org/students/facets?${queryString(active)}`, {
           cache: "no-store",
           signal: controller.signal,
@@ -106,14 +113,17 @@ export function StudentsView() {
       if (controller.signal.aborted || request.current !== controller) return;
       setError(err instanceof Error ? err.message : "Could not load students.");
     } finally {
-      if (!controller.signal.aborted && request.current === controller) setRefreshing(false);
+      if (!controller.signal.aborted && request.current === controller)
+        setRefreshing(false);
     }
   }, []);
 
   // Only typing waits; initial load, selects and Clear start immediately.
   const debounceSearch = useRef(false);
   useEffect(() => {
-    const id = debounceSearch.current ? setTimeout(() => void load(filters), 300) : undefined;
+    const id = debounceSearch.current
+      ? setTimeout(() => void load(filters), 300)
+      : undefined;
     if (id === undefined) void load(filters);
     return () => {
       clearTimeout(id);
@@ -214,6 +224,7 @@ export function StudentsView() {
           )}
           <a
             href={`/api/org/students/export.csv?${queryString(filters)}`}
+            download
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-700 transition hover:border-slate-900"
           >
             <Download className="h-4 w-4" />
@@ -231,7 +242,14 @@ export function StudentsView() {
           onImported={() => void load(filters)}
         />
       )}
-      {adding && <AddStudent onDone={() => { setAdding(false); void load(filters); }} />}
+      {adding && (
+        <AddStudent
+          onDone={() => {
+            setAdding(false);
+            void load(filters);
+          }}
+        />
+      )}
 
       {error && (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -239,15 +257,23 @@ export function StudentsView() {
         </p>
       )}
 
-      <p className="mb-3 text-sm text-slate-500" aria-live="polite" aria-busy={refreshing}>
-        {students === null
-          ? <SkeletonText className="w-28" />
-          : facets === null
-            ? `${students.length} student${students.length === 1 ? "" : "s"}`
-            : facets.total > students.length
-              ? `Showing ${students.length} of ${facets.total.toLocaleString()}${narrowed ? " matching" : ""}`
-              : `${facets.total.toLocaleString()} student${facets.total === 1 ? "" : "s"}${narrowed ? " match" : ""}`}
-        {refreshing && students !== null && <span className="ml-2">Updating…</span>}
+      <p
+        className="mb-3 text-sm text-slate-500"
+        aria-live="polite"
+        aria-busy={refreshing}
+      >
+        {students === null ? (
+          <SkeletonText className="w-28" />
+        ) : facets === null ? (
+          `${students.length} student${students.length === 1 ? "" : "s"}`
+        ) : facets.total > students.length ? (
+          `Showing ${students.length} of ${facets.total.toLocaleString()}${narrowed ? " matching" : ""}`
+        ) : (
+          `${facets.total.toLocaleString()} student${facets.total === 1 ? "" : "s"}${narrowed ? " match" : ""}`
+        )}
+        {refreshing && students !== null && (
+          <span className="ml-2">Updating…</span>
+        )}
       </p>
 
       {students !== null && students.length === 0 ? (
@@ -257,8 +283,8 @@ export function StudentsView() {
             {narrowed ? "Nobody matches that" : "No students yet"}
           </p>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-            Add them one at a time, or import a CSV. A student lives here across every contest
-            they enter.
+            Add them one at a time, or import a CSV. A student lives here across
+            every contest they enter.
           </p>
         </div>
       ) : (
@@ -303,7 +329,9 @@ function FacetSelect({
       onChange={(event) => onChange(event.target.value)}
       aria-label={label}
       className={`rounded-lg border px-2.5 py-1.5 text-sm ${
-        value ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"
+        value
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-300 bg-white text-slate-700"
       }`}
     >
       <option value="">{label}</option>
@@ -345,23 +373,32 @@ function StudentCard({
         </Link>
 
         <span className="text-sm text-slate-500">
-          {student.college || <span className="text-slate-300">no college</span>}
+          {student.college || (
+            <span className="text-slate-300">no college</span>
+          )}
           {student.branch && ` · ${student.branch}`}
           {student.graduation_year ? ` · ${student.graduation_year}` : ""}
         </span>
 
         {student.external_ref && (
-          <span className="font-mono text-xs text-slate-400">{student.external_ref}</span>
+          <span className="font-mono text-xs text-slate-400">
+            {student.external_ref}
+          </span>
         )}
 
         <span className="ml-auto flex items-center gap-3 text-xs text-slate-500">
           {student.github_url && <Github className="h-3.5 w-3.5" />}
           {student.linkedin_url && <Linkedin className="h-3.5 w-3.5" />}
-          {(student.has_resume_file || student.resume_url) && <FileText className="h-3.5 w-3.5" />}
+          {(student.has_resume_file || student.resume_url) && (
+            <FileText className="h-3.5 w-3.5" />
+          )}
           <span className="tabular-nums">
-            {student.contests_entered} contest{student.contests_entered === 1 ? "" : "s"}
+            {student.contests_entered} contest
+            {student.contests_entered === 1 ? "" : "s"}
           </span>
-          <span className="tabular-nums text-emerald-700">{student.problems_solved} solved</span>
+          <span className="tabular-nums text-emerald-700">
+            {student.problems_solved} solved
+          </span>
         </span>
       </button>
 
@@ -388,10 +425,19 @@ const FIELDS = [
   ["resume_url", "Resume link"],
 ] as const;
 
-function StudentDetail({ student, onChange }: { student: Student; onChange: () => void }) {
+function StudentDetail({
+  student,
+  onChange,
+}: {
+  student: Student;
+  onChange: () => void;
+}) {
   const [draft, setDraft] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      FIELDS.map(([k]) => [k, String((student as unknown as Record<string, unknown>)[k] ?? "")]),
+      FIELDS.map(([k]) => [
+        k,
+        String((student as unknown as Record<string, unknown>)[k] ?? ""),
+      ]),
     ),
   );
   const [busy, setBusy] = useState(false);
@@ -405,7 +451,9 @@ function StudentDetail({ student, onChange }: { student: Student; onChange: () =
     try {
       const body: Record<string, unknown> = { ...draft };
       // The API wants a number or nothing; an empty box means "unset".
-      body.graduation_year = draft.graduation_year ? Number(draft.graduation_year) : null;
+      body.graduation_year = draft.graduation_year
+        ? Number(draft.graduation_year)
+        : null;
       await json(
         await fetch(`/api/org/students/${student.uid}`, {
           method: "PATCH",
@@ -430,11 +478,16 @@ function StudentDetail({ student, onChange }: { student: Student; onChange: () =
       const form = new FormData();
       form.append("resume", file);
       await json(
-        await fetch(`/api/org/students/${student.uid}/resume`, { method: "POST", body: form }),
+        await fetch(`/api/org/students/${student.uid}/resume`, {
+          method: "POST",
+          body: form,
+        }),
       );
       onChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not upload the resume.");
+      setError(
+        err instanceof Error ? err.message : "Could not upload the resume.",
+      );
     } finally {
       setBusy(false);
     }
@@ -447,7 +500,9 @@ function StudentDetail({ student, onChange }: { student: Student; onChange: () =
       );
       window.open(url, "_blank", "noopener");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not open the resume.");
+      setError(
+        err instanceof Error ? err.message : "Could not open the resume.",
+      );
     }
   }
 
@@ -473,7 +528,11 @@ function StudentDetail({ student, onChange }: { student: Student; onChange: () =
           disabled={busy}
           className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
         >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : null}
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : saved ? (
+            <Check className="h-3.5 w-3.5" />
+          ) : null}
           {saved ? "Saved" : "Save profile"}
         </button>
 
@@ -484,6 +543,7 @@ function StudentDetail({ student, onChange }: { student: Student; onChange: () =
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
+            e.target.value = ""; // so picking the same file again fires onChange
             if (f) void uploadResume(f);
           }}
         />
@@ -510,7 +570,8 @@ function StudentDetail({ student, onChange }: { student: Student; onChange: () =
         <span className="ml-auto inline-flex items-center gap-3 text-xs text-slate-500">
           <span className="inline-flex items-center gap-1.5">
             <GraduationCap className="h-3.5 w-3.5" />
-            {student.contests_entered} contests · {student.problems_solved} solved
+            {student.contests_entered} contests · {student.problems_solved}{" "}
+            solved
           </span>
           <RemoveStudent studentUid={student.uid} onDone={onChange} />
         </span>
@@ -529,8 +590,12 @@ function StudentDetail({ student, onChange }: { student: Student; onChange: () =
                   href={`/org/contests/${contest.uid}`}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition hover:border-slate-400 ${statusClass(contest.status)}`}
                 >
-                  <span className="max-w-[16rem] truncate font-medium">{contest.title}</span>
-                  {contest.is_practice && <span className="opacity-60">practice</span>}
+                  <span className="max-w-[16rem] truncate font-medium">
+                    {contest.title}
+                  </span>
+                  {contest.is_practice && (
+                    <span className="opacity-60">practice</span>
+                  )}
                 </Link>
               </li>
             ))}
@@ -560,7 +625,8 @@ function AddStudent({ onDone }: { onDone: () => void }) {
     setError("");
     try {
       const body: Record<string, unknown> = { ...draft };
-      if (draft.graduation_year) body.graduation_year = Number(draft.graduation_year);
+      if (draft.graduation_year)
+        body.graduation_year = Number(draft.graduation_year);
       else delete body.graduation_year;
       await json(
         await fetch("/api/org/students", {
@@ -571,20 +637,27 @@ function AddStudent({ onDone }: { onDone: () => void }) {
       );
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add the student.");
+      setError(
+        err instanceof Error ? err.message : "Could not add the student.",
+      );
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
+    <form
+      onSubmit={submit}
+      className="mb-4 rounded-xl border border-slate-200 bg-white p-5"
+    >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-xs text-slate-600">
           Name
           <input
             value={draft.display_name ?? ""}
-            onChange={(e) => setDraft({ ...draft, display_name: e.target.value })}
+            onChange={(e) =>
+              setDraft({ ...draft, display_name: e.target.value })
+            }
             autoFocus
             className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-slate-900"
           />
@@ -621,12 +694,20 @@ function AddStudent({ onDone }: { onDone: () => void }) {
   );
 }
 
-function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: () => void }) {
+function ImportPanel({
+  onDone,
+  onImported,
+}: {
+  onDone: () => void;
+  onImported: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ created: number; updated: number; errors: string[] } | null>(
-    null,
-  );
+  const [result, setResult] = useState<{
+    created: number;
+    updated: number;
+    errors: string[];
+  } | null>(null);
 
   async function upload(file: File) {
     setBusy(true);
@@ -636,7 +717,10 @@ function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: (
       form.append("file", file);
       setResult(
         await json<{ created: number; updated: number; errors: string[] }>(
-          await fetch("/api/org/students/import", { method: "POST", body: form }),
+          await fetch("/api/org/students/import", {
+            method: "POST",
+            body: form,
+          }),
         ),
       );
       // Reload now, not on Done. "500 added" used to render directly above
@@ -652,17 +736,23 @@ function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: (
 
   return (
     <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
-      <p className="text-sm font-medium text-slate-800">Import students from CSV</p>
-      <p className="mt-1 text-xs text-slate-500">
-        Only <code className="rounded bg-slate-100 px-1">display_name</code> is required, but
-        include <code className="rounded bg-slate-100 px-1">email</code> — it is the address
-        credentials are sent to, and a row without one can only ever be handed a printed slip.
-        Also accepted: college, branch, graduation_year, linkedin_url, github_url, resume_url,
-        contact_email, phone, location, external_ref.
+      <p className="text-sm font-medium text-slate-800">
+        Import students from CSV
       </p>
       <p className="mt-1 text-xs text-slate-500">
-        Rows are matched on <code className="rounded bg-slate-100 px-1">external_ref</code>, so
-        re-importing a corrected export updates people rather than duplicating them.
+        Only <code className="rounded bg-slate-100 px-1">display_name</code> is
+        required, but include{" "}
+        <code className="rounded bg-slate-100 px-1">email</code> — it is the
+        address credentials are sent to, and a row without one can only ever be
+        handed a printed slip. Also accepted: college, branch, graduation_year,
+        linkedin_url, github_url, resume_url, contact_email, phone, location,
+        external_ref.
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        Rows are matched on{" "}
+        <code className="rounded bg-slate-100 px-1">external_ref</code>, so
+        re-importing a corrected export updates people rather than duplicating
+        them.
       </p>
       <a
         href="/api/org/students/import/template.csv"
@@ -679,6 +769,7 @@ function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: (
         disabled={busy}
         onChange={(e) => {
           const f = e.target.files?.[0];
+          e.target.value = ""; // so picking the same file again fires onChange
           if (f) void upload(f);
         }}
         className="mt-3 block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:text-slate-700"
@@ -695,7 +786,8 @@ function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: (
       {result && (
         <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
           <p className="text-slate-800">
-            <strong>{result.created}</strong> added, <strong>{result.updated}</strong> updated
+            <strong>{result.created}</strong> added,{" "}
+            <strong>{result.updated}</strong> updated
           </p>
           {result.errors.length > 0 && (
             <ul className="mt-1 space-y-0.5">
@@ -719,7 +811,6 @@ function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: (
   );
 }
 
-
 /** What a student has actually done, and what it says about them.
  *
  * The topic table is the reason problems are tagged at all. A verdict list
@@ -728,7 +819,12 @@ function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: (
  */
 function StudentHistory({ studentUid }: { studentUid: string }) {
   const [data, setData] = useState<{
-    contests: { uid: string; title: string; submissions: number; solved: number }[];
+    contests: {
+      uid: string;
+      title: string;
+      submissions: number;
+      solved: number;
+    }[];
     submissions: {
       uid: string;
       contest: string;
@@ -747,18 +843,26 @@ function StudentHistory({ studentUid }: { studentUid: string }) {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch(`/api/org/students/${studentUid}/history`, { cache: "no-store" });
+        const res = await fetch(`/api/org/students/${studentUid}/history`, {
+          cache: "no-store",
+        });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error((body as { error?: string }).error ?? "Could not load.");
+        if (!res.ok)
+          throw new Error(
+            (body as { error?: string }).error ?? "Could not load.",
+          );
         setData(body as typeof data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load history.");
+        setError(
+          err instanceof Error ? err.message : "Could not load history.",
+        );
       }
     })();
   }, [studentUid]);
 
   if (error) return <p className="px-4 pb-4 text-xs text-amber-700">{error}</p>;
-  if (!data) return <p className="px-4 pb-4 text-xs text-slate-400">Loading history…</p>;
+  if (!data)
+    return <p className="px-4 pb-4 text-xs text-slate-400">Loading history…</p>;
 
   if (data.submissions.length === 0) {
     return (
@@ -823,7 +927,9 @@ function StudentHistory({ studentUid }: { studentUid: string }) {
                   })}
                 </td>
                 <td className="px-2 py-1 text-slate-600">{s.contest}</td>
-                <td className="px-2 py-1 font-medium text-slate-900">{s.problem_label}</td>
+                <td className="px-2 py-1 font-medium text-slate-900">
+                  {s.problem_label}
+                </td>
                 <td className="px-2 py-1">
                   <span
                     className={`rounded px-1.5 py-0.5 font-mono ${
@@ -849,17 +955,27 @@ function StudentHistory({ studentUid }: { studentUid: string }) {
   );
 }
 
-function RemoveStudent({ studentUid, onDone }: { studentUid: string; onDone: () => void }) {
+function RemoveStudent({
+  studentUid,
+  onDone,
+}: {
+  studentUid: string;
+  onDone: () => void;
+}) {
   const [armed, setArmed] = useState(false);
   const [error, setError] = useState("");
 
   async function remove() {
     setError("");
     try {
-      const res = await fetch(`/api/org/students/${studentUid}`, { method: "DELETE" });
+      const res = await fetch(`/api/org/students/${studentUid}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Could not remove.");
+        throw new Error(
+          (data as { error?: string }).error ?? "Could not remove.",
+        );
       }
       onDone();
     } catch (err) {

@@ -315,7 +315,11 @@ function PackageUploader({
         ref={inputRef}
         type="file"
         accept=".cxxpkg,.zip"
-        onChange={(e) => void choose(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          const file = e.target.files?.[0] ?? null;
+          e.target.value = ""; // so picking the same file again fires onChange
+          void choose(file);
+        }}
         className="hidden"
         id={`pkg-${problemUid}`}
       />

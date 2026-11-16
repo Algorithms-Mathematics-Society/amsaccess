@@ -2,7 +2,7 @@
 
 import { clearApiCache } from "@/lib/client/useApiQuery";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
@@ -28,7 +28,6 @@ const workspaceSteps = [
 
 export default function OrgLoginPage() {
   const router = useRouter();
-  useEffect(() => { clearApiCache(); }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -47,8 +46,15 @@ export default function OrgLoginPage() {
       });
 
       // `next` lets a redirect-to-login return you where you were.
-      const next = new URLSearchParams(window.location.search).get("next");
-      clearApiCache();
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+      // Opened from the expiry notice: leave the original tab's state alone; it
+      // checks the account itself and resets only if a different one signed in.
+      if (params.get("reauth") === "1") {
+        window.close();
+      } else {
+        clearApiCache();
+      }
       router.push(next && next.startsWith("/") ? next : "/org/dashboard");
       router.refresh();
     } catch (err) {
@@ -72,7 +78,7 @@ export default function OrgLoginPage() {
               </Text>
             </VStack>
 
-            <form onSubmit={handleLogin} aria-busy={loading} data-org-login-form>
+            <form method="post" onSubmit={handleLogin} aria-busy={loading} data-org-login-form>
               <VStack gap={5}>
                 <Field label="Email" inputID="org-email" width="100%">
                   <HStack className={styles.fieldControl} align="center" gap={0}>

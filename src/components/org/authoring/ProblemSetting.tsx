@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/org/ConfirmDialog";
 import { useCallback, useEffect, useState } from "react";
 import { SkeletonTable } from "@/components/org/Skeleton";
 import { FilePlus2, Loader2, Trash2 } from "lucide-react";
@@ -62,18 +63,28 @@ export function ProblemSetting() {
     }
   }, []);
 
+  const [dialog, confirm] = useConfirm();
   const discard = useCallback(
-    async (uid: string) => {
-      await fetch(`/api/org/problem-drafts/${uid}`, { method: "DELETE" });
+    async (uid: string, title: string) => {
+      const ok = await confirm({
+        title: `Discard the draft “${title}”?`,
+        body: <p>The draft and everything typed into it are deleted. Published problems are not affected.</p>,
+        confirmLabel: "Discard draft",
+        danger: true,
+      });
+      if (!ok) return;
+      const res = await fetch(`/api/org/problem-drafts/${uid}`, { method: "DELETE" });
+      if (!res.ok) setError("Could not discard the draft. Refresh and try again.");
       void load();
     },
-    [load],
+    [load, confirm],
   );
 
   if (open) return <ProblemEditor uid={open} onClose={() => setOpen(null)} />;
 
   return (
     <div className="space-y-4">
+      {dialog}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Problemsetting</h2>
@@ -153,7 +164,7 @@ export function ProblemSetting() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
-                        onClick={() => void discard(d.uid)}
+                        onClick={() => void discard(d.uid, d.title)}
                         className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
                         aria-label={`Discard ${d.title}`}
                       >

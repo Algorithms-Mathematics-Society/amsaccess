@@ -18,7 +18,8 @@ type PreviewResponse = { problem: ProblemProjection; version: number };
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
+  if (!res.ok)
+    throw new Error((data as { error?: string }).error ?? "Request failed.");
   return data as T;
 }
 
@@ -43,7 +44,9 @@ export function ProblemPreviewModal({
   // Newest first, matching the catalogue card. A problem with no version has
   // nothing to preview and the card does not open this.
   const versions = problem.versions;
-  const [versionUid, setVersionUid] = useState(initialVersionUid ?? versions[0]?.uid ?? "");
+  const [versionUid, setVersionUid] = useState(
+    initialVersionUid ?? versions[0]?.uid ?? "",
+  );
   const [tab, setTab] = useState<ProblemSectionKey>("statement");
   const [copied, setCopied] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -54,19 +57,35 @@ export function ProblemPreviewModal({
     : "";
   const { data, error, refresh } = useApiQuery<PreviewResponse>(
     url,
-    () => fetch(url, { cache: "no-store" }).then((res) => json<PreviewResponse>(res)),
+    () =>
+      fetch(url, { cache: "no-store" }).then((res) =>
+        json<PreviewResponse>(res),
+      ),
     { staleMs: 30_000 },
   );
-  const [rebuild, setRebuild] = useState({ busy: false, done: false, error: "" });
-  useEffect(() => setRebuild({ busy: false, done: false, error: "" }), [versionUid]);
+  const [rebuild, setRebuild] = useState({
+    busy: false,
+    done: false,
+    error: "",
+  });
+  const rebuildLock = useRef(false);
+  useEffect(
+    () => setRebuild({ busy: false, done: false, error: "" }),
+    [versionUid],
+  );
 
   async function reproject() {
+    if (rebuildLock.current) return;
+    rebuildLock.current = true;
     setRebuild({ busy: true, done: false, error: "" });
     try {
       await json(
-        await fetch(`/api/org/problems/${problem.uid}/versions/${versionUid}/reproject`, {
-          method: "POST",
-        }),
+        await fetch(
+          `/api/org/problems/${problem.uid}/versions/${versionUid}/reproject`,
+          {
+            method: "POST",
+          },
+        ),
       );
       await refresh();
       setRebuild({ busy: false, done: true, error: "" });
@@ -74,8 +93,11 @@ export function ProblemPreviewModal({
       setRebuild({
         busy: false,
         done: false,
-        error: err instanceof Error ? err.message : "Could not rebuild the preview.",
+        error:
+          err instanceof Error ? err.message : "Could not rebuild the preview.",
       });
+    } finally {
+      rebuildLock.current = false;
     }
   }
 
@@ -84,7 +106,10 @@ export function ProblemPreviewModal({
 
   const sections = useMemo(() => splitProblemDescription(markdown), [markdown]);
   const tabs = useMemo(() => getAvailableProblemTabs(sections), [sections]);
-  const bodyHtml = useMemo(() => renderStatementHtml(sections[tab]), [sections, tab]);
+  const bodyHtml = useMemo(
+    () => renderStatementHtml(sections[tab]),
+    [sections, tab],
+  );
 
   // A statement whose examples live in its own section leaves the previous
   // tab selected when the version changes; fall back rather than render blank.
@@ -107,7 +132,9 @@ export function ProblemPreviewModal({
   // Sample blocks carry their text on the button, so one handler on the
   // container serves every block without re-binding on each render.
   const onBodyClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    const button = (event.target as HTMLElement).closest<HTMLElement>("[data-copy-sample]");
+    const button = (event.target as HTMLElement).closest<HTMLElement>(
+      "[data-copy-sample]",
+    );
     if (!button) return;
     const text = button.getAttribute("data-copy-sample") ?? "";
     const key = button.getAttribute("data-copy-key") ?? "";
@@ -141,13 +168,18 @@ export function ProblemPreviewModal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
           <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold text-slate-950">{problem.title}</h2>
-            <p className="mt-0.5 font-mono text-xs text-slate-400">{problem.slug}</p>
+            <h2 className="truncate text-base font-semibold text-slate-950">
+              {problem.title}
+            </h2>
+            <p className="mt-0.5 font-mono text-xs text-slate-400">
+              {problem.slug}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {versions.length > 1 && (
               <select
                 value={versionUid}
+                disabled={rebuild.busy}
                 onChange={(event) => setVersionUid(event.target.value)}
                 aria-label="Version"
                 className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-slate-900"
@@ -189,8 +221,14 @@ export function ProblemPreviewModal({
         {!error && projection && (
           <>
             <div className="grid grid-cols-3 gap-4 border-b border-slate-200 bg-slate-50 px-6 py-4">
-              <Fact label="Time limit" value={wallMs ? `${wallMs / 1000} s` : "not set"} />
-              <Fact label="Memory limit" value={memoryMb ? `${memoryMb} MB` : "not set"} />
+              <Fact
+                label="Time limit"
+                value={wallMs ? `${wallMs / 1000} s` : "not set"}
+              />
+              <Fact
+                label="Memory limit"
+                value={memoryMb ? `${memoryMb} MB` : "not set"}
+              />
               <Fact
                 label="Language"
                 value={`${projection.language ?? "cpp"} · ${projection.standard ?? "c++23"}`}
@@ -200,9 +238,9 @@ export function ProblemPreviewModal({
             {projection.backfilled && (
               <div className="flex items-start justify-between gap-3 border-b border-amber-200 bg-amber-50 px-6 py-2.5 text-xs text-amber-800">
                 <p>
-                  Rebuilt from this version&rsquo;s stored columns, because it was uploaded before
-                  projections existed. Re-upload or reproject it to see exactly what a candidate
-                  gets.
+                  Rebuilt from this version&rsquo;s stored columns, because it
+                  was uploaded before projections existed. Re-upload or
+                  reproject it to see exactly what a candidate gets.
                   {rebuild.error && (
                     <span role="alert" className="mt-1 block text-red-700">
                       {rebuild.error}
@@ -215,7 +253,9 @@ export function ProblemPreviewModal({
                   disabled={rebuild.busy}
                   className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 transition hover:border-amber-500 disabled:opacity-50"
                 >
-                  {rebuild.busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {rebuild.busy && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
                   {rebuild.busy ? "Rebuilding…" : "Rebuild preview"}
                 </button>
               </div>
@@ -266,16 +306,26 @@ export function ProblemPreviewModal({
               ) : (
                 <div className="py-10 text-center">
                   <FileText className="mx-auto h-7 w-7 text-slate-300" />
-                  <p className="mt-2 text-sm font-medium text-slate-700">No statement stored</p>
+                  <p className="mt-2 text-sm font-medium text-slate-700">
+                    No statement stored
+                  </p>
                   <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                    This version has no statement in its projection. Upload a package built with{" "}
-                    <code className="rounded bg-slate-100 px-1">cxxprobe package pack</code>.
+                    This version has no statement in its projection. Upload a
+                    package built with{" "}
+                    <code className="rounded bg-slate-100 px-1">
+                      cxxprobe package pack
+                    </code>
+                    .
                   </p>
                 </div>
               )}
 
               {tab === "statement" && (projection.samples?.length ?? 0) > 0 && (
-                <Samples samples={projection.samples ?? []} copied={copied} onCopy={setCopied} />
+                <Samples
+                  samples={projection.samples ?? []}
+                  copied={copied}
+                  onCopy={setCopied}
+                />
               )}
             </div>
 
@@ -291,7 +341,9 @@ function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-0.5 text-sm font-medium tabular-nums text-slate-900">{value}</p>
+      <p className="mt-0.5 text-sm font-medium tabular-nums text-slate-900">
+        {value}
+      </p>
     </div>
   );
 }
@@ -321,17 +373,20 @@ function Samples({
         {samples.map((sample, index) => (
           <div key={index} className="rounded-lg border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1.5">
-              <span className="text-xs font-medium text-slate-600">Sample {index + 1}</span>
+              <span className="text-xs font-medium text-slate-600">
+                Sample {index + 1}
+              </span>
               <button
                 type="button"
                 onClick={() => {
                   const key = `sample-pair-${index}`;
-                  void navigator.clipboard
-                    ?.writeText(sample.input ?? "")
-                    .then(() => {
+                  void navigator.clipboard?.writeText(sample.input ?? "").then(
+                    () => {
                       onCopy(key);
                       window.setTimeout(() => onCopy(null), 1500);
-                    }, () => undefined);
+                    },
+                    () => undefined,
+                  );
                 }}
                 className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
               >
@@ -365,7 +420,9 @@ function Samples({
 function Pane({ label, body }: { label: string; body: string }) {
   return (
     <div className="bg-white px-3 py-2">
-      <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
       <pre className="overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-800">
         {body || "(empty)"}
       </pre>

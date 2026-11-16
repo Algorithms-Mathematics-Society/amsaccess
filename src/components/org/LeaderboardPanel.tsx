@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useContestRead } from "@/lib/client/useContestRead";
 import { useOrgSessions } from "@/lib/client/useOrgSessions";
-import {
-  groupLeaderboardByEntry,
-} from "@/lib/client/orgEntry";
+import { groupLeaderboardByEntry } from "@/lib/client/orgEntry";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { SkeletonTable } from "@/components/org/Skeleton";
 import { PeopleFilters } from "@/components/org/PeopleFilters";
@@ -84,9 +82,27 @@ function LeaderboardContent({
   /** Polls only while there is something to poll for. */
   live: boolean;
 }) {
-  const { entered, loaded: entryLoaded, error: entryError, refresh: refreshEntry } = useOrgSessions(contestUid, live);
-  const { data: board, error, refreshing: boardRefreshing, load: loadBoard, open: openBoard } = useContestRead<Scoreboard>("scoreboard");
-  const { data: roster, refreshing: rosterRefreshing, load: loadRoster, open: openRoster } = useContestRead<{ user_uid: string; college?: string; device_os?: string }[]>("participants");
+  const {
+    entered,
+    loaded: entryLoaded,
+    error: entryError,
+    refresh: refreshEntry,
+  } = useOrgSessions(contestUid, live);
+  const {
+    data: board,
+    error,
+    refreshing: boardRefreshing,
+    load: loadBoard,
+    open: openBoard,
+  } = useContestRead<Scoreboard>("scoreboard");
+  const {
+    data: roster,
+    refreshing: rosterRefreshing,
+    load: loadRoster,
+    open: openRoster,
+  } = useContestRead<
+    { user_uid: string; college?: string; device_os?: string }[]
+  >("participants");
   const refreshing = boardRefreshing || rosterRefreshing;
   // Opened over the contest instead of navigating away: /org/participants
   // belongs to the Students section, so Back from there abandons the contest.
@@ -95,9 +111,19 @@ function LeaderboardContent({
   // The standings carry scores, not people. College and OS live on the
   // roster, so they are fetched alongside and joined by uid -- without them
   // the two tabs would offer different filters over the same candidates.
-  const people = useMemo(() => new Map((roster ?? []).map(row => [row.user_uid, { college: row.college ?? "", os: row.device_os ?? "" }])), [roster]);
+  const people = useMemo(
+    () =>
+      new Map(
+        (roster ?? []).map((row) => [
+          row.user_uid,
+          { college: row.college ?? "", os: row.device_os ?? "" },
+        ]),
+      ),
+    [roster],
+  );
   const load = useCallback(async () => {
-    await Promise.all([loadBoard(), loadRoster()]);
+    const results = await Promise.all([loadBoard(), loadRoster()]);
+    return results.every((result) => result !== false);
   }, [loadBoard, loadRoster]);
   useEffect(() => {
     void openBoard();
@@ -162,7 +188,10 @@ function LeaderboardContent({
           type="button"
           disabled={refreshing}
           className="underline"
-          onClick={() => { void load(); void refreshEntry().catch(() => {}); }}
+          onClick={() => {
+            void load();
+            void refreshEntry().catch(() => {});
+          }}
         >
           Retry
         </button>
@@ -197,7 +226,10 @@ function LeaderboardContent({
 
         <button
           type="button"
-          onClick={() => { void load(); void refreshEntry().catch(() => {}); }}
+          onClick={() => {
+            void load();
+            void refreshEntry().catch(() => {});
+          }}
           disabled={refreshing}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-900"
         >
@@ -206,6 +238,7 @@ function LeaderboardContent({
         </button>
         <a
           href={`/api/org/contests/${contestUid}/export?kind=standings`}
+          download
           className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:border-slate-900"
         >
           <Download className="h-4 w-4" />
