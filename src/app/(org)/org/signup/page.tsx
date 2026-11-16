@@ -2,7 +2,7 @@
 
 import { clearApiCache } from "@/lib/client/useApiQuery";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -21,7 +21,6 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export default function SignUpPage() {
   const router = useRouter();
-  useEffect(() => { clearApiCache(); }, []);
   const [stage, setStage] = useState<Stage>("details");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,7 +93,7 @@ export default function SignUpPage() {
         {notice && <p className="mt-2 text-sm text-slate-500">{notice}</p>}
 
         {stage === "details" ? (
-          <form onSubmit={createAccount} className="mt-6 space-y-4">
+          <form method="post" onSubmit={createAccount} className="mt-6 space-y-4">
             <Field label="Name" value={displayName} onChange={setDisplayName} autoFocus />
             <Field label="Email" type="email" value={email} onChange={setEmail} />
             <Field label="Password" type="password" value={password} onChange={setPassword} />
@@ -109,7 +108,7 @@ export default function SignUpPage() {
             </button>
           </form>
         ) : (
-          <form onSubmit={confirm} className="mt-6 space-y-4">
+          <form method="post" onSubmit={confirm} className="mt-6 space-y-4">
             <Field label="Confirmation code" value={code} onChange={setCode} autoFocus />
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button

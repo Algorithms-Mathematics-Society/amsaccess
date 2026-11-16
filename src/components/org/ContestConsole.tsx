@@ -19,11 +19,12 @@ import {
 } from "lucide-react";
 import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
-import { verdictClass } from "@/lib/contestTypes";
+import { verdictClassLight } from "@/lib/contestTypes";
 import { invalidate } from "@/lib/client/useApiQuery";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { ContestNotifications } from "./ContestNotifications";
+import { useConfirm } from "./ConfirmDialog";
 import { ContestReadProvider, useContestReadStore } from "@/lib/client/useContestRead";
 import type { ContestReadResource } from "@/lib/client/contestReads";
 
@@ -542,6 +543,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           />
           <a
             href={`/api/org/contests/${contest.uid}/export?kind=standings`}
+            download
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
           >
             <Download className="h-3.5 w-3.5" />
@@ -549,6 +551,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           </a>
           <a
             href={`/api/org/contests/${contest.uid}/export?kind=submissions`}
+            download
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
           >
             <Download className="h-3.5 w-3.5" />
@@ -638,6 +641,7 @@ function Reschedule({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dialog, confirm] = useConfirm();
 
   const invalid = new Date(ends) <= new Date(starts);
 
@@ -747,7 +751,19 @@ function Reschedule({
         {/* The reason this control exists: making a contest testable now. */}
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
+            const ok = await confirm({
+              title: "Start this contest now for 3 hours?",
+              body: (
+                <p>
+                  The start moves to one minute ago and the end to 3 hours from now, replacing the
+                  current schedule{contest.status === "running" ? ", including for people already sitting" : ""}.
+                </p>
+              ),
+              confirmLabel: "Start now for 3 hours",
+              danger: contest.status === "running",
+            });
+            if (!ok) return;
             const now = new Date();
             save(
               new Date(now.getTime() - 60_000).toISOString(),
@@ -768,6 +784,7 @@ function Reschedule({
         </button>
       </div>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {dialog}
     </div>
   );
 }
@@ -795,8 +812,21 @@ function PublishButton({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dialog, confirm] = useConfirm();
 
   async function publish() {
+    const ok = await confirm({
+      title: "Publish this contest?",
+      body: (
+        <>
+          <p>The invite code starts working and the contest appears in candidates’ apps.</p>
+          <p>It does not start the contest; it opens at its scheduled start.</p>
+        </>
+      ),
+      confirmLabel: "Publish contest",
+      cancelLabel: "Not yet",
+    });
+    if (!ok) return;
     setBusy(true);
     setError("");
     try {
@@ -831,6 +861,7 @@ function PublishButton({
         {busy ? "Publishing…" : "Publish"}
       </button>
       {error && <p className="mt-1 max-w-xs text-xs text-red-600">{error}</p>}
+      {dialog}
     </div>
   );
 }
@@ -1165,7 +1196,7 @@ function SubmissionsTab({
           .map(([key, n]) => (
             <span
               key={key}
-              className={`rounded-full border px-2.5 py-1 text-xs font-medium ${verdictClass(key)}`}
+              className={`rounded-full border px-2.5 py-1 text-xs font-medium ${verdictClassLight(key)}`}
             >
               {key} · {n}
             </span>
@@ -1207,7 +1238,7 @@ function SubmissionsTab({
                 </td>
                 <td className="px-4 py-2.5">
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${verdictClass(s.verdict ?? s.status)}`}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${verdictClassLight(s.verdict ?? s.status)}`}
                   >
                     {s.verdict ?? s.status}
                   </span>
@@ -1249,8 +1280,30 @@ function RejudgeButton({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState("");
+  const [dialog, confirm] = useConfirm();
 
   async function run(verdict: string) {
+    const ok = await confirm(
+      verdict
+        ? {
+            title: "Re-run every System Error submission?",
+            body: <p>Only submissions where the judge itself failed (SE) are re-run. Other verdicts stay as they are.</p>,
+            confirmLabel: "Rejudge system errors",
+          }
+        : {
+            title: "Re-run every submission in this contest?",
+            body: (
+              <>
+                <p>All verdicts are recalculated, including ones that were already correct. Scores and the leaderboard can change while the queue runs.</p>
+                <p>During a live contest this also slows judging for new submissions.</p>
+              </>
+            ),
+            confirmLabel: "Rejudge everything",
+            danger: true,
+            typeToConfirm: "REJUDGE",
+          },
+    );
+    if (!ok) return;
     setBusy(true);
     setResult("");
     try {
@@ -1300,7 +1353,7 @@ function RejudgeButton({
             disabled={busy}
             className="rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
           >
-            Failed only (SE)
+            System errors only (SE)
           </button>
           <button
             type="button"
@@ -1314,6 +1367,7 @@ function RejudgeButton({
       )}
 
       {result && <span className="text-xs text-slate-500">{result}</span>}
+      {dialog}
     </span>
   );
 }

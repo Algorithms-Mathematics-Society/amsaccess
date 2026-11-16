@@ -16,7 +16,7 @@ import {
   Phone,
 } from "lucide-react";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
-import { verdictClass } from "@/lib/contestTypes";
+import { verdictClassLight } from "@/lib/contestTypes";
 import {
   SubmissionSourceModal,
   type SubmissionRef,
@@ -388,7 +388,7 @@ export function ParticipantProfile({
                       title="View submitted code"
                     >
                       <span
-                        className={`w-12 flex-shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-medium ${verdictClass(submission.verdict)}`}
+                        className={`w-12 flex-shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-medium ${verdictClassLight(submission.verdict)}`}
                       >
                         {submission.verdict || "—"}
                       </span>
@@ -450,7 +450,7 @@ export function ParticipantProfile({
                 {profile.verdicts.map((entry) => (
                   <li key={entry.verdict} className="flex items-center gap-2">
                     <span
-                      className={`w-12 flex-shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-medium ${verdictClass(entry.verdict)}`}
+                      className={`w-12 flex-shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-medium ${verdictClassLight(entry.verdict)}`}
                     >
                       {entry.verdict}
                     </span>

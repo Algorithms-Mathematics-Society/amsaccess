@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useApiQuery, invalidate } from "@/lib/client/useApiQuery";
 import { SkeletonText } from "@/components/org/Skeleton";
+import { useConfirm } from "@/components/org/ConfirmDialog";
 import Link from "next/link";
 import { Archive, CalendarDays, Plus, Square, Trash2, Undo2, Users } from "lucide-react";
 import type { Contest } from "@/lib/orgTypes";
@@ -111,6 +112,7 @@ function ContestCard({ contest: c, onChanged }: { contest: Contest; onChanged: (
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [confirmPurge, setConfirmPurge] = useState(false);
+  const [dialog, confirm] = useConfirm();
 
   async function act(action: string, url: string, method: "POST" | "DELETE") {
     setBusy(action);
@@ -119,15 +121,54 @@ function ContestCard({ contest: c, onChanged }: { contest: Contest; onChanged: (
       const res = await fetch(url, { method });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
+        // Only the server's "people submitted" refusal (409) offers a purge;
+        // a timeout or an expired session must never arm the destructive path.
+        if (method === "DELETE" && res.status === 409) setConfirmPurge(true);
         throw new Error(data.error ?? "Request failed.");
       }
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That did not work.");
-      if (method === "DELETE") setConfirmPurge(true);
     } finally {
       setBusy("");
     }
+  }
+
+  async function endNow() {
+    const ok = await confirm({
+      title: `End ${c.title} now?`,
+      body: (
+        <>
+          <p>Submissions close for everyone immediately. Results are kept.</p>
+          <p>This can’t be undone. To give more time instead, use Reschedule on the contest page.</p>
+        </>
+      ),
+      confirmLabel: "End contest",
+      cancelLabel: "Keep running",
+      danger: true,
+      typeToConfirm: "END",
+    });
+    if (ok) act("end", `/api/org/contests/${c.uid}/lifecycle?action=end`, "POST");
+  }
+
+  async function remove() {
+    const ok = await confirm(
+      confirmPurge
+        ? {
+            title: `Destroy ${c.title} and every result in it?`,
+            body: <p>Submissions, results, sessions and statistics are deleted with it. There is no undo. Archive it instead if anyone really sat it.</p>,
+            confirmLabel: "Delete contest and results",
+            danger: true,
+            typeToConfirm: "DELETE",
+          }
+        : {
+            title: `Delete ${c.title}?`,
+            body: <p>Its roster, invite code and problem list are removed. This only works if nobody has submitted; otherwise the server refuses and you can archive it.</p>,
+            confirmLabel: "Delete contest",
+            danger: true,
+          },
+    );
+    if (ok) act("delete", `/api/org/contests/${c.uid}${confirmPurge ? "?purge=1" : ""}`, "DELETE");
   }
 
   const archived = c.status === "archived";
@@ -182,7 +223,7 @@ function ContestCard({ contest: c, onChanged }: { contest: Contest; onChanged: (
             label={busy === "end" ? "Ending…" : "End now"}
             hint="Stop the contest at this moment. Nothing is deleted."
             disabled={Boolean(busy)}
-            onClick={() => act("end", `/api/org/contests/${c.uid}/lifecycle?action=end`, "POST")}
+            onClick={endNow}
           />
         )}
 
@@ -221,12 +262,11 @@ function ContestCard({ contest: c, onChanged }: { contest: Contest; onChanged: (
             }
             danger
             disabled={Boolean(busy)}
-            onClick={() =>
-              act("delete", `/api/org/contests/${c.uid}${confirmPurge ? "?purge=1" : ""}`, "DELETE")
-            }
+            onClick={remove}
           />
         )}
       </div>
+      {dialog}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { ParticipantModal } from "@/components/org/ParticipantModal";
 import { extractEmails } from "@/lib/roster";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { AddFromAccess } from "./AddFromAccess";
+import { useConfirm } from "./ConfirmDialog";
 import {
   AlertTriangle,
   Check,
@@ -245,6 +246,7 @@ function ParticipantsContent({
           {roster !== null && roster.length > 0 && (
             <a
               href={`/api/org/contests/${contestUid}/participants/export.csv`}
+              download
               className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-900"
             >
               <Download className="h-4 w-4" />
@@ -532,6 +534,7 @@ function ImportCsv({
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
+              event.target.value = ""; // the "fix the CSV and import again" path re-picks the same file
               if (file) void readFile(file);
             }}
           />
@@ -1062,7 +1065,7 @@ function RosterFilters(props: ComponentProps<typeof PeopleFilters>) {
     const shortcut = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || document.querySelector('[role="dialog"]:not([aria-hidden="true"]):not([inert]), dialog[open]')) return;
       const target = event.target as HTMLElement | null;
-      if (event.key === "/" && !target?.closest('input, textarea, select, [contenteditable="true"]')) {
+      if (event.key === "/" && controls.current?.offsetParent && !target?.closest('input, textarea, select, [contenteditable="true"]')) {
         event.preventDefault();
         controls.current?.querySelector<HTMLInputElement>('input')?.focus();
       } else if (event.key === "Escape" && target === controls.current?.querySelector('input')) {
@@ -1108,6 +1111,7 @@ const RosterTable = memo(function RosterTable({
   const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   const [reissued, setReissued] = useState<IssuedCredential | null>(null);
   const [actions, setActions] = useState<Record<string, RowActionState>>({});
+  const [confirmDialog, confirm] = useConfirm();
   const pending = useRef(new Set<string>());
   const reissueLock = useRef(false);
 
@@ -1274,6 +1278,26 @@ const RosterTable = memo(function RosterTable({
     }
   }, [contestUid, onChange]);
 
+  // Row buttons go through here so a one-click Revoke can't lock someone out by accident.
+  const rowAction = useCallback(async (loginId: string, action: RowAction) => {
+    if (action === "revoke") {
+      const name = currentRows.current.find((candidate) => candidate.login_id === loginId)?.display_name ?? loginId;
+      const ok = await confirm({
+        title: `Revoke ${name}’s login?`,
+        body: (
+          <>
+            <p>Their one login is shared by every contest they’re registered for, so this signs them out of all of them. Records and submissions are kept.</p>
+            <p>It can’t be undone yet: a revoked login can’t be restored or issued again.</p>
+          </>
+        ),
+        confirmLabel: "Revoke login",
+        danger: true,
+      });
+      if (!ok) return null;
+    }
+    return act(loginId, action);
+  }, [act, confirm]);
+
   const emailSelected = async () => {
     if (!mounted.current || bulkLock.current) return;
     const recipients = currentRows.current.filter((row) => selected.has(row.login_id)
@@ -1337,7 +1361,7 @@ const RosterTable = memo(function RosterTable({
           unknown={actions[row.login_id]?.unknown ?? false} queued={actions[row.login_id]?.queued ?? false} reissueLocked={reissueLocked}
           credentialLocked={credentialLoginId === row.login_id}
           selected={selected.has(row.login_id)} onSelect={toggleSelected}
-          onOpen={setOpenParticipant} onAction={act} />
+          onOpen={setOpenParticipant} onAction={rowAction} />
       ))}
       {visible.length === 0 && (
         <tr>
@@ -1350,7 +1374,7 @@ const RosterTable = memo(function RosterTable({
         </tr>
       )}
     </tbody>
-  ), [visible, entered, actions, reissueLocked, credentialLoginId, act, setOpenParticipant, rows.length, selected, toggleSelected]);
+  ), [visible, entered, actions, reissueLocked, credentialLoginId, rowAction, setOpenParticipant, rows.length, selected, toggleSelected]);
 
   return (
     <div>
@@ -1358,6 +1382,7 @@ const RosterTable = memo(function RosterTable({
         handle={openParticipant}
         onClose={() => setOpenParticipant(null)}
       />
+      {confirmDialog}
       <CredentialModal
         row={reissued}
         contestTitle={contestTitle}
@@ -1748,6 +1773,7 @@ function CredentialMail({
   const [busy, setBusy] = useState<"issue" | "send" | null>(null);
   const [error, setError] = useState("");
   const [queued, setQueued] = useState<QueuedBatch | null>(null);
+  const [dialog, confirm] = useConfirm();
 
   const loadPlan = useCallback(async () => {
     try {
@@ -1788,6 +1814,23 @@ function CredentialMail({
   }
 
   async function send() {
+    const count = (plan?.ready ?? 0) + (includeHolders ? plan?.holders ?? 0 : 0);
+    const ok = await confirm({
+      title: `Email credentials to ${count} ${count === 1 ? "person" : "people"}?`,
+      body: (
+        <>
+          <p>Each gets their login and password by email. Emails are queued; delivery shows per row.</p>
+          {includeHolders && (
+            <p className="font-medium text-red-700">
+              This includes {plan?.holders} who already hold a password. Theirs is replaced: slips or earlier emails stop working.
+            </p>
+          )}
+        </>
+      ),
+      confirmLabel: `Email ${count} ${count === 1 ? "person" : "people"}`,
+      danger: includeHolders,
+    });
+    if (!ok) return;
     setBusy("send");
     setError("");
     try {
@@ -1939,6 +1982,7 @@ function CredentialMail({
           )}
         </div>
       )}
+      {dialog}
     </div>
   );
 }
