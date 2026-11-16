@@ -97,8 +97,7 @@ function downloadHarness(latest, { limited = false } = {}) {
     },
     "@/lib/release-download": { parseDownloadIdentity, resolveDownload },
     "@/lib/releases": {
-      fetchLatestRelease: async (options) => {
-        assert.equal(options.fresh, true);
+      fetchRecentRelease: async () => {
         fetchCount++;
         return latest;
       },

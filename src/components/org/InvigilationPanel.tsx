@@ -219,7 +219,7 @@ function IdentityDialog({
   );
 }
 
-export function InvigilationPanel({ contestUid, notificationsEnabled = true }: { contestUid: string; notificationsEnabled?: boolean }) {
+export function InvigilationPanel({ contestUid, notificationsEnabled = true, active = true }: { contestUid: string; notificationsEnabled?: boolean; active?: boolean }) {
   const notifications = useOrgNotifications(contestUid, notificationsEnabled);
   const { incidents, resumes, sessions } = notifications.raw;
   const desktop = useOrgDesktopLayout();
@@ -259,10 +259,17 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
     if (!signal.aborted) setError(results.some(Boolean) ? "" : "Could not refresh device checks or overrides.");
   }, [contestUid]);
   const { load, refreshAfterWrite } = useOrgReadTask(read);
+  const [readinessLoaded, setReadinessLoaded] = useState(false);
   useEffect(() => {
-    if (!notificationsEnabled) return;
-    return startOrgPolling(load, POLL_MS);
-  }, [load, notificationsEnabled]);
+    if (!notificationsEnabled || !active) return;
+    return startOrgPolling(async () => { await load(); setReadinessLoaded(true); }, POLL_MS);
+  }, [load, notificationsEnabled, active]);
+  // An empty list only means "nobody" once the feed has actually answered.
+  const emptyText = (nobody: string) =>
+    !notificationsEnabled ? "Not shown for your role. Ask an admin for contest staff access."
+      : notifications.loading ? "Loading…"
+      : notifications.errors.length > 0 ? "Couldn’t load this yet; retrying automatically."
+      : nobody;
 
   async function act(key: string, url: string, body?: unknown) {
     setBusy(key);
@@ -305,6 +312,14 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </p>
+      )}
+      {notificationsEnabled && notifications.errors.length > 0 && (
+        <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Live updates are failing, so these lists may be out of date
+          {notifications.updatedAt !== null && ` (last update ${new Date(notifications.updatedAt).toLocaleTimeString()})`}.
+          Retrying automatically.{" "}
+          <button type="button" className="underline" onClick={() => void notifications.refresh()}>Retry now</button>
         </p>
       )}
 
@@ -418,7 +433,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
 
         {incidents.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-            Nobody has asked for help.
+            {emptyText("Nobody has asked for help.")}
           </p>
         ) : (
           <div className="space-y-2">
@@ -577,7 +592,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
 
         {sessions.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-            Nobody has started this contest yet.
+            {emptyText("Nobody has started this contest yet.")}
           </p>
         ) : desktop ? (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
@@ -738,7 +753,7 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true }: {
 
         {readiness.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-            No devices have reported yet.
+            {!notificationsEnabled ? emptyText("") : readinessLoaded ? "No devices have reported yet." : "Loading…"}
           </p>
         ) : desktop ? (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">

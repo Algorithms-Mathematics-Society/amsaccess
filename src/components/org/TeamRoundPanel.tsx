@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOrgRole } from '@/lib/client/useOrgRole';
 import { PROJECT_LIMIT, TEAM_WRITERS, validateTeamBody } from '@/lib/teamSetup';
+import { parseTeamRoster, type MonitorTeam } from '@/lib/teamMonitor';
+import { TeamRoundMonitor } from './TeamRoundMonitor';
 
 type Round = { team_size: number; discussion_seconds: number; selection_opens_at: string | null; allocation_locks_at: string | null; submit_deadline: string | null; seeded_at: string | null; published_at: string | null; allocation_locked_at: string | null; rank_sum_spread: number | null; project: { uid: string; name: string } | null; parts: { label: string }[] };
-type Team = { uid: string; name: string; revision: number; members: { user_uid: string; display_name: string; seed_rank: number; part_label: string | null }[] };
 type Preview = { name: string; parts: { label: string; title: string; warnings: string[] }[] };
 const input = 'mt-1 block w-full rounded border border-slate-300 bg-white p-2 text-sm text-slate-900';
 const button = 'rounded border border-slate-300 px-3 py-2 text-sm disabled:opacity-50';
@@ -14,11 +15,12 @@ function localTime(value: string | null) {
   const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function TeamRoundPanel({ contestUid, onChanged }: { contestUid: string; onChanged: () => void }) {
+export function TeamRoundPanel({ contestUid, onChanged, contestStartsAt = null, contestEndsAt = null }: { contestUid: string; onChanged: () => void; contestStartsAt?: string | null; contestEndsAt?: string | null }) {
   const { role, known } = useOrgRole();
   const canWrite = known && role !== null && TEAM_WRITERS.includes(role);
   const [round, setRound] = useState<Round | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [teams, setTeams] = useState<MonitorTeam[]>([]);
+  const [rosterError, setRosterError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -60,9 +62,11 @@ export function TeamRoundPanel({ contestUid, onChanged }: { contestUid: string; 
     if (state) {
       setProject(state.project?.uid ?? ''); setSize(state.team_size); setDiscussion(state.discussion_seconds);
       setOpens(localTime(state.selection_opens_at)); setLocks(localTime(state.allocation_locks_at)); setDeadline(localTime(state.submit_deadline));
-      const roster = await request(base + '/teams') as Team[];
-      if (mounted.current) setTeams(roster);
-    } else setTeams([]);
+      const data: unknown = await request(base + '/teams');
+      let roster: MonitorTeam[] = []; let problem = '';
+      try { roster = parseTeamRoster(data); } catch (e) { problem = e instanceof Error ? e.message : 'The team roster response was not recognised. Refresh, or report this.'; }
+      if (mounted.current) { setTeams(roster); setRosterError(problem); }
+    } else { setTeams([]); setRosterError(''); }
     if (mounted.current) setLoaded(true);
   }
   async function action(work: () => Promise<void>, mutation = false) {
@@ -92,6 +96,7 @@ export function TeamRoundPanel({ contestUid, onChanged }: { contestUid: string; 
     {notice && <p role="status" className="text-green-800">{notice}</p>}
     {busy && <p role="status">Working…</p>}
     {!loaded && !busy && <p>Could not load team settings. Refresh before making changes.</p>}
+    {round?.published_at && <TeamRoundMonitor base={base} schedule={{ selection_opens_at: round.selection_opens_at, discussion_seconds: round.discussion_seconds, allocation_locks_at: round.allocation_locks_at, allocation_locked_at: round.allocation_locked_at, submit_deadline: round.submit_deadline, contest_starts_at: contestStartsAt, contest_ends_at: contestEndsAt }} />}
     <fieldset disabled={!canWrite || busy || !loaded} className="space-y-4 rounded border p-4">
       <legend className="px-2 font-semibold">1. Project pack</legend>
       <p className="text-sm text-slate-600">Preview a .cxxpkg before importing (maximum 32 MiB). Importing adds it to the organization catalog; binding it below replaces this contest’s existing team parts.</p>
@@ -138,15 +143,16 @@ export function TeamRoundPanel({ contestUid, onChanged }: { contestUid: string; 
         <label>Method<select className={input} value={method} onChange={e => setMethod(e.target.value)}><option value="snake">Snake — balanced across ranks</option><option value="tiered">Tiered — consecutive ranks</option><option value="banded">Banded — balanced within tiers</option></select></label>
         {method === 'banded' && <label>Bands<input className={input} type="number" min="1" max="50" value={bands} onChange={e => setBands(Number(e.target.value))} /></label>}</div>
       <label className="block">Additional participant user UIDs (one per line, maximum 100)<textarea className={input} value={additions} onChange={e => setAdditions(e.target.value)} /></label>
-      <button className={button} disabled={Boolean(round?.published_at) || hasClaims} onClick={() => void action(async () => {
+      <button className={button} disabled={Boolean(round?.published_at) || hasClaims || Boolean(rosterError)} onClick={() => void action(async () => {
         const body = validateTeamBody('/seed', { source_contest_uid: source, take, method, bands, add_user_uids: additions.split(/\s+/).filter(Boolean), reset: Boolean(round?.seeded_at) });
         if (!window.confirm(round?.seeded_at ? 'Replace the unpublished team draw? The API will refuse if any part is held.' : 'Draw and save teams from this source contest?')) return;
         await mutate('/seed', body);
       }, true)}>{round?.seeded_at ? 'Redraw unpublished teams' : 'Draw teams'}</button>
     </fieldset>
     <div className="space-y-3 rounded border p-4"><h3 className="font-semibold">4. Review and publish</h3>
-      <p>{teams.length} teams · Rank-sum spread: {round?.rank_sum_spread ?? 'not available'} · {round?.published_at ? 'Teams published' : 'Teams unpublished'}</p>
-      <div className="grid gap-3 md:grid-cols-2">{teams.map(t => <article className="rounded border p-3" key={t.uid}><h4 className="font-medium">{t.name} · Rank sum {t.members.reduce((sum, m) => sum + m.seed_rank, 0)}</h4><ul>{t.members.map(m => <li key={m.user_uid}>{m.display_name} · Rank {m.seed_rank} · Part {m.part_label ?? 'not chosen'}</li>)}</ul></article>)}</div>
+      {rosterError && <p role="alert" className="rounded bg-red-50 p-3 text-red-800">{rosterError}</p>}
+      <p>{rosterError ? 'Roster not available' : `${teams.length} teams`} · Rank-sum spread: {round?.rank_sum_spread ?? 'not available'} · {round?.published_at ? 'Teams published' : 'Teams unpublished'}</p>
+      <div className="grid gap-3 md:grid-cols-2">{teams.map(t => <article className="rounded border p-3" key={t.uid}><h4 className="font-medium">{t.name} · Rank sum {t.members.every(m => m.seed_rank !== null) ? t.members.reduce((sum, m) => sum + (m.seed_rank ?? 0), 0) : 'not available'}</h4><ul>{t.members.map(m => <li key={m.user_uid}>{m.display_name} · Rank {m.seed_rank ?? 'not available'} · Part {m.part_label ?? 'not chosen'}</li>)}</ul></article>)}</div>
       <div className="flex flex-wrap gap-3">
         <button className={button} disabled={!canWrite || busy || !teams.length || Boolean(round?.published_at)} onClick={() => void action(async () => { if (window.confirm('Publish these teams to participants? There is no unpublish control.')) await mutate('/publish'); }, true)}>Publish teams</button>
         <button className={button} disabled={!canWrite || busy || !round?.published_at || Boolean(round?.allocation_locked_at)} onClick={() => void action(async () => { if (window.confirm('Lock allocation now and assign all remaining parts? This closes participant choices.')) await mutate('/lock-allocation'); }, true)}>Lock allocation now</button>

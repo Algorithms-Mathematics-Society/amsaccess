@@ -23,7 +23,7 @@ try {
    writes.push('save');round={...route.request().postDataJSON(),project:{uid,name:'Sample'},seeded_at:null,published_at:null,parts:[1,2,3,4].map(n=>({label:String(n)})),rank_sum_spread:0};return ok(round);
   }
   if(u.pathname.endsWith('/team-round/teams'))return ok(roster);
-  if(u.pathname.endsWith('/team-round/seed')){writes.push('seed');round.seeded_at='2026-11-11T12:00:00Z';roster=[{uid,name:'Team 1',revision:0,members:[1,2,3,4].map(n=>({user_uid:uid+n,display_name:`Tester ${n}`,seed_rank:n,part_label:null}))}];return ok({teams:1});}
+  if(u.pathname.endsWith('/team-round/seed')){writes.push('seed');round.seeded_at='2026-11-11T12:00:00Z';roster=[{uid,number:1,name:'Team 1',revision:0,votes:0,submitted_revision:null,submitted_by:null,members:[1,2,3,4].map(n=>({user_uid:uid+n,username:`tester${n}`,display_name:`Tester ${n}`,seed_rank:n,part_label:null,assigned_by:null})),last_result:null}];return ok({teams:1});}
   if(u.pathname.endsWith('/team-round/publish')){writes.push('publish');round.published_at='2026-11-11T12:00:00Z';return ok(round);}
   if(method!=='GET')throw Error('Unexpected mutation '+u.pathname);
   return ok([]);

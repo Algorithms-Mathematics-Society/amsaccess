@@ -7,6 +7,8 @@ const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'], 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 function gate() { let release; const promise = new Promise(resolve => { release = resolve; }); return { promise, release }; }
 async function until(check, message) { for (let i = 0; i < 200; i++) { if (await check()) return; await delay(25); } throw Error(message); }
+// Answers the console's in-page confirm dialog and returns its text.
+async function answer(page, ok) { const d = page.getByRole('dialog'); await d.waitFor(); const text = await d.innerText(); await d.getByRole('button', { name: ok ? /^(Queue|Send another)/ : 'Cancel' }).click(); await d.waitFor({ state: 'detached' }); return text; }
 const person = i => ({ user_uid: `u${i}`, login_id: `candidate-${i}`, display_name: `Candidate ${String(i).padStart(4, '0')}`, revoked: false, last_login_at: null, has_passphrase: true, email: `candidate${i}@example.test`, mail_status: '', college: i % 2 ? 'College B' : 'College A', device_os: i % 2 ? 'Windows' : 'Linux' });
 async function scenario(run, count = 4) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -53,9 +55,9 @@ async function scenario(run, count = 4) {
     await page.getByRole('textbox', { name: 'Find a candidate' }).fill('Candidate 0000');
     await until(async () => await page.locator('tbody tr').count() === 1, 'Filter applies');
     let confirmations = 0;
-    page.on('dialog', async dialog => { confirmations++; assert.match(dialog.message(), /6 selected participants/); assert.match(dialog.message(), /hidden by filters/); assert.match(dialog.message(), /replaces existing passwords\/slips for 6 participants/); await dialog.accept(); });
     const readsBefore = calls.filter(c => c.path.endsWith('/participants') && c.method === 'GET').length;
     await page.getByRole('button', { name: 'Email selected', exact: true }).click();
+    { const text = await answer(page, true); confirmations++; assert.match(text, /6 selected participants/); assert.match(text, /hidden by filters/); assert.match(text, /Existing passwords stay unchanged/); }
     await until(() => ids.length === 3, 'Three concurrent workers start');
     assert.equal(await page.getByRole('button', { name: 'Queueing selected…' }).isDisabled(), true);
     assert.equal(await row(0).getByRole('button', { name: 'Queueing…', exact: true }).isDisabled(), true);
@@ -71,11 +73,11 @@ async function scenario(run, count = 4) {
     state.write = async ({ url, respond }) => { ids.push(url.pathname); await blocked.promise; return respond({ queued: 1 }); };
     await load();
     await page.getByRole('button', { name: 'Select eligible shown' }).click();
-    page.once('dialog', dialog => dialog.dismiss());
     await page.getByRole('button', { name: 'Email selected', exact: true }).click();
+    await answer(page, false);
     assert.equal(ids.length, 0, 'Cancel sends nothing');
-    page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Email selected', exact: true }).click();
+    await answer(page, true);
     await until(() => ids.length === 3, 'Three active requests');
     await page.goto(base + '/org/login');
     blocked.release(); await delay(250);
@@ -87,8 +89,8 @@ async function scenario(run, count = 4) {
     state.write = async ({ url, respond }) => { ids.push(url.pathname); await blocked.promise; return respond({ queued: 1 }); };
     await load();
     await page.getByRole('button', { name: 'Select eligible shown' }).click();
-    page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Email selected', exact: true }).click();
+    await answer(page, true);
     await until(() => ids.length === 3, 'Initial requests before session reset');
     await page.evaluate(() => window.dispatchEvent(new Event('ams:org-session-reset')));
     blocked.release(); await delay(250);
@@ -101,12 +103,10 @@ async function scenario(run, count = 4) {
     state.roster[1].mail_status = 'sent'; state.roster[2].revoked = true; state.roster[3].email = '';
     state.write = async ({ respond }) => respond({ error: 'Temporary fixture failure' }, 503);
     await load();
-    assert.equal(await page.getByRole('checkbox', { name: /candidate-1/ }).isDisabled(), true);
-    assert.equal(await page.getByRole('checkbox', { name: /candidate-2/ }).isDisabled(), true);
-    assert.equal(await page.getByRole('checkbox', { name: /candidate-3/ }).isDisabled(), true);
-    await page.getByRole('button', { name: 'Select eligible shown' }).click();
-    page.once('dialog', async dialog => { assert.match(dialog.message(), /1 selected participants/); await dialog.accept(); });
+    // Anyone can be selected now (for revoke/export); email still goes only to eligible rows.
+    await page.getByRole('checkbox', { name: /^Select all \d+ shown$/ }).check();
     await page.getByRole('button', { name: 'Email selected', exact: true }).click();
+    { const text = await answer(page, true); assert.match(text, /1 selected participant\b/); }
     await until(async () => (await page.getByRole('status').allTextContents()).some(t => t.includes('0 queued · 1 failed')), 'Failure summary');
     assert.equal(calls.filter(c => c.method === 'POST').length, 1);
     assert.match(await row(0).getByRole('alert').innerText(), /Temporary fixture failure/);
@@ -124,10 +124,11 @@ async function scenario(run, count = 4) {
     };
     await load();
     await page.getByRole('button', { name: 'Select eligible shown' }).click();
-    page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Email selected', exact: true }).click();
+    await answer(page, true);
     await until(() => mailed.length === 3, 'Initial workers');
     await row(5).getByRole('button', { name: 'Revoke', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Revoke login', exact: true }).click();
     await until(async () => (await row(5).innerText()).includes('revoked'), 'Concurrent revoke refreshes eligibility');
     blocked.release();
     await until(async () => (await page.getByRole('status').allTextContents()).some(t => t.includes('4 queued · 0 failed · 2 skipped')), 'Stale selection skipped');
@@ -139,20 +140,21 @@ async function scenario(run, count = 4) {
     state.write = async ({ abort }) => abort();
     await load();
     await row(0).getByRole('checkbox').check();
-    page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Email selected', exact: true }).click();
+    await answer(page, true);
     await until(async () => (await page.getByRole('status').allTextContents()).some(t => t.includes('0 queued · 0 failed · 0 skipped · 1 unknown')), 'Transport failure classified unknown');
     assert.match(await row(0).innerText(), /Email outcome unknown/);
-    assert.equal(await row(0).getByRole('checkbox').isDisabled(), true);
+    // Still selectable for revoke/export, but dropped from the selection and from any further email batch.
+    assert.equal(await row(0).getByRole('checkbox').isChecked(), false);
     await page.getByRole('button', { name: 'Select eligible shown' }).click();
     assert.equal(await row(0).getByRole('checkbox').isChecked(), false, 'Unknown recipient excluded from another batch');
     assert.equal(calls.filter(c => c.method === 'POST').length, 1);
-    page.once('dialog', async dialog => { assert.match(dialog.message(), /prior email request may still deliver/); assert.match(dialog.message(), /replaces their existing password/); await dialog.dismiss(); });
     await row(0).getByRole('button', { name: 'Review retry', exact: true }).click();
+    { const text = await answer(page, false); assert.match(text, /earlier request may still deliver/); assert.match(text, /second copy of the same credentials/); }
     assert.equal(calls.filter(c => c.method === 'POST').length, 1, 'Canceled retry does not send');
     state.write = async ({ respond }) => respond({ queued: 1 });
-    page.once('dialog', dialog => dialog.accept());
     await row(0).getByRole('button', { name: 'Review retry', exact: true }).click();
+    await answer(page, true);
     await until(async () => await row(0).getByRole('button', { name: 'Queued', exact: true }).count() === 1, 'Acknowledged unknown retry accepted');
     assert.equal(calls.filter(c => c.method === 'POST').length, 2);
   });
@@ -164,11 +166,11 @@ async function scenario(run, count = 4) {
     await load();
     await row(0).getByRole('button', { name: 'Resend email', exact: true }).click();
     await row(0).getByRole('button', { name: 'Review retry', exact: true }).waitFor();
-    page.once('dialog', async dialog => { assert.match(dialog.message(), /prior email request may still deliver/); await dialog.dismiss(); });
     await row(0).getByRole('button', { name: 'Review retry', exact: true }).click();
+    { const text = await answer(page, false); assert.match(text, /earlier request may still deliver/); }
     assert.equal(calls.filter(c => c.method === 'POST').length, 1);
-    page.once('dialog', dialog => dialog.accept());
     await row(0).getByRole('button', { name: 'Review retry', exact: true }).click();
+    await answer(page, true);
     await until(() => calls.filter(c => c.method === 'POST').length === 2, 'Explicit bounced retry sends once');
   });
   console.log('PASS bulk: unchanged bounced status retains a deliberate retry path');
@@ -177,11 +179,12 @@ async function scenario(run, count = 4) {
     state.write = async ({ malformed }) => malformed();
     await load();
     await row(0).getByRole('checkbox').check();
-    page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Email selected', exact: true }).click();
+    await answer(page, true);
     await until(async () => (await page.getByRole('status').allTextContents()).some(t => t.includes('0 queued · 0 failed · 0 skipped · 1 unknown')), 'Malformed HTTP200 body classified unknown');
     assert.match(await row(0).innerText(), /Email outcome unknown/);
-    assert.equal(await row(0).getByRole('checkbox').isDisabled(), true);
+    // Still selectable for revoke/export, but dropped from the selection and from any further email batch.
+    assert.equal(await row(0).getByRole('checkbox').isChecked(), false);
     await page.getByRole('button', { name: 'Select eligible shown' }).click();
     assert.equal(await row(0).getByRole('checkbox').isChecked(), false, 'Unknown malformed response cannot rejoin bulk');
     assert.equal(calls.filter(c => c.method === 'POST').length, 1, 'No automatic retry after malformed HTTP200');
