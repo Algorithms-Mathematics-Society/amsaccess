@@ -211,36 +211,39 @@ try {
       const pending = hold();
       await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable:true, value: { writeText: async value => { window.__copiedCredential = value; } } }));
       state.write = async ({ url, respond }) => {
-        assert.equal(url.pathname, '/api/org/contests/a/participants/candidate-0'); assert.equal(url.search, '?action=reissue');
+        assert.equal(url.pathname, '/api/org/contests/a/participants/candidate-0'); assert.equal(url.search, '?action=credentials');
         await pending.promise; return respond({ ...state.roster[0], password: 'synthetic-once-only-secret' });
       };
       await load();
-      await row(0).getByRole('button', { name: 'Reissue', exact: true }).evaluate(button => { button.click(); button.click(); });
+      await row(0).getByRole('button', { name: 'Show Credentials', exact: true }).evaluate(button => { button.click(); button.click(); });
       await until(() => calls.filter(c => c.method === 'POST').length === 1, 'One reissue begins');
-      assert(await row(1).getByRole('button', { name: 'Reissue', exact: true }).isDisabled());
+      assert(await row(1).getByRole('button', { name: 'Show Credentials', exact: true }).isDisabled());
       pending.release();
-      const dialog = page.getByRole('dialog', { name: 'New credential for Candidate 0000' }); await dialog.waitFor();
-      assert(await row(1).getByRole('button', { name: 'Reissue', exact: true }).isDisabled(), 'Reissue globally locked until credential acknowledged');
-      assert(await dialog.getByRole('button', { name: 'Done', exact: true }).isDisabled());
+      const dialog = page.getByRole('dialog', { name: 'Credentials for Candidate 0000' }); await dialog.waitFor();
+      assert(await row(1).getByRole('button', { name: 'Show Credentials', exact: true }).isDisabled(), 'Reissue globally locked until credential acknowledged');
+      // Show Credentials displays the existing password (not a one-time reissue), so Done is not gated on copying.
+      assert(await dialog.getByRole('button', { name: 'Done', exact: true }).isEnabled());
       assert(await row(0).getByRole('button', { name: 'Send email', exact: true }).isDisabled(), 'Same credential cannot be replaced by mail while slip is open');
       assert(await row(0).getByRole('button', { name: 'Revoke', exact: true }).isDisabled(), 'Same login cannot be revoked while slip is open');
-      await page.keyboard.press('Escape'); assert(await dialog.isVisible());
+      // Escape now closes it too (no one-time secret to protect); Done is exercised below.
       await dialog.getByRole('button', { name: 'Copy message', exact: true }).click();
       assert((await page.evaluate(() => window.__copiedCredential)).includes('synthetic-once-only-secret'));
       await dialog.getByRole('button', { name: 'Done', exact: true }).click();
       await dialog.waitFor({ state: 'detached' });
-      assert(await row(1).getByRole('button', { name: 'Reissue', exact: true }).isEnabled());
+      assert(await row(1).getByRole('button', { name: 'Show Credentials', exact: true }).isEnabled());
       assert(await row(0).getByRole('button', { name: 'Send email', exact: true }).isEnabled());
       assert(await row(0).getByRole('button', { name: 'Revoke', exact: true }).isEnabled());
       assert.equal(calls.filter(c => c.method === 'POST').length, 1);
-      console.log('PASS: reissue serialized, one-time credential copy/close retained');
+      console.log('PASS: show-credentials serialized, row actions locked while open, copy/close retained');
     });
-    await scenario(async ({ state, calls, row, load }) => {
+    await scenario(async ({ page, state, calls, row, load }) => {
       state.write = async ({ request, url, respond }) => {
         assert.equal(request.method(), 'POST'); assert.equal(url.pathname, '/api/org/contests/a/participants/candidate-0'); assert.equal(url.search, '?action=revoke');
         state.roster[0] = { ...state.roster[0], revoked: true }; return respond(state.roster[0]);
       };
       await load(); await row(0).getByRole('button', { name: 'Revoke', exact: true }).click();
+      assert.equal(calls.filter(c => c.method === 'POST').length, 0, 'Revoke waits for confirmation');
+      await page.getByRole('dialog').getByRole('button', { name: 'Revoke login', exact: true }).click();
       await row(0).getByText('revoked', { exact: true }).waitFor();
       assert.equal(await row(0).getByRole('button', { name: 'Revoke', exact: true }).count(), 0);
       assert(await row(0).getByRole('button', { name: 'Send email', exact: true }).isDisabled());
@@ -271,7 +274,7 @@ try {
       });
       assert(bounds.hasScroller && bounds.overflowing, 'Table has a horizontal scroll container on mobile');
       assert(bounds.documentOverflow <= 2, 'Table must not widen the page: ' + JSON.stringify(bounds));
-      const action = row(0).getByRole('button', { name: 'Reissue', exact: true });
+      const action = row(0).getByRole('button', { name: 'Show Credentials', exact: true });
       await action.focus(); assert(await action.evaluate(button => document.activeElement === button));
       await page.keyboard.press('Tab');
       assert(await row(0).getByRole('button', { name: 'Revoke', exact: true }).evaluate(button => document.activeElement === button));

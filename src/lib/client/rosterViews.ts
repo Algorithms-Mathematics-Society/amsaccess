@@ -19,3 +19,12 @@ export function matchesRosterView(row: Status, entered: boolean, view: RosterVie
     case "email-unsent": return Boolean(row.email) && !row.mail_status;
   }
 }
+
+/** Selected roster rows as CSV; a leading = + - @ is defanged so spreadsheets don't run names as formulas. */
+export function rosterCsv(rows: { login_id: string; display_name: string; email: string; college: string; revoked: boolean; last_login_at: string | null; mail_status: string }[]): string {
+  const cell = (value: string) => `"${(/^[=+\-@\t\r]/.test(value) ? `'${value}` : value).replace(/"/g, '""')}"`;
+  return [
+    "login_id,display_name,email,college,revoked,signed_in,mail_status",
+    ...rows.map((r) => [r.login_id, r.display_name, r.email, r.college, String(r.revoked), r.last_login_at ? "yes" : "no", r.mail_status].map(cell).join(",")),
+  ].join("\n");
+}

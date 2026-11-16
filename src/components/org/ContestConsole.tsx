@@ -19,11 +19,13 @@ import {
 } from "lucide-react";
 import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
-import { verdictClass } from "@/lib/contestTypes";
+import { verdictClassLight } from "@/lib/contestTypes";
 import { invalidate } from "@/lib/client/useApiQuery";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { ContestNotifications } from "./ContestNotifications";
+import { useConfirm } from "./ConfirmDialog";
+import { LiveStatusStrip, WaitingOnStaffBadge } from "./LiveStatusStrip";
 import { ContestReadProvider, useContestReadStore } from "@/lib/client/useContestRead";
 import type { ContestReadResource } from "@/lib/client/contestReads";
 
@@ -81,11 +83,14 @@ type Tab = (typeof TABS)[number];
 
 /** A fragment is whatever someone typed, so anything unrecognised falls back
  *  rather than rendering an empty console. */
-function tabFromHash(hash: string): Tab {
+function tabFromHash(hash: string): Tab | null {
   const name = hash.replace(/^#/, "");
-  return (TABS as readonly string[]).includes(name)
-    ? (name as Tab)
-    : "problems";
+  return (TABS as readonly string[]).includes(name) ? (name as Tab) : null;
+}
+
+/** Where a contest opens when the link names no tab: what matters at that stage. */
+function defaultTab(status: Contest["status"]): Tab {
+  return status === "running" ? "invigilation" : status === "ended" || status === "archived" ? "leaderboard" : "problems";
 }
 
 /** How many rows the submissions table holds. The contest may hold far more. */
@@ -186,7 +191,9 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   // fragment, and reading one during render is a hydration mismatch.
   useEffect(() => {
     const read = () => {
-      const selected = tabFromHash(window.location.hash);
+      const named = tabFromHash(window.location.hash);
+      explicitTab.current = named !== null;
+      const selected = named ?? "problems";
       // Each read authenticates independently; begin alongside metadata so
       // chunk loading and contest details are not prerequisites to data.
       prepareTab(selected, true);
@@ -196,6 +203,30 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     window.addEventListener("hashchange", read);
     return () => window.removeEventListener("hashchange", read);
   }, [prepareTab]);
+
+  // No tab in the link: once the status is known, open where that stage needs you.
+  const explicitTab = useRef(false);
+  const defaulted = useRef(false);
+  useEffect(() => {
+    if (!contest || defaulted.current) return;
+    defaulted.current = true;
+    if (explicitTab.current) return;
+    const next = defaultTab(contest.status);
+    if (next === "problems") return;
+    prepareTab(next, true);
+    setTabState(next);
+    window.history.replaceState(null, "", `#${next}`);
+  }, [contest, prepareTab]);
+
+  // Visited tabs stay mounted (hidden), so switching keeps filters, selection,
+  // open dialogs and running jobs such as a bulk email send.
+  const [visited, setVisited] = useState<ReadonlySet<Tab>>(() => new Set());
+  useEffect(() => {
+    setVisited((previous) => previous.has(tab) ? previous : new Set(previous).add(tab));
+  }, [tab]);
+
+  const keepAlive = (t: Tab, panel: React.ReactNode) =>
+    (visited.has(t) || tab === t) && <div hidden={tab !== t}>{panel}</div>;
 
   // replaceState, not push: Back should leave the contest the way it
   // arrived, not walk backwards through every tab that was glanced at.
@@ -473,6 +504,17 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           </div>
         </div>
 
+        {contest.status === "running" && (
+          <LiveStatusStrip
+            contestUid={contest.uid}
+            startsAt={contest.starts_at}
+            endsAt={contest.ends_at}
+            notificationsEnabled={notificationsEnabled}
+            judgingPending={summary?.pending ?? null}
+            onNavigate={setTab}
+          />
+        )}
+
         {contest.status === "draft" && (
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
             This contest is a <strong>draft</strong>. Nobody can join with the
@@ -508,6 +550,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
               }`}
             >
               {t === "team-round" ? "Team round" : t}
+              {t === "invigilation" && <WaitingOnStaffBadge contestUid={contestUid} enabled={notificationsEnabled} />}
               {t === "submissions" && total > 0 && (
                 <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
                   {total.toLocaleString()}
@@ -542,6 +585,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           />
           <a
             href={`/api/org/contests/${contest.uid}/export?kind=standings`}
+            download
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
           >
             <Download className="h-3.5 w-3.5" />
@@ -549,6 +593,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           </a>
           <a
             href={`/api/org/contests/${contest.uid}/export?kind=submissions`}
+            download
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
           >
             <Download className="h-3.5 w-3.5" />
@@ -557,19 +602,19 @@ function ContestContent({ contestUid }: { contestUid: string }) {
         </div>
       )}
 
-      <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6">
-        {tab === "problems" ? (
-          <ProblemsTab contest={contest} onChange={refreshContestAfterWrite} />
-        ) : tab === "participants" ? (
+      {/* pb-24 lets the last row scroll clear of the floating notifications button. */}
+      <div className="px-4 pt-5 pb-24 sm:px-6 md:px-8 md:pt-6">
+        {/* Visited tabs stay mounted but hidden; each one polls only while shown. */}
+        {keepAlive("problems", <ProblemsTab contest={contest} onChange={refreshContestAfterWrite} />)}
+        {keepAlive("participants", (
           <ParticipantsPanel
             contestUid={contest.uid}
             contestTitle={contest.title}
             isPractice={contest.is_practice}
-            live={
-              contest.status === "running" || contest.status === "scheduled"
-            }
+            live={tab === "participants" && (contest.status === "running" || contest.status === "scheduled")}
           />
-        ) : tab === "submissions" ? (
+        ))}
+        {tab === "submissions" && (
           <SubmissionsTab
             submissions={submissions}
             error={submissionError}
@@ -580,29 +625,30 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             total={total}
             pending={pending}
           />
-        ) : tab === "leaderboard" ? (
+        )}
+        {keepAlive("leaderboard", (
           <LeaderboardPanel
             contestUid={contest.uid}
             problemLabels={contest.problems.map((p) => p.label)}
-            live={contest.status === "running"}
+            live={tab === "leaderboard" && contest.status === "running"}
           />
-        ) : tab === "analytics" ? (
-          <AnalyticsPanel contestUid={contest.uid} />
-        ) : tab === "invigilation" ? (
+        ))}
+        {keepAlive("analytics", <AnalyticsPanel contestUid={contest.uid} />)}
+        {keepAlive("invigilation", (
           <InvigilationPanel
             contestUid={contest.uid}
             notificationsEnabled={notificationsEnabled}
+            active={tab === "invigilation"}
           />
-        ) : tab === "judging" ? (
-          // Named rather than left as the trailing `else`. A fall-through
-          // catches every tab nobody has got round to adding, which is how
-          // the fleet controls came to sit underneath the standings.
+        ))}
+        {/* Not kept alive: the fleet panel polls on its own timer. */}
+        {tab === "judging" && (
           <ContestJudging
             contestUid={contest.uid}
             isPractice={contest.is_practice}
             isDraft={contest.status === "draft"}
           />
-        ) : null}
+        )}
       </div>
       <ContestNotifications
         contestUid={contestUid}
@@ -638,6 +684,7 @@ function Reschedule({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dialog, confirm] = useConfirm();
 
   const invalid = new Date(ends) <= new Date(starts);
 
@@ -747,7 +794,19 @@ function Reschedule({
         {/* The reason this control exists: making a contest testable now. */}
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
+            const ok = await confirm({
+              title: "Start this contest now for 3 hours?",
+              body: (
+                <p>
+                  The start moves to one minute ago and the end to 3 hours from now, replacing the
+                  current schedule{contest.status === "running" ? ", including for people already sitting" : ""}.
+                </p>
+              ),
+              confirmLabel: "Start now for 3 hours",
+              danger: contest.status === "running",
+            });
+            if (!ok) return;
             const now = new Date();
             save(
               new Date(now.getTime() - 60_000).toISOString(),
@@ -768,6 +827,7 @@ function Reschedule({
         </button>
       </div>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {dialog}
     </div>
   );
 }
@@ -795,8 +855,21 @@ function PublishButton({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dialog, confirm] = useConfirm();
 
   async function publish() {
+    const ok = await confirm({
+      title: "Publish this contest?",
+      body: (
+        <>
+          <p>The invite code starts working and the contest appears in candidates’ apps.</p>
+          <p>It does not start the contest; it opens at its scheduled start.</p>
+        </>
+      ),
+      confirmLabel: "Publish contest",
+      cancelLabel: "Not yet",
+    });
+    if (!ok) return;
     setBusy(true);
     setError("");
     try {
@@ -831,6 +904,7 @@ function PublishButton({
         {busy ? "Publishing…" : "Publish"}
       </button>
       {error && <p className="mt-1 max-w-xs text-xs text-red-600">{error}</p>}
+      {dialog}
     </div>
   );
 }
@@ -1165,7 +1239,7 @@ function SubmissionsTab({
           .map(([key, n]) => (
             <span
               key={key}
-              className={`rounded-full border px-2.5 py-1 text-xs font-medium ${verdictClass(key)}`}
+              className={`rounded-full border px-2.5 py-1 text-xs font-medium ${verdictClassLight(key)}`}
             >
               {key} · {n}
             </span>
@@ -1207,7 +1281,7 @@ function SubmissionsTab({
                 </td>
                 <td className="px-4 py-2.5">
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${verdictClass(s.verdict ?? s.status)}`}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${verdictClassLight(s.verdict ?? s.status)}`}
                   >
                     {s.verdict ?? s.status}
                   </span>
@@ -1249,8 +1323,30 @@ function RejudgeButton({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState("");
+  const [dialog, confirm] = useConfirm();
 
   async function run(verdict: string) {
+    const ok = await confirm(
+      verdict
+        ? {
+            title: "Re-run every System Error submission?",
+            body: <p>Only submissions where the judge itself failed (SE) are re-run. Other verdicts stay as they are.</p>,
+            confirmLabel: "Rejudge system errors",
+          }
+        : {
+            title: "Re-run every submission in this contest?",
+            body: (
+              <>
+                <p>All verdicts are recalculated, including ones that were already correct. Scores and the leaderboard can change while the queue runs.</p>
+                <p>During a live contest this also slows judging for new submissions.</p>
+              </>
+            ),
+            confirmLabel: "Rejudge everything",
+            danger: true,
+            typeToConfirm: "REJUDGE",
+          },
+    );
+    if (!ok) return;
     setBusy(true);
     setResult("");
     try {
@@ -1300,7 +1396,7 @@ function RejudgeButton({
             disabled={busy}
             className="rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
           >
-            Failed only (SE)
+            System errors only (SE)
           </button>
           <button
             type="button"
@@ -1314,6 +1410,7 @@ function RejudgeButton({
       )}
 
       {result && <span className="text-xs text-slate-500">{result}</span>}
+      {dialog}
     </span>
   );
 }

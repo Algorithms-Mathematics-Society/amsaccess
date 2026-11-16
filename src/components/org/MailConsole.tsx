@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "./ConfirmDialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
@@ -292,6 +293,7 @@ function NewSend({
   const [pasted, setPasted] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dialog, confirm] = useConfirm();
 
   useEffect(() => {
     void (async () => {
@@ -326,6 +328,22 @@ function NewSend({
   );
 
   async function submit() {
+    const contest = contests.find((c) => c.uid === contestUid);
+    const audience = [
+      contest && `everyone on the ${contest.title} roster who has an email`,
+      recipients.length > 0 && `${recipients.length} pasted address${recipients.length === 1 ? "" : "es"}`,
+    ].filter(Boolean).join(" and ");
+    const ok = await confirm({
+      title: `Send “${templateName}”?`,
+      body: (
+        <>
+          <p>It goes to {audience}. Queued emails can’t be recalled.</p>
+          <p>Check the template’s saved preview first if you edited it recently.</p>
+        </>
+      ),
+      confirmLabel: "Queue send",
+    });
+    if (!ok) return;
     setBusy(true);
     setError("");
     try {
@@ -438,6 +456,7 @@ function NewSend({
           {nobody && "Pick a roster or paste addresses."}
         </p>
       </div>
+      {dialog}
     </div>
   );
 }

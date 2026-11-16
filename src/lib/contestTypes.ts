@@ -126,3 +126,19 @@ export function verdictClass(v: string | null | undefined): string {
   if (!v) return "bg-slate-500/15 text-slate-300 border-slate-500/30";
   return VERDICT_STYLES[v] ?? VERDICT_STYLES.SE;
 }
+
+/** The same verdict hues for light surfaces (the organizer console), where the *-300 text above is unreadable. */
+const VERDICT_STYLES_LIGHT: Record<string, string> = {
+  AC: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  WA: "bg-rose-50 text-rose-800 border-rose-200",
+  TLE: "bg-amber-50 text-amber-800 border-amber-200",
+  MLE: "bg-amber-50 text-amber-800 border-amber-200",
+  OLE: "bg-amber-50 text-amber-800 border-amber-200",
+  RE: "bg-rose-50 text-rose-800 border-rose-200",
+  CE: "bg-orange-50 text-orange-800 border-orange-200",
+  SE: "bg-slate-100 text-slate-700 border-slate-300",
+};
+
+export function verdictClassLight(v: string | null | undefined): string {
+  return (v && VERDICT_STYLES_LIGHT[v]) || VERDICT_STYLES_LIGHT.SE;
+}

@@ -2,7 +2,7 @@
 
 import { clearApiCache } from "@/lib/client/useApiQuery";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
@@ -28,7 +28,6 @@ const workspaceSteps = [
 
 export default function OrgLoginPage() {
   const router = useRouter();
-  useEffect(() => { clearApiCache(); }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -72,7 +71,7 @@ export default function OrgLoginPage() {
               </Text>
             </VStack>
 
-            <form onSubmit={handleLogin} aria-busy={loading} data-org-login-form>
+            <form method="post" onSubmit={handleLogin} aria-busy={loading} data-org-login-form>
               <VStack gap={5}>
                 <Field label="Email" inputID="org-email" width="100%">
                   <HStack className={styles.fieldControl} align="center" gap={0}>
