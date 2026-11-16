@@ -122,6 +122,8 @@ export function ParticipantsPanel(props: {
   contestTitle: string;
   isPractice?: boolean;
   live?: boolean;
+  /** Whether this role may read the live invigilation feed (person panel). */
+  notificationsEnabled?: boolean;
 }) {
   return <ParticipantsContent key={props.contestUid} {...props} />;
 }
@@ -131,12 +133,14 @@ function ParticipantsContent({
   contestTitle,
   isPractice = false,
   live = false,
+  notificationsEnabled = false,
 }: {
   contestUid: string;
   contestTitle: string;
   /** A rehearsal needs candidates who do not exist and must not. */
   isPractice?: boolean;
   live?: boolean;
+  notificationsEnabled?: boolean;
 }) {
   const { entered, error: entryError, loaded: entryLoaded, refresh: refreshEntry } = useOrgSessions(contestUid, live);
   const { data: latestRoster, error, refreshing, open, load: retryRoster, refreshAfterWrite: load } = useContestRead<Participant[]>("participants");
@@ -409,6 +413,7 @@ function ParticipantsContent({
             entryLoaded={entryLoaded}
             rows={roster}
             onChange={load}
+            notificationsEnabled={notificationsEnabled}
           />
         )
       )}
@@ -1098,6 +1103,7 @@ const RosterTable = memo(function RosterTable({
   entered,
   entryLoaded,
   onChange,
+  notificationsEnabled,
 }: {
   contestUid: string;
   contestTitle: string;
@@ -1105,6 +1111,7 @@ const RosterTable = memo(function RosterTable({
   entered: Set<string>;
   entryLoaded: boolean;
   onChange: () => void;
+  notificationsEnabled: boolean;
 }) {
   // Opened over the contest instead of navigating away: /org/participants
   // belongs to the Students section, so Back from there abandons the contest.
@@ -1466,6 +1473,7 @@ const RosterTable = memo(function RosterTable({
       <ParticipantModal
         handle={openParticipant}
         onClose={() => setOpenParticipant(null)}
+        contest={{ uid: contestUid, live: notificationsEnabled }}
       />
       {confirmDialog}
       <CredentialModal

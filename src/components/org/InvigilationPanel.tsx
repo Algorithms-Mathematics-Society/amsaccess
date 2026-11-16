@@ -6,50 +6,14 @@ import type { SessionRow } from "@/lib/client/orgNotifications";
 import { useOrgDesktopLayout } from "@/lib/client/useOrgDesktopLayout";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
+import { idleLabel } from "@/lib/client/personPanel";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
-import {
-  AlertTriangle,
-  Check,
-  DoorOpen,
-  LifeBuoy,
-  Loader2,
-  MonitorCheck,
-  ShieldOff,
-  Users,
-  X,
-} from "lucide-react";
-
-type ReadinessRow = {
-  uid: string;
-  device_fingerprint: string;
-  os_name: string;
-  app_version: string;
-  passed: boolean;
-  failed_checks: string[];
-  display_name: string;
-  created_at: string;
-};
-
-type Override = {
-  uid: string;
-  device_fingerprint: string;
-  check_kind: string;
-  reason: string;
-  expires_at: string;
-  revoked: boolean;
-  granted_by: string;
-};
+import { IssuesInbox } from "@/components/org/IssuesInbox";
+import type { Override, ReadinessRow } from "@/lib/client/issuesInbox";
+import { AlertTriangle, MonitorCheck, ShieldOff, Users, X } from "lucide-react";
 
 /** How long a session may go unheard from before it is worth looking at. */
 const QUIET_AFTER_SECONDS = 120;
-
-function idleLabel(seconds: number | null): string {
-  if (seconds === null) return "never checked in";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
-}
 
 // Staff watch this during a contest, so it must be current — but it is one
 // screen among several, so not aggressively so.
@@ -253,7 +217,7 @@ export function InvigilationPanel({
   active?: boolean;
 }) {
   const notifications = useOrgNotifications(contestUid, notificationsEnabled);
-  const { incidents, resumes, sessions } = notifications.raw;
+  const { sessions } = notifications.raw;
   const desktop = useOrgDesktopLayout();
   // Which candidate's photos are open, by session uid. Held here rather than
   // in the row so the dialog survives the ten-second roster refresh --
@@ -332,20 +296,6 @@ export function InvigilationPanel({
     setBusy(key);
     setError("");
     try {
-      const action = new URL(url, window.location.origin).searchParams.get(
-        "action",
-      );
-      if (
-        action === "approve-resume" ||
-        action === "reject-resume" ||
-        action === "resolve-incident"
-      ) {
-        await notifications.act(
-          `${action === "resolve-incident" ? "incident" : "resume"}:${key}`,
-          action,
-        );
-        return;
-      }
       await json(
         await fetch(url, {
           method: "POST",
@@ -361,11 +311,22 @@ export function InvigilationPanel({
     }
   }
 
+  // Inbox rows carry login IDs; only a matching session proves the person's UID.
+  const renderPerson = (displayName: string, loginId: string) => {
+    const person = sessions.find((row) => row.login_id === loginId)?.user_uid;
+    return person ? (
+      <button
+        type="button"
+        onClick={() => setOpenParticipant(person)}
+        className="break-words text-left font-medium text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        {displayName || "Unknown"}
+      </button>
+    ) : (
+      displayName || "Unknown"
+    );
+  };
   const base = `/api/org/contests/${contestUid}/invigilation`;
-  const openIncidents = useMemo(
-    () => incidents.filter((i) => i.status !== "resolved"),
-    [incidents],
-  );
   const blocked = useMemo(
     () => readiness.filter((r) => !r.passed),
     [readiness],
@@ -373,10 +334,6 @@ export function InvigilationPanel({
   const liveOverrides = useMemo(
     () => overrides.filter((o) => !o.revoked),
     [overrides],
-  );
-  const waiting = useMemo(
-    () => resumes.filter((r) => r.status === "pending"),
-    [resumes],
   );
   const quiet = useMemo(
     () =>
@@ -394,6 +351,7 @@ export function InvigilationPanel({
       <ParticipantModal
         handle={openParticipant}
         onClose={() => setOpenParticipant(null)}
+        contest={{ uid: contestUid, live: notificationsEnabled }}
       />
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -419,183 +377,32 @@ export function InvigilationPanel({
         </p>
       )}
 
-      {/* Waiting to resume, above everything: a candidate is locked out of an
-          exam that is still running, and only a person can let them back in. */}
-      {waiting.length > 0 && (
-        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-          <h3 className="mb-2 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
-            <DoorOpen className="h-4 w-4" />
-            Waiting to resume
-            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-              {waiting.length}
-            </span>
-          </h3>
-          <p className="mb-4 max-w-4xl text-sm leading-relaxed text-slate-500">
-            Their app closed mid-exam. Approving issues a 15-minute window to
-            rejoin — it does not reopen a session that has already been
-            submitted, and it does not give extra time.
-          </p>
-
-          <div className="space-y-2">
-            {waiting.map((request) => (
-              <div
-                key={request.uid}
-                className="rounded-xl border border-red-300 bg-white p-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900">
-                      {request.display_name || "Unknown"}{" "}
-                      <span className="break-all font-mono text-xs text-slate-400">
-                        {request.login_id}
-                      </span>
-                    </p>
-                    <p className="mt-1 break-words text-sm text-slate-700">
-                      {request.reason || "No reason given."}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {new Date(request.created_at).toLocaleTimeString()}
-                      {request.device_fingerprint && (
-                        <>
-                          {" "}
-                          ·{" "}
-                          <span className="break-all font-mono">
-                            {request.device_fingerprint}
-                          </span>
-                        </>
-                      )}
-                      {/* Someone on their fourth reopen is a different
-                          conversation from someone on their first. */}
-                      {request.resume_count > 0 &&
-                        ` · reopened ${request.resume_count}× already`}
-                    </p>
-                  </div>
-                  {/* Below xl the decision gets a full-width row of
-                      thumb-sized buttons, not two small ones beside the text. */}
-                  <div className="flex w-full flex-shrink-0 gap-2 xl:w-auto">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        act(
-                          request.uid,
-                          `${base}?action=approve-resume&uid=${request.uid}`,
-                          {},
-                        )
-                      }
-                      disabled={
-                        busy === request.uid ||
-                        notifications.busyIds.has(`resume:${request.uid}`)
-                      }
-                      className="min-h-11 xl:min-h-0 inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40 xl:flex-none xl:justify-start xl:py-1.5"
-                    >
-                      {busy === request.uid ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Check className="h-3.5 w-3.5" />
-                      )}
-                      Let them back in
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        act(
-                          request.uid,
-                          `${base}?action=reject-resume&uid=${request.uid}`,
-                          {},
-                        )
-                      }
-                      disabled={
-                        busy === request.uid ||
-                        notifications.busyIds.has(`resume:${request.uid}`)
-                      }
-                      className="min-h-11 xl:min-h-0 inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 xl:flex-none xl:justify-start xl:py-1.5"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Refuse
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Help requests first: someone is waiting. */}
-      <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-        <h3 className="mb-3 flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
-          <LifeBuoy className="h-4 w-4" />
-          Help requests
-          {openIncidents.length > 0 && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-              {openIncidents.length} open
-            </span>
-          )}
-        </h3>
-
-        {incidents.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-            {emptyText("Nobody has asked for help.")}
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {incidents.map((incident) => (
-              <div
-                key={incident.uid}
-                className={`rounded-xl border bg-white p-4 ${
-                  incident.status === "resolved"
-                    ? "border-slate-200 opacity-60"
-                    : "border-amber-300"
-                }`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900">
-                      {incident.display_name || "Unknown"}{" "}
-                      <span className="break-all font-mono text-xs text-slate-400">
-                        {incident.login_id}
-                      </span>
-                    </p>
-                    <p className="mt-1 break-words text-sm text-slate-700">
-                      {incident.message}
-                    </p>
-                    <p className="mt-1 break-words text-xs text-slate-500">
-                      {incident.category}
-                      {incident.contact && ` · ${incident.contact}`} ·{" "}
-                      {new Date(incident.created_at).toLocaleTimeString()}
-                    </p>
-                  </div>
-                  {incident.status !== "resolved" ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        act(
-                          incident.uid,
-                          `${base}?action=resolve-incident&uid=${incident.uid}`,
-                        )
-                      }
-                      disabled={
-                        busy === incident.uid ||
-                        notifications.busyIds.has(`incident:${incident.uid}`)
-                      }
-                      className="min-h-11 xl:min-h-0 inline-flex w-full flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 xl:w-auto xl:justify-start xl:py-1.5"
-                    >
-                      {busy === incident.uid ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Check className="h-3.5 w-3.5" />
-                      )}
-                      Mark resolved
-                    </button>
-                  ) : (
-                    <span className="text-xs text-slate-400">resolved</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Everything waiting on staff, above the room: someone is locked out or asking. */}
+      <IssuesInbox
+        contestUid={contestUid}
+        enabled={notificationsEnabled}
+        active={active}
+        readiness={readiness}
+        overrides={overrides}
+        renderPerson={renderPerson}
+        renderEntryAction={(row) =>
+          row.failed_checks.length > 0 && (
+            <GrantWaiver
+              checks={row.failed_checks}
+              device={row.device_fingerprint}
+              busy={busy === row.uid}
+              onGrant={(checkKind, reason) =>
+                act(row.uid, `${base}?action=grant-override`, {
+                  device_fingerprint: row.device_fingerprint,
+                  check_kind: checkKind,
+                  reason,
+                  minutes: 120,
+                })
+              }
+            />
+          )
+        }
+      />
 
       {/* The room. Nothing else says who is actually sitting this contest, so
           a session going quiet used to be invisible until the candidate found

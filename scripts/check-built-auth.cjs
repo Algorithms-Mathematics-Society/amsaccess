@@ -15,7 +15,7 @@ async function main() {
   globalThis.fetch = async () => {
     throw new Error("Anonymous request unexpectedly contacted an upstream");
   };
-  for (const route of ["auth/me", "org/contests", "org/problems", "org/problems/[uid]/versions/[versionUid]/preview"]) {
+  for (const route of ["auth/me", "org/contests", "org/problems", "org/problems/[uid]/versions/[versionUid]/preview", "org/students/import/template.csv"]) {
     const { routeModule } = require(`../.next/server/app/api/${route}/route.js`);
     const response = await routeModule.handle(
       new NextRequest(`https://portal.invalid/api/${route}`),

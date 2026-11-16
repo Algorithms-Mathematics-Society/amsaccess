@@ -85,6 +85,8 @@ await page.route("**/*", async (route) => {
     } catch {}
   };
   if (url.pathname === "/api/auth/me") return ok({ role });
+  if (url.pathname === "/api/org/support")
+    return ok({ items: [], has_more: false });
   if (/^\/api\/org\/contests\/[ab]$/.test(url.pathname))
     return ok({
       uid: url.pathname.split("/").at(-1),

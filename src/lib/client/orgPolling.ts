@@ -1,3 +1,5 @@
+import { startSupportPolling } from "./support-poll.ts";
+
 export const ORG_SIGNED_OUT_EVENT = "ams:org-signed-out";
 export const ORG_SIGNED_IN_EVENT = "ams:org-signed-in";
 const MAX_BACKOFF_MS = 60_000;
@@ -117,5 +119,49 @@ export function startOrgPolling(
     window.removeEventListener("focus", onFocus);
     window.removeEventListener(ORG_SIGNED_IN_EVENT, onSignedIn);
     window.removeEventListener(ORG_SIGNED_OUT_EVENT, clear);
+  };
+}
+
+/** Keep support's jitter/cooldown behavior, but share the staff session pause. */
+export function startOrgSupportPolling(
+  task: Parameters<typeof startSupportPolling>[0],
+  options: Parameters<typeof startSupportPolling>[1] = {},
+): () => void {
+  let stop: (() => void) | undefined;
+  let suspended = false;
+  const pause = () => {
+    stop?.();
+    stop = undefined;
+  };
+  const resume = () => {
+    pause();
+    if (!suspended && !orgSignedOut())
+      stop = startSupportPolling(async (signal) => {
+        try {
+          return await task(signal);
+        } catch (error) {
+          if (
+            !signal.aborted &&
+            (error as { status?: number } | null)?.status === 401
+          )
+            pauseOrgPolling();
+          throw error;
+        }
+      }, options);
+    if (orgSignedOut()) pause();
+  };
+  const reset = () => {
+    suspended = true;
+    pause();
+  };
+  window.addEventListener("ams:org-session-reset", reset);
+  window.addEventListener(ORG_SIGNED_OUT_EVENT, pause);
+  window.addEventListener(ORG_SIGNED_IN_EVENT, resume);
+  resume();
+  return () => {
+    pause();
+    window.removeEventListener("ams:org-session-reset", reset);
+    window.removeEventListener(ORG_SIGNED_OUT_EVENT, pause);
+    window.removeEventListener(ORG_SIGNED_IN_EVENT, resume);
   };
 }

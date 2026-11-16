@@ -38,6 +38,6 @@ export function ContestNotifications({ contestUid, enabled, onNavigate }: {
       onReview={review}
       onReviewIntent={preloadParticipantProfile}
     />}
-    <ParticipantModal handle={participant} onClose={closeParticipant} />
+    <ParticipantModal handle={participant} onClose={closeParticipant} contest={{ uid: contestUid, live: enabled }} />
   </>;
 }

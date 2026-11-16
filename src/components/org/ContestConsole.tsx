@@ -774,6 +774,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
               tab === "participants" &&
               (contest.status === "running" || contest.status === "scheduled")
             }
+            notificationsEnabled={notificationsEnabled}
           />,
         )}
         {tab === "submissions" && (

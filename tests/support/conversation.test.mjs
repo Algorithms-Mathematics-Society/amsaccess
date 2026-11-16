@@ -93,8 +93,8 @@ function harness({
     },
     "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" },
     "next/navigation": { useRouter: () => ({}) },
-    "@/lib/client/support-poll": {
-      startSupportPolling: (task) => {
+    "@/lib/client/orgPolling": {
+      startOrgSupportPolling: (task) => {
         jobs.push(task());
         return () => {};
       },
