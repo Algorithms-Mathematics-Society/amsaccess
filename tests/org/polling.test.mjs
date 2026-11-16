@@ -4,7 +4,6 @@ import {
   ORG_SIGNED_OUT_EVENT,
   orgBackoffMs,
   orgSignedOut,
-  observeOrgApiResponses,
   pauseOrgPolling,
   reportOrgResponse,
   resumeOrgPolling,
@@ -281,54 +280,37 @@ test("local expiry cancels pending polls without waiting for a 401", async () =>
   }
 });
 
-test("response observer scopes staff auth, preserves other wrappers and becomes inert on cleanup", async () => {
+test("explicit response reporting never replaces fetch or observes unrelated requests", async () => {
   const rt = fakeRuntime();
-  let cleanup;
-  const calls = [];
-  const original = async (...args) => {
-    calls.push(args);
-    return new Response("{}", { status: 401 });
-  };
-  window.location = {
-    href: "https://ams.test/org/dashboard",
-    origin: "https://ams.test",
-  };
+  const original = async () => new Response("{}", { status: 401 });
   window.fetch = original;
+  let stop;
   try {
-    cleanup = observeOrgApiResponses();
-    const observed = window.fetch;
-    await observed("/api/auth/login");
-    await observed("/api/public/example");
-    await observed("https://other.test/api/org/contests");
+    stop = startOrgPolling(
+      async () => {
+        const response = await window.fetch("/api/org/owned");
+        reportOrgResponse(response.status);
+        return response.ok;
+      },
+      2000,
+      { immediate: false },
+    );
+    assert.equal(window.fetch, original);
+    await window.fetch("/api/org/unowned");
     assert.equal(
       orgSignedOut(),
       false,
-      "unrelated 401s do not expire staff sessions",
+      "unowned requests cannot change polling state",
     );
-    await observed(new Request("https://ams.test/api/org/contests"));
-    assert.equal(orgSignedOut(), true);
-    resumeOrgPolling();
-    const later = (...args) => observed(...args);
-    window.fetch = later;
-    cleanup();
-    assert.equal(window.fetch, later, "cleanup preserves a later wrapper");
-    await later("/api/auth/me");
+    await rt.fire();
     assert.equal(
       orgSignedOut(),
-      false,
-      "a retained wrapper is inert after cleanup",
+      true,
+      "the poller explicitly reports its own 401",
     );
-    assert.equal(calls.length, 5);
-    window.fetch = original;
-    cleanup = observeOrgApiResponses();
-    cleanup();
-    assert.equal(
-      window.fetch,
-      original,
-      "normal cleanup restores original fetch",
-    );
+    assert.equal(window.fetch, original);
   } finally {
-    cleanup?.();
+    stop?.();
     resumeOrgPolling();
     rt.restore();
   }

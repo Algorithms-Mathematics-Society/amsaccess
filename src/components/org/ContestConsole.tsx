@@ -21,7 +21,7 @@ import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClassLight } from "@/lib/contestTypes";
 import { invalidate } from "@/lib/client/useApiQuery";
-import { startOrgPolling } from "@/lib/client/orgPolling";
+import { reportOrgResponse, startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { useEdgeMask } from "@/lib/client/useEdgeMask";
 import { ContestNotifications } from "./ContestNotifications";
@@ -151,6 +151,7 @@ type SubmissionSummary = {
 };
 
 async function json<T>(res: Response): Promise<T> {
+  reportOrgResponse(res.status);
   const data = await res.json().catch(() => ({}));
   if (!res.ok)
     throw new Error((data as { error?: string }).error ?? "Request failed.");
@@ -180,6 +181,7 @@ async function readConsoleJson<T>(
       fetch(url, { cache: "no-store", signal: controller.signal }),
       aborted,
     ]);
+    if (!controller.signal.aborted) reportOrgResponse(response.status);
     if (response.status === 401 || response.status === 403) onAccessLost?.();
     const data = await Promise.race([response.json(), aborted]);
     if (!response.ok) throw new Error(data?.error ?? "Request failed.");

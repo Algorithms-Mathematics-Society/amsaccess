@@ -21,6 +21,9 @@ await context.addCookies([
     url: base,
   },
 ]);
+await context.addInitScript(() => {
+  window.__originalFetch = window.fetch;
+});
 const page = await context.newPage();
 const errors = [],
   calls = [];
@@ -68,7 +71,8 @@ await page.route("**/*", async (route) => {
     } catch {}
   };
   assert.equal(req.method(), "GET", "this test never writes");
-  if (expired) return ok({ error: "Not signed in." }, 401);
+  if (url.pathname === "/api/org/unowned-probe" || expired)
+    return ok({ error: "Not signed in." }, 401);
   if (url.pathname === "/api/auth/me") return ok(me);
   if (url.pathname === "/api/org/contests") return ok([contest]);
   if (url.pathname === "/api/org/support")
@@ -116,6 +120,17 @@ try {
   await page.goto(base + "/org/contests/a#invigilation");
   await page.getByRole("heading", { name: "Session test contest" }).waitFor();
   await warning().waitFor();
+  assert.equal(
+    await page.evaluate(() => window.fetch === window.__originalFetch),
+    true,
+    "mounting the shell must not patch fetch",
+  );
+  await page.evaluate(() => fetch("/api/org/unowned-probe"));
+  assert.equal(
+    await signedOut().count(),
+    0,
+    "unowned requests do not sign out the console",
+  );
   assert.match(await warning().innerText(), /ends in (9|10) minutes/);
   const link = warning().getByRole("link", { name: "Sign in again" });
   assert.equal(await link.getAttribute("href"), "/org/login?reauth=1");
@@ -217,7 +232,7 @@ try {
 
   // A different account signing in must not inherit this page.
   expired = true;
-  await page.evaluate(() => fetch("/api/org/contests/a"));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await signedOut().waitFor();
   expired = false;
   me = {

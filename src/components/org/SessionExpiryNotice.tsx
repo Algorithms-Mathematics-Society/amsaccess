@@ -7,7 +7,6 @@ import {
   ORG_SIGNED_IN_EVENT,
   ORG_SIGNED_OUT_EVENT,
   orgSignedOut,
-  observeOrgApiResponses,
   pauseOrgPolling,
   resumeOrgPolling,
 } from "@/lib/client/orgPolling";
@@ -23,7 +22,6 @@ export function SessionExpiryNotice() {
   const account = useRef<unknown>(undefined);
 
   useEffect(() => {
-    const stopObserving = observeOrgApiResponses();
     let cancelled = false;
     const wasSignedOut = orgSignedOut();
     void fetchOrgMe(wasSignedOut).then((me) => {
@@ -45,7 +43,6 @@ export function SessionExpiryNotice() {
     setSignedOut(orgSignedOut());
     return () => {
       cancelled = true;
-      stopObserving();
       window.removeEventListener(ORG_SIGNED_OUT_EVENT, onSignedOut);
       window.removeEventListener(ORG_SIGNED_IN_EVENT, onSignedIn);
     };

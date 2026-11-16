@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
 import type { SessionRow } from "@/lib/client/orgNotifications";
 import { useOrgDesktopLayout } from "@/lib/client/useOrgDesktopLayout";
-import { startOrgPolling } from "@/lib/client/orgPolling";
+import { reportOrgResponse, startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
 import { idleLabel } from "@/lib/client/personPanel";
 import { ParticipantModal } from "@/components/org/ParticipantModal";
@@ -19,7 +19,8 @@ const QUIET_AFTER_SECONDS = 120;
 // screen among several, so not aggressively so.
 const POLL_MS = 10_000;
 
-async function json<T>(res: Response): Promise<T> {
+async function json<T>(res: Response, signal?: AbortSignal): Promise<T> {
+  if (!signal?.aborted) reportOrgResponse(res.status);
   const data = await res.json().catch(() => ({}));
   if (!res.ok)
     throw new Error((data as { error?: string }).error ?? "Request failed.");
@@ -249,6 +250,7 @@ export function InvigilationPanel({
         try {
           const value = await json<T>(
             await fetch(`${base}?view=${name}`, { cache: "no-store", signal }),
+            signal,
           );
           if (signal.aborted || value == null) return false;
           update(value);

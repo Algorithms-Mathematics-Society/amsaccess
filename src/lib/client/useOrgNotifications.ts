@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import { startOrgPolling } from "./orgPolling";
+import { reportOrgResponse, startOrgPolling } from "./orgPolling";
 import {
   reconcileNotifications,
   reuseNotificationRows,
@@ -104,6 +104,8 @@ function createStore(contestUid: string) {
             cache: "no-store",
             signal: controller.signal,
           });
+          if (!controller.signal.aborted && epoch === generation)
+            reportOrgResponse(response.status);
           if (!response.ok)
             throw new Error(`Could not update ${views[stream]}.`);
           rows = await response.json();

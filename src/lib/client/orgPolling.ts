@@ -18,30 +18,6 @@ export function reportOrgResponse(status: number | null): void {
   if (status === 401) pauseOrgPolling();
 }
 
-/** Observe only staff requests, and stop reporting even if a later wrapper
- * retains this wrapper after the shell unmounts. */
-export function observeOrgApiResponses(): () => void {
-  const original = window.fetch;
-  let active = true;
-  const observed: typeof window.fetch = async (input, init) => {
-    const url = new URL(
-      input instanceof Request ? input.url : String(input),
-      window.location.href,
-    );
-    const watched =
-      url.origin === window.location.origin &&
-      (url.pathname.startsWith("/api/org/") || url.pathname === "/api/auth/me");
-    const response = await original.call(window, input, init);
-    if (active && watched) reportOrgResponse(response.status);
-    return response;
-  };
-  window.fetch = observed;
-  return () => {
-    active = false;
-    if (window.fetch === observed) window.fetch = original;
-  };
-}
-
 export function orgSignedOut(): boolean {
   return signedOut;
 }
