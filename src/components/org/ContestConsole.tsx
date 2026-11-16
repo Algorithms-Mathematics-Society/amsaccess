@@ -23,6 +23,7 @@ import { verdictClassLight } from "@/lib/contestTypes";
 import { invalidate } from "@/lib/client/useApiQuery";
 import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
+import { useEdgeMask } from "@/lib/client/useEdgeMask";
 import { ContestNotifications } from "./ContestNotifications";
 import { useConfirm } from "./ConfirmDialog";
 import { LiveStatusStrip, WaitingOnStaffBadge } from "./LiveStatusStrip";
@@ -52,6 +53,23 @@ const IssueAnnouncementModal = dynamic(
 );
 const InvigilationPanel = dynamic(() => loadInvigilation().then(m => m.InvigilationPanel), { loading: LoadingPanel });
 const ContestJudging = dynamic(() => loadJudging().then(m => m.ContestJudging), { loading: LoadingPanel });
+
+/** The eight tabs need about 870px, so below that they scroll inside the strip
+ *  (never the page), with a fade on the side that still has tabs. Its own
+ *  component so scroll-driven fade changes do not re-render the console. */
+function TabStrip({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLElement>(null);
+  return (
+    <nav
+      ref={ref}
+      aria-label="Contest sections"
+      className="flex gap-6 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      style={useEdgeMask(ref)}
+    >
+      {children}
+    </nav>
+  );
+}
 
 function preloadTab(tab: Tab) {
   const loaders: Partial<Record<Tab, () => Promise<unknown>>> = {
@@ -535,7 +553,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
       )}
 
       <div className="border-b border-slate-200 bg-white px-4 sm:px-6 md:px-8">
-        <nav className="flex gap-6 overflow-x-auto md:overflow-visible">
+        <TabStrip>
           {TABS.map((t) => (
             <button
               key={t}
@@ -543,7 +561,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
               onPointerEnter={() => prepareTab(t)}
               onFocus={() => prepareTab(t)}
               onClick={() => setTab(t)}
-              className={`flex-shrink-0 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium capitalize transition ${
+              className={`flex-shrink-0 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium capitalize transition focus-visible:-outline-offset-2 ${
                 tab === t
                   ? "border-slate-900 text-slate-900"
                   : "border-transparent text-slate-500 hover:text-slate-800"
@@ -558,7 +576,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
               )}
             </button>
           ))}
-        </nav>
+        </TabStrip>
       </div>
 
       {tab === "team-round" && <TeamRoundPanel key={contestUid} contestUid={contestUid} onChanged={refreshContestAfterWrite} contestStartsAt={contest?.starts_at ?? null} contestEndsAt={contest?.ends_at ?? null} />}
