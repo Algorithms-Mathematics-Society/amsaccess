@@ -177,7 +177,9 @@ try {
       next = null;
       if (override?.hold) await override.hold;
       // A held read may have been abandoned by the page's timeout; answering it is moot.
-      const answer = override?.status ? ok({ error: override.error }, override.status) : ok(roster);
+      const answer = override?.status
+        ? ok({ error: override.error }, override.status)
+        : ok(roster);
       return answer.catch((e) => {
         if (!override?.hold) throw e;
       });
@@ -194,7 +196,10 @@ try {
   const monitor = page.getByRole("region", { name: "Live team monitor" });
   const text = () => monitor.innerText();
 
-  await untilAsync(async () => /read took/.test(await text()), "the first monitor read");
+  await untilAsync(
+    async () => /read took/.test(await text()),
+    "the first monitor read",
+  );
   // Freeze page time; every later step advances it explicitly.
   await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 10);
 
@@ -224,7 +229,10 @@ try {
     /WA · 3\/5 checks[\s\S]*Not the team's own code: 3/,
   );
   assert.match(await row(34).innerText(), /No result for this revision yet/);
-  assert.match(await row(2).innerText(), /Revision 2 auto-submitted at the deadline/);
+  assert.match(
+    await row(2).innerText(),
+    /Revision 2 auto-submitted at the deadline/,
+  );
   assert.match(await row(1).innerText(), /Revision 2 submitted by team vote/);
 
   // Cadence: one read per 15 s after completion, never overlapping.
@@ -236,7 +244,10 @@ try {
   await refresh.focus();
   await page.clock.runFor(1500);
   await until(() => teamReads === settled + 1, "the interval read");
-  await untilAsync(async () => !/Reading…/.test(await text()), "the interval read to settle");
+  await untilAsync(
+    async () => !/Reading…/.test(await text()),
+    "the interval read to settle",
+  );
   assert.equal(
     await page.evaluate(() => document.activeElement?.textContent?.trim()),
     "Refresh now",
@@ -249,10 +260,18 @@ try {
   await until(() => teamReads === settled + 2, "the held read");
   await refresh.click();
   await realWait(200);
-  assert.equal(teamReads, settled + 2, "a manual refresh never overlaps a read in flight");
+  assert.equal(
+    teamReads,
+    settled + 2,
+    "a manual refresh never overlaps a read in flight",
+  );
   await page.clock.runFor(9_000);
   await realWait(200);
-  assert.equal(teamReads, settled + 2, "no overlapping read while one is in flight");
+  assert.equal(
+    teamReads,
+    settled + 2,
+    "no overlapping read while one is in flight",
+  );
   // Past the deadline the read is abandoned and reported; polling then resumes.
   await page.clock.runFor(1_500);
   await page.getByRole("alert").filter({ hasText: "timed out" }).waitFor();
@@ -260,7 +279,10 @@ try {
   release();
   await page.clock.runFor(POLL + 500);
   await until(() => teamReads === settled + 3, "the read after the timeout");
-  await page.getByRole("alert").filter({ hasText: "timed out" }).waitFor({ state: "detached" });
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "timed out" })
+    .waitFor({ state: "detached" });
 
   // A hidden tab stops reading; showing it reads once, at once.
   const setVisibility = (state) =>
@@ -277,6 +299,10 @@ try {
   assert.equal(teamReads, settled + 3, "no reads while hidden");
   await setVisibility("visible");
   await until(() => teamReads === settled + 4, "the read on becoming visible");
+  await untilAsync(
+    async () => /Updated 0 s ago/.test(await text()),
+    "the visibility read to settle before arming the next response",
+  );
 
   // An error keeps the last good data on screen.
   next = { status: 502, error: "Upstream unavailable." };
@@ -299,7 +325,10 @@ try {
     const before = teamReads;
     await page.clock.runFor(POLL + 500);
     await until(() => teamReads === before + 1, "the next interval read");
-    await untilAsync(async () => !/Reading…/.test(await text()), "the read to finish");
+    await untilAsync(
+      async () => !/Reading…/.test(await text()),
+      "the read to finish",
+    );
   }
   await untilAsync(
     async () => /Needs attention\s+3/i.test(await text()),
@@ -316,7 +345,11 @@ try {
   await page.getByLabel(/Show only teams needing attention/).check();
   assert.equal(await rows.count(), 3);
 
-  assert.equal(await monitor.getByRole("alert").count(), 0, "no error banner after normal reads");
+  assert.equal(
+    await monitor.getByRole("alert").count(),
+    0,
+    "no error banner after normal reads",
+  );
   await page.screenshot({ path: shot, fullPage: true });
 
   // Leaving the tab unmounts the monitor and stops its reads.
@@ -329,8 +362,15 @@ try {
 
   // The only expected console error is the browser logging the 502 injected above.
   const injected = errors.filter((e) => /status of 502/.test(e));
-  assert.equal(injected.length, 1, "exactly one logged 502, from the injected failure");
-  assert.deepEqual(errors.filter((e) => !injected.includes(e)), []);
+  assert.equal(
+    injected.length,
+    1,
+    "exactly one logged 502, from the injected failure",
+  );
+  assert.deepEqual(
+    errors.filter((e) => !injected.includes(e)),
+    [],
+  );
   assert.deepEqual(mutations, [], "the monitor never writes");
   console.log(
     `PASS live team monitor: 34-team content, 15 s cadence, no overlap, hidden pause, error retention, slow-result flag, unmount stop; first table paint ${firstPaintMs} ms; screenshot ${shot}`,

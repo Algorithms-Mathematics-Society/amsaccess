@@ -5,9 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import "@/styles/access-theme.css";
 import "@/styles/org-theme-bridge.css";
-import { CalendarDays, FileCode2, LayoutDashboard, Mail, MessageSquare, Users } from "lucide-react";
+import {
+  CalendarDays,
+  FileCode2,
+  LayoutDashboard,
+  Mail,
+  MessageSquare,
+  Users,
+} from "lucide-react";
 import { useEdgeMask } from "@/lib/client/useEdgeMask";
 import { useOrgRole } from "@/lib/client/useOrgRole";
+import { SessionExpiryNotice } from "./SessionExpiryNotice";
 
 const NAV = [
   { href: "/org/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -46,7 +54,10 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
   // "intern" on a network blip would lock an admin out of their own sidebar.
   const { role } = useOrgRole();
 
-  const nav = role === "intern" ? NAV.filter((i) => !INTERN_HIDDEN.includes(i.href)) : NAV;
+  const nav =
+    role === "intern"
+      ? NAV.filter((i) => !INTERN_HIDDEN.includes(i.href))
+      : NAV;
   const headerRef = useRef<HTMLElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
 
@@ -57,7 +68,8 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     const nav = mobileNavRef.current;
     const active = nav?.querySelector<HTMLElement>('[aria-current="page"]');
     if (!nav || !active) return;
-    nav.scrollLeft = active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
+    nav.scrollLeft =
+      active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
   }, [pathname]);
 
   // Fade the edge the nav can still scroll toward, so hidden sections show.
@@ -105,7 +117,9 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
       </a>
       <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
         <div className="px-5 py-6">
-          <p className="text-sm font-semibold tracking-tight text-slate-950">AMS Access</p>
+          <p className="text-sm font-semibold tracking-tight text-slate-950">
+            AMS Access
+          </p>
           <p className="text-xs text-slate-400">Organization</p>
         </div>
 
@@ -131,13 +145,16 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-
       </aside>
 
-      <header ref={headerRef} className="sticky top-0 z-30 border-b border-slate-200 bg-white lg:hidden">
+      <header
+        ref={headerRef}
+        className="sticky top-0 z-30 border-b border-slate-200 bg-white lg:hidden"
+      >
         <div className="flex h-12 items-center px-4">
           <p className="text-sm font-semibold tracking-tight text-slate-950">
-            AMS Access <span className="font-normal text-slate-500">· Organization</span>
+            AMS Access{" "}
+            <span className="font-normal text-slate-500">· Organization</span>
           </p>
         </div>
         <nav
@@ -155,7 +172,10 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 onFocus={(event) =>
-                  event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" })
+                  event.currentTarget.scrollIntoView({
+                    block: "nearest",
+                    inline: "nearest",
+                  })
                 }
                 className={`scroll-mx-2 flex min-h-11 flex-none items-center gap-2 rounded-lg px-3 text-sm transition ${FOCUS} ${
                   active
@@ -171,8 +191,13 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
 
-      <main id="org-main" tabIndex={-1} className="min-w-0 w-full flex-1 outline-none">
+      <main
+        id="org-main"
+        tabIndex={-1}
+        className="min-w-0 w-full flex-1 outline-none"
+      >
         {children}
+        <SessionExpiryNotice />
       </main>
     </div>
   );
@@ -190,7 +215,9 @@ export function PageHeader({
   return (
     <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 bg-white px-4 py-5 sm:px-6 md:px-8 md:py-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+          {title}
+        </h1>
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
       </div>
       {action}

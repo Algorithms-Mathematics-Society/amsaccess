@@ -136,9 +136,24 @@ function IdentityDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const frames: { kind: "entry" | "exit"; label: string; has: boolean; at: string | null }[] = [
-    { kind: "entry", label: "At check-in", has: row.has_entry_photo, at: row.entry_photo_at },
-    { kind: "exit", label: "At the end", has: row.has_exit_photo, at: row.exit_photo_at },
+  const frames: {
+    kind: "entry" | "exit";
+    label: string;
+    has: boolean;
+    at: string | null;
+  }[] = [
+    {
+      kind: "entry",
+      label: "At check-in",
+      has: row.has_entry_photo,
+      at: row.entry_photo_at,
+    },
+    {
+      kind: "exit",
+      label: "At the end",
+      has: row.has_exit_photo,
+      at: row.exit_photo_at,
+    },
   ];
 
   return (
@@ -160,7 +175,9 @@ function IdentityDialog({
             <h3 className="text-base font-semibold text-slate-900">
               {row.display_name || "Unknown"}
             </h3>
-            <p className="break-all font-mono text-xs text-slate-500">{row.login_id}</p>
+            <p className="break-all font-mono text-xs text-slate-500">
+              {row.login_id}
+            </p>
           </div>
           <button
             type="button"
@@ -185,7 +202,9 @@ function IdentityDialog({
                   />
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center">
-                    <span className="text-sm font-medium text-slate-500">No photo</span>
+                    <span className="text-sm font-medium text-slate-500">
+                      No photo
+                    </span>
                     <span className="text-xs text-slate-400">
                       {frame.kind === "entry"
                         ? "The camera never delivered a frame at check-in."
@@ -195,7 +214,9 @@ function IdentityDialog({
                 )}
               </div>
               <figcaption className="flex items-baseline justify-between text-xs">
-                <span className="font-medium text-slate-700">{frame.label}</span>
+                <span className="font-medium text-slate-700">
+                  {frame.label}
+                </span>
                 <span className="text-slate-400">
                   {frame.at ? new Date(frame.at).toLocaleTimeString() : "—"}
                 </span>
@@ -206,11 +227,14 @@ function IdentityDialog({
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 px-5 py-3 text-xs text-slate-500">
           <span>
-            State: <span className="font-medium text-slate-700">{row.status}</span>
+            State:{" "}
+            <span className="font-medium text-slate-700">{row.status}</span>
           </span>
           <span>Last contact: {idleLabel(row.idle_seconds)}</span>
           {row.violation_count > 0 && (
-            <span className="text-amber-700">{row.violation_count} flagged</span>
+            <span className="text-amber-700">
+              {row.violation_count} flagged
+            </span>
           )}
           {row.resume_count > 0 && <span>reopened {row.resume_count}×</span>}
         </div>
@@ -219,7 +243,15 @@ function IdentityDialog({
   );
 }
 
-export function InvigilationPanel({ contestUid, notificationsEnabled = true, active = true }: { contestUid: string; notificationsEnabled?: boolean; active?: boolean }) {
+export function InvigilationPanel({
+  contestUid,
+  notificationsEnabled = true,
+  active = true,
+}: {
+  contestUid: string;
+  notificationsEnabled?: boolean;
+  active?: boolean;
+}) {
   const notifications = useOrgNotifications(contestUid, notificationsEnabled);
   const { incidents, resumes, sessions } = notifications.raw;
   const desktop = useOrgDesktopLayout();
@@ -235,49 +267,83 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
   // Resolved from the live list rather than copied on click, so an open
   // dialog picks up the exit photo the moment that candidate finishes
   // instead of showing the roster as it was ten seconds ago.
-  const photoRow = useMemo(() => sessions.find((row) => row.uid === photoRowUid) ?? null, [sessions, photoRowUid]);
+  const photoRow = useMemo(
+    () => sessions.find((row) => row.uid === photoRowUid) ?? null,
+    [sessions, photoRowUid],
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
-  const read = useCallback(async (signal: AbortSignal) => {
-    const base = `/api/org/contests/${contestUid}/invigilation`;
-    // Render each section as it arrives; retain the previous section on failure.
-    async function view<T>(name: string, update: (value: T) => void): Promise<boolean> {
-      try {
-        const value = await json<T>(await fetch(`${base}?view=${name}`, { cache: "no-store", signal }));
-        if (signal.aborted || value == null) return false;
-        update(value);
-        return true;
-      } catch {
-        return false;
+  const read = useCallback(
+    async (signal: AbortSignal) => {
+      const base = `/api/org/contests/${contestUid}/invigilation`;
+      // Render each section as it arrives; retain the previous section on failure.
+      async function view<T>(
+        name: string,
+        update: (value: T) => void,
+      ): Promise<boolean> {
+        try {
+          const value = await json<T>(
+            await fetch(`${base}?view=${name}`, { cache: "no-store", signal }),
+          );
+          if (signal.aborted || value == null) return false;
+          update(value);
+          return true;
+        } catch {
+          return false;
+        }
       }
-    }
-    const results = await Promise.all([
-      view("readiness", setReadiness),
-      view("overrides", setOverrides),
-    ]);
-    if (!signal.aborted) setError(results.some(Boolean) ? "" : "Could not refresh device checks or overrides.");
-  }, [contestUid]);
+      const results = await Promise.all([
+        view("readiness", setReadiness),
+        view("overrides", setOverrides),
+      ]);
+      if (!signal.aborted) {
+        setError(
+          results.some(Boolean)
+            ? ""
+            : "Could not refresh device checks or overrides.",
+        );
+        return results.every(Boolean);
+      }
+    },
+    [contestUid],
+  );
   const { load, refreshAfterWrite } = useOrgReadTask(read);
   const [readinessLoaded, setReadinessLoaded] = useState(false);
   useEffect(() => {
     if (!notificationsEnabled || !active) return;
-    return startOrgPolling(async () => { await load(); setReadinessLoaded(true); }, POLL_MS);
+    return startOrgPolling(async () => {
+      const result = await load();
+      setReadinessLoaded(true);
+      return result;
+    }, POLL_MS);
   }, [load, notificationsEnabled, active]);
   // An empty list only means "nobody" once the feed has actually answered.
   const emptyText = (nobody: string) =>
-    !notificationsEnabled ? "Not shown for your role. Ask an admin for contest staff access."
-      : notifications.loading ? "Loading…"
-      : notifications.errors.length > 0 ? "Couldn’t load this yet; retrying automatically."
-      : nobody;
+    !notificationsEnabled
+      ? "Not shown for your role. Ask an admin for contest staff access."
+      : notifications.loading
+        ? "Loading…"
+        : notifications.errors.length > 0
+          ? "Couldn’t load this yet; retrying automatically."
+          : nobody;
 
   async function act(key: string, url: string, body?: unknown) {
     setBusy(key);
     setError("");
     try {
-      const action = new URL(url, window.location.origin).searchParams.get("action");
-      if (action === "approve-resume" || action === "reject-resume" || action === "resolve-incident") {
-        await notifications.act(`${action === "resolve-incident" ? "incident" : "resume"}:${key}`, action);
+      const action = new URL(url, window.location.origin).searchParams.get(
+        "action",
+      );
+      if (
+        action === "approve-resume" ||
+        action === "reject-resume" ||
+        action === "resolve-incident"
+      ) {
+        await notifications.act(
+          `${action === "resolve-incident" ? "incident" : "resume"}:${key}`,
+          action,
+        );
         return;
       }
       await json(
@@ -296,30 +362,60 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
   }
 
   const base = `/api/org/contests/${contestUid}/invigilation`;
-  const openIncidents = useMemo(() => incidents.filter((i) => i.status !== "resolved"), [incidents]);
-  const blocked = useMemo(() => readiness.filter((r) => !r.passed), [readiness]);
-  const liveOverrides = useMemo(() => overrides.filter((o) => !o.revoked), [overrides]);
-  const waiting = useMemo(() => resumes.filter((r) => r.status === "pending"), [resumes]);
-  const quiet = useMemo(() => sessions.filter(
-    (row) =>
-      (row.status === "active" || row.status === "pending") &&
-      (row.idle_seconds === null || row.idle_seconds >= QUIET_AFTER_SECONDS),
-  ), [sessions]);
+  const openIncidents = useMemo(
+    () => incidents.filter((i) => i.status !== "resolved"),
+    [incidents],
+  );
+  const blocked = useMemo(
+    () => readiness.filter((r) => !r.passed),
+    [readiness],
+  );
+  const liveOverrides = useMemo(
+    () => overrides.filter((o) => !o.revoked),
+    [overrides],
+  );
+  const waiting = useMemo(
+    () => resumes.filter((r) => r.status === "pending"),
+    [resumes],
+  );
+  const quiet = useMemo(
+    () =>
+      sessions.filter(
+        (row) =>
+          (row.status === "active" || row.status === "pending") &&
+          (row.idle_seconds === null ||
+            row.idle_seconds >= QUIET_AFTER_SECONDS),
+      ),
+    [sessions],
+  );
 
   return (
     <div className="space-y-5 pb-20">
-      <ParticipantModal handle={openParticipant} onClose={() => setOpenParticipant(null)} />
+      <ParticipantModal
+        handle={openParticipant}
+        onClose={() => setOpenParticipant(null)}
+      />
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       )}
       {notificationsEnabled && notifications.errors.length > 0 && (
-        <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p
+          role="alert"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
           Live updates are failing, so these lists may be out of date
-          {notifications.updatedAt !== null && ` (last update ${new Date(notifications.updatedAt).toLocaleTimeString()})`}.
-          Retrying automatically.{" "}
-          <button type="button" className="underline" onClick={() => void notifications.refresh()}>Retry now</button>
+          {notifications.updatedAt !== null &&
+            ` (last update ${new Date(notifications.updatedAt).toLocaleTimeString()})`}
+          . Retrying automatically.{" "}
+          <button
+            type="button"
+            className="underline"
+            onClick={() => void notifications.refresh()}
+          >
+            Retry now
+          </button>
         </p>
       )}
 
@@ -386,7 +482,10 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                           {},
                         )
                       }
-                      disabled={busy === request.uid || notifications.busyIds.has(`resume:${request.uid}`)}
+                      disabled={
+                        busy === request.uid ||
+                        notifications.busyIds.has(`resume:${request.uid}`)
+                      }
                       className="min-h-11 xl:min-h-0 inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40 xl:flex-none xl:justify-start xl:py-1.5"
                     >
                       {busy === request.uid ? (
@@ -405,7 +504,10 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                           {},
                         )
                       }
-                      disabled={busy === request.uid || notifications.busyIds.has(`resume:${request.uid}`)}
+                      disabled={
+                        busy === request.uid ||
+                        notifications.busyIds.has(`resume:${request.uid}`)
+                      }
                       className="min-h-11 xl:min-h-0 inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 xl:flex-none xl:justify-start xl:py-1.5"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -472,7 +574,10 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                           `${base}?action=resolve-incident&uid=${incident.uid}`,
                         )
                       }
-                      disabled={busy === incident.uid || notifications.busyIds.has(`incident:${incident.uid}`)}
+                      disabled={
+                        busy === incident.uid ||
+                        notifications.busyIds.has(`incident:${incident.uid}`)
+                      }
                       className="min-h-11 xl:min-h-0 inline-flex w-full flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 xl:w-auto xl:justify-start xl:py-1.5"
                     >
                       {busy === incident.uid ? (
@@ -507,8 +612,9 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
         </h3>
         <p className="mb-4 max-w-4xl text-sm leading-relaxed text-slate-500">
           Sessions needing attention appear first. Quiet means no check-in yet,
-          or no contact for at least 2 minutes while active or pending. Check with
-          the candidate; quiet sessions and flags are signals to review, not a verdict.
+          or no contact for at least 2 minutes while active or pending. Check
+          with the candidate; quiet sessions and flags are signals to review,
+          not a verdict.
         </p>
 
         {/* Below xl each candidate is a card: the same fields and the same
@@ -560,7 +666,9 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                       )}
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">{row.status}</span>
+                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">
+                        {row.status}
+                      </span>
                       {row.resume_pending && (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-800">
                           waiting on you
@@ -596,17 +704,34 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
           </p>
         ) : desktop ? (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white xl:block">
-            <table aria-label="Live contest sessions" className="w-full min-w-[780px] table-fixed text-sm">
-              <colgroup><col className="w-16" /><col /><col className="w-40" /><col className="w-40" /><col className="w-32" /></colgroup>
+            <table
+              aria-label="Live contest sessions"
+              className="w-full min-w-[780px] table-fixed text-sm"
+            >
+              <colgroup>
+                <col className="w-16" />
+                <col />
+                <col className="w-40" />
+                <col className="w-40" />
+                <col className="w-32" />
+              </colgroup>
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th scope="col" className="px-4 py-2.5">
                     <span className="sr-only">Photo</span>
                   </th>
-                  <th scope="col" className="px-4 py-2.5">Candidate</th>
-                  <th scope="col" className="px-4 py-2.5">State</th>
-                  <th scope="col" className="px-4 py-2.5">Last contact</th>
-                  <th scope="col" className="px-4 py-2.5 text-right">Flags</th>
+                  <th scope="col" className="px-4 py-2.5">
+                    Candidate
+                  </th>
+                  <th scope="col" className="px-4 py-2.5">
+                    State
+                  </th>
+                  <th scope="col" className="px-4 py-2.5">
+                    Last contact
+                  </th>
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Flags
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -648,7 +773,9 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-slate-700">
-                        <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">{row.status}</span>
+                        <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">
+                          {row.status}
+                        </span>
                         {row.resume_pending && (
                           <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
                             waiting on you
@@ -662,7 +789,11 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                             live. After the bell, a long silence is just a
                             candidate who finished and closed their laptop. */}
                         {running ? idleLabel(row.idle_seconds) : "—"}
-                        {isQuiet && <span className="mt-1 block text-xs font-normal">No recent contact</span>}
+                        {isQuiet && (
+                          <span className="mt-1 block text-xs font-normal">
+                            No recent contact
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right text-xs text-slate-500">
                         {row.violation_count > 0 && (
@@ -671,9 +802,14 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                             {row.violation_count} flags
                           </span>
                         )}
-                        {row.violation_count === 0 && row.resume_count === 0 && <span aria-label="No flags or reopenings">—</span>}
+                        {row.violation_count === 0 &&
+                          row.resume_count === 0 && (
+                            <span aria-label="No flags or reopenings">—</span>
+                          )}
                         {row.resume_count > 0 && (
-                          <span className="block">reopened {row.resume_count}×</span>
+                          <span className="block">
+                            reopened {row.resume_count}×
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -753,17 +889,32 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
 
         {readiness.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-            {!notificationsEnabled ? emptyText("") : readinessLoaded ? "No devices have reported yet." : "Loading…"}
+            {!notificationsEnabled
+              ? emptyText("")
+              : readinessLoaded
+                ? "No devices have reported yet."
+                : "Loading…"}
           </p>
         ) : desktop ? (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white xl:block">
-            <table aria-label="Entry-gate device reports" className="w-full min-w-[720px] text-sm">
+            <table
+              aria-label="Entry-gate device reports"
+              className="w-full min-w-[720px] text-sm"
+            >
               <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th scope="col" className="px-4 py-2.5">Candidate</th>
-                  <th scope="col" className="px-4 py-2.5">Device</th>
-                  <th scope="col" className="px-4 py-2.5">Result</th>
-                  <th scope="col" className="px-4 py-2.5 text-right">Waive a check</th>
+                  <th scope="col" className="px-4 py-2.5">
+                    Candidate
+                  </th>
+                  <th scope="col" className="px-4 py-2.5">
+                    Device
+                  </th>
+                  <th scope="col" className="px-4 py-2.5">
+                    Result
+                  </th>
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Waive a check
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -773,7 +924,10 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
                       {row.display_name || "—"}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span title={row.device_fingerprint} className="break-all font-mono text-xs text-slate-600">
+                      <span
+                        title={row.device_fingerprint}
+                        className="break-all font-mono text-xs text-slate-600"
+                      >
                         {row.device_fingerprint.slice(0, 20)}
                       </span>
                       <span className="ml-2 text-xs text-slate-400">
@@ -829,92 +983,105 @@ export function InvigilationPanel({ contestUid, notificationsEnabled = true, act
               </span>
             )}
           </h3>
-          {!desktop && <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white xl:hidden">
-            {overrides.map((grant) => (
-              <li
-                key={grant.uid}
-                className={`flex items-center justify-between gap-3 px-4 py-3 ${grant.revoked ? "opacity-50" : ""}`}
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-900">
-                    {grant.check_kind}
-                  </p>
-                  <p className="break-all font-mono text-xs text-slate-600">
-                    {grant.device_fingerprint.slice(0, 20)}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {grant.revoked
-                      ? "Revoked"
-                      : `Expires ${new Date(grant.expires_at).toLocaleTimeString()}`}
-                  </p>
-                </div>
-                {!grant.revoked && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      act(
-                        grant.uid,
-                        `${base}?action=revoke-override&uid=${grant.uid}`,
-                      )
-                    }
-                    disabled={busy === grant.uid}
-                    className="flex-shrink-0 rounded-lg border border-red-200 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
-                  >
-                    Revoke
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>}
-          {desktop && <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white xl:block">
-            <table aria-label="Device check waivers" className="w-full min-w-[640px] text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th scope="col" className="px-4 py-2.5">Check</th>
-                  <th scope="col" className="px-4 py-2.5">Device</th>
-                  <th scope="col" className="px-4 py-2.5">Expires</th>
-                  <th scope="col" className="px-4 py-2.5 text-right"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {overrides.map((grant) => (
-                  <tr
-                    key={grant.uid}
-                    className={grant.revoked ? "opacity-50" : undefined}
-                  >
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
+          {!desktop && (
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white xl:hidden">
+              {overrides.map((grant) => (
+                <li
+                  key={grant.uid}
+                  className={`flex items-center justify-between gap-3 px-4 py-3 ${grant.revoked ? "opacity-50" : ""}`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900">
                       {grant.check_kind}
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-slate-600">
+                    </p>
+                    <p className="break-all font-mono text-xs text-slate-600">
                       {grant.device_fingerprint.slice(0, 20)}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-500">
+                    </p>
+                    <p className="text-xs text-slate-500">
                       {grant.revoked
-                        ? "—"
-                        : new Date(grant.expires_at).toLocaleTimeString()}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      {!grant.revoked && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            act(
-                              grant.uid,
-                              `${base}?action=revoke-override&uid=${grant.uid}`,
-                            )
-                          }
-                          disabled={busy === grant.uid}
-                          className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
-                        >
-                          Revoke
-                        </button>
-                      )}
-                    </td>
+                        ? "Revoked"
+                        : `Expires ${new Date(grant.expires_at).toLocaleTimeString()}`}
+                    </p>
+                  </div>
+                  {!grant.revoked && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        act(
+                          grant.uid,
+                          `${base}?action=revoke-override&uid=${grant.uid}`,
+                        )
+                      }
+                      disabled={busy === grant.uid}
+                      className="flex-shrink-0 rounded-lg border border-red-200 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {desktop && (
+            <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white xl:block">
+              <table
+                aria-label="Device check waivers"
+                className="w-full min-w-[640px] text-sm"
+              >
+                <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th scope="col" className="px-4 py-2.5">
+                      Check
+                    </th>
+                    <th scope="col" className="px-4 py-2.5">
+                      Device
+                    </th>
+                    <th scope="col" className="px-4 py-2.5">
+                      Expires
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {overrides.map((grant) => (
+                    <tr
+                      key={grant.uid}
+                      className={grant.revoked ? "opacity-50" : undefined}
+                    >
+                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                        {grant.check_kind}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-slate-600">
+                        {grant.device_fingerprint.slice(0, 20)}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-500">
+                        {grant.revoked
+                          ? "—"
+                          : new Date(grant.expires_at).toLocaleTimeString()}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {!grant.revoked && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              act(
+                                grant.uid,
+                                `${base}?action=revoke-override&uid=${grant.uid}`,
+                              )
+                            }
+                            disabled={busy === grant.uid}
+                            className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       )}
     </div>

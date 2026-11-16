@@ -76,7 +76,8 @@ const POLL_MS = 5000;
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Request failed.");
+  if (!res.ok)
+    throw new Error((data as { error?: string }).error ?? "Request failed.");
   return data as T;
 }
 
@@ -144,12 +145,17 @@ function Sends() {
 
   const read = useCallback(async (signal: AbortSignal) => {
     try {
-      const next = await json<Batch[]>(await fetch("/api/org/mail/batches", { cache: "no-store", signal }));
+      const next = await json<Batch[]>(
+        await fetch("/api/org/mail/batches", { cache: "no-store", signal }),
+      );
       if (signal.aborted) return;
       setBatches(next);
       setError("");
     } catch (err) {
-      if (!signal.aborted) setError(err instanceof Error ? err.message : "Could not load sends.");
+      if (!signal.aborted) {
+        setError(err instanceof Error ? err.message : "Could not load sends.");
+        return false;
+      }
     }
   }, []);
   const { load } = useOrgReadTask(read);
@@ -158,7 +164,9 @@ function Sends() {
     if (open) return;
     return startOrgPolling(load, active ? POLL_MS : null, { immediate: false });
   }, [load, active, open]);
-  useEffect(() => { if (!open) void load(); }, [load, open]);
+  useEffect(() => {
+    if (!open) void load();
+  }, [load, open]);
 
   if (open) {
     return <BatchView uid={open} onBack={() => setOpen(null)} />;
@@ -168,11 +176,13 @@ function Sends() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
-          {batches === null
-            ? <SkeletonText className="w-28" />
-            : `${batches.length} send${batches.length === 1 ? "" : "s"}${
-                active ? " · delivering" : ""
-              }`}
+          {batches === null ? (
+            <SkeletonText className="w-28" />
+          ) : (
+            `${batches.length} send${batches.length === 1 ? "" : "s"}${
+              active ? " · delivering" : ""
+            }`
+          )}
         </p>
         <button
           type="button"
@@ -203,10 +213,13 @@ function Sends() {
       {batches !== null && batches.length === 0 && !creating ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
           <Mail className="mx-auto h-8 w-8 text-slate-300" />
-          <p className="mt-3 text-sm font-medium text-slate-700">Nothing sent yet</p>
+          <p className="mt-3 text-sm font-medium text-slate-700">
+            Nothing sent yet
+          </p>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-            Credential emails are sent from a contest&apos;s Participants tab. Anything else —
-            a reminder, a schedule change — starts with New send.
+            Credential emails are sent from a contest&apos;s Participants tab.
+            Anything else — a reminder, a schedule change — starts with New
+            send.
           </p>
         </div>
       ) : (
@@ -233,7 +246,9 @@ function Sends() {
                     <td className="px-4 py-2.5">
                       <p className="font-medium text-slate-900">{b.label}</p>
                       {b.contest_title && (
-                        <p className="text-xs text-slate-500">{b.contest_title}</p>
+                        <p className="text-xs text-slate-500">
+                          {b.contest_title}
+                        </p>
                       )}
                     </td>
                     <td className="px-4 py-2.5 font-mono text-xs text-slate-700">
@@ -245,7 +260,9 @@ function Sends() {
                     <td className="px-4 py-2.5">
                       <Progress counts={b.counts} total={b.total} />
                     </td>
-                    <td className="px-4 py-2.5 text-slate-500">{formatWhen(b.created_at)}</td>
+                    <td className="px-4 py-2.5 text-slate-500">
+                      {formatWhen(b.created_at)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -259,7 +276,8 @@ function Sends() {
 
 function Progress({ counts, total }: { counts: Counts; total: number }) {
   const sent = counts.sent ?? 0;
-  const bad = (counts.failed ?? 0) + (counts.bounced ?? 0) + (counts.complained ?? 0);
+  const bad =
+    (counts.failed ?? 0) + (counts.bounced ?? 0) + (counts.complained ?? 0);
   const pending = (counts.queued ?? 0) + (counts.sending ?? 0);
   return (
     <div className="flex items-center gap-2 text-xs">
@@ -272,7 +290,9 @@ function Progress({ counts, total }: { counts: Counts; total: number }) {
       <span className="tabular-nums text-slate-600">
         {sent} sent
         {bad > 0 && <span className="text-red-600"> · {bad} failed</span>}
-        {pending > 0 && <span className="text-slate-400"> · {pending} to go</span>}
+        {pending > 0 && (
+          <span className="text-slate-400"> · {pending} to go</span>
+        )}
       </span>
     </div>
   );
@@ -299,8 +319,12 @@ function NewSend({
     void (async () => {
       try {
         const [t, c] = await Promise.all([
-          fetch("/api/org/mail/templates", { cache: "no-store" }).then((res) => json<Template[]>(res)),
-          fetch("/api/org/contests", { cache: "no-store" }).then((res) => json<Contest[]>(res)),
+          fetch("/api/org/mail/templates", { cache: "no-store" }).then((res) =>
+            json<Template[]>(res),
+          ),
+          fetch("/api/org/contests", { cache: "no-store" }).then((res) =>
+            json<Contest[]>(res),
+          ),
         ]);
         // The credential template is sent from the roster, where the
         // passphrase logic lives; offering it here would only fail.
@@ -331,14 +355,19 @@ function NewSend({
     const contest = contests.find((c) => c.uid === contestUid);
     const audience = [
       contest && `everyone on the ${contest.title} roster who has an email`,
-      recipients.length > 0 && `${recipients.length} pasted address${recipients.length === 1 ? "" : "es"}`,
-    ].filter(Boolean).join(" and ");
+      recipients.length > 0 &&
+        `${recipients.length} pasted address${recipients.length === 1 ? "" : "es"}`,
+    ]
+      .filter(Boolean)
+      .join(" and ");
     const ok = await confirm({
       title: `Send “${templateName}”?`,
       body: (
         <>
           <p>It goes to {audience}. Queued emails can’t be recalled.</p>
-          <p>Check the template’s saved preview first if you edited it recently.</p>
+          <p>
+            Check the template’s saved preview first if you edited it recently.
+          </p>
         </>
       ),
       confirmLabel: "Queue send",
@@ -361,7 +390,9 @@ function NewSend({
       );
       onQueued(batch);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not queue the send.");
+      setError(
+        err instanceof Error ? err.message : "Could not queue the send.",
+      );
     } finally {
       setBusy(false);
     }
@@ -388,7 +419,9 @@ function NewSend({
           </select>
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block text-slate-700">Contest roster (optional)</span>
+          <span className="mb-1 block text-slate-700">
+            Contest roster (optional)
+          </span>
           <select
             value={contestUid}
             onChange={(e) => setContestUid(e.target.value)}
@@ -439,7 +472,11 @@ function NewSend({
           disabled={busy || !templateName || nobody}
           className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
         >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
           Queue send
         </button>
         <button
@@ -467,20 +504,38 @@ function BatchView({ uid, onBack }: { uid: string; onBack: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("");
 
-  const read = useCallback(async (signal: AbortSignal) => {
-    try {
-      const next = await json<BatchDetail>(await fetch(`/api/org/mail/batches/${uid}`, { cache: "no-store", signal }));
-      if (signal.aborted) return;
-      setBatch(next);
-      setError("");
-    } catch (err) {
-      if (!signal.aborted) setError(err instanceof Error ? err.message : "Could not load the send.");
-    }
-  }, [uid]);
+  const read = useCallback(
+    async (signal: AbortSignal) => {
+      try {
+        const next = await json<BatchDetail>(
+          await fetch(`/api/org/mail/batches/${uid}`, {
+            cache: "no-store",
+            signal,
+          }),
+        );
+        if (signal.aborted) return;
+        setBatch(next);
+        setError("");
+      } catch (err) {
+        if (!signal.aborted) {
+          setError(
+            err instanceof Error ? err.message : "Could not load the send.",
+          );
+          return false;
+        }
+      }
+    },
+    [uid],
+  );
   const { load, refreshAfterWrite } = useOrgReadTask(read);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
   const active = batch ? inFlight(batch.counts) : false;
-  useEffect(() => startOrgPolling(load, active ? POLL_MS : null, { immediate: false }), [active, load]);
+  useEffect(
+    () => startOrgPolling(load, active ? POLL_MS : null, { immediate: false }),
+    [active, load],
+  );
 
   async function retry(path: string, key: string) {
     setBusy(key);
@@ -513,7 +568,9 @@ function BatchView({ uid, onBack }: { uid: string; onBack: () => void }) {
       {batch && (
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">{batch.label}</h2>
+            <h2 className="text-lg font-semibold text-slate-950">
+              {batch.label}
+            </h2>
             <p className="text-sm text-slate-500">
               <span className="font-mono text-xs">{batch.template_name}</span>
               {batch.contest_title && ` · ${batch.contest_title}`} · queued{" "}
@@ -525,7 +582,12 @@ function BatchView({ uid, onBack }: { uid: string; onBack: () => void }) {
             {failed > 0 && (
               <button
                 type="button"
-                onClick={() => retry(`/api/org/mail/batches/${uid}?action=retry-failed`, "all")}
+                onClick={() =>
+                  retry(
+                    `/api/org/mail/batches/${uid}?action=retry-failed`,
+                    "all",
+                  )
+                }
                 disabled={busy !== null}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:border-slate-900 disabled:opacity-40"
               >
@@ -550,24 +612,26 @@ function BatchView({ uid, onBack }: { uid: string; onBack: () => void }) {
 
       {batch && (
         <div className="mb-4 flex flex-wrap gap-2">
-          {["", "queued", "sent", "failed", "bounced", "complained"].map((s) => {
-            const n = s ? (batch.counts[s] ?? 0) : batch.total;
-            if (s && n === 0) return null;
-            return (
-              <button
-                key={s || "all"}
-                type="button"
-                onClick={() => setFilter(s)}
-                className={`rounded-full border px-3 py-1 text-xs ${
-                  filter === s
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-300 text-slate-700 hover:border-slate-900"
-                }`}
-              >
-                {s || "all"} · {n}
-              </button>
-            );
-          })}
+          {["", "queued", "sent", "failed", "bounced", "complained"].map(
+            (s) => {
+              const n = s ? (batch.counts[s] ?? 0) : batch.total;
+              if (s && n === 0) return null;
+              return (
+                <button
+                  key={s || "all"}
+                  type="button"
+                  onClick={() => setFilter(s)}
+                  className={`rounded-full border px-3 py-1 text-xs ${
+                    filter === s
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-300 text-slate-700 hover:border-slate-900"
+                  }`}
+                >
+                  {s || "all"} · {n}
+                </button>
+              );
+            },
+          )}
         </div>
       )}
 
@@ -594,13 +658,17 @@ function BatchView({ uid, onBack }: { uid: string; onBack: () => void }) {
                 <tr key={m.uid}>
                   <td className="px-4 py-2.5">
                     <p className="text-slate-900">{m.to_name || "—"}</p>
-                    <p className="font-mono text-xs text-slate-500">{m.to_email}</p>
+                    <p className="font-mono text-xs text-slate-500">
+                      {m.to_email}
+                    </p>
                   </td>
                   <td className="px-4 py-2.5">
                     <StatusPill status={m.status} />
                   </td>
                   <td className="max-w-md px-4 py-2.5 text-xs text-slate-600">
-                    {m.feedback || m.last_error || (m.attempts > 1 ? `${m.attempts} attempts` : "")}
+                    {m.feedback ||
+                      m.last_error ||
+                      (m.attempts > 1 ? `${m.attempts} attempts` : "")}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-slate-500">
                     {m.sent_at ? formatWhen(m.sent_at) : "—"}
@@ -609,7 +677,12 @@ function BatchView({ uid, onBack }: { uid: string; onBack: () => void }) {
                     {m.status === "failed" && (
                       <button
                         type="button"
-                        onClick={() => retry(`/api/org/mail/messages/${m.uid}?action=retry`, m.uid)}
+                        onClick={() =>
+                          retry(
+                            `/api/org/mail/messages/${m.uid}?action=retry`,
+                            m.uid,
+                          )
+                        }
                         disabled={busy !== null}
                         className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
                       >
@@ -626,7 +699,10 @@ function BatchView({ uid, onBack }: { uid: string; onBack: () => void }) {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-sm text-slate-500"
+                  >
                     Nothing matches.
                   </td>
                 </tr>
@@ -651,14 +727,20 @@ function Templates() {
   const load = useCallback(async () => {
     try {
       const [t, v] = await Promise.all([
-        fetch("/api/org/mail/templates", { cache: "no-store" }).then((res) => json<Template[]>(res)),
-        fetch("/api/org/mail/templates?variables=1", { cache: "no-store" }).then((res) => json<{ variables: Variable[] }>(res)),
+        fetch("/api/org/mail/templates", { cache: "no-store" }).then((res) =>
+          json<Template[]>(res),
+        ),
+        fetch("/api/org/mail/templates?variables=1", {
+          cache: "no-store",
+        }).then((res) => json<{ variables: Variable[] }>(res)),
       ]);
       setTemplates(t);
       setVariables(v.variables);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load templates.");
+      setError(
+        err instanceof Error ? err.message : "Could not load templates.",
+      );
     }
   }, []);
 
@@ -672,7 +754,9 @@ function Templates() {
       await json(await fetch("/api/org/mail/templates", { method: "POST" }));
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create the defaults.");
+      setError(
+        err instanceof Error ? err.message : "Could not create the defaults.",
+      );
     } finally {
       setBusy(false);
     }
@@ -701,9 +785,11 @@ function Templates() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
-          {templates === null
-            ? <SkeletonText className="w-44" />
-            : `${templates.length} template${templates.length === 1 ? "" : "s"} · stored in SES, edited here`}
+          {templates === null ? (
+            <SkeletonText className="w-44" />
+          ) : (
+            `${templates.length} template${templates.length === 1 ? "" : "s"} · stored in SES, edited here`
+          )}
         </p>
         <div className="flex gap-2">
           {missingDefaults && (
@@ -713,7 +799,11 @@ function Templates() {
               disabled={busy}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:border-slate-900 disabled:opacity-40"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
               Create the defaults
             </button>
           )}
@@ -737,10 +827,12 @@ function Templates() {
       {templates !== null && templates.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
           <Mail className="mx-auto h-8 w-8 text-slate-300" />
-          <p className="mt-3 text-sm font-medium text-slate-700">No templates yet</p>
+          <p className="mt-3 text-sm font-medium text-slate-700">
+            No templates yet
+          </p>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-            Start with the two defaults — the approval notice and the credential email — and edit
-            the wording to taste.
+            Start with the two defaults — the approval notice and the credential
+            email — and edit the wording to taste.
           </p>
         </div>
       ) : (
@@ -761,7 +853,9 @@ function Templates() {
                     onClick={() => setEditing(t)}
                     className="cursor-pointer hover:bg-slate-50"
                   >
-                    <td className="px-4 py-2.5 font-mono text-xs text-slate-900">{t.name}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-slate-900">
+                      {t.name}
+                    </td>
                     <td className="px-4 py-2.5 text-slate-700">{t.subject}</td>
                     <td className="px-4 py-2.5 text-xs text-slate-500">
                       {t.placeholders.join(", ") || "—"}
@@ -792,9 +886,11 @@ function TemplateEditor({
   const [text, setText] = useState(template?.text ?? "");
   const [html, setHtml] = useState(template?.html ?? "");
   const [showHtml, setShowHtml] = useState(Boolean(template?.html));
-  const [preview, setPreview] = useState<{ subject: string; text: string; html: string } | null>(
-    null,
-  );
+  const [preview, setPreview] = useState<{
+    subject: string;
+    text: string;
+    html: string;
+  } | null>(null);
   const [busy, setBusy] = useState<"save" | "preview" | "delete" | null>(null);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -839,17 +935,26 @@ function TemplateEditor({
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not render. Save first?");
+      setError(
+        err instanceof Error ? err.message : "Could not render. Save first?",
+      );
     } finally {
       setBusy(null);
     }
   }
 
   async function remove() {
-    if (!window.confirm(`Delete template "${name}"? Sends that name it will fail.`)) return;
+    if (
+      !window.confirm(
+        `Delete template "${name}"? Sends that name it will fail.`,
+      )
+    )
+      return;
     setBusy("delete");
     try {
-      const res = await fetch(`/api/org/mail/templates/${name}`, { method: "DELETE" });
+      const res = await fetch(`/api/org/mail/templates/${name}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error("Could not delete.");
       onDone();
     } catch (err) {
@@ -860,7 +965,11 @@ function TemplateEditor({
 
   return (
     <div>
-      <button type="button" onClick={onDone} className="mb-4 text-sm text-slate-500 hover:text-slate-900">
+      <button
+        type="button"
+        onClick={onDone}
+        className="mb-4 text-sm text-slate-500 hover:text-slate-900"
+      >
         ← All templates
       </button>
 
@@ -901,7 +1010,9 @@ function TemplateEditor({
           </label>
           {showHtml ? (
             <label className="mt-4 block text-sm">
-              <span className="mb-1 block text-slate-700">HTML body (optional)</span>
+              <span className="mb-1 block text-slate-700">
+                HTML body (optional)
+              </span>
               <textarea
                 value={html}
                 onChange={(e) => setHtml(e.target.value)}
@@ -923,8 +1034,9 @@ function TemplateEditor({
           {isCredentials && !hasPassphrase && (
             <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-              The credential template must contain <code className="mx-1">{"{{passphrase}}"}</code>
-              — without it nobody can log in.
+              The credential template must contain{" "}
+              <code className="mx-1">{"{{passphrase}}"}</code>— without it
+              nobody can log in.
             </p>
           )}
 
@@ -938,7 +1050,13 @@ function TemplateEditor({
             <button
               type="button"
               onClick={save}
-              disabled={busy !== null || !nameOk || !subject.trim() || !text.trim() || (isCredentials && !hasPassphrase)}
+              disabled={
+                busy !== null ||
+                !nameOk ||
+                !subject.trim() ||
+                !text.trim() ||
+                (isCredentials && !hasPassphrase)
+              }
               className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
             >
               {busy === "save" ? (
@@ -984,11 +1102,15 @@ function TemplateEditor({
               Placeholders
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              Write them as <code>{"{{name}}"}</code>. Sample values are what Preview uses.
+              Write them as <code>{"{{name}}"}</code>. Sample values are what
+              Preview uses.
             </p>
             <ul className="mt-3 space-y-1.5">
               {variables.map((v) => (
-                <li key={v.name} className="flex items-baseline justify-between gap-3 text-xs">
+                <li
+                  key={v.name}
+                  className="flex items-baseline justify-between gap-3 text-xs"
+                >
                   <code className="text-slate-900">{`{{${v.name}}}`}</code>
                   <span className="truncate text-slate-500">{v.sample}</span>
                 </li>
@@ -998,8 +1120,12 @@ function TemplateEditor({
 
           {preview && (
             <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Preview</p>
-              <p className="mt-2 text-sm font-medium text-slate-900">{preview.subject}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Preview
+              </p>
+              <p className="mt-2 text-sm font-medium text-slate-900">
+                {preview.subject}
+              </p>
               <pre className="mt-3 whitespace-pre-wrap font-sans text-xs leading-relaxed text-slate-700">
                 {preview.text}
               </pre>

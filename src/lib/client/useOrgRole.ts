@@ -33,14 +33,20 @@ export type OrgRole =
 /** Roles that may spend money: start judges, run a load test, stand down. */
 const SPENDING: readonly OrgRole[] = ["owner", "admin"];
 
-let inFlight: Promise<OrgRole | null> | null = null;
+export type OrgMe = { role?: unknown; uid?: unknown; session_expires_at?: unknown };
+let inFlight: Promise<OrgMe | null> | null = null;
 
-function fetchRole(): Promise<OrgRole | null> {
+/** The shared `/api/auth/me` read; `fresh` replaces it, e.g. after re-sign-in. */
+export function fetchOrgMe(fresh = false): Promise<OrgMe | null> {
+  if (fresh) inFlight = null;
   inFlight ??= fetch("/api/auth/me")
     .then((r) => (r.ok ? r.json() : null))
-    .then((me) => (me && typeof me.role === "string" ? (me.role as OrgRole) : null))
     .catch(() => null);
   return inFlight;
+}
+
+function fetchRole(): Promise<OrgRole | null> {
+  return fetchOrgMe().then((me) => (me && typeof me.role === "string" ? (me.role as OrgRole) : null));
 }
 
 export function useOrgRole(): { role: OrgRole | null; known: boolean } {
