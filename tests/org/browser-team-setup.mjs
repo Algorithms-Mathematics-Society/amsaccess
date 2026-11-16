@@ -30,7 +30,7 @@ try {
  });
  await page.goto(base+`/org/contests/${uid}#team-round`);
  await page.getByRole('button',{name:'Save settings',exact:true}).waitFor();
- await page.locator('input[type=file]').setInputFiles({name:'sample.cxxpkg',mimeType:'application/zip',buffer:Buffer.from('fixture')});
+ await page.getByLabel('Package',{exact:true}).setInputFiles({name:'sample.cxxpkg',mimeType:'application/zip',buffer:Buffer.from('fixture')});
  await page.getByRole('button',{name:'Inspect package',exact:true}).click();
  await page.getByRole('button',{name:'Import project',exact:true}).click();
  await page.getByRole('button',{name:'Imported',exact:true}).waitFor();
