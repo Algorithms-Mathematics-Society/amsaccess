@@ -714,6 +714,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           onChanged={refreshContestAfterWrite}
           contestStartsAt={contest?.starts_at ?? null}
           contestEndsAt={contest?.ends_at ?? null}
+          notificationsEnabled={notificationsEnabled}
         />
       )}
 

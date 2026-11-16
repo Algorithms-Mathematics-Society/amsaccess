@@ -15,7 +15,7 @@ function localTime(value: string | null) {
   const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function TeamRoundPanel({ contestUid, onChanged, contestStartsAt = null, contestEndsAt = null }: { contestUid: string; onChanged: () => void; contestStartsAt?: string | null; contestEndsAt?: string | null }) {
+export function TeamRoundPanel({ contestUid, onChanged, contestStartsAt = null, contestEndsAt = null, notificationsEnabled = false }: { contestUid: string; onChanged: () => void; contestStartsAt?: string | null; contestEndsAt?: string | null; notificationsEnabled?: boolean }) {
   const { role, known } = useOrgRole();
   const canWrite = known && role !== null && TEAM_WRITERS.includes(role);
   const [round, setRound] = useState<Round | null>(null);
@@ -96,7 +96,7 @@ export function TeamRoundPanel({ contestUid, onChanged, contestStartsAt = null, 
     {notice && <p role="status" className="text-green-800">{notice}</p>}
     {busy && <p role="status">Working…</p>}
     {!loaded && !busy && <p>Could not load team settings. Refresh before making changes.</p>}
-    {round?.published_at && <TeamRoundMonitor base={base} schedule={{ selection_opens_at: round.selection_opens_at, discussion_seconds: round.discussion_seconds, allocation_locks_at: round.allocation_locks_at, allocation_locked_at: round.allocation_locked_at, submit_deadline: round.submit_deadline, contest_starts_at: contestStartsAt, contest_ends_at: contestEndsAt }} />}
+    {round?.published_at && <TeamRoundMonitor base={base} contestUid={contestUid} notificationsEnabled={notificationsEnabled} schedule={{ selection_opens_at: round.selection_opens_at, discussion_seconds: round.discussion_seconds, allocation_locks_at: round.allocation_locks_at, allocation_locked_at: round.allocation_locked_at, submit_deadline: round.submit_deadline, contest_starts_at: contestStartsAt, contest_ends_at: contestEndsAt }} />}
     <fieldset disabled={!canWrite || busy || !loaded} className="space-y-4 rounded border p-4">
       <legend className="px-2 font-semibold">1. Project pack</legend>
       <p className="text-sm text-slate-600">Preview a .cxxpkg before importing (maximum 32 MiB). Importing adds it to the organization catalog; binding it below replaces this contest’s existing team parts.</p>
