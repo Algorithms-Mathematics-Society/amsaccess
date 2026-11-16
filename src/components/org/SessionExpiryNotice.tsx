@@ -3,29 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { clearApiCache } from "@/lib/client/useApiQuery";
 import { fetchOrgMe } from "@/lib/client/useOrgRole";
-import { ORG_SIGNED_IN_EVENT, ORG_SIGNED_OUT_EVENT, orgSignedOut, reportOrgResponse, resumeOrgPolling } from "@/lib/client/orgPolling";
+import {
+  ORG_SIGNED_IN_EVENT,
+  ORG_SIGNED_OUT_EVENT,
+  orgSignedOut,
+  observeOrgApiResponses,
+  pauseOrgPolling,
+  resumeOrgPolling,
+} from "@/lib/client/orgPolling";
 import { sessionNotice } from "@/lib/client/orgSession";
-
-/** Observe every same-origin API response once, so a 401 or an outage is seen
- *  even by views that swallow their own read errors. Login is excluded: a
- *  wrong password there is not an expired session. */
-function observeApiResponses() {
-  const original = window.fetch;
-  const observed: typeof window.fetch = async (input, init) => {
-    const url = new URL(input instanceof Request ? input.url : String(input), window.location.href);
-    const watched = url.origin === window.location.origin && url.pathname.startsWith("/api/") && url.pathname !== "/api/auth/login";
-    try {
-      const response = await original.call(window, input, init);
-      if (watched) reportOrgResponse(response.status);
-      return response;
-    } catch (error) {
-      if (watched && !(error instanceof DOMException && error.name === "AbortError")) reportOrgResponse(null);
-      throw error;
-    }
-  };
-  window.fetch = observed;
-  return () => { if (window.fetch === observed) window.fetch = original; };
-}
 
 /** Warns before the fixed staff session ends and says so when it has, without
  *  replacing the page: drafts and filters stay put while the organizer signs
@@ -37,12 +23,20 @@ export function SessionExpiryNotice() {
   const account = useRef<unknown>(undefined);
 
   useEffect(() => {
-    const stopObserving = observeApiResponses();
+    const stopObserving = observeOrgApiResponses();
     let cancelled = false;
-    void fetchOrgMe().then((me) => {
+    const wasSignedOut = orgSignedOut();
+    void fetchOrgMe(wasSignedOut).then((me) => {
       if (cancelled) return;
       account.current = me?.uid;
       setExpiresAt(me?.session_expires_at ?? null);
+      if (
+        wasSignedOut &&
+        typeof me?.session_expires_at === "number" &&
+        me.session_expires_at > Date.now() &&
+        orgSignedOut()
+      )
+        resumeOrgPolling();
     });
     const onSignedOut = () => setSignedOut(true);
     const onSignedIn = () => setSignedOut(false);
@@ -70,6 +64,9 @@ export function SessionExpiryNotice() {
   // same account, otherwise reset like any other account change.
   const noticeKind = notice.kind;
   useEffect(() => {
+    if (noticeKind === "signed-out") pauseOrgPolling();
+  }, [noticeKind]);
+  useEffect(() => {
     if (noticeKind === "none") return;
     let checking = false;
     const recheck = async () => {
@@ -80,7 +77,10 @@ export function SessionExpiryNotice() {
         const me = await fetchOrgMe(true);
         const next = me?.session_expires_at;
         if (typeof next !== "number" || next <= Date.now()) return;
-        if (account.current == null || me?.uid !== account.current) { clearApiCache(); return; }
+        if (account.current == null || me?.uid !== account.current) {
+          clearApiCache();
+          return;
+        }
         setExpiresAt(next);
         if (orgSignedOut()) resumeOrgPolling();
       } finally {
@@ -97,17 +97,30 @@ export function SessionExpiryNotice() {
 
   if (notice.kind === "none") return null;
   const signIn = (
-    <a href="/org/login?reauth=1" target="_blank" className="font-medium underline">
+    <a
+      href="/org/login?reauth=1"
+      target="_blank"
+      className="font-medium underline"
+    >
       Sign in again
     </a>
   );
   return notice.kind === "expiring" ? (
-    <div role="status" className="fixed bottom-20 left-4 z-40 max-w-[calc(100vw-2rem)] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow sm:bottom-4 sm:max-w-md">
-      Your session ends in {notice.minutesLeft} {notice.minutesLeft === 1 ? "minute" : "minutes"}. {signIn} in a new tab to keep working; this page stays as it is.
+    <div
+      role="status"
+      className="fixed bottom-20 left-4 z-40 max-w-[calc(100vw-2rem)] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow sm:bottom-4 sm:max-w-md"
+    >
+      Your session ends in {notice.minutesLeft}{" "}
+      {notice.minutesLeft === 1 ? "minute" : "minutes"}. {signIn} in a new tab
+      to keep working; this page stays as it is.
     </div>
   ) : (
-    <div role="alert" className="fixed bottom-20 left-4 z-40 max-w-[calc(100vw-2rem)] rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow sm:bottom-4 sm:max-w-md">
-      Your session has expired, so this page has stopped updating. Nothing on it is lost. {signIn} in a new tab, then come back here.
+    <div
+      role="alert"
+      className="fixed bottom-20 left-4 z-40 max-w-[calc(100vw-2rem)] rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow sm:bottom-4 sm:max-w-md"
+    >
+      Your session has expired, so this page has stopped updating. Nothing on it
+      is lost. {signIn} in a new tab, then come back here.
     </div>
   );
 }
