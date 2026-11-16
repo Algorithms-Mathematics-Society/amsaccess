@@ -353,6 +353,10 @@ try {
   assert.equal(teamReads, settled + 3, "no reads while hidden");
   await setVisibility("visible");
   await until(() => teamReads === settled + 4, "the read on becoming visible");
+  await untilAsync(
+    async () => /Updated 0 s ago/.test(await text()),
+    "the visibility read to settle before arming the next response",
+  );
 
   // An error keeps the last good data on screen.
   next = { status: 502, error: "Upstream unavailable." };
