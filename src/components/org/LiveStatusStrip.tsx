@@ -2,6 +2,7 @@
 
 import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
 import { useNow } from "@/components/org/dashboard/useClock";
+import { countWaitingOnStaff } from "@/lib/client/issuesInbox";
 
 type Target = "invigilation" | "submissions";
 
@@ -12,13 +13,9 @@ function clock(ms: number) {
 }
 
 /** Pending re-entries and unresolved help requests, from the shared notification store. */
-function useWaitingOnStaff(contestUid: string, enabled: boolean) {
+export function useWaitingOnStaff(contestUid: string, enabled: boolean) {
   const feed = useOrgNotifications(contestUid, enabled);
-  return {
-    feed,
-    waiting: feed.raw.resumes.filter((r) => r.status === "pending").length,
-    openHelp: feed.raw.incidents.filter((i) => i.status !== "resolved").length,
-  };
+  return { feed, ...countWaitingOnStaff(feed.raw) };
 }
 
 /** Its own component so feed refreshes re-render the badge, not the whole console. */

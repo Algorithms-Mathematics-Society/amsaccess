@@ -23,6 +23,7 @@ await page.route('**/*',async route=>{
  calls.push({path:url.pathname,query:url.search,method:req.method()});
  const ok=async data=>{try{await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});}catch{}};
  if(url.pathname==='/api/auth/me')return ok({role});
+ if(url.pathname==='/api/org/support')return ok({items:[],has_more:false});
  if(/^\/api\/org\/contests\/[ab]$/.test(url.pathname))return ok({uid:url.pathname.split('/').at(-1),title:'Notification test contest',slug:'test',description:'',visibility:'private',status:'running',starts_at:'2026-01-01',ends_at:'2027-01-01',is_practice:false,invite_code:null,problems:[],joined:false,frozen:false});
  if(url.pathname.endsWith('/submissions/summary'))return ok({total:0,pending:0,verdicts:{}});
  if(url.pathname.endsWith('/submissions')||url.pathname.endsWith('/participants'))return ok([]);

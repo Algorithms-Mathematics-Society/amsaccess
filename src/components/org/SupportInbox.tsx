@@ -104,6 +104,12 @@ function Inbox() {
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
+  // Opened from a contest's issues inbox as /org/support?t=<ticket uid>; read after hydration.
+  useEffect(() => {
+    const ticket = new URLSearchParams(window.location.search).get("t");
+    if (ticket && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(ticket))
+      setSelected(ticket);
+  }, []);
   useEffect(() => {
     let stopped = false;
     setData(null);
