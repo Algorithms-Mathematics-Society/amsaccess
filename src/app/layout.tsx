@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Source_Serif_4 } from "next/font/google";
+import "./fonts.css";
 import "@fontsource/geist-sans/400.css";
 import "@fontsource/geist-sans/500.css";
 import "@fontsource/geist-sans/600.css";
@@ -11,17 +11,6 @@ import "@fontsource/jetbrains-mono/700.css";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 
-// The AMS house faces. Loaded here rather than in the marketing layout so
-// the variables exist on every route and a public page never flashes a
-// fallback serif while the font resolves.
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
-const sourceSerif = Source_Serif_4({
-  variable: "--font-source-serif",
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: {
     default: "AMS Access",
@@ -31,13 +20,28 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${sourceSerif.variable}`}>
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <link
+          rel="preload"
+          href="/fonts/inter-latin-c940764593d0.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/source-serif-4-latin-8e38e3fbd74d.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -50,7 +54,7 @@ export default function RootLayout({
                   document.documentElement.classList.toggle('dark', !isLight);
                 } catch (error) {}
               })();
-            `
+            `,
           }}
         />
         <script
@@ -65,11 +69,13 @@ export default function RootLayout({
                   }
                 ]
               }
-            `
+            `,
           }}
         />
       </head>
-      <body className="font-sans bg-black text-white antialiased">{children}</body>
+      <body className="font-sans bg-black text-white antialiased">
+        {children}
+      </body>
     </html>
   );
 }

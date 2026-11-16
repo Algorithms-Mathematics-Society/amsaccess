@@ -1,0 +1,93 @@
+[
+  {
+    "family": "inter",
+    "subset": "cyrillic-ext",
+    "file": "inter-cyrillic-ext-fccca918fea4.woff2",
+    "sha256": "fccca918fea40089dacadc7045861314d1a6bc91f1f323cc1eeb22ebcdb321b5",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/ba9851c3c22cd980-s.woff2"
+  },
+  {
+    "family": "inter",
+    "subset": "cyrillic",
+    "file": "inter-cyrillic-aebf2ab4a4ce.woff2",
+    "sha256": "aebf2ab4a4ce6810d73c1ac7be7cafb4e5ec4cee2d6db5fb3e09691747ec4bd6",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/21350d82a1f187e9-s.woff2"
+  },
+  {
+    "family": "inter",
+    "subset": "greek-ext",
+    "file": "inter-greek-ext-a2e2c783ca6f.woff2",
+    "sha256": "a2e2c783ca6f9c20486e81e72a279203e86730bbf8f01ff6a5ee9dbd09e1c271",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/c5fe6dc8356a8c31-s.woff2"
+  },
+  {
+    "family": "inter",
+    "subset": "greek",
+    "file": "inter-greek-46dd4cdca58c.woff2",
+    "sha256": "46dd4cdca58c26ae87cc6927657bf83b2e8abfc39ffd0ab176e301a8d28d22bf",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/19cfc7226ec3afaa-s.woff2"
+  },
+  {
+    "family": "inter",
+    "subset": "vietnamese",
+    "file": "inter-vietnamese-8db00ff46c67.woff2",
+    "sha256": "8db00ff46c67b22cda8bed865acf7077651cac8d2841d5b40980556b48961931",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/df0a9ae256c0569c-s.woff2"
+  },
+  {
+    "family": "inter",
+    "subset": "latin-ext",
+    "file": "inter-latin-ext-a28eb6d3ccb5.woff2",
+    "sha256": "a28eb6d3ccb534ae0c94ca999371df024aab60b08c3c8a5720ee9e32fa0faaa2",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/8e9860b6e62d6359-s.woff2"
+  },
+  {
+    "family": "inter",
+    "subset": "latin",
+    "file": "inter-latin-c940764593d0.woff2",
+    "sha256": "c940764593d0fe5d596be327ca7558855e018039fb78509aa21921fd3644c3e4",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/e4af272ccee01ff0-s.p.woff2"
+  },
+  {
+    "family": "source-serif-4",
+    "subset": "cyrillic-ext",
+    "file": "source-serif-4-cyrillic-ext-4d72739b0e43.woff2",
+    "sha256": "4d72739b0e43d64e6b2a086a66f62df1ef90f34d6f109b279c557a64eae5d23d",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/f11ffaf03a80bc19-s.woff2"
+  },
+  {
+    "family": "source-serif-4",
+    "subset": "cyrillic",
+    "file": "source-serif-4-cyrillic-7683b72ed39c.woff2",
+    "sha256": "7683b72ed39c9fc64c626ae0ed611e7dc0121af71cde73fd060bd7a4a83c0d7c",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/b818b0ea116ed117-s.woff2"
+  },
+  {
+    "family": "source-serif-4",
+    "subset": "greek",
+    "file": "source-serif-4-greek-303d60869ffd.woff2",
+    "sha256": "303d60869ffd404c141fa90d87ba574cd26ade348dd4659ea4b9caeadf72c183",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/ed89fb4fc238c6bf-s.woff2"
+  },
+  {
+    "family": "source-serif-4",
+    "subset": "vietnamese",
+    "file": "source-serif-4-vietnamese-752875b4c33f.woff2",
+    "sha256": "752875b4c33f07a3dda7c8f0be846fef059cb0f4e85211b855aa93dd85d45a22",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/e115bc1b6e48400d-s.woff2"
+  },
+  {
+    "family": "source-serif-4",
+    "subset": "latin-ext",
+    "file": "source-serif-4-latin-ext-231f594ad829.woff2",
+    "sha256": "231f594ad829d45f905a8a6cdce704f659615e00f1a9db2699320e6e315c1d1f",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/fc9d3723ce3bfccb-s.woff2"
+  },
+  {
+    "family": "source-serif-4",
+    "subset": "latin",
+    "file": "source-serif-4-latin-8e38e3fbd74d.woff2",
+    "sha256": "8e38e3fbd74dea20aabe0831ffef04c9f30bf6fc5b99b7a2649be0dd8c6d859c",
+    "source_artifact": "next/font/google build of amsaccess c2e313e: .next/static/media/597b6a5d799c44de-s.p.woff2"
+  }
+]
