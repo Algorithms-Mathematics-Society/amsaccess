@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import "@/styles/access-theme.css";
@@ -196,7 +196,9 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
         tabIndex={-1}
         className="min-w-0 w-full flex-1 outline-none"
       >
-        {children}
+        {/* Keep streamed route hydration inside the content boundary so a slow
+            child cannot suspend and restart the persistent shell. */}
+        <Suspense fallback={null}>{children}</Suspense>
         <SessionExpiryNotice />
       </main>
     </div>
