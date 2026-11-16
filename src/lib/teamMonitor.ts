@@ -127,7 +127,9 @@ function member(v: unknown, at: string): MonitorMember {
     seed_rank: count(v.seed_rank) ? v.seed_rank : null,
     part_label: v.part_label,
     assigned_by:
-      v.assigned_by === "claim" || v.assigned_by === "auto" ? v.assigned_by : null,
+      v.assigned_by === "claim" || v.assigned_by === "auto"
+        ? v.assigned_by
+        : null,
   };
 }
 
@@ -307,7 +309,8 @@ export function trackPending(
 
 /** Staff-facing wording for a failed roster read; every case retries on its own. */
 export function readErrorMessage(error: unknown, timedOut: boolean): string {
-  if (timedOut) return "The team roster read timed out. It will retry automatically.";
+  if (timedOut)
+    return "The team roster read timed out. It will retry automatically.";
   // fetch() rejects with a TypeError when the network or server cannot be reached.
   if (error instanceof TypeError)
     return "Could not reach the server. Check the connection; it will retry automatically.";
@@ -341,19 +344,31 @@ export function parseStandings(value: unknown): Map<string, Standing> | null {
   if (!object(value) || !Array.isArray(value.teams)) return null;
   const out = new Map<string, Standing>();
   for (const t of value.teams)
-    if (object(t) && text(t.uid, 64) && count(t.rank) && typeof t.score === "number" && Number.isFinite(t.score))
+    if (
+      object(t) &&
+      text(t.uid, 64) &&
+      count(t.rank) &&
+      typeof t.score === "number" &&
+      Number.isFinite(t.score)
+    )
       out.set(t.uid, { rank: t.rank, score: t.score });
   return out;
 }
 
-export const voiceKey = (team: string, username: string) => `${team}\u0000${username}`;
+export const voiceKey = (team: string, username: string) =>
+  `${team}\u0000${username}`;
 
 /** `GET .../team-round/voice-events`, oldest first: the latest event per member wins. */
 export function voicePresence(value: unknown): Set<string> | null {
   if (!Array.isArray(value)) return null;
   const inChannel = new Set<string>();
   for (const e of value) {
-    if (!object(e) || typeof e.team !== "string" || typeof e.username !== "string") continue;
+    if (
+      !object(e) ||
+      typeof e.team !== "string" ||
+      typeof e.username !== "string"
+    )
+      continue;
     const key = voiceKey(e.team, e.username);
     if (e.kind === "leave" || e.kind === "closed") inChannel.delete(key);
     else inChannel.add(key); // join, mute and unmute all mean connected
@@ -363,11 +378,30 @@ export function voicePresence(value: unknown): Set<string> | null {
 
 /** Contest sessions that are active and reported within two minutes. */
 export function onlineUsers(
-  sessions: { user_uid: string | null; status: string; idle_seconds: number | null }[],
+  sessions: {
+    user_uid: string | null;
+    status: string;
+    idle_seconds: number | null;
+  }[],
 ): Set<string> {
   const out = new Set<string>();
   for (const s of sessions)
-    if (s.user_uid && (s.status === "active" || s.status === "pending") && s.idle_seconds !== null && s.idle_seconds < 120)
+    if (
+      s.user_uid &&
+      (s.status === "active" || s.status === "pending") &&
+      s.idle_seconds !== null &&
+      s.idle_seconds < 120
+    )
       out.add(s.user_uid);
   return out;
+}
+
+/** A failed or expired feed is unknown, even when its last payload was nonempty. */
+export function feedIsCurrent(
+  updatedAt: number | null,
+  error: string,
+  now: number,
+  maxAge: number,
+): boolean {
+  return updatedAt !== null && !error && now - updatedAt <= maxAge;
 }

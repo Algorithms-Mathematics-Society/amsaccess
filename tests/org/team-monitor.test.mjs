@@ -206,7 +206,9 @@ test("a structurally unrecognised team rejects the whole roster and names where"
     "string votes": (t) => (t.votes = "1"),
     "missing submitted_revision": (t) => delete t.submitted_revision,
     "more members than the API allows": (t) =>
-      (t.members = Array.from({ length: MAX_TEAM_SIZE + 1 }, (_, n) => member(n))),
+      (t.members = Array.from({ length: MAX_TEAM_SIZE + 1 }, (_, n) =>
+        member(n),
+      )),
     "member without uid": (t) => delete t.members[0].user_uid,
     "numeric part label": (t) => (t.members[0].part_label = 1),
     "members object": (t) => (t.members = {}),
@@ -332,8 +334,13 @@ test("attention flags appear exactly at their thresholds", () => {
     ["unassigned"],
   );
   assert.deepEqual(
-    teamView(open, "locked", deadline, deadline + DEADLINE_GRACE_MS - 1, undefined)
-      .attention,
+    teamView(
+      open,
+      "locked",
+      deadline,
+      deadline + DEADLINE_GRACE_MS - 1,
+      undefined,
+    ).attention,
     ["unassigned"],
     "the deadline sweeper gets its grace period",
   );
@@ -489,10 +496,19 @@ test("a 2000-team roster parses, classifies and summarizes in under 100 ms", (t)
 });
 
 test("read failures get staff-facing wording that says they retry", () => {
-  assert.match(readErrorMessage(new DOMException("aborted", "AbortError"), true), /timed out.*retry/);
-  assert.match(readErrorMessage(new TypeError("Failed to fetch"), false), /Could not reach the server.*retry/);
+  assert.match(
+    readErrorMessage(new DOMException("aborted", "AbortError"), true),
+    /timed out.*retry/,
+  );
+  assert.match(
+    readErrorMessage(new TypeError("Failed to fetch"), false),
+    /Could not reach the server.*retry/,
+  );
   assert.equal(
-    readErrorMessage(new Error("Your organization role cannot perform this team operation."), false),
+    readErrorMessage(
+      new Error("Your organization role cannot perform this team operation."),
+      false,
+    ),
     "Your organization role cannot perform this team operation.",
   );
   for (const odd of [new Error(""), "boom", null, undefined])
@@ -517,11 +533,22 @@ test("seed_rank is carried for the setup panel and degrades to null when invalid
 });
 
 test("optional feeds: standings, voice presence and online members degrade to null", async () => {
-  const { parseStandings, voicePresence, voiceKey, onlineUsers } = await import("../../src/lib/teamMonitor.ts");
+  const { parseStandings, voicePresence, voiceKey, onlineUsers } =
+    await import("../../src/lib/teamMonitor.ts");
   // ams-api teams.py::_board_out; rows without a usable uid/rank/score are skipped.
-  const board = parseStandings({ teams: [{ uid: uid(1), rank: 1, score: 140.5 }, { uid: uid(2), rank: "x", score: 1 }, null] });
+  const board = parseStandings({
+    teams: [
+      { uid: uid(1), rank: 1, score: 140.5 },
+      { uid: uid(2), rank: "x", score: 1 },
+      null,
+    ],
+  });
   assert.deepEqual([...board], [[uid(1), { rank: 1, score: 140.5 }]]);
-  assert.equal(parseStandings([]), null, "the mocks' default [] is not a board");
+  assert.equal(
+    parseStandings([]),
+    null,
+    "the mocks' default [] is not a board",
+  );
   // assist.py voice_events, oldest first: the latest event per member wins.
   const voice = voicePresence([
     { team: "Team 1", username: "a", kind: "join" },
@@ -542,4 +569,15 @@ test("optional feeds: standings, voice presence and online members degrade to nu
     { user_uid: null, status: "active", idle_seconds: 0 },
   ]);
   assert.deepEqual([...online].sort(), ["u1", "u4"]);
+});
+
+test("live feed freshness distinguishes empty success from failed, missing and stale reads", async () => {
+  const { feedIsCurrent, onlineUsers, voicePresence } =
+    await import("../../src/lib/teamMonitor.ts");
+  assert.equal(feedIsCurrent(null, "", 100_000, 30_000), false);
+  assert.equal(feedIsCurrent(99_000, "failed", 100_000, 30_000), false);
+  assert.equal(feedIsCurrent(50_000, "", 100_000, 30_000), false);
+  assert.equal(feedIsCurrent(99_000, "", 100_000, 30_000), true);
+  assert.equal(onlineUsers([]).size, 0);
+  assert.equal(voicePresence([]).size, 0);
 });

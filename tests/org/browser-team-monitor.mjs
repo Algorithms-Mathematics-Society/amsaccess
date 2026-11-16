@@ -136,6 +136,8 @@ try {
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   let teamReads = 0;
+  let optionalFailure = false;
+  let emptyPresence = false;
   const mutations = [];
   let next = null; // optional override for the next /teams response
   await page.route("**/*", async (route) => {
@@ -177,26 +179,56 @@ try {
       next = null;
       if (override?.hold) await override.hold;
       // A held read may have been abandoned by the page's timeout; answering it is moot.
-      const answer = override?.status ? ok({ error: override.error }, override.status) : ok(roster);
+      const answer = override?.status
+        ? ok({ error: override.error }, override.status)
+        : ok(roster);
       return answer.catch((e) => {
         if (!override?.hold) throw e;
       });
     }
+    if (
+      optionalFailure &&
+      (u.pathname.endsWith("/team-round/board") ||
+        u.pathname.endsWith("/team-round/voice-events") ||
+        (u.pathname.endsWith("/invigilation") &&
+          u.searchParams.get("view") === "sessions"))
+    )
+      return ok({ error: "Unavailable" });
+    if (
+      emptyPresence &&
+      (u.pathname.endsWith("/team-round/voice-events") ||
+        (u.pathname.endsWith("/invigilation") &&
+          u.searchParams.get("view") === "sessions"))
+    )
+      return ok([]);
     // Optional feeds: rank by roster order; Team 31 has one member in voice and one offline.
     if (u.pathname.endsWith("/team-round/board"))
-      return ok({ teams: roster.map((t, i) => ({ uid: t.uid, rank: i + 1, score: 100 - i })) });
+      return ok({
+        teams: roster.map((t, i) => ({
+          uid: t.uid,
+          rank: i + 1,
+          score: 100 - i,
+        })),
+      });
     if (u.pathname.endsWith("/team-round/voice-events"))
       return ok([
         { team: "Team 31", username: "t31m1", kind: "join" },
         { team: "Team 31", username: "t31m2", kind: "join" },
         { team: "Team 31", username: "t31m2", kind: "leave" },
       ]);
-    if (u.pathname.endsWith("/invigilation") && u.searchParams.get("view") === "sessions")
+    if (
+      u.pathname.endsWith("/invigilation") &&
+      u.searchParams.get("view") === "sessions"
+    )
       return ok(
         roster
           .flatMap((t) => t.members)
           .filter((m) => m.username !== "t31m4")
-          .map((m) => ({ user_uid: m.user_uid, status: "active", idle_seconds: 10 })),
+          .map((m) => ({
+            user_uid: m.user_uid,
+            status: "active",
+            idle_seconds: 10,
+          })),
       );
     return ok([]);
   });
@@ -210,12 +242,18 @@ try {
   const monitor = page.getByRole("region", { name: "Live team monitor" });
   const text = () => monitor.innerText();
 
-  await untilAsync(async () => /read took/.test(await text()), "the first monitor read");
+  await untilAsync(
+    async () => /read took/.test(await text()),
+    "the first monitor read",
+  );
   // Freeze page time; every later step advances it explicitly.
   await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 10);
 
   // Content: phase, summary and attention-first ordering.
-  await untilAsync(async () => /Online\s+135\/136/i.test(await text()), "the session feed");
+  await untilAsync(
+    async () => /Online\s+135\/136/i.test(await text()),
+    "the session feed",
+  );
   const body = await text();
   assert.match(body, /Scheduled phase: Allocation locked/);
   assert.match(body, /Teams\s+34/i);
@@ -245,7 +283,10 @@ try {
     /WA · 3\/5 checks[\s\S]*Not the team's own code: 3/,
   );
   assert.match(await row(34).innerText(), /No result for this revision yet/);
-  assert.match(await row(2).innerText(), /Revision 2 auto-submitted at the deadline/);
+  assert.match(
+    await row(2).innerText(),
+    /Revision 2 auto-submitted at the deadline/,
+  );
   assert.match(await row(1).innerText(), /Revision 2 submitted by team vote/);
 
   // Cadence: one read per 15 s after completion, never overlapping.
@@ -257,7 +298,10 @@ try {
   await refresh.focus();
   await page.clock.runFor(1500);
   await until(() => teamReads === settled + 1, "the interval read");
-  await untilAsync(async () => !/Reading…/.test(await text()), "the interval read to settle");
+  await untilAsync(
+    async () => !/Reading…/.test(await text()),
+    "the interval read to settle",
+  );
   assert.equal(
     await page.evaluate(() => document.activeElement?.textContent?.trim()),
     "Refresh now",
@@ -270,10 +314,18 @@ try {
   await until(() => teamReads === settled + 2, "the held read");
   await refresh.click();
   await realWait(200);
-  assert.equal(teamReads, settled + 2, "a manual refresh never overlaps a read in flight");
+  assert.equal(
+    teamReads,
+    settled + 2,
+    "a manual refresh never overlaps a read in flight",
+  );
   await page.clock.runFor(9_000);
   await realWait(200);
-  assert.equal(teamReads, settled + 2, "no overlapping read while one is in flight");
+  assert.equal(
+    teamReads,
+    settled + 2,
+    "no overlapping read while one is in flight",
+  );
   // Past the deadline the read is abandoned and reported; polling then resumes.
   await page.clock.runFor(1_500);
   await page.getByRole("alert").filter({ hasText: "timed out" }).waitFor();
@@ -281,7 +333,10 @@ try {
   release();
   await page.clock.runFor(POLL + 500);
   await until(() => teamReads === settled + 3, "the read after the timeout");
-  await page.getByRole("alert").filter({ hasText: "timed out" }).waitFor({ state: "detached" });
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "timed out" })
+    .waitFor({ state: "detached" });
 
   // A hidden tab stops reading; showing it reads once, at once.
   const setVisibility = (state) =>
@@ -314,13 +369,48 @@ try {
     .filter({ hasText: "Upstream unavailable." })
     .waitFor({ state: "detached" });
 
+  // Healthy roster must not disguise optional failures as offline/current voice.
+  optionalFailure = true;
+  await page.clock.runFor(POLL + 500);
+  await untilAsync(
+    async () =>
+      /online status;/.test(await text()) && /voice status;/.test(await text()),
+    "unavailable feed warning",
+  );
+  assert.match(await text(), /Online\s+—/i);
+  assert.match(await text(), /In voice\s+—/i);
+  assert.doesNotMatch(
+    await row(31).innerText(),
+    / · offline| · online| · in voice/,
+  );
+  optionalFailure = false;
+  emptyPresence = true;
+  await page.clock.runFor(POLL + 500);
+  await untilAsync(
+    async () =>
+      /Online\s+0\/136/i.test(await text()) &&
+      /In voice\s+0\/136/i.test(await text()),
+    "healthy empty feeds are zero",
+  );
+  emptyPresence = false;
+  await page.clock.runFor(POLL + 500);
+  await untilAsync(
+    async () =>
+      /Online\s+135\/136/i.test(await text()) &&
+      /In voice\s+1\/136/i.test(await text()),
+    "presence recovers",
+  );
+
   // Teams still judging 10 minutes after first being seen are flagged. Advance
   // one interval at a time and let each read land, as real time would.
   for (let elapsed = 0; elapsed < 10 * 60_000; elapsed += POLL + 500) {
     const before = teamReads;
     await page.clock.runFor(POLL + 500);
     await until(() => teamReads === before + 1, "the next interval read");
-    await untilAsync(async () => !/Reading…/.test(await text()), "the read to finish");
+    await untilAsync(
+      async () => !/Reading…/.test(await text()),
+      "the read to finish",
+    );
   }
   await untilAsync(
     async () => /Needs attention\s+3/i.test(await text()),
@@ -337,7 +427,11 @@ try {
   await page.getByLabel(/Show only teams needing attention/).check();
   assert.equal(await rows.count(), 3);
 
-  assert.equal(await monitor.getByRole("alert").count(), 0, "no error banner after normal reads");
+  assert.equal(
+    await monitor.getByRole("alert").count(),
+    0,
+    "no error banner after normal reads",
+  );
   await page.screenshot({ path: shot, fullPage: true });
 
   // Leaving the tab unmounts the monitor and stops its reads.
@@ -350,8 +444,15 @@ try {
 
   // The only expected console error is the browser logging the 502 injected above.
   const injected = errors.filter((e) => /status of 502/.test(e));
-  assert.equal(injected.length, 1, "exactly one logged 502, from the injected failure");
-  assert.deepEqual(errors.filter((e) => !injected.includes(e)), []);
+  assert.equal(
+    injected.length,
+    1,
+    "exactly one logged 502, from the injected failure",
+  );
+  assert.deepEqual(
+    errors.filter((e) => !injected.includes(e)),
+    [],
+  );
   assert.deepEqual(mutations, [], "the monitor never writes");
   console.log(
     `PASS live team monitor: 34-team content, 15 s cadence, no overlap, hidden pause, error retention, slow-result flag, unmount stop; first table paint ${firstPaintMs} ms; screenshot ${shot}`,
