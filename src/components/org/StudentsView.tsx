@@ -664,6 +664,14 @@ function ImportPanel({ onDone, onImported }: { onDone: () => void; onImported: (
         Rows are matched on <code className="rounded bg-slate-100 px-1">external_ref</code>, so
         re-importing a corrected export updates people rather than duplicating them.
       </p>
+      <a
+        href="/api/org/students/import/template.csv"
+        download="students-template.csv"
+        className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-700 underline hover:text-slate-900"
+      >
+        <Download className="h-3.5 w-3.5" />
+        Download template
+      </a>
 
       <input
         type="file"

@@ -6,7 +6,8 @@ import { PROJECT_LIMIT, TEAM_WRITERS, validateTeamBody } from '@/lib/teamSetup';
 import { parseTeamRoster, type MonitorTeam } from '@/lib/teamMonitor';
 import { TeamRoundMonitor } from './TeamRoundMonitor';
 
-type Round = { team_size: number; discussion_seconds: number; selection_opens_at: string | null; allocation_locks_at: string | null; submit_deadline: string | null; seeded_at: string | null; published_at: string | null; allocation_locked_at: string | null; rank_sum_spread: number | null; project: { uid: string; name: string } | null; parts: { label: string }[] };
+type Round = { team_size: number; discussion_seconds: number; selection_opens_at: string | null; allocation_locks_at: string | null; submit_deadline: string | null; seeded_at: string | null; published_at: string | null; allocation_locked_at: string | null; rank_sum_spread: number | null; project: { uid: string; name: string } | null; parts: { label: string }[]; benchmark?: { enabled: boolean; input_sha256: string | null } };
+type BenchmarkRun = { uid: string; team: string; revision: number; status: string; median_ns: number | null; input_sha256: string | null; completed_at: string | null };
 type Preview = { name: string; parts: { label: string; title: string; warnings: string[] }[] };
 const input = 'mt-1 block w-full rounded border border-slate-300 bg-white p-2 text-sm text-slate-900';
 const button = 'rounded border border-slate-300 px-3 py-2 text-sm disabled:opacity-50';
@@ -39,6 +40,8 @@ export function TeamRoundPanel({ contestUid, onChanged, contestStartsAt = null, 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [imported, setImported] = useState(false);
+  const [benchFile, setBenchFile] = useState<File | null>(null);
+  const [runs, setRuns] = useState<BenchmarkRun[] | null>(null);
   const controller = useRef<AbortController | null>(null);
   const flight = useRef(false);
   const mounted = useRef(true);
@@ -66,7 +69,9 @@ export function TeamRoundPanel({ contestUid, onChanged, contestStartsAt = null, 
       let roster: MonitorTeam[] = []; let problem = '';
       try { roster = parseTeamRoster(data); } catch (e) { problem = e instanceof Error ? e.message : 'The team roster response was not recognised. Refresh, or report this.'; }
       if (mounted.current) { setTeams(roster); setRosterError(problem); }
-    } else { setTeams([]); setRosterError(''); }
+      const history = await request(base + '/benchmarks').catch(() => null);
+      if (mounted.current) setRuns(Array.isArray(history) ? history : null);
+    } else { setTeams([]); setRosterError(''); setRuns(null); }
     if (mounted.current) setLoaded(true);
   }
   async function action(work: () => Promise<void>, mutation = false) {
@@ -159,5 +164,20 @@ export function TeamRoundPanel({ contestUid, onChanged, contestStartsAt = null, 
         <a className={button} href="#participants">Participant credentials</a>
       </div><p className="text-sm text-slate-600">Publishing teams does not publish the contest. Use the contest’s Publish control separately after checking settings and credentials. Voice also requires configured TURN infrastructure.</p>
     </div>
+    <fieldset disabled={!canWrite || busy || !loaded || !round} className="space-y-4 rounded border p-4"><legend className="px-2 font-semibold">5. Hidden benchmark input</legend>
+      <p className="text-sm text-slate-600">Benchmark results rank only once they were measured on this exact input (maximum 32 MiB).</p>
+      <p className="text-sm">Stored input SHA-256: <code className="break-all">{round?.benchmark?.input_sha256 ?? 'none uploaded'}</code></p>
+      <label className="block text-sm">Input file<input key={round?.benchmark?.input_sha256 ?? ''} className={input} type="file" onChange={e => setBenchFile(e.target.files?.[0] ?? null)} /></label>
+      <button className={button} disabled={!benchFile} onClick={() => void action(async () => {
+        if (!benchFile || !benchFile.size || benchFile.size > PROJECT_LIMIT) throw new Error('Choose a nonempty input up to 32 MiB.');
+        if (!window.confirm(round?.benchmark?.input_sha256 ? 'Replace the hidden benchmark input? Only results measured on the new input will rank.' : 'Upload this hidden benchmark input? Only results measured on it will rank.')) return;
+        const form = new FormData(); form.set('input', benchFile);
+        const result = await request(base + '/benchmark-input', { method: 'POST', body: form });
+        await load(); if (mounted.current) { setBenchFile(null); setNotice(`Benchmark input stored (SHA-256 ${result.sha256}).`); onChanged(); }
+      }, true)}>Upload benchmark input</button>
+      <h3 className="font-medium">Benchmark runs</h3>
+      {runs === null ? <p className="text-sm text-slate-600">Benchmark runs not available.</p> : !runs.length ? <p className="text-sm text-slate-600">No benchmark runs yet.</p> :
+        <ul className="space-y-1 text-sm">{runs.map(r => <li key={r.uid}>{r.team} · Revision {r.revision} · {r.status} · {r.median_ns === null ? 'no median' : `${(r.median_ns / 1e6).toFixed(3)} ms median`} · {r.input_sha256 && r.input_sha256 === round?.benchmark?.input_sha256 ? 'current input' : 'other input'}{r.completed_at ? ` · ${new Date(r.completed_at).toLocaleString()}` : ''}</li>)}</ul>}
+    </fieldset>
   </section>;
 }

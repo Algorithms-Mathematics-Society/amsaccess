@@ -52,11 +52,32 @@ export function ProblemPreviewModal({
   const url = versionUid
     ? `/api/org/problems/${problem.uid}/versions/${versionUid}/preview`
     : "";
-  const { data, error } = useApiQuery<PreviewResponse>(
+  const { data, error, refresh } = useApiQuery<PreviewResponse>(
     url,
     () => fetch(url, { cache: "no-store" }).then((res) => json<PreviewResponse>(res)),
     { staleMs: 30_000 },
   );
+  const [rebuild, setRebuild] = useState({ busy: false, done: false, error: "" });
+  useEffect(() => setRebuild({ busy: false, done: false, error: "" }), [versionUid]);
+
+  async function reproject() {
+    setRebuild({ busy: true, done: false, error: "" });
+    try {
+      await json(
+        await fetch(`/api/org/problems/${problem.uid}/versions/${versionUid}/reproject`, {
+          method: "POST",
+        }),
+      );
+      await refresh();
+      setRebuild({ busy: false, done: true, error: "" });
+    } catch (err) {
+      setRebuild({
+        busy: false,
+        done: false,
+        error: err instanceof Error ? err.message : "Could not rebuild the preview.",
+      });
+    }
+  }
 
   const projection = data?.problem;
   const markdown = projection?.statement?.markdown ?? "";
@@ -177,10 +198,35 @@ export function ProblemPreviewModal({
             </div>
 
             {projection.backfilled && (
-              <p className="border-b border-amber-200 bg-amber-50 px-6 py-2.5 text-xs text-amber-800">
-                Rebuilt from this version&rsquo;s stored columns, because it was uploaded before
-                projections existed. Re-upload or reproject it to see exactly what a candidate
-                gets.
+              <div className="flex items-start justify-between gap-3 border-b border-amber-200 bg-amber-50 px-6 py-2.5 text-xs text-amber-800">
+                <p>
+                  Rebuilt from this version&rsquo;s stored columns, because it was uploaded before
+                  projections existed. Re-upload or reproject it to see exactly what a candidate
+                  gets.
+                  {rebuild.error && (
+                    <span role="alert" className="mt-1 block text-red-700">
+                      {rebuild.error}
+                    </span>
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void reproject()}
+                  disabled={rebuild.busy}
+                  className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 transition hover:border-amber-500 disabled:opacity-50"
+                >
+                  {rebuild.busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {rebuild.busy ? "Rebuilding…" : "Rebuild preview"}
+                </button>
+              </div>
+            )}
+            {rebuild.done && (
+              <p
+                role="status"
+                className="flex items-center gap-1.5 border-b border-emerald-200 bg-emerald-50 px-6 py-2.5 text-xs text-emerald-800"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Preview rebuilt from the stored package.
               </p>
             )}
 

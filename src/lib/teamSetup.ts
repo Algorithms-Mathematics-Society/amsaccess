@@ -5,8 +5,8 @@ export const TEAM_WRITERS = ['owner', 'admin', 'problemsetter', 'contest_manager
 export function teamAction(method: string, action: string[]): string | null {
   if (!action.length && ['GET', 'PUT'].includes(method)) return '';
   if (action.length !== 1) return null;
-  if (method === 'GET' && action[0] === 'teams') return '/teams';
-  if (method === 'POST' && ['seed', 'publish', 'lock-allocation'].includes(action[0])) return '/' + action[0];
+  if (method === 'GET' && ['teams', 'benchmarks'].includes(action[0])) return '/' + action[0];
+  if (method === 'POST' && ['seed', 'publish', 'lock-allocation', 'benchmark-input'].includes(action[0])) return '/' + action[0];
   return null;
 }
 export function validateTeamBody(action: string, value: unknown): Record<string, unknown> {

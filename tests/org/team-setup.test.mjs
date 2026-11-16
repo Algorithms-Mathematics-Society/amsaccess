@@ -7,6 +7,10 @@ test('proxy route allowlist excludes traversal and unsupported operations', () =
   assert.equal(teamAction('POST', ['seed']), '/seed');
   assert.equal(teamAction('GET', ['teams']), '/teams');
   assert.equal(teamAction('PUT', []), '');
+  assert.equal(teamAction('GET', ['benchmarks']), '/benchmarks');
+  assert.equal(teamAction('POST', ['benchmark-input']), '/benchmark-input');
+  assert.equal(teamAction('GET', ['benchmark-input']), null);
+  assert.equal(teamAction('POST', ['benchmarks']), null);
   for (const action of [['unpublish'], ['..'], ['teams', uid, 'rejudge'], ['seed/../../end']]) assert.equal(teamAction('POST', action), null);
   assert.equal(teamAction('DELETE', []), null);
 });
