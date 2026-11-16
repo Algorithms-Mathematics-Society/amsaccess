@@ -1376,8 +1376,8 @@ const RosterTable = memo(function RosterTable({
       title: `Revoke ${targets.length} login${targets.length === 1 ? "" : "s"}?`,
       body: (
         <>
-          <p>They are signed out and can’t sign back in to this contest. Records and submissions are kept. This includes selected participants hidden by filters.</p>
-          <p>There is no restore yet; issuing new credentials is the only way back.</p>
+          <p>Each person’s one login is shared by every contest they’re registered for, so this signs them out of all of them. Records and submissions are kept. This includes selected participants hidden by filters.</p>
+          <p>It can’t be undone yet: a revoked login can’t be restored or issued again.</p>
         </>
       ),
       confirmLabel: `Revoke ${targets.length}`,
