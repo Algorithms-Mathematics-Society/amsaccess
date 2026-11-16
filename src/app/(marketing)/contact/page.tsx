@@ -6,6 +6,7 @@ import { MarketingFooter } from "@/components/MarketingFooter";
 import { ACCESS_DOWNLOAD_URL } from "@/lib/product-links";
 import { AMS_TEAM_EMAIL, AMS_PARTNERS_EMAIL } from "@/lib/ams-contact";
 import { ContactForm } from "./ContactForm";
+import { contactEntry } from "@/lib/contact-entry";
 import styles from "./Contact.module.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,12 @@ export const metadata: Metadata = {
     "Talk to Access about assessments, get product help, or ask a security and privacy question.",
 };
 
-export default function ContactPage() {
+export default async function ContactPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const entry = contactEntry(await searchParams);
   return (
     <>
       <MarketingHeader />
@@ -57,7 +63,7 @@ export default function ContactPage() {
               </article>
             </div>
           </section>
-          <ContactForm />
+          <ContactForm initialCategory={entry.category} signInHelp={entry.signInHelp} />
           <section
             className={styles.candidate}
             id="candidate-help"
