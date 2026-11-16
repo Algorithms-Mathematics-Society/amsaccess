@@ -25,6 +25,7 @@ import { startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { ContestNotifications } from "./ContestNotifications";
 import { useConfirm } from "./ConfirmDialog";
+import { LiveStatusStrip, WaitingOnStaffBadge } from "./LiveStatusStrip";
 import { ContestReadProvider, useContestReadStore } from "@/lib/client/useContestRead";
 import type { ContestReadResource } from "@/lib/client/contestReads";
 
@@ -82,11 +83,14 @@ type Tab = (typeof TABS)[number];
 
 /** A fragment is whatever someone typed, so anything unrecognised falls back
  *  rather than rendering an empty console. */
-function tabFromHash(hash: string): Tab {
+function tabFromHash(hash: string): Tab | null {
   const name = hash.replace(/^#/, "");
-  return (TABS as readonly string[]).includes(name)
-    ? (name as Tab)
-    : "problems";
+  return (TABS as readonly string[]).includes(name) ? (name as Tab) : null;
+}
+
+/** Where a contest opens when the link names no tab: what matters at that stage. */
+function defaultTab(status: Contest["status"]): Tab {
+  return status === "running" ? "invigilation" : status === "ended" || status === "archived" ? "leaderboard" : "problems";
 }
 
 /** How many rows the submissions table holds. The contest may hold far more. */
@@ -187,7 +191,9 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   // fragment, and reading one during render is a hydration mismatch.
   useEffect(() => {
     const read = () => {
-      const selected = tabFromHash(window.location.hash);
+      const named = tabFromHash(window.location.hash);
+      explicitTab.current = named !== null;
+      const selected = named ?? "problems";
       // Each read authenticates independently; begin alongside metadata so
       // chunk loading and contest details are not prerequisites to data.
       prepareTab(selected, true);
@@ -197,6 +203,30 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     window.addEventListener("hashchange", read);
     return () => window.removeEventListener("hashchange", read);
   }, [prepareTab]);
+
+  // No tab in the link: once the status is known, open where that stage needs you.
+  const explicitTab = useRef(false);
+  const defaulted = useRef(false);
+  useEffect(() => {
+    if (!contest || defaulted.current) return;
+    defaulted.current = true;
+    if (explicitTab.current) return;
+    const next = defaultTab(contest.status);
+    if (next === "problems") return;
+    prepareTab(next, true);
+    setTabState(next);
+    window.history.replaceState(null, "", `#${next}`);
+  }, [contest, prepareTab]);
+
+  // Visited tabs stay mounted (hidden), so switching keeps filters, selection,
+  // open dialogs and running jobs such as a bulk email send.
+  const [visited, setVisited] = useState<ReadonlySet<Tab>>(() => new Set());
+  useEffect(() => {
+    setVisited((previous) => previous.has(tab) ? previous : new Set(previous).add(tab));
+  }, [tab]);
+
+  const keepAlive = (t: Tab, panel: React.ReactNode) =>
+    (visited.has(t) || tab === t) && <div hidden={tab !== t}>{panel}</div>;
 
   // replaceState, not push: Back should leave the contest the way it
   // arrived, not walk backwards through every tab that was glanced at.
@@ -474,6 +504,17 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           </div>
         </div>
 
+        {contest.status === "running" && (
+          <LiveStatusStrip
+            contestUid={contest.uid}
+            startsAt={contest.starts_at}
+            endsAt={contest.ends_at}
+            notificationsEnabled={notificationsEnabled}
+            judgingPending={summary?.pending ?? null}
+            onNavigate={setTab}
+          />
+        )}
+
         {contest.status === "draft" && (
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
             This contest is a <strong>draft</strong>. Nobody can join with the
@@ -509,6 +550,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
               }`}
             >
               {t === "team-round" ? "Team round" : t}
+              {t === "invigilation" && <WaitingOnStaffBadge contestUid={contestUid} enabled={notificationsEnabled} />}
               {t === "submissions" && total > 0 && (
                 <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
                   {total.toLocaleString()}
@@ -561,18 +603,17 @@ function ContestContent({ contestUid }: { contestUid: string }) {
       )}
 
       <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6">
-        {tab === "problems" ? (
-          <ProblemsTab contest={contest} onChange={refreshContestAfterWrite} />
-        ) : tab === "participants" ? (
+        {/* Visited tabs stay mounted but hidden; each one polls only while shown. */}
+        {keepAlive("problems", <ProblemsTab contest={contest} onChange={refreshContestAfterWrite} />)}
+        {keepAlive("participants", (
           <ParticipantsPanel
             contestUid={contest.uid}
             contestTitle={contest.title}
             isPractice={contest.is_practice}
-            live={
-              contest.status === "running" || contest.status === "scheduled"
-            }
+            live={tab === "participants" && (contest.status === "running" || contest.status === "scheduled")}
           />
-        ) : tab === "submissions" ? (
+        ))}
+        {tab === "submissions" && (
           <SubmissionsTab
             submissions={submissions}
             error={submissionError}
@@ -583,29 +624,30 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             total={total}
             pending={pending}
           />
-        ) : tab === "leaderboard" ? (
+        )}
+        {keepAlive("leaderboard", (
           <LeaderboardPanel
             contestUid={contest.uid}
             problemLabels={contest.problems.map((p) => p.label)}
-            live={contest.status === "running"}
+            live={tab === "leaderboard" && contest.status === "running"}
           />
-        ) : tab === "analytics" ? (
-          <AnalyticsPanel contestUid={contest.uid} />
-        ) : tab === "invigilation" ? (
+        ))}
+        {keepAlive("analytics", <AnalyticsPanel contestUid={contest.uid} />)}
+        {keepAlive("invigilation", (
           <InvigilationPanel
             contestUid={contest.uid}
             notificationsEnabled={notificationsEnabled}
+            active={tab === "invigilation"}
           />
-        ) : tab === "judging" ? (
-          // Named rather than left as the trailing `else`. A fall-through
-          // catches every tab nobody has got round to adding, which is how
-          // the fleet controls came to sit underneath the standings.
+        ))}
+        {/* Not kept alive: the fleet panel polls on its own timer. */}
+        {tab === "judging" && (
           <ContestJudging
             contestUid={contest.uid}
             isPractice={contest.is_practice}
             isDraft={contest.status === "draft"}
           />
-        ) : null}
+        )}
       </div>
       <ContestNotifications
         contestUid={contestUid}
