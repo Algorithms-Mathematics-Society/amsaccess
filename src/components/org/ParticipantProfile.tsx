@@ -159,6 +159,13 @@ export function ParticipantProfile({
       throw new Error(
         (data as { error?: string }).error ?? "Could not load this profile.",
       );
+    const d = data as Partial<Profile> | null;
+    if (
+      ![d?.contests, d?.submissions, d?.tags, d?.verdicts, d?.activity].every(
+        Array.isArray,
+      )
+    )
+      throw new Error("The profile response was incomplete. Try again.");
     return data as Profile;
   });
 
