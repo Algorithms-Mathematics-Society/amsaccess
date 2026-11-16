@@ -182,6 +182,22 @@ try {
         if (!override?.hold) throw e;
       });
     }
+    // Optional feeds: rank by roster order; Team 31 has one member in voice and one offline.
+    if (u.pathname.endsWith("/team-round/board"))
+      return ok({ teams: roster.map((t, i) => ({ uid: t.uid, rank: i + 1, score: 100 - i })) });
+    if (u.pathname.endsWith("/team-round/voice-events"))
+      return ok([
+        { team: "Team 31", username: "t31m1", kind: "join" },
+        { team: "Team 31", username: "t31m2", kind: "join" },
+        { team: "Team 31", username: "t31m2", kind: "leave" },
+      ]);
+    if (u.pathname.endsWith("/invigilation") && u.searchParams.get("view") === "sessions")
+      return ok(
+        roster
+          .flatMap((t) => t.members)
+          .filter((m) => m.username !== "t31m4")
+          .map((m) => ({ user_uid: m.user_uid, status: "active", idle_seconds: 10 })),
+      );
     return ok([]);
   });
 
@@ -199,6 +215,7 @@ try {
   await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 10);
 
   // Content: phase, summary and attention-first ordering.
+  await untilAsync(async () => /Online\s+135\/136/i.test(await text()), "the session feed");
   const body = await text();
   assert.match(body, /Scheduled phase: Allocation locked/);
   assert.match(body, /Teams\s+34/i);
@@ -211,6 +228,10 @@ try {
   assert.equal(await rows.count(), 34);
   const first = await rows.nth(0).innerText();
   assert.match(first, /#31 Team 31/);
+  assert.match(body, /In voice\s+1\/136/i);
+  assert.match(first, /Team 31 Member 1: [^\n]* · online · in voice/);
+  assert.match(first, /Team 31 Member 4: [^\n]* · offline/);
+  assert.match(first, /#31 · 70/, "standing from the board");
   assert.match(first, /Part unassigned after lock/);
   assert.match(first, /Not submitted 1\+ min after the deadline/);
   assert.match(first, /Team 31 Member 4: not chosen/);

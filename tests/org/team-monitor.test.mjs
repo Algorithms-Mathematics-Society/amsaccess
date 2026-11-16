@@ -99,6 +99,7 @@ test("a realistic roster keeps the monitored fields and drops the rest", () => {
   ]);
   assert.deepEqual(t.members[0], {
     user_uid: uid(1004),
+    username: "user4",
     display_name: "Tester 4",
     seed_rank: 4,
     part_label: "1",
@@ -513,4 +514,32 @@ test("seed_rank is carried for the setup panel and degrades to null when invalid
     t.members.map((m) => m.seed_rank),
     [1, null, null, null],
   );
+});
+
+test("optional feeds: standings, voice presence and online members degrade to null", async () => {
+  const { parseStandings, voicePresence, voiceKey, onlineUsers } = await import("../../src/lib/teamMonitor.ts");
+  // ams-api teams.py::_board_out; rows without a usable uid/rank/score are skipped.
+  const board = parseStandings({ teams: [{ uid: uid(1), rank: 1, score: 140.5 }, { uid: uid(2), rank: "x", score: 1 }, null] });
+  assert.deepEqual([...board], [[uid(1), { rank: 1, score: 140.5 }]]);
+  assert.equal(parseStandings([]), null, "the mocks' default [] is not a board");
+  // assist.py voice_events, oldest first: the latest event per member wins.
+  const voice = voicePresence([
+    { team: "Team 1", username: "a", kind: "join" },
+    { team: "Team 1", username: "b", kind: "join" },
+    { team: "Team 1", username: "a", kind: "mute" },
+    { team: "Team 1", username: "b", kind: "leave" },
+    { team: "Team 2", username: "c", kind: "join" },
+    { team: "Team 2", username: "c", kind: "closed" },
+    { kind: "join" },
+  ]);
+  assert.deepEqual([...voice], [voiceKey("Team 1", "a")]);
+  assert.equal(voicePresence({ error: "denied" }), null);
+  const online = onlineUsers([
+    { user_uid: "u1", status: "active", idle_seconds: 30 },
+    { user_uid: "u2", status: "active", idle_seconds: 120 },
+    { user_uid: "u3", status: "finished", idle_seconds: 1 },
+    { user_uid: "u4", status: "pending", idle_seconds: 0 },
+    { user_uid: null, status: "active", idle_seconds: 0 },
+  ]);
+  assert.deepEqual([...online].sort(), ["u1", "u4"]);
 });
