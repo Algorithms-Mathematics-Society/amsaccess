@@ -1,11 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { startOrgPolling } from "@/lib/client/orgPolling";
+import {
+  emptySessionSnapshot,
+  getOrgSessionStore,
+} from "@/lib/client/orgSessions";
+import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
 import {
   ATTENTION_LABEL,
   PHASE_LABEL,
   byAttention,
+  onlineUsers,
+  feedIsCurrent,
+  parseStandings,
   parseTeamRoster,
   readErrorMessage,
   scheduledPhase,
@@ -13,8 +28,11 @@ import {
   summarize,
   teamView,
   trackPending,
+  voiceKey,
+  voicePresence,
   type MonitorSchedule,
   type MonitorTeam,
+  type Standing,
   type TeamView,
 } from "@/lib/teamMonitor";
 
@@ -42,7 +60,9 @@ function ResultCell({ view }: { view: TeamView }) {
   if (!r)
     return (
       <span className="text-slate-500">
-        {view.stage === "awaiting" ? "No result for this revision yet" : "None yet"}
+        {view.stage === "awaiting"
+          ? "No result for this revision yet"
+          : "None yet"}
       </span>
     );
   const current = r.revision === view.team.submitted_revision;
@@ -73,15 +93,41 @@ function ResultCell({ view }: { view: TeamView }) {
 export function TeamRoundMonitor({
   base,
   schedule,
+  contestUid,
+  notificationsEnabled = false,
 }: {
   base: string;
   schedule: MonitorSchedule;
+  contestUid: string;
+  /** Contest-staff roles only: the session roster behind "online". */
+  notificationsEnabled?: boolean;
 }) {
   const [teams, setTeams] = useState<MonitorTeam[] | null>(null);
+  const [standings, setStandings] = useState<Map<string, Standing> | null>(
+    null,
+  );
+  const [voice, setVoice] = useState<Set<string> | null>(null);
+  const [optionalAt, setOptionalAt] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [readMs, setReadMs] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  // Subscribe through the existing feed; observing its session source adds no reads.
+  useOrgNotifications(contestUid, notificationsEnabled);
+  const sessionStore = getOrgSessionStore(contestUid);
+  const sessions = useSyncExternalStore(
+    sessionStore.observe,
+    sessionStore.getSnapshot,
+    () => emptySessionSnapshot,
+  );
+  const online = useMemo(
+    () =>
+      notificationsEnabled &&
+      feedIsCurrent(sessions.updatedAt, sessions.error, now, 30_000)
+        ? onlineUsers(sessions.rows)
+        : null,
+    [notificationsEnabled, sessions, now],
+  );
   const [onlyAttention, setOnlyAttention] = useState(false);
   const [reading, setReading] = useState(false);
   const [manual, setManual] = useState(false);
@@ -100,6 +146,13 @@ export function TeamRoundMonitor({
     controller.current = abort;
     const timer = setTimeout(() => abort.abort(), READ_TIMEOUT_MS);
     const started = performance.now();
+    // Optional feeds are independent: failures must not look like current presence.
+    const optional = (path: string) =>
+      fetch(`${base}/${path}`, { cache: "no-store", signal: abort.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+    const boardRead = optional("board");
+    const voiceRead = optional("voice-events");
     try {
       const response = await fetch(`${base}/teams`, {
         cache: "no-store",
@@ -124,9 +177,18 @@ export function TeamRoundMonitor({
       setNow(at);
       setReadMs(Math.round(performance.now() - started));
       setError("");
+      const [board, events] = await Promise.all([boardRead, voiceRead]);
+      if (!mounted.current) return;
+      const nextStandings = parseStandings(board);
+      setStandings(nextStandings);
+      const nextVoice = voicePresence(events);
+      setVoice(nextVoice);
+      setOptionalAt(Date.now());
     } catch (e) {
       if (!mounted.current) return;
       setError(readErrorMessage(e, abort.signal.aborted));
+      setStandings(null);
+      setVoice(null);
     } finally {
       clearTimeout(timer);
       if (controller.current === abort) controller.current = null;
@@ -163,6 +225,28 @@ export function TeamRoundMonitor({
   const summary = useMemo(() => summarize(views), [views]);
   const shown = onlyAttention ? views.filter((v) => v.attention.length) : views;
   const stale = updatedAt !== null && now - updatedAt > 3 * MONITOR_POLL_MS;
+  const members = (teams ?? []).flatMap((t) =>
+    t.members.map((m) => ({ team: t.name, m })),
+  );
+  const onlineCount = online
+    ? members.filter(({ m }) => online.has(m.user_uid)).length
+    : null;
+  const currentVoice = feedIsCurrent(optionalAt, "", now, 3 * MONITOR_POLL_MS)
+    ? voice
+    : null;
+  const currentStandings = feedIsCurrent(
+    optionalAt,
+    "",
+    now,
+    3 * MONITOR_POLL_MS,
+  )
+    ? standings
+    : null;
+  const voiceCount = currentVoice
+    ? members.filter(({ team, m }) =>
+        currentVoice.has(voiceKey(team, m.username)),
+      ).length
+    : null;
 
   return (
     <section
@@ -218,9 +302,21 @@ export function TeamRoundMonitor({
         </p>
       )}
 
+      {teams !== null &&
+        ((notificationsEnabled && online === null) ||
+          currentVoice === null ||
+          currentStandings === null) && (
+          <p role="status" className="rounded bg-amber-50 p-3 text-sm">
+            Some live feeds are unavailable or out of date:
+            {notificationsEnabled && online === null && " online status;"}
+            {currentVoice === null && " voice status;"}
+            {currentStandings === null && " standings;"} Unknown values are
+            shown as —. Refresh to retry.
+          </p>
+        )}
       {teams !== null && (
         <>
-          <dl className="grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-5">
+          <dl className="grid gap-3 text-sm sm:grid-cols-4 lg:grid-cols-7">
             {[
               ["Teams", String(summary.teams)],
               ["Parts claimed", `${summary.claimed}/${summary.members}`],
@@ -230,6 +326,16 @@ export function TeamRoundMonitor({
               ],
               ["Judged", `${summary.judged}/${summary.submitted}`],
               ["Needs attention", String(summary.attention)],
+              [
+                "Online",
+                onlineCount === null
+                  ? "—"
+                  : `${onlineCount}/${summary.members}`,
+              ],
+              [
+                "In voice",
+                voiceCount === null ? "—" : `${voiceCount}/${summary.members}`,
+              ],
             ].map(([label, value]) => (
               <div
                 key={label}
@@ -262,7 +368,7 @@ export function TeamRoundMonitor({
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table
                 aria-label="Live team status"
-                className="w-full min-w-[860px] text-sm"
+                className="w-full min-w-[960px] text-sm"
               >
                 <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                   <tr>
@@ -284,11 +390,15 @@ export function TeamRoundMonitor({
                     <th scope="col" className="px-4 py-2.5">
                       Latest result
                     </th>
+                    <th scope="col" className="px-4 py-2.5">
+                      Standing
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {shown.map((view) => {
                     const t = view.team;
+                    const standing = currentStandings?.get(t.uid);
                     return (
                       <tr key={t.uid} className="align-top">
                         <td className="px-4 py-2.5">
@@ -316,6 +426,18 @@ export function TeamRoundMonitor({
                               <li key={m.user_uid} className="break-words">
                                 {m.display_name}: {m.part_label ?? "not chosen"}
                                 {m.assigned_by === "auto" && " (auto)"}
+                                {online &&
+                                  (online.has(m.user_uid) ? (
+                                    " · online"
+                                  ) : (
+                                    <span className="text-red-700">
+                                      {" "}
+                                      · offline
+                                    </span>
+                                  ))}
+                                {currentVoice?.has(
+                                  voiceKey(t.name, m.username),
+                                ) && " · in voice"}
                               </li>
                             ))}
                           </ul>
@@ -332,6 +454,11 @@ export function TeamRoundMonitor({
                         </td>
                         <td className="px-4 py-2.5">
                           <ResultCell view={view} />
+                        </td>
+                        <td className="px-4 py-2.5 tabular-nums">
+                          {standing
+                            ? `#${standing.rank} · ${standing.score}`
+                            : "—"}
                         </td>
                       </tr>
                     );
