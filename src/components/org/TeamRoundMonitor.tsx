@@ -189,6 +189,7 @@ export function TeamRoundMonitor({
       setError(readErrorMessage(e, abort.signal.aborted));
       setStandings(null);
       setVoice(null);
+      return false;
     } finally {
       clearTimeout(timer);
       if (controller.current === abort) controller.current = null;

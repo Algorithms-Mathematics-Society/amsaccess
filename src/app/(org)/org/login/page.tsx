@@ -46,8 +46,15 @@ export default function OrgLoginPage() {
       });
 
       // `next` lets a redirect-to-login return you where you were.
-      const next = new URLSearchParams(window.location.search).get("next");
-      clearApiCache();
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+      // Opened from the expiry notice: leave the original tab's state alone; it
+      // checks the account itself and resets only if a different one signed in.
+      if (params.get("reauth") === "1") {
+        window.close();
+      } else {
+        clearApiCache();
+      }
       router.push(next && next.startsWith("/") ? next : "/org/dashboard");
       router.refresh();
     } catch (err) {
