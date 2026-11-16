@@ -1971,7 +1971,7 @@ function CredentialMail({
       </button>
 
       {open && (
-        <div className="absolute left-0 z-10 mt-2 w-[min(26rem,calc(100vw-2rem))] rounded-xl sm:left-auto sm:right-0 border border-slate-200 bg-white p-4 shadow-lg">
+        <div className="absolute left-0 z-10 mt-2 w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
           {plan === null ? (
             <SkeletonTable rows={3} bare />
           ) : queued ? (

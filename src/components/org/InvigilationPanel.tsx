@@ -131,7 +131,7 @@ function IdentityDialog({
       {/* On a phone the two photos stack, which is taller than the screen,
           so the card scrolls inside the overlay instead of losing its top. */}
       <div
-        className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl md:max-h-none md:overflow-visible"
+        className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl xl:max-h-none xl:overflow-visible"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
@@ -147,7 +147,7 @@ function IdentityDialog({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-2.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 md:p-1.5"
+            className="min-h-11 min-w-11 xl:min-h-0 xl:min-w-0 rounded-lg p-2.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 xl:p-1.5"
           >
             <X className="h-4 w-4" />
           </button>
@@ -424,10 +424,10 @@ export function InvigilationPanel({
           not a verdict.
         </p>
 
-        {/* Below md each candidate is a card: the same fields and the same
+        {/* Below xl each candidate is a card: the same fields and the same
             quiet highlight, without a 780px table to scroll sideways. */}
         {!desktop && sessions.length > 0 && (
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white xl:hidden">
             {sessions.map((row) => {
               const running =
                 row.status === "active" || row.status === "pending";
@@ -510,7 +510,7 @@ export function InvigilationPanel({
             {emptyText("Nobody has started this contest yet.")}
           </p>
         ) : desktop ? (
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white xl:block">
             <table
               aria-label="Live contest sessions"
               className="w-full min-w-[780px] table-fixed text-sm"
@@ -649,7 +649,7 @@ export function InvigilationPanel({
         </p>
 
         {!desktop && readiness.length > 0 && (
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white xl:hidden">
             {readiness.map((row) => (
               <li key={row.uid} className="space-y-2 px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
@@ -703,7 +703,7 @@ export function InvigilationPanel({
                 : "Loading…"}
           </p>
         ) : desktop ? (
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white xl:block">
             <table
               aria-label="Entry-gate device reports"
               className="w-full min-w-[720px] text-sm"
@@ -791,7 +791,7 @@ export function InvigilationPanel({
             )}
           </h3>
           {!desktop && (
-            <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white md:hidden">
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white xl:hidden">
               {overrides.map((grant) => (
                 <li
                   key={grant.uid}
@@ -830,7 +830,7 @@ export function InvigilationPanel({
             </ul>
           )}
           {desktop && (
-            <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+            <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white xl:block">
               <table
                 aria-label="Device check waivers"
                 className="w-full min-w-[640px] text-sm"
@@ -917,7 +917,7 @@ function GrantWaiver({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 md:w-auto md:py-1.5"
+        className="min-h-11 xl:min-h-0 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 xl:w-auto xl:py-1.5"
       >
         Waive…
       </button>
@@ -925,12 +925,12 @@ function GrantWaiver({
   }
 
   return (
-    <div className="ml-auto space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left md:max-w-xs">
+    <div className="ml-auto space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left xl:max-w-xs">
       <select
         aria-label="Check to waive"
         value={checkKind}
         onChange={(e) => setCheckKind(e.target.value)}
-        className="w-full rounded border border-slate-300 px-2 py-2 text-base md:py-1 md:text-xs"
+        className="min-h-11 xl:min-h-0 w-full rounded border border-slate-300 px-2 py-2 text-base xl:py-1 xl:text-xs"
       >
         {checks.map((check) => (
           <option key={check} value={check}>
@@ -943,12 +943,12 @@ function GrantWaiver({
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Why — e.g. verified in person"
-        className="w-full rounded border border-slate-300 px-2 py-2 text-base md:py-1 md:text-xs"
+        className="min-h-11 xl:min-h-0 w-full rounded border border-slate-300 px-2 py-2 text-base xl:py-1 xl:text-xs"
       />
       <p className="text-[11px] text-slate-500">
         Valid 2 hours, for {device.slice(0, 12)}… only.
       </p>
-      <div className="flex gap-2 md:gap-1">
+      <div className="flex gap-2 xl:gap-1">
         <button
           type="button"
           onClick={() => {
@@ -958,14 +958,14 @@ function GrantWaiver({
           }}
           disabled={busy || !reason.trim()}
           title={reason.trim() ? undefined : "Give a reason"}
-          className="flex-1 rounded bg-slate-900 px-2.5 py-2 text-xs font-medium text-white disabled:opacity-40 md:flex-none md:py-1"
+          className="min-h-11 xl:min-h-0 flex-1 rounded bg-slate-900 px-2.5 py-2 text-xs font-medium text-white disabled:opacity-40 xl:flex-none xl:py-1"
         >
           Grant
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="flex-1 rounded px-2 py-2 text-xs text-slate-500 md:flex-none md:py-1"
+          className="min-h-11 xl:min-h-0 flex-1 rounded px-2 py-2 text-xs text-slate-500 xl:flex-none xl:py-1"
         >
           Cancel
         </button>

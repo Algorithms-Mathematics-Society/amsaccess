@@ -303,14 +303,14 @@ export function IssuesInbox({
                       {item.meta && ` · ${item.meta}`}
                     </p>
                   </div>
-                  <div className="flex w-full flex-shrink-0 gap-2 md:w-auto">
+                  <div className="flex w-full flex-shrink-0 gap-2 xl:w-auto">
                     {item.open && item.kind === "resume" && (
                       <>
                         <button
                           type="button"
                           disabled={busy}
                           onClick={() => void decide(item, "approve-resume")}
-                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40 md:flex-none md:py-1.5"
+                          className="min-h-11 xl:min-h-0 inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-40 xl:flex-none xl:py-1.5"
                         >
                           {busy ? (
                             <Loader2
@@ -326,7 +326,7 @@ export function IssuesInbox({
                           type="button"
                           disabled={busy}
                           onClick={() => void decide(item, "reject-resume")}
-                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 md:flex-none md:py-1.5"
+                          className="min-h-11 xl:min-h-0 inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 xl:flex-none xl:py-1.5"
                         >
                           <X className="h-3.5 w-3.5" aria-hidden="true" />
                           Refuse
@@ -338,7 +338,7 @@ export function IssuesInbox({
                         type="button"
                         disabled={busy}
                         onClick={() => void decide(item, "resolve-incident")}
-                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 md:w-auto md:py-1.5"
+                        className="min-h-11 xl:min-h-0 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 disabled:opacity-40 xl:w-auto xl:py-1.5"
                       >
                         {busy ? (
                           <Loader2
@@ -362,7 +362,7 @@ export function IssuesInbox({
                     {item.kind === "ticket" && (
                       <Link
                         href={`/org/support?t=${item.uid}`}
-                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 md:w-auto md:py-1.5"
+                        className="min-h-11 xl:min-h-0 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs text-slate-700 hover:border-slate-900 xl:w-auto xl:py-1.5"
                       >
                         <ExternalLink
                           className="h-3.5 w-3.5"
