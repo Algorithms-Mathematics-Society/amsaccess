@@ -46,6 +46,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function () {
+                // Install before Next's router so unsaved-state guards run first.
+                window.addEventListener('popstate', function (event) {
+                  window.dispatchEvent(new CustomEvent('ams:before-history', { detail: event }));
+                });
                 try {
                   var stored = localStorage.getItem('ams-theme');
                   var prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;

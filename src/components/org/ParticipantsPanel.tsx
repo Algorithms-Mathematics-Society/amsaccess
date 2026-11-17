@@ -1,13 +1,26 @@
 "use client";
 
-import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import {
+  memo,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import { useContestRead } from "@/lib/client/useContestRead";
+import { useUnsavedCredentials } from "@/lib/client/useUnsavedCredentials";
 import { useOrgSessions } from "@/lib/client/useOrgSessions";
 import { SessionFreshness } from "./SessionFreshness";
+import { participantEntered } from "@/lib/client/orgEntry";
 import {
-  participantEntered,
-} from "@/lib/client/orgEntry";
-import { ROSTER_VIEWS, matchesRosterView, rosterCsv, type RosterView } from "@/lib/client/rosterViews";
+  ROSTER_VIEWS,
+  matchesRosterView,
+  rosterCsv,
+  type RosterView,
+} from "@/lib/client/rosterViews";
 import { PeopleFilters } from "@/components/org/PeopleFilters";
 import {
   NO_FILTER,
@@ -105,7 +118,10 @@ function download(filename: string, contents: string): void {
   URL.revokeObjectURL(url);
 }
 
-function credentialMessage(row: IssuedCredential, contestTitle: string): string {
+function credentialMessage(
+  row: IssuedCredential,
+  contestTitle: string,
+): string {
   return [
     `Hello ${row.display_name},`,
     "",
@@ -142,8 +158,20 @@ function ParticipantsContent({
   live?: boolean;
   notificationsEnabled?: boolean;
 }) {
-  const { entered, error: entryError, loaded: entryLoaded, refresh: refreshEntry } = useOrgSessions(contestUid, live);
-  const { data: latestRoster, error, refreshing, open, load: retryRoster, refreshAfterWrite: load } = useContestRead<Participant[]>("participants");
+  const {
+    entered,
+    error: entryError,
+    loaded: entryLoaded,
+    refresh: refreshEntry,
+  } = useOrgSessions(contestUid, live);
+  const {
+    data: latestRoster,
+    error,
+    refreshing,
+    open,
+    load: retryRoster,
+    refreshAfterWrite: load,
+  } = useContestRead<Participant[]>("participants");
   // Keep the initial large table out of the tab-click render. Adopt this
   // visit's read only once it settles; later refreshes retain the current
   // table, while authorization loss still clears its data immediately.
@@ -152,9 +180,8 @@ function ParticipantsContent({
   const [adding, setAdding] = useState(false);
   const [pickingFromAccess, setPickingFromAccess] = useState(false);
 
-  // The credentials from the most recent provisioning call. These exist
-  // nowhere else — not in the database, not retrievable by any endpoint — so
-  // this state is the only copy until the operator saves it.
+  // Keep the bulk view in memory while this visited tab stays mounted.
+  // Individual passwords remain retrievable through Show Credentials.
   const [issued, setIssued] = useState<IssuedCredential[] | null>(null);
   const [saved, setSaved] = useState(false);
   // Said after a roster add that minted nothing. Without it the screen just
@@ -166,16 +193,20 @@ function ParticipantsContent({
 
   useEffect(() => {
     let active = true;
-    const settled = () => { if (active) setRosterReady(true); };
+    const settled = () => {
+      if (active) setRosterReady(true);
+    };
     void open().then(settled, settled);
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [open]);
 
   /** What to show after people were added, which depends on what was minted. */
   const absorb = useCallback(
     (result: RosterAdd) => {
       if (result.credentials.length > 0) {
-        // Slips. These exist nowhere else, so they take over the screen.
+        // Keep the new bulk credentials visible until saved.
         setIssued(result.credentials);
         setSaved(false);
       } else {
@@ -186,14 +217,7 @@ function ParticipantsContent({
     [load],
   );
 
-  // Closing the tab with unsaved passwords loses them permanently. The
-  // browser's own confirmation is the only thing that can interrupt that.
-  useEffect(() => {
-    if (issued === null || saved) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [issued, saved]);
+  useUnsavedCredentials(issued !== null && !saved);
 
   const { active, loggedIn, unkeyed, rosterUids } = useMemo(() => {
     let active = 0,
@@ -229,7 +253,11 @@ function ParticipantsContent({
 
   return (
     <div>
-      {roster && refreshing && <p role="status" className="mb-2 text-xs text-slate-500">Updating roster…</p>}
+      {roster && refreshing && (
+        <p role="status" className="mb-2 text-xs text-slate-500">
+          Updating roster…
+        </p>
+      )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
           {roster === null
@@ -239,7 +267,7 @@ function ParticipantsContent({
               }${roster.length - active > 0 ? ` · ${roster.length - active} revoked` : ""}`}
         </p>
         <SessionFreshness contestUid={contestUid} />
-      {roster === null && (!error || refreshing) && (
+        {roster === null && (!error || refreshing) && (
           <div
             className="h-4 w-56 animate-pulse rounded bg-slate-200"
             aria-hidden="true"
@@ -325,8 +353,8 @@ function ParticipantsContent({
           </p>
           <p className="mt-1 text-emerald-800">
             They have a login and no passphrase yet. Send it with{" "}
-            <strong>Credentials by email</strong>, or use Show Credentials for a printed
-            slip.
+            <strong>Credentials by email</strong>, or use Show Credentials for a
+            printed slip.
           </p>
           <button
             type="button"
@@ -339,8 +367,12 @@ function ParticipantsContent({
       )}
 
       {error && (
-        <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}{roster !== null && " Showing the last roster."}{" "}
+        <p
+          role="alert"
+          className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+          {roster !== null && " Showing the last roster."}{" "}
           <button
             type="button"
             className="underline disabled:opacity-50"
@@ -624,8 +656,8 @@ function ImportCsv({
           className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300"
         />
         <span>
-          Create credentials now for printed slips. Existing passwords stay unchanged.
-          Leave this off to send credentials by email later.
+          Create credentials now for printed slips. Existing passwords stay
+          unchanged. Leave this off to send credentials by email later.
         </span>
       </label>
 
@@ -958,8 +990,10 @@ function IssuedCredentials({
               Save or share these credentials
             </p>
             <p className="mt-1 text-sm text-amber-800">
-              Use Show Credentials in the roster to view a saved password again.
-              Adding this person to another contest does not change it.
+              Download or copy this bulk list before leaving the contest. You
+              can switch tabs and return here. Show Credentials in the roster
+              can retrieve individual passwords later; it does not restore this
+              bulk list.
             </p>
           </div>
         </div>
@@ -978,7 +1012,6 @@ function IssuedCredentials({
           type="button"
           onClick={() => {
             window.print();
-            onSaved();
           }}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:border-slate-900"
         >
@@ -998,6 +1031,15 @@ function IssuedCredentials({
           {copied ? "Copied" : "Copy all"}
         </button>
 
+        {!saved && (
+          <button
+            type="button"
+            onClick={onSaved}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:border-slate-900"
+          >
+            I saved or printed these credentials
+          </button>
+        )}
         <button
           type="button"
           onClick={onDone}
@@ -1055,27 +1097,53 @@ function RosterFilters(props: ComponentProps<typeof PeopleFilters>) {
   const [draft, setDraft] = useState(props.value);
   const [composing, setComposing] = useState(false);
   const { value, onChange } = props;
-  const pending = draft.needle !== value.needle || draft.os !== value.os || draft.college !== value.college;
+  const pending =
+    draft.needle !== value.needle ||
+    draft.os !== value.os ||
+    draft.college !== value.college;
 
   useEffect(() => {
     if (!pending || composing) return;
     // Dropdowns and Clear apply immediately; only text edits wait for a pause.
-    const delay = draft.os !== value.os || draft.college !== value.college || !draft.needle ? 0 : 120;
-    const timer = setTimeout(() => startTransition(() => onChange(draft)), delay);
+    const delay =
+      draft.os !== value.os || draft.college !== value.college || !draft.needle
+        ? 0
+        : 120;
+    const timer = setTimeout(
+      () => startTransition(() => onChange(draft)),
+      delay,
+    );
     return () => clearTimeout(timer);
   }, [draft, value, onChange, pending, composing]);
 
   const controls = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || document.querySelector('[role="dialog"]:not([aria-hidden="true"]):not([inert]), dialog[open]')) return;
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        document.querySelector(
+          '[role="dialog"]:not([aria-hidden="true"]):not([inert]), dialog[open]',
+        )
+      )
+        return;
       const target = event.target as HTMLElement | null;
-      if (event.key === "/" && controls.current?.offsetParent && !target?.closest('input, textarea, select, [contenteditable="true"]')) {
+      if (
+        event.key === "/" &&
+        controls.current?.offsetParent &&
+        !target?.closest('input, textarea, select, [contenteditable="true"]')
+      ) {
         event.preventDefault();
-        controls.current?.querySelector<HTMLInputElement>('input')?.focus();
-      } else if (event.key === "Escape" && target === controls.current?.querySelector('input')) {
+        controls.current?.querySelector<HTMLInputElement>("input")?.focus();
+      } else if (
+        event.key === "Escape" &&
+        target === controls.current?.querySelector("input")
+      ) {
         event.preventDefault();
-        setDraft(previous => ({ ...previous, needle: "" }));
+        setDraft((previous) => ({ ...previous, needle: "" }));
       }
     };
     window.addEventListener("keydown", shortcut);
@@ -1083,13 +1151,57 @@ function RosterFilters(props: ComponentProps<typeof PeopleFilters>) {
   }, []);
 
   return (
-    <div ref={controls} onCompositionStartCapture={() => setComposing(true)} onCompositionEndCapture={() => setComposing(false)}>
-      <PeopleFilters {...props} value={draft} onChange={setDraft} pending={pending || composing} />
-      <div className="mb-3 flex min-h-8 flex-wrap items-center gap-2 text-xs text-slate-600" aria-label="Active roster filters">
-        <span>{pending || composing ? "Updating results…" : `${props.showing} of ${props.total} participants`}</span>
-        {draft.needle && <button type="button" className="rounded border px-2 py-1" onClick={() => setDraft(previous => ({ ...previous, needle: "" }))}>Clear search</button>}
-        {draft.os && <button type="button" className="rounded border px-2 py-1" onClick={() => setDraft(previous => ({ ...previous, os: "" }))}>OS: {draft.os} ×</button>}
-        {draft.college && <button type="button" className="rounded border px-2 py-1" onClick={() => setDraft(previous => ({ ...previous, college: "" }))}>College: {draft.college} ×</button>}
+    <div
+      ref={controls}
+      onCompositionStartCapture={() => setComposing(true)}
+      onCompositionEndCapture={() => setComposing(false)}
+    >
+      <PeopleFilters
+        {...props}
+        value={draft}
+        onChange={setDraft}
+        pending={pending || composing}
+      />
+      <div
+        className="mb-3 flex min-h-8 flex-wrap items-center gap-2 text-xs text-slate-600"
+        aria-label="Active roster filters"
+      >
+        <span>
+          {pending || composing
+            ? "Updating results…"
+            : `${props.showing} of ${props.total} participants`}
+        </span>
+        {draft.needle && (
+          <button
+            type="button"
+            className="rounded border px-2 py-1"
+            onClick={() =>
+              setDraft((previous) => ({ ...previous, needle: "" }))
+            }
+          >
+            Clear search
+          </button>
+        )}
+        {draft.os && (
+          <button
+            type="button"
+            className="rounded border px-2 py-1"
+            onClick={() => setDraft((previous) => ({ ...previous, os: "" }))}
+          >
+            OS: {draft.os} ×
+          </button>
+        )}
+        {draft.college && (
+          <button
+            type="button"
+            className="rounded border px-2 py-1"
+            onClick={() =>
+              setDraft((previous) => ({ ...previous, college: "" }))
+            }
+          >
+            College: {draft.college} ×
+          </button>
+        )}
         <span className="text-slate-500">/ to search · Esc clears search</span>
       </div>
     </div>
@@ -1145,12 +1257,19 @@ const RosterTable = memo(function RosterTable({
   const currentRows = useRef(rows);
   currentRows.current = rows;
   useEffect(() => {
-    const settled = rows.filter((row) => row.mail_status !== "" && row.mail_status !== "bounced" && acceptedEmails.current.has(row.login_id));
+    const settled = rows.filter(
+      (row) =>
+        row.mail_status !== "" &&
+        row.mail_status !== "bounced" &&
+        acceptedEmails.current.has(row.login_id),
+    );
     if (!settled.length) return;
     for (const row of settled) acceptedEmails.current.delete(row.login_id);
     setActions((previous) => {
       const next = { ...previous };
-      for (const row of settled) if (next[row.login_id]?.queued) next[row.login_id] = { ...next[row.login_id], queued: false };
+      for (const row of settled)
+        if (next[row.login_id]?.queued)
+          next[row.login_id] = { ...next[row.login_id], queued: false };
       return next;
     });
   }, [rows]);
@@ -1166,7 +1285,11 @@ const RosterTable = memo(function RosterTable({
   const [filter, setFilter] = useState<PeopleFilter>(NO_FILTER);
   const [view, setView] = useState<RosterView>("all");
   const [filterKey, setFilterKey] = useState(0);
-  const resetFilters = () => { setFilter(NO_FILTER); setView("all"); setFilterKey(key => key + 1); };
+  const resetFilters = () => {
+    setFilter(NO_FILTER);
+    setView("all");
+    setFilterKey((key) => key + 1);
+  };
 
   const osOptions = useMemo(
     () => optionsFrom(rows, (row) => row.device_os),
@@ -1202,135 +1325,253 @@ const RosterTable = memo(function RosterTable({
         ],
         os: (row) => row.device_os,
         college: (row) => row.college,
-      }).filter(row => matchesRosterView(row, participantEntered(entered, row), view)),
+      }).filter((row) =>
+        matchesRosterView(row, participantEntered(entered, row), view),
+      ),
     [ordered, filter, entered, view],
   );
 
-  const viewCounts = useMemo(() => Object.fromEntries(ROSTER_VIEWS.map(([key]) =>
-    [key, rows.reduce((count, row) => count + Number(matchesRosterView(row, participantEntered(entered, row), key)), 0)]
-  )) as Record<RosterView, number>, [rows, entered]);
+  const viewCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        ROSTER_VIEWS.map(([key]) => [
+          key,
+          rows.reduce(
+            (count, row) =>
+              count +
+              Number(
+                matchesRosterView(row, participantEntered(entered, row), key),
+              ),
+            0,
+          ),
+        ]),
+      ) as Record<RosterView, number>,
+    [rows, entered],
+  );
 
-  const act = useCallback(async (loginId: string, action: RowAction, refresh = true) => {
-    // State updates alone cannot guard two clicks in the same event turn.
-    if (!mounted.current || pending.current.has(loginId) || (action === "credentials" && reissueLock.current)) return null;
-    if (action === "reemail") {
-      const row = currentRows.current.find((candidate) => candidate.login_id === loginId);
-      if (!row || !canEmailParticipant(row)) return null;
-      const uncertain = unknownEmails.current.has(loginId);
-      const accepted = acceptedEmails.current.has(loginId);
-      // A retry must be confirmed first (rowAction clears these flags when it is).
-      if (uncertain || accepted) return null;
-    }
-    pending.current.add(loginId);
-    if (action === "credentials") {
-      reissueLock.current = true;
-      setReissueLocked(true);
-    }
-    setActions((previous) => ({ ...previous, [loginId]: { pending: action, error: "", queued: false, unknown: unknownEmails.current.has(loginId) } }));
-    const controller = new AbortController();
-    requests.current.add(controller);
-    const timeout = (!refresh || action === "credentials") ? window.setTimeout(() => controller.abort(), 30_000) : undefined;
-    let httpRejected = false;
-    try {
-      const response = await fetch(
+  const act = useCallback(
+    async (loginId: string, action: RowAction, refresh = true) => {
+      // State updates alone cannot guard two clicks in the same event turn.
+      if (
+        !mounted.current ||
+        pending.current.has(loginId) ||
+        (action === "credentials" && reissueLock.current)
+      )
+        return null;
+      if (action === "reemail") {
+        const row = currentRows.current.find(
+          (candidate) => candidate.login_id === loginId,
+        );
+        if (!row || !canEmailParticipant(row)) return null;
+        const uncertain = unknownEmails.current.has(loginId);
+        const accepted = acceptedEmails.current.has(loginId);
+        // A retry must be confirmed first (rowAction clears these flags when it is).
+        if (uncertain || accepted) return null;
+      }
+      pending.current.add(loginId);
+      if (action === "credentials") {
+        reissueLock.current = true;
+        setReissueLocked(true);
+      }
+      setActions((previous) => ({
+        ...previous,
+        [loginId]: {
+          pending: action,
+          error: "",
+          queued: false,
+          unknown: unknownEmails.current.has(loginId),
+        },
+      }));
+      const controller = new AbortController();
+      requests.current.add(controller);
+      const timeout =
+        !refresh || action === "credentials"
+          ? window.setTimeout(() => controller.abort(), 30_000)
+          : undefined;
+      let httpRejected = false;
+      try {
+        const response = await fetch(
           `/api/org/contests/${contestUid}/participants/${encodeURIComponent(loginId)}?action=${action}`,
           {
-            method: "POST", signal: controller.signal,
+            method: "POST",
+            signal: controller.signal,
           },
         );
-      httpRejected = !response.ok;
-      // A successful status with an unreadable body is ambiguous for an email
-      // mutation. The general helper tolerates empty JSON, so parse this path
-      // strictly to keep it out of automatic bulk retries.
-      const result = (action === "reemail" || action === "credentials") && response.ok
-        ? await response.json() as QueuedBatch
-        : await json<IssuedCredential | Participant | QueuedBatch>(response);
-      if (action === "credentials") {
-        const credential = result as IssuedCredential;
-        if (typeof credential?.login_id !== "string" || typeof credential.password !== "string" || !credential.password) {
-          throw new Error("Credential response was incomplete. Try Show Credentials again.");
+        httpRejected = !response.ok;
+        // A successful status with an unreadable body is ambiguous for an email
+        // mutation. The general helper tolerates empty JSON, so parse this path
+        // strictly to keep it out of automatic bulk retries.
+        const result =
+          (action === "reemail" || action === "credentials") && response.ok
+            ? ((await response.json()) as QueuedBatch)
+            : await json<IssuedCredential | Participant | QueuedBatch>(
+                response,
+              );
+        if (action === "credentials") {
+          const credential = result as IssuedCredential;
+          if (
+            typeof credential?.login_id !== "string" ||
+            typeof credential.password !== "string" ||
+            !credential.password
+          ) {
+            throw new Error(
+              "Credential response was incomplete. Try Show Credentials again.",
+            );
+          }
+          setReissued(credential);
+        } else if (refresh && mounted.current) onChange();
+        if (action === "reemail") acceptedEmails.current.add(loginId);
+        setActions((previous) => ({
+          ...previous,
+          [loginId]: {
+            pending: null,
+            error: "",
+            queued: action === "reemail" || acceptedEmails.current.has(loginId),
+            unknown: unknownEmails.current.has(loginId),
+          },
+        }));
+        return true;
+      } catch (err) {
+        const unknown = action === "reemail" && !httpRejected;
+        if (unknown) {
+          unknownEmails.current.add(loginId);
+          setSelected((previous) => {
+            const next = new Set(previous);
+            next.delete(loginId);
+            return next;
+          });
         }
-        setReissued(credential);
+        setActions((previous) => ({
+          ...previous,
+          [loginId]: {
+            pending: null,
+            queued: false,
+            unknown: unknownEmails.current.has(loginId),
+            error:
+              action === "credentials" && !httpRejected
+                ? "Could not load credentials. Retry to show the same password."
+                : unknown
+                  ? "Request interrupted; its result is unknown. Refresh and check status before retrying."
+                  : err instanceof Error
+                    ? err.message
+                    : `Could not ${action === "reemail" ? "queue the email" : action}.`,
+          },
+        }));
+        if (action === "credentials") {
+          reissueLock.current = false;
+          setReissueLocked(false);
+        }
+        return unknown ? "unknown" : false;
+      } finally {
+        window.clearTimeout(timeout);
+        requests.current.delete(controller);
+        // Keep one credential dialog open at a time.
+        if (action !== "credentials" || !reissueLock.current)
+          pending.current.delete(loginId);
       }
-      else if (refresh && mounted.current) onChange();
-      if (action === "reemail") acceptedEmails.current.add(loginId);
-      setActions((previous) => ({ ...previous, [loginId]: { pending: null, error: "", queued: action === "reemail" || acceptedEmails.current.has(loginId), unknown: unknownEmails.current.has(loginId) } }));
-      return true;
-    } catch (err) {
-      const unknown = action === "reemail" && !httpRejected;
-      if (unknown) {
-        unknownEmails.current.add(loginId);
-        setSelected(previous => { const next = new Set(previous); next.delete(loginId); return next; });
-      }
-      setActions((previous) => ({ ...previous, [loginId]: {
-        pending: null, queued: false, unknown: unknownEmails.current.has(loginId),
-        error: action === "credentials" && !httpRejected
-          ? "Could not load credentials. Retry to show the same password."
-          : unknown ? "Request interrupted; its result is unknown. Refresh and check status before retrying." : err instanceof Error ? err.message : `Could not ${action === "reemail" ? "queue the email" : action}.`,
-      } }));
-      if (action === "credentials") {
-        reissueLock.current = false;
-        setReissueLocked(false);
-      }
-      return unknown ? "unknown" : false;
-    } finally {
-      window.clearTimeout(timeout);
-      requests.current.delete(controller);
-      // Keep one credential dialog open at a time.
-      if (action !== "credentials" || !reissueLock.current) pending.current.delete(loginId);
-    }
-  }, [contestUid, onChange]);
+    },
+    [contestUid, onChange],
+  );
 
   // Row buttons go through here so a one-click Revoke can't lock someone out by accident.
-  const rowAction = useCallback(async (loginId: string, action: RowAction) => {
-    if (action === "revoke") {
-      const name = currentRows.current.find((candidate) => candidate.login_id === loginId)?.display_name ?? loginId;
-      const ok = await confirm({
-        title: `Revoke ${name}’s login?`,
-        body: (
-          <>
-            <p>Their one login is shared by every contest they’re registered for, so this signs them out of all of them. Records and submissions are kept.</p>
-            <p>It can’t be undone yet: a revoked login can’t be restored or issued again.</p>
-          </>
-        ),
-        confirmLabel: "Revoke login",
-        danger: true,
-      });
-      if (!ok) return null;
-    }
-    if (action === "reemail") {
-      const row = currentRows.current.find((candidate) => candidate.login_id === loginId);
-      const uncertain = unknownEmails.current.has(loginId);
-      if (row && (uncertain || (acceptedEmails.current.has(loginId) && row.mail_status === "bounced"))) {
+  const rowAction = useCallback(
+    async (loginId: string, action: RowAction) => {
+      if (action === "revoke") {
+        const name =
+          currentRows.current.find(
+            (candidate) => candidate.login_id === loginId,
+          )?.display_name ?? loginId;
         const ok = await confirm({
-          title: `Send ${row.display_name} another credential email?`,
-          body: <p>The earlier request may still deliver, so this can send a second copy of the same credentials. Check their latest email status first.</p>,
-          confirmLabel: "Send another email",
+          title: `Revoke ${name}’s login?`,
+          body: (
+            <>
+              <p>
+                Their one login is shared by every contest they’re registered
+                for, so this signs them out of all of them. Records and
+                submissions are kept.
+              </p>
+              <p>
+                It can’t be undone yet: a revoked login can’t be restored or
+                issued again.
+              </p>
+            </>
+          ),
+          confirmLabel: "Revoke login",
+          danger: true,
         });
         if (!ok) return null;
-        unknownEmails.current.delete(loginId);
-        acceptedEmails.current.delete(loginId);
       }
-    }
-    return act(loginId, action);
-  }, [act, confirm]);
+      if (action === "reemail") {
+        const row = currentRows.current.find(
+          (candidate) => candidate.login_id === loginId,
+        );
+        const uncertain = unknownEmails.current.has(loginId);
+        if (
+          row &&
+          (uncertain ||
+            (acceptedEmails.current.has(loginId) &&
+              row.mail_status === "bounced"))
+        ) {
+          const ok = await confirm({
+            title: `Send ${row.display_name} another credential email?`,
+            body: (
+              <p>
+                The earlier request may still deliver, so this can send a second
+                copy of the same credentials. Check their latest email status
+                first.
+              </p>
+            ),
+            confirmLabel: "Send another email",
+          });
+          if (!ok) return null;
+          unknownEmails.current.delete(loginId);
+          acceptedEmails.current.delete(loginId);
+        }
+      }
+      return act(loginId, action);
+    },
+    [act, confirm],
+  );
 
   const emailSelected = async () => {
     if (!mounted.current || bulkLock.current) return;
-    const recipients = currentRows.current.filter((row) => selected.has(row.login_id)
-      && canEmailParticipant(row) && !pending.current.has(row.login_id)
-      && !acceptedEmails.current.has(row.login_id) && !unknownEmails.current.has(row.login_id)).map((row) => row.login_id);
+    const recipients = currentRows.current
+      .filter(
+        (row) =>
+          selected.has(row.login_id) &&
+          canEmailParticipant(row) &&
+          !pending.current.has(row.login_id) &&
+          !acceptedEmails.current.has(row.login_id) &&
+          !unknownEmails.current.has(row.login_id),
+      )
+      .map((row) => row.login_id);
     if (recipients.length === 0) {
-      setBulkSummary("No selected participants are currently eligible. Busy, already queued and ineligible rows are skipped.");
+      setBulkSummary(
+        "No selected participants are currently eligible. Busy, already queued and ineligible rows are skipped.",
+      );
       return;
     }
     const recipientIds = new Set(recipients);
-    const confirmed = new Map(currentRows.current.filter(row => recipientIds.has(row.login_id)).map(row => [row.login_id, {
-      email: row.email, has_passphrase: row.has_passphrase, mail_status: row.mail_status,
-    }]));
+    const confirmed = new Map(
+      currentRows.current
+        .filter((row) => recipientIds.has(row.login_id))
+        .map((row) => [
+          row.login_id,
+          {
+            email: row.email,
+            has_passphrase: row.has_passphrase,
+            mail_status: row.mail_status,
+          },
+        ]),
+    );
     const ok = await confirm({
       title: `Email credentials to ${recipients.length} selected participant${recipients.length === 1 ? "" : "s"}?`,
-      body: <p>This includes selected participants hidden by filters. Existing passwords stay unchanged. Delivery is not immediate.</p>,
+      body: (
+        <p>
+          This includes selected participants hidden by filters. Existing
+          passwords stay unchanged. Delivery is not immediate.
+        </p>
+      ),
       confirmLabel: `Queue ${recipients.length} email${recipients.length === 1 ? "" : "s"}`,
     });
     if (!ok || bulkLock.current) return;
@@ -1348,8 +1589,16 @@ const RosterTable = memo(function RosterTable({
         // Revalidate just before sending: live refreshes or another row action
         // may have changed eligibility while this recipient waited for a slot.
         const before = confirmed.get(loginId);
-        const current = currentRows.current.find(row => row.login_id === loginId);
-        if (!current || !before || current.email !== before.email || current.has_passphrase !== before.has_passphrase || current.mail_status !== before.mail_status) {
+        const current = currentRows.current.find(
+          (row) => row.login_id === loginId,
+        );
+        if (
+          !current ||
+          !before ||
+          current.email !== before.email ||
+          current.has_passphrase !== before.has_passphrase ||
+          current.mail_status !== before.mail_status
+        ) {
           skipped++;
           continue;
         }
@@ -1361,10 +1610,23 @@ const RosterTable = memo(function RosterTable({
       }
     };
     try {
-      await Promise.all(Array.from({ length: Math.min(3, recipients.length) }, worker));
+      await Promise.all(
+        Array.from({ length: Math.min(3, recipients.length) }, worker),
+      );
       skipped += recipients.length - index;
-      setBulkSummary(`${queued} queued · ${failed} failed · ${skipped} skipped · ${unknown} unknown. Queued means accepted for sending, not delivered. Failures are shown on their rows; nothing is retried automatically.`);
-      setSelected((previous) => new Set([...previous].filter((loginId) => !acceptedEmails.current.has(loginId) && !unknownEmails.current.has(loginId))));
+      setBulkSummary(
+        `${queued} queued · ${failed} failed · ${skipped} skipped · ${unknown} unknown. Queued means accepted for sending, not delivered. Failures are shown on their rows; nothing is retried automatically.`,
+      );
+      setSelected(
+        (previous) =>
+          new Set(
+            [...previous].filter(
+              (loginId) =>
+                !acceptedEmails.current.has(loginId) &&
+                !unknownEmails.current.has(loginId),
+            ),
+          ),
+      );
     } finally {
       bulkLock.current = false;
       setBulkBusy(false);
@@ -1374,17 +1636,34 @@ const RosterTable = memo(function RosterTable({
 
   const revokeSelected = async () => {
     if (!mounted.current || bulkLock.current) return;
-    const targets = currentRows.current.filter((row) => selected.has(row.login_id) && !row.revoked && !pending.current.has(row.login_id)).map((row) => row.login_id);
+    const targets = currentRows.current
+      .filter(
+        (row) =>
+          selected.has(row.login_id) &&
+          !row.revoked &&
+          !pending.current.has(row.login_id),
+      )
+      .map((row) => row.login_id);
     if (targets.length === 0) {
-      setBulkSummary("None of the selected participants can be revoked: they are already revoked or busy.");
+      setBulkSummary(
+        "None of the selected participants can be revoked: they are already revoked or busy.",
+      );
       return;
     }
     const ok = await confirm({
       title: `Revoke ${targets.length} login${targets.length === 1 ? "" : "s"}?`,
       body: (
         <>
-          <p>Each person’s one login is shared by every contest they’re registered for, so this signs them out of all of them. Records and submissions are kept. This includes selected participants hidden by filters.</p>
-          <p>It can’t be undone yet: a revoked login can’t be restored or issued again.</p>
+          <p>
+            Each person’s one login is shared by every contest they’re
+            registered for, so this signs them out of all of them. Records and
+            submissions are kept. This includes selected participants hidden by
+            filters.
+          </p>
+          <p>
+            It can’t be undone yet: a revoked login can’t be restored or issued
+            again.
+          </p>
         </>
       ),
       confirmLabel: `Revoke ${targets.length}`,
@@ -1406,13 +1685,20 @@ const RosterTable = memo(function RosterTable({
         if (result === true) done++;
         else if (result === null) skipped++;
         else failed.add(loginId);
-        if (mounted.current) setBulkSummary(`Revoking ${done + failed.size + skipped}/${targets.length}…`);
+        if (mounted.current)
+          setBulkSummary(
+            `Revoking ${done + failed.size + skipped}/${targets.length}…`,
+          );
       }
     };
     try {
-      await Promise.all(Array.from({ length: Math.min(3, targets.length) }, worker));
+      await Promise.all(
+        Array.from({ length: Math.min(3, targets.length) }, worker),
+      );
       skipped += targets.length - index;
-      setBulkSummary(`${done} revoked · ${failed.size} failed · ${skipped} skipped. Failures are shown on their rows; nothing is retried automatically.`);
+      setBulkSummary(
+        `${done} revoked · ${failed.size} failed · ${skipped} skipped. Failures are shown on their rows; nothing is retried automatically.`,
+      );
       setSelected(failed); // keep only failures selected, ready to retry
     } finally {
       bulkLock.current = false;
@@ -1423,50 +1709,90 @@ const RosterTable = memo(function RosterTable({
 
   const exportSelected = () => {
     const chosen = rows.filter((row) => selected.has(row.login_id));
-    download(`roster-selection-${contestTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${chosen.length}.csv`, rosterCsv(chosen));
+    download(
+      `roster-selection-${contestTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${chosen.length}.csv`,
+      rosterCsv(chosen),
+    );
   };
 
   const selectedRows = rows.filter((row) => selected.has(row.login_id));
   const emailable = selectedRows.filter(canEmailParticipant).length;
   const revocable = selectedRows.filter((row) => !row.revoked).length;
-  const hiddenSelected = selected.size - visible.reduce((count, row) => count + Number(selected.has(row.login_id)), 0);
-  const selectableVisible = visible.filter((row) => !actions[row.login_id]?.pending);
-  const allVisibleSelected = selectableVisible.length > 0 && selectableVisible.every((row) => selected.has(row.login_id));
-  const someVisibleSelected = selectableVisible.some((row) => selected.has(row.login_id));
-  const toggleVisible = () => setSelected((previous) => {
-    const next = new Set(previous);
-    for (const row of selectableVisible) {
-      if (allVisibleSelected) next.delete(row.login_id);
-      else next.add(row.login_id);
-    }
-    return next;
-  });
+  const hiddenSelected =
+    selected.size -
+    visible.reduce(
+      (count, row) => count + Number(selected.has(row.login_id)),
+      0,
+    );
+  const selectableVisible = visible.filter(
+    (row) => !actions[row.login_id]?.pending,
+  );
+  const allVisibleSelected =
+    selectableVisible.length > 0 &&
+    selectableVisible.every((row) => selected.has(row.login_id));
+  const someVisibleSelected = selectableVisible.some((row) =>
+    selected.has(row.login_id),
+  );
+  const toggleVisible = () =>
+    setSelected((previous) => {
+      const next = new Set(previous);
+      for (const row of selectableVisible) {
+        if (allVisibleSelected) next.delete(row.login_id);
+        else next.add(row.login_id);
+      }
+      return next;
+    });
 
   const credentialLoginId = reissued?.login_id;
   // Opening a profile need not reconcile the entire roster. Filtering,
   // live membership and action changes still rebuild this subtree.
-  const tableBody = useMemo(() => (
-    <tbody className="divide-y divide-slate-100">
-      {visible.map((row) => (
-        <RosterRow key={row.login_id} row={row} entered={participantEntered(entered, row)}
-          pending={actions[row.login_id]?.pending ?? null} error={actions[row.login_id]?.error ?? ""}
-          unknown={actions[row.login_id]?.unknown ?? false} queued={actions[row.login_id]?.queued ?? false} reissueLocked={reissueLocked}
-          credentialLocked={credentialLoginId === row.login_id}
-          selected={selected.has(row.login_id)} onSelect={toggleSelected}
-          onOpen={setOpenParticipant} onAction={rowAction} />
-      ))}
-      {visible.length === 0 && (
-        <tr>
-          <td
-            colSpan={7}
-            className="px-4 py-10 text-center text-sm text-slate-500"
-          >
-            Nobody matches that. {rows.length} people are on the roster. Try Clear search above to keep the other filters, or Reset all filters to see everyone.
-          </td>
-        </tr>
-      )}
-    </tbody>
-  ), [visible, entered, actions, reissueLocked, credentialLoginId, rowAction, setOpenParticipant, rows.length, selected, toggleSelected]);
+  const tableBody = useMemo(
+    () => (
+      <tbody className="divide-y divide-slate-100">
+        {visible.map((row) => (
+          <RosterRow
+            key={row.login_id}
+            row={row}
+            entered={participantEntered(entered, row)}
+            pending={actions[row.login_id]?.pending ?? null}
+            error={actions[row.login_id]?.error ?? ""}
+            unknown={actions[row.login_id]?.unknown ?? false}
+            queued={actions[row.login_id]?.queued ?? false}
+            reissueLocked={reissueLocked}
+            credentialLocked={credentialLoginId === row.login_id}
+            selected={selected.has(row.login_id)}
+            onSelect={toggleSelected}
+            onOpen={setOpenParticipant}
+            onAction={rowAction}
+          />
+        ))}
+        {visible.length === 0 && (
+          <tr>
+            <td
+              colSpan={7}
+              className="px-4 py-10 text-center text-sm text-slate-500"
+            >
+              Nobody matches that. {rows.length} people are on the roster. Try
+              Clear search above to keep the other filters, or Reset all filters
+              to see everyone.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    ),
+    [
+      visible,
+      entered,
+      actions,
+      reissueLocked,
+      credentialLoginId,
+      rowAction,
+      setOpenParticipant,
+      rows.length,
+      selected,
+      toggleSelected,
+    ],
+  );
 
   return (
     <div>
@@ -1487,19 +1813,43 @@ const RosterTable = memo(function RosterTable({
           onChange();
         }}
       />
-      <div className="mb-3 flex flex-wrap gap-2" aria-label="Roster quick filters">
+      <div
+        className="mb-3 flex flex-wrap gap-2"
+        aria-label="Roster quick filters"
+      >
         {ROSTER_VIEWS.map(([key, label]) => (
-          <button key={key} type="button" aria-pressed={view === key} disabled={key === "not-entered" && !entryLoaded}
+          <button
+            key={key}
+            type="button"
+            aria-pressed={view === key}
+            disabled={key === "not-entered" && !entryLoaded}
             onClick={() => setView(key)}
-            className={`min-h-8 rounded-full border px-3 py-1 text-xs disabled:opacity-50 ${view === key ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}`}>
-            {label} · {key === "not-entered" && !entryLoaded ? "…" : viewCounts[key]}
+            className={`min-h-8 rounded-full border px-3 py-1 text-xs disabled:opacity-50 ${view === key ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}`}
+          >
+            {label} ·{" "}
+            {key === "not-entered" && !entryLoaded ? "…" : viewCounts[key]}
           </button>
         ))}
       </div>
-      {view === "attention" && <p className="mb-3 text-xs text-slate-600">Active participants with a missing passphrase or failed, bounced or complained credential email. Not entering yet is not treated as a failure.</p>}
+      {view === "attention" && (
+        <p className="mb-3 text-xs text-slate-600">
+          Active participants with a missing passphrase or failed, bounced or
+          complained credential email. Not entering yet is not treated as a
+          failure.
+        </p>
+      )}
       <div className="mb-2 flex items-center justify-between text-xs text-slate-600">
-        <span>View: {ROSTER_VIEWS.find(([key]) => key === view)?.[1]} · Chip counts cover the full roster.</span>
-        <button type="button" onClick={resetFilters} className="min-h-8 rounded border px-3">Reset all filters</button>
+        <span>
+          View: {ROSTER_VIEWS.find(([key]) => key === view)?.[1]} · Chip counts
+          cover the full roster.
+        </span>
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="min-h-8 rounded border px-3"
+        >
+          Reset all filters
+        </button>
       </div>
       <RosterFilters
         key={filterKey}
@@ -1511,30 +1861,83 @@ const RosterTable = memo(function RosterTable({
         total={rows.length}
       />
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-        <button type="button" disabled={bulkBusy} className="min-h-8 rounded border border-slate-300 px-3 disabled:opacity-50"
-          onClick={() => setSelected((previous) => new Set([...previous, ...visible.filter(canEmailParticipant).filter((row) => !pending.current.has(row.login_id) && !acceptedEmails.current.has(row.login_id) && !unknownEmails.current.has(row.login_id)).map((row) => row.login_id)]))}>
+        <button
+          type="button"
+          disabled={bulkBusy}
+          className="min-h-8 rounded border border-slate-300 px-3 disabled:opacity-50"
+          onClick={() =>
+            setSelected(
+              (previous) =>
+                new Set([
+                  ...previous,
+                  ...visible
+                    .filter(canEmailParticipant)
+                    .filter(
+                      (row) =>
+                        !pending.current.has(row.login_id) &&
+                        !acceptedEmails.current.has(row.login_id) &&
+                        !unknownEmails.current.has(row.login_id),
+                    )
+                    .map((row) => row.login_id),
+                ]),
+            )
+          }
+        >
           Select eligible shown
         </button>
-        <span>{selected.size} selected{hiddenSelected > 0 ? ` · ${hiddenSelected} hidden by filters` : ""}{selected.size > 0 ? ` · ${emailable} can be emailed · ${revocable} can be revoked` : ""}</span>
-        <button type="button" disabled={bulkBusy || selected.size === 0} onClick={() => setSelected(new Set())}
-          className="min-h-8 rounded px-2 underline disabled:opacity-50">Clear selection</button>
-        <button type="button" disabled={bulkBusy || selected.size === 0} onClick={() => void emailSelected()}
-          className="min-h-8 rounded bg-slate-900 px-3 font-medium text-white disabled:opacity-50">
+        <span>
+          {selected.size} selected
+          {hiddenSelected > 0 ? ` · ${hiddenSelected} hidden by filters` : ""}
+          {selected.size > 0
+            ? ` · ${emailable} can be emailed · ${revocable} can be revoked`
+            : ""}
+        </span>
+        <button
+          type="button"
+          disabled={bulkBusy || selected.size === 0}
+          onClick={() => setSelected(new Set())}
+          className="min-h-8 rounded px-2 underline disabled:opacity-50"
+        >
+          Clear selection
+        </button>
+        <button
+          type="button"
+          disabled={bulkBusy || selected.size === 0}
+          onClick={() => void emailSelected()}
+          className="min-h-8 rounded bg-slate-900 px-3 font-medium text-white disabled:opacity-50"
+        >
           {bulkBusy ? "Queueing selected…" : "Email selected"}
         </button>
-        <button type="button" disabled={bulkBusy || revocable === 0} onClick={() => void revokeSelected()}
-          className="min-h-8 rounded border border-red-300 px-3 font-medium text-red-700 disabled:opacity-50">
+        <button
+          type="button"
+          disabled={bulkBusy || revocable === 0}
+          onClick={() => void revokeSelected()}
+          className="min-h-8 rounded border border-red-300 px-3 font-medium text-red-700 disabled:opacity-50"
+        >
           Revoke selected
         </button>
-        <button type="button" disabled={selected.size === 0} onClick={exportSelected}
-          className="min-h-8 rounded border border-slate-300 px-3 disabled:opacity-50">
+        <button
+          type="button"
+          disabled={selected.size === 0}
+          onClick={exportSelected}
+          className="min-h-8 rounded border border-slate-300 px-3 disabled:opacity-50"
+        >
           Export selected
         </button>
-        {bulkSummary && <p role="status" className="w-full">{bulkSummary}</p>}
+        {bulkSummary && (
+          <p role="status" className="w-full">
+            {bulkSummary}
+          </p>
+        )}
       </div>
-      <p className="mb-2 text-xs text-slate-500 lg:hidden">Scroll the table sideways to see email and actions.</p>
+      <p className="mb-2 text-xs text-slate-500 lg:hidden">
+        Scroll the table sideways to see email and actions.
+      </p>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[1120px] table-fixed text-sm" aria-label="Contest participants">
+        <table
+          className="w-full min-w-[1120px] table-fixed text-sm"
+          aria-label="Contest participants"
+        >
           <colgroup>
             <col className="w-[40px]" />
             <col className="w-[16%]" />
@@ -1547,10 +1950,19 @@ const RosterTable = memo(function RosterTable({
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th scope="col" className="px-3 py-2.5">
-                <input type="checkbox" aria-label={`Select all ${selectableVisible.length} shown`}
-                  checked={allVisibleSelected} disabled={bulkBusy || selectableVisible.length === 0}
-                  ref={(el) => { if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected; }}
-                  onChange={toggleVisible} className="h-4 w-4 accent-slate-900" />
+                <input
+                  type="checkbox"
+                  aria-label={`Select all ${selectableVisible.length} shown`}
+                  checked={allVisibleSelected}
+                  disabled={bulkBusy || selectableVisible.length === 0}
+                  ref={(el) => {
+                    if (el)
+                      el.indeterminate =
+                        someVisibleSelected && !allVisibleSelected;
+                  }}
+                  onChange={toggleVisible}
+                  className="h-4 w-4 accent-slate-900"
+                />
               </th>
               <th className="px-4 py-2.5">Name</th>
               <th className="px-4 py-2.5">Handle</th>
@@ -1568,148 +1980,232 @@ const RosterTable = memo(function RosterTable({
 });
 
 function canEmailParticipant(row: Participant) {
-  return Boolean(row.email) && !row.revoked && (row.mail_status === "" || row.mail_status === "bounced");
+  return (
+    Boolean(row.email) &&
+    !row.revoked &&
+    (row.mail_status === "" || row.mail_status === "bounced")
+  );
 }
 
 type RowAction = "revoke" | "credentials" | "reemail";
-type RowActionState = { pending: RowAction | null; error: string; queued: boolean; unknown: boolean };
-
-const RosterRow = memo(function RosterRow({ row, entered, pending, error, queued, unknown, reissueLocked, credentialLocked, selected, onSelect, onOpen, onAction }: {
-  row: Participant;
-  entered: boolean;
+type RowActionState = {
   pending: RowAction | null;
   error: string;
   queued: boolean;
   unknown: boolean;
-  reissueLocked: boolean;
-  credentialLocked: boolean;
-  selected: boolean;
-  onSelect: (loginId: string) => void;
-  onOpen: (uid: string) => void;
-  onAction: (loginId: string, action: RowAction) => void;
-}) {
-  return (
-    <tr
-      className={row.revoked ? "opacity-50" : undefined}
-    >
-      <td className="px-3 py-2.5">
-        <input type="checkbox" aria-label={`Select ${row.display_name} (${row.login_id})`}
-          checked={selected} disabled={!selected && (pending !== null || credentialLocked)}
-          onChange={() => onSelect(row.login_id)} className="h-4 w-4 accent-slate-900" />
-      </td>
-      <td className="px-4 py-2.5 text-slate-700">
-        {/* The profile is reachable from the Students directory but
+};
+
+const RosterRow = memo(
+  function RosterRow({
+    row,
+    entered,
+    pending,
+    error,
+    queued,
+    unknown,
+    reissueLocked,
+    credentialLocked,
+    selected,
+    onSelect,
+    onOpen,
+    onAction,
+  }: {
+    row: Participant;
+    entered: boolean;
+    pending: RowAction | null;
+    error: string;
+    queued: boolean;
+    unknown: boolean;
+    reissueLocked: boolean;
+    credentialLocked: boolean;
+    selected: boolean;
+    onSelect: (loginId: string) => void;
+    onOpen: (uid: string) => void;
+    onAction: (loginId: string, action: RowAction) => void;
+  }) {
+    return (
+      <tr className={row.revoked ? "opacity-50" : undefined}>
+        <td className="px-3 py-2.5">
+          <input
+            type="checkbox"
+            aria-label={`Select ${row.display_name} (${row.login_id})`}
+            checked={selected}
+            disabled={!selected && (pending !== null || credentialLocked)}
+            onChange={() => onSelect(row.login_id)}
+            className="h-4 w-4 accent-slate-900"
+          />
+        </td>
+        <td className="px-4 py-2.5 text-slate-700">
+          {/* The profile is reachable from the Students directory but
             not from here, which is the screen staff are actually on
             when a name comes up mid-contest. Linked by uid rather
             than handle: this row carries the uid, and the profile
             route resolves either. */}
-        <button
-          type="button"
-          onClick={() => onOpen(row.user_uid)}
-          className={`break-words text-left font-medium hover:underline ${entered ? "text-emerald-700" : "text-slate-900"}`}
-        >
-          {row.display_name}
-          {entered && (
-            <span className="ml-2 inline-block text-xs font-normal text-emerald-700">Entered</span>
-          )}
-        </button>
-      </td>
-      <td className="break-words px-4 py-2.5 font-mono text-xs text-slate-700">
-        {row.login_id}
-        <span className="text-slate-400">@access</span>
-      </td>
-      <td className="px-4 py-2.5">
-        {row.revoked ? (
-          <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-            revoked
-          </span>
-        ) : row.last_login_at ? (
-          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
-            signed in
-          </span>
-        ) : !row.has_passphrase ? (
-          <span
-            title="Issued, but no passphrase yet. Sending the credential email or reissuing a slip gives them one."
-            className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700"
-          >
-            no passphrase
-          </span>
-        ) : (
-          <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500">
-            not yet used
-          </span>
-        )}
-      </td>
-      <td className="break-words px-4 py-2.5 text-xs text-slate-600" title={row.email || undefined}>
-        {row.email || <span className="text-slate-400">no email</span>}
-      </td>
-      <td className="px-4 py-2.5">
-        {row.email && <div className="flex items-center justify-between gap-2">
-          <MailPill status={row.mail_status || "unsent"} />
-          {(row.mail_status === "" || row.mail_status === "bounced") && (
-            <button type="button" onClick={() => void onAction(row.login_id, "reemail")}
-              disabled={pending !== null || credentialLocked || row.revoked || (queued && row.mail_status !== "bounced" && !unknown)}
-              title={row.revoked ? "Restore this login before emailing credentials" : unknown || (queued && row.mail_status === "bounced") ? "Review the previous request before deliberately retrying; another email may still arrive" : queued ? "Email accepted into the queue; delivery is not yet confirmed" : "Queue a fresh credential email"}
-              className="inline-flex min-h-8 w-[108px] items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-50">
-              {pending === "reemail" ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 motion-safe:animate-spin" /> : queued ? <Check aria-hidden="true" className="h-3.5 w-3.5 text-emerald-600" /> : <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />}
-              {pending === "reemail" ? "Queueing…" : unknown || (queued && row.mail_status === "bounced") ? "Review retry" : queued ? "Queued" : row.mail_status === "bounced" ? "Resend email" : "Send email"}
-            </button>
-          )}
-        </div>}
-        {unknown && <p className="mt-1 text-xs text-amber-800">Email outcome unknown. Check status before using Review retry; the previous email may still arrive.</p>}
-      </td>
-      <td className="px-4 py-2.5">
-        <div className="flex justify-end gap-1">
           <button
             type="button"
-            onClick={() => onAction(row.login_id, "credentials")}
-            disabled={pending !== null || credentialLocked || reissueLocked}
-            title="Show the existing password without changing it"
-            className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40"
+            onClick={() => onOpen(row.user_uid)}
+            className={`break-words text-left font-medium hover:underline ${entered ? "text-emerald-700" : "text-slate-900"}`}
           >
-            {pending === "credentials" ? (
-              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 motion-safe:animate-spin" />
-            ) : (
-              <KeyRound className="h-3.5 w-3.5" />
+            {row.display_name}
+            {entered && (
+              <span className="ml-2 inline-block text-xs font-normal text-emerald-700">
+                Entered
+              </span>
             )}
-            Show Credentials
           </button>
-          {!row.revoked && (
+        </td>
+        <td className="break-words px-4 py-2.5 font-mono text-xs text-slate-700">
+          {row.login_id}
+          <span className="text-slate-400">@access</span>
+        </td>
+        <td className="px-4 py-2.5">
+          {row.revoked ? (
+            <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+              revoked
+            </span>
+          ) : row.last_login_at ? (
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+              signed in
+            </span>
+          ) : !row.has_passphrase ? (
+            <span
+              title="Issued, but no passphrase yet. Sending the credential email or reissuing a slip gives them one."
+              className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700"
+            >
+              no passphrase
+            </span>
+          ) : (
+            <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500">
+              not yet used
+            </span>
+          )}
+        </td>
+        <td
+          className="break-words px-4 py-2.5 text-xs text-slate-600"
+          title={row.email || undefined}
+        >
+          {row.email || <span className="text-slate-400">no email</span>}
+        </td>
+        <td className="px-4 py-2.5">
+          {row.email && (
+            <div className="flex items-center justify-between gap-2">
+              <MailPill status={row.mail_status || "unsent"} />
+              {(row.mail_status === "" || row.mail_status === "bounced") && (
+                <button
+                  type="button"
+                  onClick={() => void onAction(row.login_id, "reemail")}
+                  disabled={
+                    pending !== null ||
+                    credentialLocked ||
+                    row.revoked ||
+                    (queued && row.mail_status !== "bounced" && !unknown)
+                  }
+                  title={
+                    row.revoked
+                      ? "Restore this login before emailing credentials"
+                      : unknown || (queued && row.mail_status === "bounced")
+                        ? "Review the previous request before deliberately retrying; another email may still arrive"
+                        : queued
+                          ? "Email accepted into the queue; delivery is not yet confirmed"
+                          : "Queue a fresh credential email"
+                  }
+                  className="inline-flex min-h-8 w-[108px] items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-50"
+                >
+                  {pending === "reemail" ? (
+                    <Loader2
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 motion-safe:animate-spin"
+                    />
+                  ) : queued ? (
+                    <Check
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 text-emerald-600"
+                    />
+                  ) : (
+                    <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+                  )}
+                  {pending === "reemail"
+                    ? "Queueing…"
+                    : unknown || (queued && row.mail_status === "bounced")
+                      ? "Review retry"
+                      : queued
+                        ? "Queued"
+                        : row.mail_status === "bounced"
+                          ? "Resend email"
+                          : "Send email"}
+                </button>
+              )}
+            </div>
+          )}
+          {unknown && (
+            <p className="mt-1 text-xs text-amber-800">
+              Email outcome unknown. Check status before using Review retry; the
+              previous email may still arrive.
+            </p>
+          )}
+        </td>
+        <td className="px-4 py-2.5">
+          <div className="flex justify-end gap-1">
             <button
               type="button"
-              onClick={() => onAction(row.login_id, "revoke")}
-              disabled={pending !== null || credentialLocked}
-              title="Disable this login. The record is kept."
-              className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:opacity-40"
+              onClick={() => onAction(row.login_id, "credentials")}
+              disabled={pending !== null || credentialLocked || reissueLocked}
+              title="Show the existing password without changing it"
+              className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40"
             >
-              <Ban className="h-3.5 w-3.5" />
-              Revoke
+              {pending === "credentials" ? (
+                <Loader2
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 motion-safe:animate-spin"
+                />
+              ) : (
+                <KeyRound className="h-3.5 w-3.5" />
+              )}
+              Show Credentials
             </button>
+            {!row.revoked && (
+              <button
+                type="button"
+                onClick={() => onAction(row.login_id, "revoke")}
+                disabled={pending !== null || credentialLocked}
+                title="Disable this login. The record is kept."
+                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:opacity-40"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Revoke
+              </button>
+            )}
+          </div>
+          {error && (
+            <p role="alert" className="mt-1 break-words text-xs text-red-700">
+              {error}
+            </p>
           )}
-        </div>
-        {error && <p role="alert" className="mt-1 break-words text-xs text-red-700">{error}</p>}
-      </td>
-    </tr>
-  );
-}, (previous, next) =>
-  previous.selected === next.selected &&
-  previous.onSelect === next.onSelect &&
-  previous.entered === next.entered &&
-  previous.pending === next.pending &&
-  previous.error === next.error &&
-  previous.queued === next.queued &&
-  previous.unknown === next.unknown &&
-  previous.reissueLocked === next.reissueLocked &&
-  previous.credentialLocked === next.credentialLocked &&
-  previous.onOpen === next.onOpen &&
-  previous.onAction === next.onAction &&
-  // Roster refreshes deserialize new objects. Compare every primitive field,
-  // not object identity, so a one-person update does not repaint all rows.
-  (previous.row === next.row ||
-    (Object.keys(previous.row).length === Object.keys(next.row).length &&
-      (Object.keys(previous.row) as (keyof Participant)[]).every(
-        (key) => Object.prototype.hasOwnProperty.call(next.row, key) && previous.row[key] === next.row[key],
-      )))
+        </td>
+      </tr>
+    );
+  },
+  (previous, next) =>
+    previous.selected === next.selected &&
+    previous.onSelect === next.onSelect &&
+    previous.entered === next.entered &&
+    previous.pending === next.pending &&
+    previous.error === next.error &&
+    previous.queued === next.queued &&
+    previous.unknown === next.unknown &&
+    previous.reissueLocked === next.reissueLocked &&
+    previous.credentialLocked === next.credentialLocked &&
+    previous.onOpen === next.onOpen &&
+    previous.onAction === next.onAction &&
+    // Roster refreshes deserialize new objects. Compare every primitive field,
+    // not object identity, so a one-person update does not repaint all rows.
+    (previous.row === next.row ||
+      (Object.keys(previous.row).length === Object.keys(next.row).length &&
+        (Object.keys(previous.row) as (keyof Participant)[]).every(
+          (key) =>
+            Object.prototype.hasOwnProperty.call(next.row, key) &&
+            previous.row[key] === next.row[key],
+        ))),
 );
 
 const MAIL_PILL: Record<string, string> = {
@@ -1770,7 +2266,9 @@ function CredentialModal({
 
   async function copyCredential() {
     try {
-      await navigator.clipboard.writeText(credentialMessage(row!, contestTitle));
+      await navigator.clipboard.writeText(
+        credentialMessage(row!, contestTitle),
+      );
       setCopied(true);
     } catch {
       // Keep the credential visible so it can still be selected manually.
@@ -1797,13 +2295,13 @@ function CredentialModal({
               Credentials for {row.display_name}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              The same login and password work for every contest this person is registered for.
+              The same login and password work for every contest this person is
+              registered for.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-
             aria-label="Close"
             title="Close"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-35"
@@ -1845,7 +2343,6 @@ function CredentialModal({
             <button
               type="button"
               onClick={onClose}
-
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Done
@@ -1920,15 +2417,20 @@ function CredentialMail({
   }
 
   async function send() {
-    const count = (plan?.ready ?? 0) + (includeHolders ? plan?.holders ?? 0 : 0);
+    const count =
+      (plan?.ready ?? 0) + (includeHolders ? (plan?.holders ?? 0) : 0);
     const ok = await confirm({
       title: `Email credentials to ${count} ${count === 1 ? "person" : "people"}?`,
       body: (
         <>
-          <p>Each gets their login and password by email. Emails are queued; delivery shows per row.</p>
+          <p>
+            Each gets their login and password by email. Emails are queued;
+            delivery shows per row.
+          </p>
           {includeHolders && (
             <p className="font-medium text-red-700">
-              This includes {plan?.holders} who already hold a password. Theirs is replaced: slips or earlier emails stop working.
+              This includes {plan?.holders} who already hold a password. Theirs
+              is replaced: slips or earlier emails stop working.
             </p>
           )}
         </>
@@ -2057,7 +2559,8 @@ function CredentialMail({
                     />
                     <span>
                       Also send to the {plan.holders} who already hold one.{" "}
-                      Sends the same saved passphrase. Existing slips and emails remain valid.
+                      Sends the same saved passphrase. Existing slips and emails
+                      remain valid.
                     </span>
                   </label>
                 )}

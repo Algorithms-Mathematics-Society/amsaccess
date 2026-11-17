@@ -24,6 +24,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useBodyScrollLock } from "@/lib/client/useBodyScrollLock";
+import { useConfirm } from "./ConfirmDialog";
 import { AlertTriangle, Check, Loader2, Megaphone, X } from "lucide-react";
 
 const TITLE_LIMIT = 120;
@@ -45,7 +47,8 @@ type Feed = { sitting: number; announcements: AnnouncementRecord[] };
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(reason(res.status, (data as { error?: string }).error));
+  if (!res.ok)
+    throw new Error(reason(res.status, (data as { error?: string }).error));
   return data as T;
 }
 
@@ -61,10 +64,14 @@ async function json<T>(res: Response): Promise<T> {
 function reason(status: number, detail?: string): string {
   if (status === 404)
     return "This server does not have announcements yet. It needs the current API deployed before one can be issued.";
-  if (status === 401) return "Your session has expired. Sign in again, then retry.";
-  if (status === 403) return "Your account cannot issue announcements for this contest.";
+  if (status === 401)
+    return "Your session has expired. Sign in again, then retry.";
+  if (status === 403)
+    return "Your account cannot issue announcements for this contest.";
   if (status === 422)
-    return detail ?? "The headline or message is too long. Shorten it and try again.";
+    return (
+      detail ?? "The headline or message is too long. Shorten it and try again."
+    );
   if (status >= 500)
     return "The server could not accept it. Nothing was sent, so retrying is safe.";
   return detail ?? "Could not issue the announcement. Nothing was sent.";
@@ -99,13 +106,45 @@ export function IssueAnnouncementModal({
   const [feed, setFeed] = useState<Feed | null>(null);
   const [justIssued, setJustIssued] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const backdropPress = useRef(false);
+  const [discardDialog, confirmDiscard] = useConfirm();
+  const closing = useRef(false);
+
+  const requestClose = useCallback(async () => {
+    if (busy || closing.current) return;
+    closing.current = true;
+    try {
+      if (
+        (title.length > 0 || body.length > 0) &&
+        !(await confirmDiscard({
+          title: "Discard this announcement draft?",
+          body: (
+            <p>
+              Your headline and message will be lost. Nothing has been issued.
+            </p>
+          ),
+          confirmLabel: "Discard draft",
+          cancelLabel: "Keep editing",
+          danger: true,
+        }))
+      )
+        return;
+      onClose();
+    } finally {
+      closing.current = false;
+    }
+  }, [busy, title, body, confirmDiscard, onClose]);
 
   const ready = title.trim().length > 0 && body.trim().length > 0;
   const sitting = feed?.sitting ?? null;
 
   const load = useCallback(async () => {
     try {
-      setFeed(await json<Feed>(await fetch(`/api/org/contests/${contestUid}/announcements`)));
+      setFeed(
+        await json<Feed>(
+          await fetch(`/api/org/contests/${contestUid}/announcements`),
+        ),
+      );
     } catch {
       // The composer still works without the history. Leaving the audience
       // count unknown is honest; inventing one would not be.
@@ -123,21 +162,15 @@ export function IssueAnnouncementModal({
   // reaching for the key that normally closes a dialog.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || busy) return;
+      if (event.key !== "Escape" || busy || closing.current) return;
       if (step === "confirm") setStep("compose");
-      else onClose();
+      else void requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [step, busy, onClose]);
+  }, [step, busy, requestClose]);
 
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, []);
+  useBodyScrollLock(true);
 
   useEffect(() => {
     if (step === "compose") titleRef.current?.focus();
@@ -160,7 +193,11 @@ export function IssueAnnouncementModal({
       setStep("compose");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not issue the announcement.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not issue the announcement.",
+      );
       setStep("compose");
     } finally {
       setBusy(false);
@@ -168,74 +205,94 @@ export function IssueAnnouncementModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 sm:p-6"
-      onClick={() => !busy && onClose()}
-      role="presentation"
-    >
+    <>
       <div
-        className="relative my-4 w-full max-w-2xl rounded-xl bg-white shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="issue-announcement-title"
+        className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 sm:p-6"
+        onPointerDown={(event) => {
+          backdropPress.current = event.target === event.currentTarget;
+        }}
+        onPointerUp={(event) => {
+          backdropPress.current =
+            backdropPress.current && event.target === event.currentTarget;
+        }}
+        onPointerCancel={() => {
+          backdropPress.current = false;
+        }}
+        onClick={(event) => {
+          const dismiss =
+            backdropPress.current && event.target === event.currentTarget;
+          backdropPress.current = false;
+          if (dismiss) void requestClose();
+        }}
+        role="presentation"
       >
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={busy}
-          aria-label="Close"
-          className="absolute right-3 top-3 rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:opacity-40"
+        <div
+          className="relative my-4 w-full max-w-2xl rounded-xl bg-white shadow-xl"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="issue-announcement-title"
         >
-          <X className="h-4 w-4" />
-        </button>
-
-        <header className="border-b border-slate-200 px-6 py-5">
-          <h2
-            id="issue-announcement-title"
-            className="flex items-center gap-2 text-lg font-semibold text-slate-900"
+          <button
+            type="button"
+            onClick={() => void requestClose()}
+            disabled={busy}
+            aria-label="Close"
+            className="absolute right-3 top-3 rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:opacity-40"
           >
-            <Megaphone className="h-5 w-5 text-slate-400" aria-hidden />
-            Issue announcement
-          </h2>
-          <p className="mt-1.5 max-w-prose text-sm text-slate-500">
-            Everyone sitting <span className="text-slate-700">{contestTitle}</span> is interrupted
-            immediately and must acknowledge this before they can keep working. It reaches them
-            within a minute and cannot be unsent.
-          </p>
-        </header>
+            <X className="h-4 w-4" />
+          </button>
 
-        {step === "compose" ? (
-          <Compose
-            title={title}
-            body={body}
-            onTitle={setTitle}
-            onBody={setBody}
-            titleRef={titleRef}
-            sitting={sitting}
-            ready={ready}
-            error={error}
-            justIssued={justIssued}
-            feed={feed}
-            onCancel={onClose}
-            onReview={() => {
-              setError("");
-              setJustIssued(null);
-              setStep("confirm");
-            }}
-          />
-        ) : (
-          <Confirm
-            title={title}
-            body={body}
-            sitting={sitting}
-            busy={busy}
-            onBack={() => setStep("compose")}
-            onIssue={() => void issue()}
-          />
-        )}
+          <header className="border-b border-slate-200 px-6 py-5">
+            <h2
+              id="issue-announcement-title"
+              className="flex items-center gap-2 text-lg font-semibold text-slate-900"
+            >
+              <Megaphone className="h-5 w-5 text-slate-400" aria-hidden />
+              Issue announcement
+            </h2>
+            <p className="mt-1.5 max-w-prose text-sm text-slate-500">
+              Everyone sitting{" "}
+              <span className="text-slate-700">{contestTitle}</span> is
+              interrupted immediately and must acknowledge this before they can
+              keep working. It reaches them within a minute and cannot be
+              unsent.
+            </p>
+          </header>
+
+          {step === "compose" ? (
+            <Compose
+              title={title}
+              body={body}
+              onTitle={setTitle}
+              onBody={setBody}
+              titleRef={titleRef}
+              sitting={sitting}
+              ready={ready}
+              error={error}
+              justIssued={justIssued}
+              feed={feed}
+              onCancel={() => void requestClose()}
+              onReview={() => {
+                setError("");
+                setJustIssued(null);
+                setStep("confirm");
+              }}
+            />
+          ) : (
+            <Confirm
+              title={title}
+              body={body}
+              sitting={sitting}
+              busy={busy}
+              onBack={() => setStep("compose")}
+              onIssue={() => void issue()}
+            />
+          )}
+        </div>
       </div>
-    </div>
+      {discardDialog}
+    </>
   );
 }
 
@@ -279,7 +336,10 @@ function Compose({
         )}
 
         <div className="space-y-1.5">
-          <label htmlFor="announcement-title" className="block text-sm font-medium text-slate-700">
+          <label
+            htmlFor="announcement-title"
+            className="block text-sm font-medium text-slate-700"
+          >
             Headline
           </label>
           <input
@@ -295,7 +355,10 @@ function Compose({
 
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between">
-            <label htmlFor="announcement-body" className="block text-sm font-medium text-slate-700">
+            <label
+              htmlFor="announcement-body"
+              className="block text-sm font-medium text-slate-700"
+            >
               Message
             </label>
             {/* Only near the ceiling. A counter that is always on teaches
@@ -343,7 +406,11 @@ function Compose({
             </h3>
             <ul className="space-y-3">
               {feed.announcements.slice(0, 4).map((row) => (
-                <Reach key={row.uid} row={row} highlighted={row.uid === justIssued} />
+                <Reach
+                  key={row.uid}
+                  row={row}
+                  highlighted={row.uid === justIssued}
+                />
               ))}
             </ul>
           </section>
@@ -358,7 +425,9 @@ function Compose({
             "Nobody is sitting this contest yet."
           ) : (
             <>
-              <span className="font-medium tabular-nums text-slate-900">{count(sitting)}</span>{" "}
+              <span className="font-medium tabular-nums text-slate-900">
+                {count(sitting)}
+              </span>{" "}
               {sitting === 1 ? "candidate is" : "candidates are"} sitting now
             </>
           )}
@@ -404,15 +473,19 @@ function Confirm({
     <>
       <div className="space-y-5 px-6 py-5">
         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden />
+          <AlertTriangle
+            className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
+            aria-hidden
+          />
           <div className="space-y-1 text-sm text-amber-900">
             <p className="font-medium">This cannot be unsent.</p>
             <p>
               {sitting === null || sitting === 0
                 ? "Everyone sitting this contest"
                 : `All ${count(sitting)} ${sitting === 1 ? "candidate" : "candidates"} sitting right now`}{" "}
-              will be interrupted mid-question and must acknowledge it before they can keep
-              working. To correct a mistake you would have to interrupt them a second time.
+              will be interrupted mid-question and must acknowledge it before
+              they can keep working. To correct a mistake you would have to
+              interrupt them a second time.
             </p>
           </div>
         </div>
@@ -440,7 +513,9 @@ function Confirm({
           disabled={busy}
           className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:opacity-40"
         >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+          {busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : null}
           {busy
             ? "Issuing…"
             : sitting === null || sitting === 0
@@ -482,9 +557,18 @@ function CandidatePreview({ title, body }: { title: string; body: string }) {
 }
 
 /** One issued announcement, and how far it has actually reached. */
-function Reach({ row, highlighted }: { row: AnnouncementRecord; highlighted: boolean }) {
+function Reach({
+  row,
+  highlighted,
+}: {
+  row: AnnouncementRecord;
+  highlighted: boolean;
+}) {
   const total = row.session_count;
-  const read = Math.min(row.acknowledged_count, total || row.acknowledged_count);
+  const read = Math.min(
+    row.acknowledged_count,
+    total || row.acknowledged_count,
+  );
   const share = total > 0 ? read / total : 0;
   const complete = total > 0 && read >= total;
   return (
@@ -494,11 +578,15 @@ function Reach({ row, highlighted }: { row: AnnouncementRecord; highlighted: boo
       }`}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <p className="truncate text-sm font-medium text-slate-900">{row.title}</p>
+        <p className="truncate text-sm font-medium text-slate-900">
+          {row.title}
+        </p>
         <p className="shrink-0 text-xs tabular-nums text-slate-500">
           {total > 0 ? (
             <>
-              <span className={complete ? "text-emerald-700" : "text-slate-900"}>
+              <span
+                className={complete ? "text-emerald-700" : "text-slate-900"}
+              >
                 {count(read)}
               </span>{" "}
               of {count(total)} read

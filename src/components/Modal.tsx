@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useBodyScrollLock } from "@/lib/client/useBodyScrollLock";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -35,22 +36,15 @@ export function Modal({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Lock body scroll while open; restore on close/unmount.
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
+  useBodyScrollLock(open);
 
   // Move focus into the dialog on open; return it to the trigger on close.
   useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
     // Prefer the first focusable control; fall back to the card itself.
-    const first = cardRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+    const first =
+      cardRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
     (first ?? cardRef.current)?.focus();
     return () => {
       previouslyFocused?.focus?.();
@@ -68,9 +62,9 @@ export function Modal({
     if (e.key !== "Tab") return;
     const card = cardRef.current;
     if (!card) return;
-    const nodes = Array.from(card.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-      (n) => n.offsetParent !== null || n === document.activeElement
-    );
+    const nodes = Array.from(
+      card.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+    ).filter((n) => n.offsetParent !== null || n === document.activeElement);
     if (nodes.length === 0) {
       // Nothing focusable — keep focus on the card so Tab can't escape.
       e.preventDefault();
