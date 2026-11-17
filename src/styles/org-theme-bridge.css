@@ -39,9 +39,17 @@
 
 [data-org-theme] {
   --org-text-strong: var(--color-text-primary, #171717);
-  --org-text-body: color-mix(in srgb, var(--color-text-primary, #171717) 85%, #fff);
+  --org-text-body: color-mix(
+    in srgb,
+    var(--color-text-primary, #171717) 85%,
+    #fff
+  );
   --org-text-muted: var(--color-text-secondary, #5b5b5b);
-  --org-text-hint: color-mix(in srgb, var(--color-text-secondary, #5b5b5b) 70%, #fff);
+  --org-text-hint: color-mix(
+    in srgb,
+    var(--color-text-secondary, #5b5b5b) 70%,
+    #fff
+  );
   --org-border: var(--color-border, #dedede);
   --org-surface: var(--color-background-surface, #f5f5f5);
   --org-canvas: var(--color-background-body, #fafafa);
@@ -109,4 +117,11 @@
 [data-org-theme] .bg-slate-900.text-white:hover,
 [data-org-theme] button.bg-slate-900:hover {
   background-color: var(--color-text-accent, #6d28d9);
+}
+
+/* Keep tablet touch targets at 44px when the portal scales the root font. */
+@media (max-width: 1279px) {
+  [data-org-theme] .min-h-11 {
+    min-height: 44px;
+  }
 }

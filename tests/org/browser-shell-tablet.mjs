@@ -177,93 +177,104 @@ try {
   );
   console.log("PASS: org shell persists across navigation");
 
-  // 2. Tablet portrait (iPad Air / Pro 11): no sideways page scroll, 44px targets.
-  await page.setViewportSize({ width: 834, height: 1112 });
-  await page.goto(base + "/org/contests/a");
-  const tabs = page.getByRole("navigation", { name: "Contest sections" });
-  await tabs.getByRole("button", { name: /^invigilation/ }).waitFor();
-  assert(
-    (await overflow()) <= 1,
-    `contest page overflows by ${await overflow()}px at 834`,
-  );
-  const tabStrip = await tabs.evaluate((el) => ({
-    scrolls: el.scrollWidth > el.clientWidth,
-    mask:
-      getComputedStyle(el).maskImage || getComputedStyle(el).webkitMaskImage,
-  }));
-  assert(tabStrip.scrolls, "tab strip scrolls inside itself at 834");
-  assert(
-    tabStrip.mask && tabStrip.mask !== "none",
-    "tab strip shows an edge fade while it can scroll",
-  );
-  for (const h of await tabs
-    .getByRole("button")
-    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height)))
-    assert(h >= 44, `contest tab is ${h}px tall`);
-  for (const h of await page
-    .getByRole("banner")
-    .getByRole("link")
-    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height)))
-    assert(h >= 44, `shell nav link is ${h}px tall`);
-  await page.screenshot({
-    path: "/tmp/shell-tablet-contest-834.png",
-    fullPage: true,
-  });
-
-  await tabs.getByRole("button", { name: "participants", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Credentials by email", exact: true })
-    .click();
-  const popover = page
-    .getByRole("button", { name: "Credentials by email", exact: true })
-    .locator("xpath=following-sibling::div[1]");
-  await popover.waitFor();
-  for (const width of [834, 1024, 1440, 834]) {
+  // 2. Tablet widths: active badges must not widen the page.
+  for (const width of [768, 834, 1024]) {
     await page.setViewportSize({ width, height: 1112 });
-    const box = await popover.boundingBox();
+    await page.goto(base + "/org/contests/a");
+    const tabs = page.getByRole("navigation", { name: "Contest sections" });
+    await tabs
+      .getByRole("button", { name: /^invigilation\s*2 waiting on staff$/ })
+      .waitFor();
     assert(
-      box.x >= 0 && box.x + box.width <= width + 1,
-      `credentials popover spans ${box.x}..${box.x + box.width} at ${width}`,
+      (await overflow()) <= 1,
+      `contest page overflows by ${await overflow()}px at ${width}`,
+    );
+    const tabStrip = await tabs.evaluate((el) => ({
+      scrolls: el.scrollWidth > el.clientWidth,
+      mask:
+        getComputedStyle(el).maskImage || getComputedStyle(el).webkitMaskImage,
+    }));
+    assert.equal(
+      tabStrip.scrolls,
+      width < 1024,
+      `tab strip scrolling matches the available width at ${width}`,
+    );
+    assert(
+      Boolean(tabStrip.mask && tabStrip.mask !== "none") === tabStrip.scrolls,
+      "tab strip shows an edge fade exactly while it can scroll",
+    );
+    for (const h of await tabs
+      .getByRole("button")
+      .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height)))
+      assert(h >= 44, `contest tab is ${h}px tall`);
+    for (const h of await page
+      .getByRole("banner")
+      .getByRole("link")
+      .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height)))
+      assert(h >= 44, `shell nav link is ${h}px tall`);
+    await page.screenshot({
+      path: `/tmp/shell-tablet-contest-${width}.png`,
+      fullPage: true,
+    });
+
+    await tabs
+      .getByRole("button", { name: "participants", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Credentials by email", exact: true })
+      .click();
+    const popover = page
+      .getByRole("button", { name: "Credentials by email", exact: true })
+      .locator("xpath=following-sibling::div[1]");
+    await popover.waitFor();
+    for (const width of [768, 834, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 1112 });
+      const box = await popover.boundingBox();
+      assert(
+        box.x >= 0 && box.x + box.width <= width + 1,
+        `credentials popover spans ${box.x}..${box.x + box.width} at ${width}`,
+      );
+      assert(
+        (await overflow()) <= 1,
+        `credentials popover widens the page at ${width}`,
+      );
+    }
+
+    await page.setViewportSize({ width, height: 1112 });
+    await tabs.getByRole("button", { name: /^invigilation/ }).click();
+    await page.getByRole("button", { name: "Let them back in" }).waitFor();
+    await page
+      .getByRole("button", { name: "Candidate two", exact: true })
+      .waitFor();
+    assert.equal(
+      await page.getByRole("table", { name: "Live contest sessions" }).count(),
+      0,
+      "sessions render as cards, not the 780px table",
     );
     assert(
       (await overflow()) <= 1,
-      `credentials popover widens the page at ${width}`,
+      `invigilation overflows by ${await overflow()}px at ${width}`,
+    );
+    for (const name of ["Let them back in", "Refuse", "Mark resolved"]) {
+      const h = (await page.getByRole("button", { name }).boundingBox()).height;
+      assert(h >= 44, `${name} is ${h}px tall`);
+    }
+    const ticket = page.getByRole("link", {
+      name: /Open ticket from Candidate ticket/,
+    });
+    assert(
+      (await ticket.boundingBox()).height >= 44,
+      "Open ticket is at least 44px tall",
+    );
+    await page.screenshot({
+      path: `/tmp/shell-tablet-invigilation-${width}.png`,
+      fullPage: true,
+    });
+    assert.deepEqual(errors, []);
+    console.log(
+      `PASS: ${width}x1112 contest + invigilation: active accessible badge, no page overflow, bounded tabs with appropriate fade, 44px targets, session cards`,
     );
   }
-
-  await tabs.getByRole("button", { name: /^invigilation/ }).click();
-  await page.getByRole("button", { name: "Let them back in" }).waitFor();
-  await page
-    .getByRole("button", { name: "Candidate two", exact: true })
-    .waitFor();
-  assert.equal(
-    await page.getByRole("table", { name: "Live contest sessions" }).count(),
-    0,
-    "sessions render as cards, not the 780px table",
-  );
-  assert(
-    (await overflow()) <= 1,
-    `invigilation overflows by ${await overflow()}px at 834`,
-  );
-  for (const name of ["Let them back in", "Refuse", "Mark resolved"]) {
-    const h = (await page.getByRole("button", { name }).boundingBox()).height;
-    assert(h >= 44, `${name} is ${h}px tall`);
-  }
-  const ticket = page.getByRole("link", {
-    name: /Open ticket from Candidate ticket/,
-  });
-  assert(
-    (await ticket.boundingBox()).height >= 44,
-    "Open ticket is at least 44px tall",
-  );
-  await page.screenshot({
-    path: "/tmp/shell-tablet-invigilation-834.png",
-    fullPage: true,
-  });
-  assert.deepEqual(errors, []);
-  console.log(
-    "PASS: 834x1112 contest + invigilation: no page overflow, scrolling tabs with fade, 44px targets, session cards",
-  );
 } finally {
   await browser.close();
 }

@@ -686,7 +686,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
               onPointerEnter={() => prepareTab(t)}
               onFocus={() => prepareTab(t)}
               onClick={() => setTab(t)}
-              className={`flex-shrink-0 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium capitalize transition focus-visible:-outline-offset-2 ${
+              className={`relative min-h-[44px] flex-shrink-0 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium capitalize transition focus-visible:-outline-offset-2 ${
                 tab === t
                   ? "border-slate-900 text-slate-900"
                   : "border-transparent text-slate-500 hover:text-slate-800"
