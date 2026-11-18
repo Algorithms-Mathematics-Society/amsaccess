@@ -136,6 +136,12 @@ await page.route("**/*", async (route) => {
 });
 const overflow = () =>
   page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+const tabFits = (tab) =>
+  tab.evaluate((el) => {
+    const tab = el.getBoundingClientRect();
+    const strip = el.parentElement.getBoundingClientRect();
+    return tab.left >= strip.left - 1 && tab.right <= strip.right + 1;
+  });
 try {
   // 1. Shell survives client navigation between two org pages.
   await page.goto(base + "/org/contests");
@@ -182,9 +188,12 @@ try {
     await page.setViewportSize({ width, height: 1112 });
     await page.goto(base + "/org/contests/a");
     const tabs = page.getByRole("navigation", { name: "Contest sections" });
-    await tabs
-      .getByRole("button", { name: /^invigilation\s*2 waiting on staff$/ })
-      .waitFor();
+    const invigilation = tabs.getByRole("button", {
+      name: /^invigilation\s*2 waiting on staff$/,
+    });
+    await invigilation.waitFor();
+    await page.waitForURL("**/org/contests/a#invigilation");
+    assert(await tabFits(invigilation), `stage default is visible at ${width}`);
     assert(
       (await overflow()) <= 1,
       `contest page overflows by ${await overflow()}px at ${width}`,
@@ -275,6 +284,48 @@ try {
       `PASS: ${width}x1112 contest + invigilation: active accessible badge, no page overflow, bounded tabs with appropriate fade, 44px targets, session cards`,
     );
   }
+
+  await page.setViewportSize({ width: 390, height: 600 });
+  await page.goto("about:blank");
+  await page.goto(base + "/org/contests/a#judging");
+  const tabs = page.getByRole("navigation", { name: "Contest sections" });
+  const judging = tabs.getByRole("button", { name: "Judging", current: true });
+  await judging.waitFor();
+  await tabs
+    .getByRole("button", { name: /^invigilation\s*2 waiting on staff$/ })
+    .waitFor();
+  assert(
+    await tabFits(judging),
+    "deep-linked Judging stays visible as badges load",
+  );
+
+  await tabs.getByRole("button", { name: "problems", exact: true }).click();
+  const invigilation = tabs.getByRole("button", { name: /^invigilation/ });
+  assert(!(await tabFits(invigilation)), "Invigilation starts offscreen");
+
+  const shortcut = page.getByRole("button", { name: /waiting to re-enter/i });
+  // Keep the viewport below the strip so ancestor scrolling would be observable.
+  const scrollPastTabs = await tabs.evaluate(
+    (el) => el.getBoundingClientRect().bottom + window.scrollY + 40,
+  );
+  const before = await shortcut.evaluate((el, top) => {
+    document.body.style.minHeight = "300vh";
+    document.documentElement.style.overflowAnchor = "none";
+    el.focus({ preventScroll: true });
+    window.scrollTo({ top, behavior: "instant" });
+    return window.scrollY;
+  }, scrollPastTabs);
+  assert(before >= scrollPastTabs - 1, "page is scrolled below the tabs");
+  await shortcut.dispatchEvent("click");
+  await page.waitForURL("**/org/contests/a#invigilation");
+  assert.equal(await invigilation.getAttribute("aria-current"), "true");
+  assert(await tabFits(invigilation), "shortcut reveals Invigilation");
+  assert.equal(await page.evaluate(() => window.scrollY), before);
+  assert(await shortcut.evaluate((el) => document.activeElement === el));
+  assert.deepEqual(errors, []);
+  console.log(
+    "PASS: active contest tabs scroll into view without moving the page or focus",
+  );
 } finally {
   await browser.close();
 }
