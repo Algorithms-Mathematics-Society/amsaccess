@@ -286,7 +286,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     if (next === "problems") return;
     prepareTab(next, true);
     setTabState(next);
-    window.history.replaceState(null, "", `#${next}`);
+    window.history.replaceState(window.history.state, "", `#${next}`);
   }, [contest, prepareTab]);
 
   // Visited tabs stay mounted (hidden), so switching keeps filters, selection,
@@ -307,7 +307,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     (next: Tab) => {
       prepareTab(next, true);
       setTabState(next);
-      window.history.replaceState(null, "", `#${next}`);
+      window.history.replaceState(window.history.state, "", `#${next}`);
     },
     [prepareTab],
   );
