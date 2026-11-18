@@ -90,6 +90,24 @@ await page.route("**/*", async (route) => {
     });
   if (url.pathname === "/api/org/contests") return ok([contest]);
   if (url.pathname === "/api/org/contests/a") return ok(contest);
+  if (url.pathname === "/api/org/fleet")
+    return ok({
+      workers: [],
+      live: 0,
+      stale: 0,
+      running_jobs: 0,
+      queued_jobs: 0,
+      desired: 0,
+      driver: "schedule",
+      detail: "",
+      override: null,
+      state: null,
+      upcoming: [],
+      queue_waiting: 0,
+      queue_inflight: 0,
+      queue_error: "",
+      ceiling: 40,
+    });
   if (url.pathname.endsWith("/submissions/summary"))
     return ok({ total: 0, pending: 0, verdicts: {} });
   if (url.pathname.endsWith("/credentials"))
@@ -290,7 +308,7 @@ try {
   await page.goto(base + "/org/contests/a#judging");
   const tabs = page.getByRole("navigation", { name: "Contest sections" });
   const judging = tabs.getByRole("button", { name: "Judging", current: true });
-  await judging.waitFor();
+  await page.getByText("No judges held for this contest").waitFor();
   await tabs
     .getByRole("button", { name: /^invigilation\s*2 waiting on staff$/ })
     .waitFor();
