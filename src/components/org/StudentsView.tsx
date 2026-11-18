@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { StudentImportPanel } from "./StudentImportPanel";
 import { SkeletonText } from "@/components/org/Skeleton";
 import Link from "next/link";
 import { statusClass } from "@/lib/orgTypes";
@@ -156,7 +157,7 @@ export function StudentsView() {
         </div>
         <button
           type="button"
-          onClick={() => setImporting((v) => !v)}
+          onClick={() => setImporting(true)}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:border-slate-900"
         >
           <Upload className="h-4 w-4" />
@@ -234,7 +235,7 @@ export function StudentsView() {
       )}
 
       {importing && (
-        <ImportPanel
+        <StudentImportPanel
           onDone={() => {
             setImporting(false);
             void load(filters);
@@ -691,123 +692,6 @@ function AddStudent({ onDone }: { onDone: () => void }) {
         </button>
       </div>
     </form>
-  );
-}
-
-function ImportPanel({
-  onDone,
-  onImported,
-}: {
-  onDone: () => void;
-  onImported: () => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState<{
-    created: number;
-    updated: number;
-    errors: string[];
-  } | null>(null);
-
-  async function upload(file: File) {
-    setBusy(true);
-    setError("");
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      setResult(
-        await json<{ created: number; updated: number; errors: string[] }>(
-          await fetch("/api/org/students/import", {
-            method: "POST",
-            body: form,
-          }),
-        ),
-      );
-      // Reload now, not on Done. "500 added" used to render directly above
-      // "0 students — No students yet", because the list behind the panel
-      // was only refetched when the panel closed.
-      onImported();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not import.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
-      <p className="text-sm font-medium text-slate-800">
-        Import students from CSV
-      </p>
-      <p className="mt-1 text-xs text-slate-500">
-        Only <code className="rounded bg-slate-100 px-1">display_name</code> is
-        required, but include{" "}
-        <code className="rounded bg-slate-100 px-1">email</code> — it is the
-        address credentials are sent to, and a row without one can only ever be
-        handed a printed slip. Also accepted: college, branch, graduation_year,
-        linkedin_url, github_url, resume_url, contact_email, phone, location,
-        external_ref.
-      </p>
-      <p className="mt-1 text-xs text-slate-500">
-        Rows are matched on{" "}
-        <code className="rounded bg-slate-100 px-1">external_ref</code>, so
-        re-importing a corrected export updates people rather than duplicating
-        them.
-      </p>
-      <a
-        href="/api/org/students/import/template.csv"
-        download="students-template.csv"
-        className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-700 underline hover:text-slate-900"
-      >
-        <Download className="h-3.5 w-3.5" />
-        Download template
-      </a>
-
-      <input
-        type="file"
-        accept=".csv,text/csv"
-        disabled={busy}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = ""; // so picking the same file again fires onChange
-          if (f) void upload(f);
-        }}
-        className="mt-3 block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:text-slate-700"
-      />
-
-      {busy && (
-        <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Importing…
-        </p>
-      )}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-
-      {result && (
-        <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
-          <p className="text-slate-800">
-            <strong>{result.created}</strong> added,{" "}
-            <strong>{result.updated}</strong> updated
-          </p>
-          {result.errors.length > 0 && (
-            <ul className="mt-1 space-y-0.5">
-              {result.errors.map((e) => (
-                <li key={e} className="text-xs text-amber-700">
-                  {e}
-                </li>
-              ))}
-            </ul>
-          )}
-          <button
-            type="button"
-            onClick={onDone}
-            className="mt-2 rounded bg-slate-900 px-3 py-1 text-xs font-medium text-white"
-          >
-            Done
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 
