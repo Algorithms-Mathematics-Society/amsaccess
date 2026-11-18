@@ -82,8 +82,37 @@ const ContestJudging = dynamic(
 /** The eight tabs need about 870px, so below that they scroll inside the strip
  *  (never the page), with a fade on the side that still has tabs. Its own
  *  component so scroll-driven fade changes do not re-render the console. */
-function TabStrip({ children }: { children: React.ReactNode }) {
+function TabStrip({
+  activeTab,
+  children,
+}: {
+  activeTab: Tab;
+  children: React.ReactNode;
+}) {
   const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const strip = ref.current;
+    const active = strip?.querySelector('[aria-current="true"]');
+    if (!strip || !active) return;
+
+    const reveal = () => {
+      const tab = active.getBoundingClientRect();
+      const viewport = strip.getBoundingClientRect();
+      if (tab.left < viewport.left || tab.right > viewport.right) {
+        // Scroll only this strip so the page and keyboard focus stay in place.
+        strip.scrollLeft +=
+          tab.left - viewport.left + (tab.width - viewport.width) / 2;
+      }
+    };
+    reveal();
+
+    // A live count can widen an earlier tab and clip the selection again.
+    const resize = new ResizeObserver(reveal);
+    resize.observe(strip);
+    for (const tab of strip.children) resize.observe(tab);
+    return () => resize.disconnect();
+  }, [activeTab]);
+
   return (
     <nav
       ref={ref}
@@ -678,11 +707,12 @@ function ContestContent({ contestUid }: { contestUid: string }) {
       )}
 
       <div className="border-b border-slate-200 bg-white px-4 sm:px-6 md:px-8">
-        <TabStrip>
+        <TabStrip activeTab={tab}>
           {TABS.map((t) => (
             <button
               key={t}
               type="button"
+              aria-current={tab === t ? true : undefined}
               onPointerEnter={() => prepareTab(t)}
               onFocus={() => prepareTab(t)}
               onClick={() => setTab(t)}
