@@ -361,7 +361,11 @@ try {
   searchGate = gate();
   await search.fill("Slow");
   await until(() =>
-    calls.some((c) => c.path === "/api/org/students" && c.query === "?q=Slow"),
+    calls.some(
+      (c) =>
+        c.path === "/api/org/students" &&
+        new URLSearchParams(c.query).get("q") === "Slow",
+    ),
   );
   await search.fill("Fast");
   await page.getByText("Fast Student", { exact: true }).waitFor();

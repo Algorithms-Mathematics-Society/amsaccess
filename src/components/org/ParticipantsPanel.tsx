@@ -320,8 +320,8 @@ function ParticipantsContent({
           // The roster's own user uids, so people already here are not offered
           // again — adding them twice is harmless but looks like a mistake.
           alreadyOnRoster={rosterUids}
-          onAdded={(result) => {
-            setPickingFromAccess(false);
+          onAdded={(result, finished) => {
+            if (finished) setPickingFromAccess(false);
             absorb({
               ...result,
               // Anyone who already held a passphrase comes back with none, so
@@ -725,20 +725,24 @@ function CopyFromRoster({
   const [chosen, setChosen] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dialog, confirm] = useConfirm();
+  const previewRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => previewRequest.current?.abort(), []);
 
   useEffect(() => {
     if (!open || sources !== null) return;
-    let cancelled = false;
+    const controller = new AbortController();
     void (async () => {
       try {
         const rows = await json<RosterSource[]>(
           await fetch(`/api/org/contests/${contestUid}/participants/sources`, {
             cache: "no-store",
+            signal: controller.signal,
           }),
         );
-        if (!cancelled) setSources(rows);
+        if (!controller.signal.aborted) setSources(rows);
       } catch (err) {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setSources([]);
           setError(
             err instanceof Error ? err.message : "Could not list contests.",
@@ -747,15 +751,110 @@ function CopyFromRoster({
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [open, sources, contestUid]);
 
+  async function readPreview(signal: AbortSignal) {
+    const [freshSources, sourceRows, targetRows] = await Promise.all([
+      fetch(`/api/org/contests/${contestUid}/participants/sources`, {
+        cache: "no-store",
+        signal,
+      }).then(json<RosterSource[]>),
+      fetch(`/api/org/contests/${chosen}/participants`, {
+        cache: "no-store",
+        signal,
+      }).then(json<Participant[]>),
+      fetch(`/api/org/contests/${contestUid}/participants`, {
+        cache: "no-store",
+        signal,
+      }).then(json<Participant[]>),
+    ]);
+    if (
+      !Array.isArray(freshSources) ||
+      !Array.isArray(sourceRows) ||
+      !Array.isArray(targetRows) ||
+      ![...sourceRows, ...targetRows].every(
+        (row) =>
+          typeof row?.user_uid === "string" && row.user_uid.trim().length > 0,
+      )
+    ) {
+      throw new Error(
+        "Roster membership could not be verified: invalid member identifiers.",
+      );
+    }
+    const source = freshSources.find((row) => row?.uid === chosen);
+    if (
+      !source ||
+      !Number.isSafeInteger(source.participants) ||
+      source.participants < 0
+    ) {
+      throw new Error(
+        "Source membership could not be verified: invalid advertised count.",
+      );
+    }
+    const sourceUids = [
+      ...new Set(sourceRows.map((row) => row.user_uid)),
+    ].sort();
+    const targetUids = [
+      ...new Set(targetRows.map((row) => row.user_uid)),
+    ].sort();
+    if (sourceUids.length !== source.participants) {
+      throw new Error(
+        "Source membership could not be verified against its advertised count. Refresh the roster and try again.",
+      );
+    }
+    const target = new Set(targetUids);
+    const overlap = sourceUids.filter((uid) => target.has(uid)).length;
+    return {
+      source,
+      sourceUids,
+      targetUids,
+      overlap,
+      additions: sourceUids.length - overlap,
+    };
+  }
+
   async function copy() {
     if (!chosen) return;
+    const controller = new AbortController();
+    previewRequest.current?.abort();
+    previewRequest.current = controller;
     setBusy(true);
     setError("");
     try {
+      const preview = await readPreview(controller.signal);
+      if (controller.signal.aborted) return;
+      const ok = await confirm({
+        title: `Copy roster from ${preview.source.title}?`,
+        body: (
+          <>
+            <p>
+              {preview.sourceUids.length} source members · {preview.overlap}{" "}
+              already on this roster · {preview.additions} to add
+            </p>
+            <p>
+              Existing logins are kept. Membership is checked again before
+              copying; other organizers can still change a roster while the copy
+              runs.
+            </p>
+          </>
+        ),
+        confirmLabel: `Confirm add ${preview.additions}`,
+      });
+      if (!ok || controller.signal.aborted) return;
+      const current = await readPreview(controller.signal);
+      if (controller.signal.aborted) return;
+      if (
+        JSON.stringify(current.sourceUids) !==
+          JSON.stringify(preview.sourceUids) ||
+        JSON.stringify(current.targetUids) !==
+          JSON.stringify(preview.targetUids)
+      ) {
+        throw new Error(
+          "Roster membership changed. Preview the roster again before confirming.",
+        );
+      }
       const result = await json<RosterAdd>(
         await fetch(
           `/api/org/contests/${contestUid}/participants/from-contest`,
@@ -770,6 +869,7 @@ function CopyFromRoster({
       setChosen("");
       onCopied(result);
     } catch (err) {
+      if (controller.signal.aborted) return;
       setError(
         err instanceof Error ? err.message : "Could not copy that roster.",
       );
@@ -790,8 +890,6 @@ function CopyFromRoster({
       </button>
     );
   }
-
-  const picked = sources?.find((row) => row.uid === chosen);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -822,10 +920,11 @@ function CopyFromRoster({
         disabled={busy || !chosen}
         className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
       >
-        {busy ? "Copying…" : picked ? `Add ${picked.participants}` : "Add"}
+        {busy ? "Checking roster…" : "Preview roster"}
       </button>
       <button
         type="button"
+        disabled={busy}
         onClick={() => {
           setOpen(false);
           setError("");
@@ -834,7 +933,12 @@ function CopyFromRoster({
       >
         Cancel
       </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && (
+        <span role="alert" className="text-xs text-red-600">
+          {error}
+        </span>
+      )}
+      {dialog}
     </div>
   );
 }
