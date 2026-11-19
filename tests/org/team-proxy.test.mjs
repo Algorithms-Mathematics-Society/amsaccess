@@ -1,60 +1,280 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import vm from 'node:vm';
-import ts from 'typescript';
-import * as rules from '../../src/lib/teamSetup.ts';
-const uid='3fbf9cee-8b6e-4872-947f-c52b46bb572e';
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
+import * as rules from "../../src/lib/teamSetup.ts";
+const uid = "3fbf9cee-8b6e-4872-947f-c52b46bb572e";
 function compile(path, modules) {
- const source=readFileSync(new URL('../../src/'+path,import.meta.url),'utf8');
- const context={exports:{},Request,Response,File,FormData,AbortController,Number,Error,JSON,require(name){if(name==='next/server')return {NextResponse:{json:(data,options)=>({data,...options})}}; if(name in modules)return modules[name]; throw Error(name);}};
- vm.runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,context);
- return context.exports;
+  const source = readFileSync(
+    new URL("../../src/" + path, import.meta.url),
+    "utf8",
+  );
+  const context = {
+    exports: {},
+    Request,
+    Response,
+    File,
+    FormData,
+    AbortController,
+    Number,
+    Error,
+    JSON,
+    require(name) {
+      if (name === "next/server")
+        return {
+          NextResponse: { json: (data, options) => ({ data, ...options }) },
+        };
+      if (name in modules) return modules[name];
+      throw Error(name);
+    },
+  };
+  vm.runInNewContext(
+    ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    }).outputText,
+    context,
+  );
+  return context.exports;
 }
-test('server access rejects unauthenticated, intern and unknown roles before operations',async()=>{
- for(const [subject,role,expected] of [[null,'owner',401],['staff','intern',403],['staff','unexpected',403],['staff','admin',null]]){
-  let calls=0;
-  const route=compile('lib/server/teamAccess.ts',{'./session':{requireSubject:async()=>subject},'./amsApi':{callAmsApi:async()=>{calls++;return {ok:true,data:{role}}}},'../teamSetup':rules});
-  const value=await route.teamAccess();
-  if(expected)assert.equal(value.status,expected);else assert.equal(value,'staff');
-  if(!subject)assert.equal(calls,0);
- }
+test("server access rejects unauthenticated, intern and unknown roles before operations", async () => {
+  for (const [subject, role, expected] of [
+    [null, "owner", 401],
+    ["staff", "intern", 403],
+    ["staff", "unexpected", 403],
+    ["staff", "admin", null],
+  ]) {
+    let calls = 0;
+    const route = compile("lib/server/teamAccess.ts", {
+      "./session": { requireSubject: async () => subject },
+      "./amsApi": {
+        callAmsApi: async () => {
+          calls++;
+          return { ok: true, data: { role } };
+        },
+      },
+      "../teamSetup": rules,
+    });
+    const value = await route.teamAccess();
+    if (expected) assert.equal(value.status, expected);
+    else assert.equal(value, "staff");
+    if (!subject) assert.equal(calls, 0);
+  }
 });
-test('team proxy enforces target/action validation and preserves backend conflicts',async()=>{
- const calls=[];
- const route=compile('app/api/org/contests/[uid]/team-round/[[...action]]/route.ts',{'@/lib/server/teamAccess':{teamAccess:async()=>'staff'},'@/lib/teamSetup':rules,'@/lib/server/boundedUpload':{},'@/lib/server/amsApi':{callAmsApi:async(...args)=>{calls.push(args);return {ok:false,status:409,data:{detail:'already published'}}},errorMessage:d=>d.detail}});
- const ctx=action=>({params:Promise.resolve({uid,action})});
- assert.equal((await route.POST(new Request('https://test',{method:'POST'}),ctx(['unpublish']))).status,404);
- assert.equal(calls.length,0);
- const request=new Request('https://test',{method:'POST',body:JSON.stringify({source_contest_uid:uid,take:136,method:'snake',reset:false})});
- const result=await route.POST(request,ctx(['seed']));
- assert.equal(result.status,409);assert.equal(result.data.error,'already published');assert.equal(result.headers['Cache-Control'],'no-store');
- assert.equal(calls[0][1],`/contests/${uid}/team-round/seed`);
- assert.equal(calls[0][2].take,136);
+test("team proxy enforces target/action validation and preserves backend conflicts", async () => {
+  const calls = [];
+  const route = compile(
+    "app/api/org/contests/[uid]/team-round/[[...action]]/route.ts",
+    {
+      "@/lib/server/teamAccess": { teamAccess: async () => "staff" },
+      "@/lib/teamSetup": rules,
+      "@/lib/server/boundedUpload": {},
+      "@/lib/server/amsApi": {
+        callAmsApi: async (...args) => {
+          calls.push(args);
+          return {
+            ok: false,
+            status: 409,
+            data: { detail: "already published" },
+          };
+        },
+        errorMessage: (d) => d.detail,
+      },
+    },
+  );
+  const ctx = (action) => ({ params: Promise.resolve({ uid, action }) });
+  assert.equal(
+    (
+      await route.POST(
+        new Request("https://test", { method: "POST" }),
+        ctx(["seed", "preview", "extra"]),
+      )
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await route.POST(
+        new Request("https://test", { method: "POST", body: "{}" }),
+        ctx(["seed", "preview"]),
+      )
+    ).status,
+    400,
+  );
+  assert.equal(calls.length, 0);
+  const request = new Request("https://test", {
+    method: "POST",
+    body: JSON.stringify({
+      source_contest_uid: uid,
+      take: 136,
+      method: "snake",
+      reset: false,
+    }),
+  });
+  const result = await route.POST(request, ctx(["seed"]));
+  assert.equal(result.status, 409);
+  assert.equal(result.data.error, "already published");
+  assert.equal(result.headers["Cache-Control"], "no-store");
+  assert.equal(calls[0][1], `/contests/${uid}/team-round/seed`);
+  assert.equal(calls[0][2].take, 136);
+  const preview = await route.POST(
+    new Request("https://test", {
+      method: "POST",
+      body: JSON.stringify(calls[0][2]),
+    }),
+    ctx(["seed", "preview"]),
+  );
+  assert.equal(preview.status, 409);
+  assert.deepEqual(calls[1].slice(0, 4), [
+    "POST",
+    `/contests/${uid}/team-round/seed/preview`,
+    calls[0][2],
+    "staff",
+  ]);
+  const unpublish = await route.POST(
+    new Request("https://test", { method: "POST" }),
+    ctx(["unpublish"]),
+  );
+  assert.equal(unpublish.status, 409);
+  assert.equal(unpublish.data.error, "already published");
+  assert.deepEqual(calls[2].slice(0, 4), [
+    "POST",
+    `/contests/${uid}/team-round/unpublish`,
+    null,
+    "staff",
+  ]);
 });
-test('project upload cannot forward extra form fields or unsupported paths',async()=>{
- let forwarded;
- const route=compile('app/api/org/projects/[[...action]]/route.ts',{'@/lib/server/teamAccess':{teamAccess:async()=>'staff'},'@/lib/teamSetup':rules,'@/lib/server/boundedUpload':{boundedForm:r=>r.formData()},'@/lib/server/amsApi':{uploadToAmsApi:async(path,form)=>{forwarded={path,form};return {ok:true,status:200,data:{name:'test'}}},errorMessage:String}});
- const form=new FormData();form.set('package',new File(['fixture'],'sample.cxxpkg'));form.set('subject','another-user');
- const result=await route.POST(new Request('https://test',{method:'POST',body:form}),{params:Promise.resolve({action:['inspect']})});
- assert.equal(result.status,200);assert.equal(forwarded.path,'/projects/inspect');assert.deepEqual([...forwarded.form.keys()],['package']);
+test("project catalog is authenticated and permits only the collection GET", async () => {
+  const calls = [];
+  let subject = { status: 401 };
+  const route = compile("app/api/org/projects/[[...action]]/route.ts", {
+    "@/lib/server/teamAccess": { teamAccess: async () => subject },
+    "@/lib/teamSetup": rules,
+    "@/lib/server/boundedUpload": {},
+    "@/lib/server/amsApi": {
+      callAmsApi: async (...args) => {
+        calls.push(args);
+        return { ok: true, status: 200, data: [{ uid }] };
+      },
+    },
+  });
+  const request = new Request("https://test?organization=other");
+  const ctx = (action) => ({ params: Promise.resolve({ action }) });
+  assert.equal((await route.GET(request, ctx([]))).status, 401);
+  subject = "staff";
+  assert.equal((await route.GET(request, ctx(["inspect"]))).status, 404);
+  assert.equal(calls.length, 0);
+  const result = await route.GET(request, ctx([]));
+  assert.equal(result.status, 200);
+  assert.equal(result.headers["Cache-Control"], "no-store");
+  assert.deepEqual(result.data, [{ uid }]);
+  assert.deepEqual(calls[0].slice(0, 4), ["GET", "/projects", null, "staff"]);
 });
-test('team proxy 403 shows the server denial and falls back to fixed text',async()=>{
- const {errorMessage}=compile('lib/server/amsApi.ts',{});
- for(const [data,expected] of [[{detail:'Only contest managers can publish teams.'},'Only contest managers can publish teams.'],[{},'Your organization role cannot perform this team operation. Ask an owner or administrator.']]){
-  const route=compile('app/api/org/contests/[uid]/team-round/[[...action]]/route.ts',{'@/lib/server/teamAccess':{teamAccess:async()=>'staff'},'@/lib/teamSetup':rules,'@/lib/server/boundedUpload':{},'@/lib/server/amsApi':{callAmsApi:async()=>({ok:false,status:403,data}),errorMessage}});
-  const result=await route.POST(new Request('https://test',{method:'POST'}),{params:Promise.resolve({uid,action:['publish']})});
-  assert.equal(result.status,403);assert.equal(result.data.error,expected);
- }
+test("project upload cannot forward extra form fields or unsupported paths", async () => {
+  let forwarded;
+  const route = compile("app/api/org/projects/[[...action]]/route.ts", {
+    "@/lib/server/teamAccess": { teamAccess: async () => "staff" },
+    "@/lib/teamSetup": rules,
+    "@/lib/server/boundedUpload": { boundedForm: (r) => r.formData() },
+    "@/lib/server/amsApi": {
+      uploadToAmsApi: async (path, form) => {
+        forwarded = { path, form };
+        return { ok: true, status: 200, data: { name: "test" } };
+      },
+      errorMessage: String,
+    },
+  });
+  const form = new FormData();
+  form.set("package", new File(["fixture"], "sample.cxxpkg"));
+  form.set("subject", "another-user");
+  const result = await route.POST(
+    new Request("https://test", { method: "POST", body: form }),
+    { params: Promise.resolve({ action: ["inspect"] }) },
+  );
+  assert.equal(result.status, 200);
+  assert.equal(forwarded.path, "/projects/inspect");
+  assert.deepEqual([...forwarded.form.keys()], ["package"]);
 });
-test('benchmark input upload forwards only the input file',async()=>{
- let forwarded;
- const route=compile('app/api/org/contests/[uid]/team-round/[[...action]]/route.ts',{'@/lib/server/teamAccess':{teamAccess:async()=>'staff'},'@/lib/teamSetup':rules,'@/lib/server/boundedUpload':{boundedForm:r=>r.formData()},'@/lib/server/amsApi':{callAmsApi:async()=>{throw Error('json path')},uploadToAmsApi:async(path,form)=>{forwarded={path,form};return {ok:true,status:200,data:{sha256:'ab',size_bytes:3}}},errorMessage:String}});
- const ctx={params:Promise.resolve({uid,action:['benchmark-input']})};
- const empty=new FormData();empty.set('input',new File([],'empty.in'));
- assert.equal((await route.POST(new Request('https://test',{method:'POST',body:empty}),ctx)).status,400);
- const form=new FormData();form.set('input',new File(['1 2'],'hidden.in'));form.set('subject','another-user');
- const result=await route.POST(new Request('https://test',{method:'POST',body:form}),ctx);
- assert.equal(result.status,200);assert.equal(result.data.sha256,'ab');
- assert.equal(forwarded.path,`/contests/${uid}/team-round/benchmark-input`);assert.deepEqual([...forwarded.form.keys()],['input']);
+test("team proxy 403 shows the server denial and falls back to fixed text", async () => {
+  const { errorMessage } = compile("lib/server/amsApi.ts", {});
+  for (const [data, expected] of [
+    [
+      { detail: "Only contest managers can publish teams." },
+      "Only contest managers can publish teams.",
+    ],
+    [
+      {},
+      "Your organization role cannot perform this team operation. Ask an owner or administrator.",
+    ],
+  ]) {
+    const route = compile(
+      "app/api/org/contests/[uid]/team-round/[[...action]]/route.ts",
+      {
+        "@/lib/server/teamAccess": { teamAccess: async () => "staff" },
+        "@/lib/teamSetup": rules,
+        "@/lib/server/boundedUpload": {},
+        "@/lib/server/amsApi": {
+          callAmsApi: async () => ({ ok: false, status: 403, data }),
+          errorMessage,
+        },
+      },
+    );
+    const result = await route.POST(
+      new Request("https://test", { method: "POST" }),
+      { params: Promise.resolve({ uid, action: ["publish"] }) },
+    );
+    assert.equal(result.status, 403);
+    assert.equal(result.data.error, expected);
+  }
+});
+test("benchmark input upload forwards only the input file", async () => {
+  let forwarded;
+  const route = compile(
+    "app/api/org/contests/[uid]/team-round/[[...action]]/route.ts",
+    {
+      "@/lib/server/teamAccess": { teamAccess: async () => "staff" },
+      "@/lib/teamSetup": rules,
+      "@/lib/server/boundedUpload": { boundedForm: (r) => r.formData() },
+      "@/lib/server/amsApi": {
+        callAmsApi: async () => {
+          throw Error("json path");
+        },
+        uploadToAmsApi: async (path, form) => {
+          forwarded = { path, form };
+          return {
+            ok: true,
+            status: 200,
+            data: { sha256: "ab", size_bytes: 3 },
+          };
+        },
+        errorMessage: String,
+      },
+    },
+  );
+  const ctx = { params: Promise.resolve({ uid, action: ["benchmark-input"] }) };
+  const empty = new FormData();
+  empty.set("input", new File([], "empty.in"));
+  assert.equal(
+    (
+      await route.POST(
+        new Request("https://test", { method: "POST", body: empty }),
+        ctx,
+      )
+    ).status,
+    400,
+  );
+  const form = new FormData();
+  form.set("input", new File(["1 2"], "hidden.in"));
+  form.set("subject", "another-user");
+  const result = await route.POST(
+    new Request("https://test", { method: "POST", body: form }),
+    ctx,
+  );
+  assert.equal(result.status, 200);
+  assert.equal(result.data.sha256, "ab");
+  assert.equal(forwarded.path, `/contests/${uid}/team-round/benchmark-input`);
+  assert.deepEqual([...forwarded.form.keys()], ["input"]);
 });

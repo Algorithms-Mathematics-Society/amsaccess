@@ -4,6 +4,7 @@ import { requireSubject } from "@/lib/server/session";
 
 /**
  * `?action=revoke` disables a login.
+ * `?action=restore` re-enables the same login.
  * `?action=credentials` returns the person’s permanent credential.
  * `?action=reemail` queues a fresh credential email for this participant.
  */
@@ -12,12 +13,18 @@ export async function POST(
   ctx: { params: Promise<{ uid: string; loginId: string }> },
 ) {
   const subject = await requireSubject();
-  if (!subject) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  if (!subject)
+    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
   const { uid, loginId } = await ctx.params;
   const action = new URL(request.url).searchParams.get("action");
 
-  if (action !== "revoke" && action !== "credentials" && action !== "reemail") {
+  if (
+    action !== "revoke" &&
+    action !== "restore" &&
+    action !== "credentials" &&
+    action !== "reemail"
+  ) {
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });
   }
 
@@ -29,6 +36,12 @@ export async function POST(
     body,
     subject,
   );
-  if (!res.ok) return NextResponse.json({ error: errorMessage(res.data) }, { status: res.status });
-  return NextResponse.json(res.data, { headers: { "Cache-Control": "no-store" } });
+  if (!res.ok)
+    return NextResponse.json(
+      { error: errorMessage(res.data) },
+      { status: res.status },
+    );
+  return NextResponse.json(res.data, {
+    headers: { "Cache-Control": "no-store" },
+  });
 }

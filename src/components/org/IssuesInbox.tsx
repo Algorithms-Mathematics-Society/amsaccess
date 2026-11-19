@@ -58,7 +58,6 @@ export function IssuesInbox({
   const [tickets, setTickets] = useState<{
     status: string;
     items: SupportSummary[];
-    complete: boolean;
   } | null>(null);
   const [ticketError, setTicketError] = useState("");
   const [announcement, setAnnouncement] = useState("");
@@ -72,13 +71,9 @@ export function IssuesInbox({
     const stop = startOrgSupportPolling(
       async (signal) => {
         try {
-          const result = await loadContestTickets(contestUid, status, signal);
+          const items = await loadContestTickets(contestUid, status, signal);
           if (stopped) return;
-          setTickets({
-            status,
-            items: result.tickets,
-            complete: result.complete,
-          });
+          setTickets({ status, items });
           setTicketError("");
         } catch (e) {
           if (!stopped)
@@ -107,10 +102,9 @@ export function IssuesInbox({
         readiness,
         overrides,
         tickets: ticketRows,
-        contestUid,
         now: Date.now(),
       }),
-    [feed.raw, readiness, overrides, ticketRows, contestUid],
+    [feed.raw, readiness, overrides, ticketRows],
   );
   const inStatus = useMemo(
     () => items.filter((item) => item.open === (status === "open")),
@@ -173,13 +167,11 @@ export function IssuesInbox({
       ? "Could not confirm whether anything is waiting. Retrying automatically."
       : feed.loading || (active && tickets?.status !== status)
         ? "Loading…"
-        : tickets && !tickets.complete
-          ? "No matching issues in the data checked so far; the support inbox is incomplete."
-          : status === "open"
-            ? kind === "all"
-              ? "Nothing is waiting on staff."
-              : "No matching open issues."
-            : "Nothing resolved yet.";
+        : status === "open"
+          ? kind === "all"
+            ? "Nothing is waiting on staff."
+            : "No matching open issues."
+          : "Nothing resolved yet.";
 
   return (
     <section
@@ -253,11 +245,6 @@ export function IssuesInbox({
       {ticketError && (
         <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           Support tickets could not be loaded: {ticketError}
-        </p>
-      )}
-      {tickets?.status === status && !tickets.complete && (
-        <p className="mb-3 text-xs text-slate-500">
-          Only the newest support tickets were checked for this contest.
         </p>
       )}
       {shown.length === 0 ? (

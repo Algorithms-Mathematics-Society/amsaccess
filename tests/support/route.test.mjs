@@ -82,6 +82,17 @@ test("inbox forwards authenticated subject and only supported query fields", asy
   assert.equal(h.calls[0][3], "staff-subject");
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
+test("the contest filter is forwarded on inbox reads only", async () => {
+  const h = harness();
+  const url = `https://example.test/api/org/support?status=open&offset=50&contest_uid=${uid}`;
+  await h.GET(new Request(url), context([]));
+  assert.equal(
+    h.calls[0][1],
+    `/org/support?status=open&offset=50&contest_uid=${uid}`,
+  );
+  await h.GET(new Request(url), context([uid]));
+  assert.equal(h.calls[1][1], `/org/support/${uid}?status=open&offset=50`);
+});
 test("reply preserves UUID body and rejects malformed payloads", async () => {
   const h = harness();
   const body = { uid, body: "Please retry" };

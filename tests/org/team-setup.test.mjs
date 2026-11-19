@@ -4,11 +4,17 @@ import {
   teamAction,
   validateTeamBody,
   TEAM_WRITERS,
+  parseDrawPreview,
+  parseProjectCatalog,
 } from "../../src/lib/teamSetup.ts";
 import { boundedForm } from "../../src/lib/server/boundedUpload.ts";
 const uid = "3fbf9cee-8b6e-4872-947f-c52b46bb572e";
 test("proxy route allowlist excludes traversal and unsupported operations", () => {
   assert.equal(teamAction("POST", ["seed"]), "/seed");
+  assert.equal(teamAction("POST", ["seed", "preview"]), "/seed/preview");
+  assert.equal(teamAction("POST", ["unpublish"]), "/unpublish");
+  assert.equal(teamAction("GET", ["seed", "preview"]), null);
+  assert.equal(teamAction("GET", ["unpublish"]), null);
   assert.equal(teamAction("GET", ["teams"]), "/teams");
   // Read-only feeds for the live monitor; never writable.
   assert.equal(teamAction("GET", ["board"]), "/board");
@@ -21,7 +27,7 @@ test("proxy route allowlist excludes traversal and unsupported operations", () =
   assert.equal(teamAction("GET", ["benchmark-input"]), null);
   assert.equal(teamAction("POST", ["benchmarks"]), null);
   for (const action of [
-    ["unpublish"],
+    ["seed", "preview", "extra"],
     [".."],
     ["teams", uid, "rejudge"],
     ["seed/../../end"],
@@ -39,6 +45,8 @@ test("seeding supports 136 players while rejecting ambiguous input", () => {
     reset: false,
   };
   assert.deepEqual(validateTeamBody("/seed", body), body);
+  assert.deepEqual(validateTeamBody("/seed/preview", body), body);
+  assert.throws(() => validateTeamBody("/seed/preview", {}));
   for (const bad of [
     { ...body, take: 0 },
     { ...body, take: 2.5 },
@@ -49,6 +57,32 @@ test("seeding supports 136 players while rejecting ambiguous input", () => {
     { ...body, extra: true },
   ])
     assert.throws(() => validateTeamBody("/seed", bad));
+});
+test("project catalog and draw preview reject malformed responses", () => {
+  const projects = [{ uid, name: "Example", part_count: 1 }];
+  assert.deepEqual(parseProjectCatalog(projects), projects);
+  assert.throws(() => parseProjectCatalog([{ uid, name: "Example" }]));
+  const preview = {
+    team_list: [
+      {
+        number: 1,
+        name: "Team 1",
+        members: [
+          {
+            user_uid: uid,
+            username: "tester",
+            display_name: null,
+            seed_rank: 1,
+          },
+        ],
+      },
+    ],
+    rank_sums: [1],
+    rank_sum_spread: 0,
+  };
+  assert.deepEqual(parseDrawPreview(preview), preview);
+  assert.throws(() => parseDrawPreview({ ...preview, rank_sums: [] }));
+  assert.throws(() => parseDrawPreview({ ...preview, team_list: [null] }));
 });
 test("timeline cannot lock during discussion or after submission deadline", () => {
   const body = {
