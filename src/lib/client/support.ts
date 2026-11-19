@@ -114,13 +114,13 @@ export async function loadSupportInbox(
   status: "open" | "resolved",
   offset = 0,
   signal?: AbortSignal,
+  contestUid?: string,
 ): Promise<SupportInbox> {
-  const data = await supportApi<unknown>(
-    `?status=${status}&offset=${offset}`,
-    "GET",
-    undefined,
-    { signal },
-  );
+  const query = new URLSearchParams({ status, offset: String(offset) });
+  if (contestUid !== undefined) query.set("contest_uid", contestUid);
+  const data = await supportApi<unknown>(`?${query}`, "GET", undefined, {
+    signal,
+  });
   if (
     !isRecord(data) ||
     !Array.isArray(data.items) ||

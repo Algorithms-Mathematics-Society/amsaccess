@@ -23,6 +23,9 @@ async function handle(request: Request, ctx: Context) {
   const query = new URLSearchParams();
   for (const key of ["status", "offset", "after"])
     if (search.has(key)) query.set(key, search.get(key)!);
+  const contestUid = search.get("contest_uid");
+  if (request.method === "GET" && path.length === 0 && contestUid !== null)
+    query.set("contest_uid", contestUid);
   let body: Record<string, unknown> | null = null;
   if (request.method !== "GET") {
     try {

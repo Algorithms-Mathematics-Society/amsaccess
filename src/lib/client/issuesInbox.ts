@@ -58,73 +58,116 @@ export function mergeIssues(input: {
   readiness: ReadinessRow[];
   overrides: Override[];
   tickets: SupportSummary[];
-  contestUid: string;
   now: number;
 }): InboxItem[] {
   const items: InboxItem[] = [];
   for (const r of input.raw.resumes)
     items.push({
-      id: `resume:${r.uid}`, kind: "resume", uid: r.uid,
-      person: r.display_name || r.login_id || "Unknown", loginId: r.login_id,
+      id: `resume:${r.uid}`,
+      kind: "resume",
+      uid: r.uid,
+      person: r.display_name || r.login_id || "Unknown",
+      loginId: r.login_id,
       detail: r.reason || "No reason given.",
       meta: r.resume_count > 0 ? `reopened ${r.resume_count}× already` : "",
-      at: r.created_at, open: r.status === "pending", status: r.status,
+      at: r.created_at,
+      open: r.status === "pending",
+      status: r.status,
     });
   for (const i of input.raw.incidents)
     items.push({
-      id: `incident:${i.uid}`, kind: "incident", uid: i.uid,
-      person: i.display_name || i.login_id || "Unknown", loginId: i.login_id,
-      detail: i.message || i.category, meta: [i.category, i.contact].filter(Boolean).join(" · "),
-      at: i.created_at, open: i.status !== "resolved", status: i.status,
+      id: `incident:${i.uid}`,
+      kind: "incident",
+      uid: i.uid,
+      person: i.display_name || i.login_id || "Unknown",
+      loginId: i.login_id,
+      detail: i.message || i.category,
+      meta: [i.category, i.contact].filter(Boolean).join(" · "),
+      at: i.created_at,
+      open: i.status !== "resolved",
+      status: i.status,
     });
   // A device reports on every launch; only its latest report says whether it is still blocked.
   const latest = new Map<string, ReadinessRow>();
   for (const row of input.readiness) {
     const prior = latest.get(row.device_fingerprint);
-    if (!prior || time(row.created_at) >= time(prior.created_at)) latest.set(row.device_fingerprint, row);
+    if (!prior || time(row.created_at) >= time(prior.created_at))
+      latest.set(row.device_fingerprint, row);
   }
   for (const row of latest.values()) {
     if (row.passed) continue;
-    const waived = new Set(input.overrides
-      .filter((o) => !o.revoked && o.device_fingerprint === row.device_fingerprint && time(o.expires_at) > input.now)
-      .map((o) => o.check_kind));
+    const waived = new Set(
+      input.overrides
+        .filter(
+          (o) =>
+            !o.revoked &&
+            o.device_fingerprint === row.device_fingerprint &&
+            time(o.expires_at) > input.now,
+        )
+        .map((o) => o.check_kind),
+    );
     const unwaived = row.failed_checks.filter((check) => !waived.has(check));
     const open = row.failed_checks.length === 0 || unwaived.length > 0;
     items.push({
-      id: `entry:${row.uid}`, kind: "entry", uid: row.uid,
-      person: row.display_name || "Unknown", loginId: "",
+      id: `entry:${row.uid}`,
+      kind: "entry",
+      uid: row.uid,
+      person: row.display_name || "Unknown",
+      loginId: "",
       detail: `Failed ${(open ? unwaived : row.failed_checks).join(", ") || "the device check"}`,
-      meta: row.os_name, at: row.created_at, open, status: open ? "blocked" : "waived",
+      meta: row.os_name,
+      at: row.created_at,
+      open,
+      status: open ? "blocked" : "waived",
     });
   }
   for (const t of input.tickets) {
-    if (t.contest_uid !== input.contestUid) continue;
     items.push({
-      id: `ticket:${t.uid}`, kind: "ticket", uid: t.uid,
-      person: t.name || t.email || "Unknown", loginId: "",
+      id: `ticket:${t.uid}`,
+      kind: "ticket",
+      uid: t.uid,
+      person: t.name || t.email || "Unknown",
+      loginId: "",
       detail: t.category.toLowerCase().replaceAll("_", " "),
       meta: [t.email, t.phone].filter(Boolean).join(" · "),
-      at: t.updated_at, open: t.status === "open", status: t.status,
+      at: t.updated_at,
+      open: t.status === "open",
+      status: t.status,
     });
   }
-  return items.sort((a, b) =>
-    Number(b.open) - Number(a.open) ||
-    (a.open ? INBOX_KINDS.indexOf(a.kind) - INBOX_KINDS.indexOf(b.kind) || time(a.at) - time(b.at) : time(b.at) - time(a.at)) ||
-    a.id.localeCompare(b.id));
+  return items.sort(
+    (a, b) =>
+      Number(b.open) - Number(a.open) ||
+      (a.open
+        ? INBOX_KINDS.indexOf(a.kind) - INBOX_KINDS.indexOf(b.kind) ||
+          time(a.at) - time(b.at)
+        : time(b.at) - time(a.at)) ||
+      a.id.localeCompare(b.id),
+  );
 }
 
-const MAX_TICKET_PAGES = 20;
-
-// shortcut: pages the whole org inbox, add a contest filter to ams-api when tickets grow
-// (stops after MAX_TICKET_PAGES pages and reports the list as incomplete).
-export async function loadContestTickets(contestUid: string, status: "open" | "resolved", signal?: AbortSignal) {
+export async function loadContestTickets(
+  contestUid: string,
+  status: "open" | "resolved",
+  signal?: AbortSignal,
+) {
+  const scope = contestUid.toLowerCase();
   const tickets: SupportSummary[] = [];
-  let offset = 0;
-  for (let page = 0; page < MAX_TICKET_PAGES; page++) {
-    const { items, has_more } = await loadSupportInbox(status, offset, signal);
-    tickets.push(...items.filter((t) => t.contest_uid === contestUid));
-    if (!has_more || items.length === 0) return { tickets, complete: true };
-    offset += items.length;
+  for (;;) {
+    const { items, has_more } = await loadSupportInbox(
+      status,
+      tickets.length,
+      signal,
+      scope,
+    );
+    if (
+      (has_more && items.length === 0) ||
+      items.some((item) => item.contest_uid !== scope)
+    )
+      throw new Error(
+        "The contest support inbox response was incomplete. Refresh to retry.",
+      );
+    tickets.push(...items);
+    if (!has_more) return tickets;
   }
-  return { tickets, complete: false };
 }
