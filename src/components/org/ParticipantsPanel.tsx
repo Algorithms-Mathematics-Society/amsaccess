@@ -77,6 +77,7 @@ type CredentialPlan = {
   holders: number;
   no_email: number;
   no_credential: number;
+  revoked?: number;
   holder_names: string[];
   no_email_names: string[];
   no_credential_names: string[];
@@ -2495,6 +2496,7 @@ function CredentialMail({
   const [error, setError] = useState("");
   const [queued, setQueued] = useState<QueuedBatch | null>(null);
   const [dialog, confirm] = useConfirm();
+  const revoked = plan?.revoked ?? 0;
 
   const loadPlan = useCallback(async () => {
     try {
@@ -2624,10 +2626,20 @@ function CredentialMail({
                 <p className="font-medium text-slate-900">1. Issue</p>
                 <p className="text-slate-600">
                   {plan.no_credential === 0
-                    ? "Everyone on the roster has a credential."
-                    : `${plan.no_credential} on the roster ${plan.no_credential === 1 ? "has" : "have"} no credential yet.`}
+                    ? "No new credentials to issue."
+                    : plan.revoked === undefined
+                      ? "The server needs an update before this panel can distinguish missing credentials from revoked logins."
+                      : `${plan.no_credential} on the roster ${plan.no_credential === 1 ? "has" : "have"} no credential yet.`}
                 </p>
-                {plan.no_credential > 0 && (
+                {revoked > 0 && (
+                  <p className="mt-1 text-slate-600">
+                    {revoked} {revoked === 1 ? "login is" : "logins are"}{" "}
+                    revoked. Use <strong>Undo revoke</strong> on a roster row
+                    only if you intend to restore that login across all
+                    contests.
+                  </p>
+                )}
+                {plan.revoked !== undefined && plan.no_credential > 0 && (
                   <button
                     type="button"
                     onClick={issue}
