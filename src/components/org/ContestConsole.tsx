@@ -23,9 +23,14 @@ import { verdictClassLight } from "@/lib/contestTypes";
 import { invalidate } from "@/lib/client/useApiQuery";
 import { reportOrgResponse, startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgRole } from "@/lib/client/useOrgRole";
+import { personUserUid } from "@/lib/client/personPanel";
 import { useEdgeMask } from "@/lib/client/useEdgeMask";
 import { ContestNotifications } from "./ContestNotifications";
 import { useConfirm } from "./ConfirmDialog";
+import {
+  ParticipantModal,
+  preloadParticipantProfile,
+} from "./ParticipantModal";
 import { LiveStatusStrip, WaitingOnStaffBadge } from "./LiveStatusStrip";
 import {
   ContestReadProvider,
@@ -819,6 +824,8 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             counts={counts}
             total={total}
             pending={pending}
+            contestUid={contestUid}
+            live={notificationsEnabled}
           />
         )}
         {keepAlive(
@@ -1396,7 +1403,11 @@ function SubmissionsTab({
   counts,
   total,
   pending,
+  contestUid,
+  live,
 }: {
+  contestUid: string;
+  live: boolean;
   submissions: ContestSubmission[] | null;
   error: string;
   refreshing: boolean;
@@ -1407,6 +1418,7 @@ function SubmissionsTab({
   total: number;
   pending: boolean;
 }) {
+  const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   if (submissions === null) {
     return error ? (
       <p role="alert" className="text-sm text-red-700">
@@ -1486,6 +1498,11 @@ function SubmissionsTab({
         </p>
       )}
 
+      <ParticipantModal
+        handle={openParticipant}
+        onClose={() => setOpenParticipant(null)}
+        contest={{ uid: contestUid, live }}
+      />
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -1506,7 +1523,19 @@ function SubmissionsTab({
                   {new Date(s.created_at).toLocaleTimeString()}
                 </td>
                 <td className="px-4 py-2.5 text-slate-700">
-                  {s.display_name || s.username}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenParticipant(
+                        personUserUid(s.user_uid, null, null) ?? s.username,
+                      )
+                    }
+                    onPointerEnter={preloadParticipantProfile}
+                    onFocus={preloadParticipantProfile}
+                    className="min-h-11 text-left font-medium text-slate-900 hover:underline md:min-h-8"
+                  >
+                    {s.display_name || s.username}
+                  </button>
                 </td>
                 <td className="px-4 py-2.5 font-medium text-slate-900">
                   {s.problem_label}

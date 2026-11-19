@@ -15,20 +15,33 @@
  * the contest: roster state, live session and open requests (issue #16).
  */
 
-import { useEffect, useId, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Modal } from "@/components/Modal";
 import { useConfirm } from "./ConfirmDialog";
+import { PersonSupportTickets } from "./PersonSupportTickets";
 import { useOrgNotifications } from "@/lib/client/useOrgNotifications";
 import { useContestRead } from "@/lib/client/useContestRead";
 import {
   idleLabel,
   loginState,
   personContestState,
+  personUserUid,
+  personSubmissionsUrl,
+  PERSON_SUBMISSION_LIMIT,
   type RosterPerson,
 } from "@/lib/client/personPanel";
+import { useApiQuery } from "@/lib/client/useApiQuery";
+import {
+  ORG_SIGNED_OUT_EVENT,
+  ORG_SIGNED_IN_EVENT,
+  orgSignedOut,
+  reportOrgResponse,
+} from "@/lib/client/orgPolling";
+import type { ContestSubmission } from "@/lib/orgTypes";
+import { verdictClassLight } from "@/lib/contestTypes";
 import type { NotificationAction } from "@/lib/client/orgNotifications";
 
 const loadProfile = () => import("./ParticipantProfile");
@@ -92,6 +105,7 @@ export function ParticipantModal({
           <div className="overflow-y-auto">
             {contest && (
               <ContestPerson
+                key={`${contest.uid}:${handle}`}
                 contestUid={contest.uid}
                 live={contest.live}
                 handle={handle}
@@ -139,11 +153,62 @@ function ContestPerson({
     // Once per open; later roster refreshes come from the roster tab itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const state = useMemo(
+  const handleState = useMemo(
     () => personContestState(feed.raw, handle, rosterData),
     [feed.raw, handle, rosterData],
   );
+  const [signedOut, setSignedOut] = useState(orgSignedOut);
+  useEffect(() => {
+    const out = () => setSignedOut(true);
+    const back = () => setSignedOut(false);
+    window.addEventListener(ORG_SIGNED_OUT_EVENT, out);
+    window.addEventListener(ORG_SIGNED_IN_EVENT, back);
+    return () => {
+      window.removeEventListener(ORG_SIGNED_OUT_EVENT, out);
+      window.removeEventListener(ORG_SIGNED_IN_EVENT, back);
+    };
+  }, []);
+  const matchedUid = personUserUid(
+    handleState.rosterRow?.user_uid,
+    handleState.session?.user_uid,
+    null,
+  );
+  // Submission rows carry a username: share the full profile read, never guess its UUID.
+  const profile = useApiQuery<{ uid: string }>(
+    !signedOut && !matchedUid ? `student-profile:${handle}` : null,
+    async () => {
+      const res = await fetch(
+        `/api/org/students/${encodeURIComponent(handle)}/profile`,
+        { cache: "no-store" },
+      );
+      reportOrgResponse(res.status);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        throw new Error(data.error ?? "Could not load this profile.");
+      if (
+        ![
+          data?.contests,
+          data?.submissions,
+          data?.tags,
+          data?.verdicts,
+          data?.activity,
+        ].every(Array.isArray)
+      )
+        throw new Error("The profile response was incomplete. Try again.");
+      return data;
+    },
+  );
+  const userUid = signedOut
+    ? null
+    : (matchedUid ??
+      personUserUid(null, null, profile.error ? null : profile.data?.uid));
+
+  const state = useMemo(
+    () => personContestState(feed.raw, userUid ?? handle, rosterData),
+    [feed.raw, userUid, handle, rosterData],
+  );
   const { rosterRow, session, resumes, incidents } = state;
+
   const who =
     rosterRow?.display_name ||
     session?.display_name ||
@@ -273,6 +338,37 @@ function ContestPerson({
         </div>
       </dl>
 
+      {live && state.sessions.length > 0 && (
+        <details className="text-xs text-slate-600">
+          <summary className="min-h-11 cursor-pointer py-3 font-medium text-slate-800 md:min-h-8 md:py-2">
+            Sessions ({state.sessions.length} loaded)
+          </summary>
+          <p className="mb-2 text-slate-500">
+            Loaded contest sessions, newest first. Older sittings may be absent
+            from the live feed.
+          </p>
+          <ul className="max-h-64 space-y-2 overflow-y-auto">
+            {state.sessions.map((sitting) => (
+              <li
+                key={sitting.uid}
+                className="rounded-lg border border-slate-200 px-3 py-2"
+              >
+                <p className="font-medium text-slate-800">
+                  {sitting.started_at
+                    ? new Date(sitting.started_at).toLocaleString()
+                    : "Not started"}{" "}
+                  · {sitting.status}
+                </p>
+                <p>
+                  Last contact: {idleLabel(sitting.idle_seconds)} · reopened{" "}
+                  {sitting.resume_count}× · {sitting.violation_count} violation
+                  {sitting.violation_count === 1 ? "" : "s"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {live && (resumes.length > 0 || incidents.length > 0) && (
         <ul className="space-y-2">
           {resumes.map((request) => {
@@ -363,7 +459,155 @@ function ContestPerson({
           })}
         </ul>
       )}
-      {/* shortcut: submissions and support tickets are not shown; the contest submissions list cannot be filtered by person and caps at 100, and the support inbox has no contest or person filter. Add both once ams-api offers per-person filters. */}
+      <div className="space-y-2">
+        <h4 className="text-sm font-semibold text-slate-900">
+          Submissions in this contest
+        </h4>
+        {signedOut ? (
+          <p role="status" className="text-xs text-amber-800">
+            Sign in again to view this participant’s submissions.
+          </p>
+        ) : userUid ? (
+          <PersonSubmissions contestUid={contestUid} userUid={userUid} />
+        ) : profile.loading ? (
+          <p role="status" className="text-xs text-slate-500">
+            Resolving participant…
+          </p>
+        ) : (
+          <p role="status" className="text-xs text-amber-800">
+            {profile.error ||
+              "Could not resolve this participant’s UID. Submissions are unavailable."}{" "}
+            <button
+              type="button"
+              onClick={() => void profile.refresh()}
+              className="underline"
+            >
+              Retry
+            </button>
+          </p>
+        )}
+      </div>
+      {live && userUid && (
+        <PersonSupportTickets
+          key={`${contestUid}:${userUid}`}
+          contestUid={contestUid}
+          userUid={userUid}
+        />
+      )}
     </section>
+  );
+}
+
+/** A separate server-filtered read; the contest's recent page can omit this person entirely. */
+function PersonSubmissions({
+  contestUid,
+  userUid,
+}: {
+  contestUid: string;
+  userUid: string;
+}) {
+  const url = personSubmissionsUrl(contestUid, userUid);
+  const {
+    data: result,
+    error: readError,
+    loading,
+    refreshing,
+    refresh,
+  } = useApiQuery<{ rows: ContestSubmission[] | null; denied?: string }>(
+    url,
+    async () => {
+      const res = await fetch(url, { cache: "no-store" });
+      reportOrgResponse(res.status);
+      const rows = await res.json().catch(() => ({}));
+      if (res.status === 401 || res.status === 403)
+        return {
+          rows: null,
+          denied:
+            typeof rows?.error === "string"
+              ? rows.error
+              : "You cannot view these submissions.",
+        };
+      if (!res.ok) throw new Error(rows.error ?? "Could not load submissions.");
+      if (
+        !Array.isArray(rows) ||
+        !rows.every((row) => row && row.user_uid === userUid)
+      )
+        throw new Error(
+          "The submissions response did not verify this participant. Refresh to retry.",
+        );
+      return { rows };
+    },
+  );
+  const data = result?.rows ?? null;
+  const error = result?.denied ?? readError;
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-slate-500">
+          Latest {PERSON_SUBMISSION_LIMIT} for this participant in this contest;
+          older submissions may be omitted.
+        </p>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          disabled={refreshing}
+          className={`${action} border border-slate-300 text-slate-700 hover:border-slate-900`}
+        >
+          Refresh submissions
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="text-xs text-amber-800">
+          {error}
+          {data && " Showing the last read."}
+        </p>
+      )}
+      {(loading || refreshing) && (
+        <p role="status" className="text-xs text-slate-500">
+          Loading submissions…
+        </p>
+      )}
+      {data?.length === 0 && (
+        <p className="text-xs text-slate-500">
+          No submissions in this contest.
+        </p>
+      )}
+      {data && data.length > 0 && (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[420px] text-left text-xs">
+            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-3 py-2">When</th>
+                <th className="px-3 py-2">Problem</th>
+                <th className="px-3 py-2">Verdict</th>
+                <th className="px-3 py-2 text-right">Tests</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data.map((s) => (
+                <tr key={s.uid}>
+                  <td className="whitespace-nowrap px-3 py-2 text-slate-500">
+                    {new Date(s.created_at).toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2 font-medium text-slate-900">
+                    {s.problem_label}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`rounded-full border px-2 py-0.5 ${verdictClassLight(s.verdict ?? s.status)}`}
+                    >
+                      {s.verdict ?? s.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-slate-600">
+                    {s.total_count ? `${s.passed_count}/${s.total_count}` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }

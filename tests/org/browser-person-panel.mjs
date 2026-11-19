@@ -5,10 +5,13 @@ const { chromium } = await import(
 );
 const base = process.env.ORG_TEST_URL || "http://127.0.0.1:3124";
 const uid = "5b0c8f0e-6a0e-4c7e-9d7e-2f4a3c1b9e11";
+const secondContest = "8b0c8f0e-6a0e-4c7e-9d7e-2f4a3c1b9e11";
+const user1 = "6b0c8f0e-6a0e-4c7e-9d7e-2f4a3c1b9e11";
+const user2 = "7b0c8f0e-6a0e-4c7e-9d7e-2f4a3c1b9e11";
 const now = new Date().toISOString();
 const roster = [
   {
-    user_uid: "u1",
+    user_uid: user1,
     login_id: "p1",
     display_name: "Person 1",
     revoked: false,
@@ -20,7 +23,7 @@ const roster = [
     device_os: "",
   },
   {
-    user_uid: "u2",
+    user_uid: user2,
     login_id: "p2",
     display_name: "Person 2",
     revoked: false,
@@ -35,7 +38,7 @@ const roster = [
 const sessions = [
   {
     uid: "s1",
-    user_uid: "u1",
+    user_uid: user1,
     login_id: "p1",
     display_name: "Person 1",
     status: "active",
@@ -88,8 +91,31 @@ let incidents = [
   },
 ];
 let failSessions = false;
+let submissionAuthLost = false;
+let submissionForbidden = false;
+let submissionForeign = false;
+let releasePerson2;
+let delayPerson2 = false;
+let delayFirstContest = false;
+let releaseFirstContest;
+const personReads = [];
+const submission = (id, problem, username) => ({
+  uid: id,
+  user_uid:
+    username === "person1" ? user1 : username === "person2" ? user2 : null,
+  problem_label: problem,
+  username,
+  display_name: username === "person1" ? "Person 1" : "Person 2",
+  created_at: now,
+  status: "done",
+  verdict: "AC",
+  passed_count: 1,
+  total_count: 1,
+  max_runtime_ms: 1,
+  max_memory_kb: 1024,
+});
 const profile = {
-  uid: "u1",
+  uid: user1,
   handle: "person1",
   display_name: "Person 1",
   email: "p1@example.test",
@@ -151,9 +177,12 @@ try {
       });
     const p = u.pathname;
     if (p === "/api/auth/me") return ok({ role: "admin" });
-    if (p === `/api/org/contests/${uid}`)
+    if (
+      p === `/api/org/contests/${uid}` ||
+      p === `/api/org/contests/${secondContest}`
+    )
       return ok({
-        uid,
+        uid: p.split("/").at(-1),
         title: "Person panel test",
         slug: "person-panel",
         status: "running",
@@ -167,7 +196,84 @@ try {
       });
     if (p.endsWith("/participants") && req.method() === "GET")
       return ok(roster);
-    if (p === "/api/org/students/u1/profile") return ok(profile);
+    if (
+      p === `/api/org/students/${user1}/profile` ||
+      p === "/api/org/students/person1/profile"
+    )
+      return ok(profile);
+    if (
+      p === `/api/org/students/${user2}/profile` ||
+      p === "/api/org/students/person2/profile"
+    )
+      return ok({
+        ...profile,
+        uid: user2,
+        handle: "person2",
+        display_name: "Person 2",
+      });
+    if (p === "/api/org/students/invalid-person/profile")
+      return ok({ ...profile, uid: "invalid" });
+    if (p.endsWith("/submissions")) {
+      const person = u.searchParams.get("user_uid");
+      if (person) {
+        personReads.push({ person, limit: u.searchParams.get("limit") });
+        if (submissionAuthLost) return ok({ error: "Sign in required." }, 401);
+        if (submissionForbidden)
+          return ok(
+            submissionForbidden === "null"
+              ? null
+              : { error: "Permission removed." },
+            403,
+          );
+        if (submissionForeign)
+          return ok([
+            submission("foreign", "Another person's submission", "person2"),
+          ]);
+        if (person === user2 && delayPerson2)
+          await new Promise((resolve) => {
+            releasePerson2 = resolve;
+          });
+        const lateFirst = delayFirstContest && p.includes(uid);
+        if (lateFirst)
+          await new Promise((resolve) => {
+            releaseFirstContest = resolve;
+          });
+        return ok([
+          submission(
+            `old-${person}`,
+            lateFirst
+              ? "Wrong contest late"
+              : p.includes(secondContest)
+                ? "Second contest only"
+                : person === user1
+                  ? "Outside recent page"
+                  : "Person two only",
+            person === user1 ? "person1" : "person2",
+          ),
+        ]);
+      }
+      // This participant's old submission is absent from the contest's latest 100.
+      return ok(
+        Array.from({ length: 100 }, (_, i) => ({
+          ...submission(`recent-${i}`, "A", i === 0 ? "person1" : "person2"),
+          ...(i === 0 ? { username: "different-from-login-id" } : {}),
+          ...(i === 98
+            ? {
+                username: "person1",
+                display_name: "Legacy person",
+                user_uid: null,
+              }
+            : {}),
+          ...(i === 99
+            ? {
+                username: "invalid-person",
+                display_name: "Invalid person",
+                user_uid: null,
+              }
+            : {}),
+        })),
+      );
+    }
     if (p === "/api/org/support") return ok({ items: [], has_more: false });
     if (p.endsWith("/invigilation") && req.method() === "POST") {
       const action = u.searchParams.get("action"),
@@ -238,7 +344,7 @@ try {
     await panel
       .getByRole("link", { name: "Full profile" })
       .getAttribute("href"),
-    "/org/participants/u1",
+    `/org/participants/${user1}`,
   );
   await here.getByRole("button", { name: "Refuse", exact: true }).click();
   const confirm = page.getByRole("dialog", {
@@ -298,6 +404,108 @@ try {
     "PASS person panel from roster: approve and resolve inline with confirm, Escape still closes after the item leaves",
   );
 
+  // Read the selected UID at the server, even when absent from the recent page.
+  assert(
+    personReads.some((read) => read.person === user1 && read.limit === "100"),
+  );
+  await page.evaluate(() => {
+    location.hash = "submissions";
+  });
+  const submissionTrigger = page
+    .getByRole("table")
+    .getByRole("button", { name: "Person 1", exact: true });
+  await submissionTrigger.click();
+  await here.getByText("Outside recent page", { exact: true }).waitFor();
+  await here.getByText("Latest 100", { exact: false }).waitFor();
+  await here.getByText("p1", { exact: true }).waitFor();
+  await here.getByText("2 violations", { exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  await panel.waitFor({ state: "detached" });
+  assert(
+    await submissionTrigger.evaluate((el) => el === document.activeElement),
+    "submission entry restores focus",
+  );
+
+  delayPerson2 = true;
+  await page
+    .getByRole("table")
+    .getByRole("button", { name: "Person 2", exact: true })
+    .first()
+    .click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector('[role="dialog"]')
+      ?.textContent.includes("Loading submissions"),
+  );
+  await page.keyboard.press("Escape");
+  await panel.waitFor({ state: "detached" });
+  await submissionTrigger.click();
+  await here.getByText("Outside recent page", { exact: true }).waitFor();
+  releasePerson2();
+  delayPerson2 = false;
+  await page.waitForTimeout(150);
+  assert.equal(
+    await here.getByText("Person two only", { exact: true }).count(),
+    0,
+    "late response for another person cannot replace the selected person",
+  );
+  await page.keyboard.press("Escape");
+  await panel.waitFor({ state: "detached" });
+  await page.evaluate(() => {
+    location.hash = "participants";
+  });
+  console.log(
+    "PASS server-scoped submissions beyond the contest page; username profile resolution; person switching; submission entry focus",
+  );
+
+  await page.evaluate(() => {
+    location.hash = "submissions";
+  });
+  await page
+    .getByRole("table")
+    .getByRole("button", { name: "Legacy person", exact: true })
+    .click();
+  await here.getByText("p1", { exact: true }).waitFor();
+  await here.getByText("2 violations", { exact: true }).waitFor();
+  await here.getByText("Outside recent page", { exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  await panel.waitFor({ state: "detached" });
+  await page
+    .getByRole("table")
+    .getByRole("button", { name: "Invalid person", exact: true })
+    .click();
+  await here
+    .getByText("Could not resolve this participant’s UID.", { exact: false })
+    .waitFor();
+  assert(
+    !personReads.some((read) => read.person === "invalid"),
+    "invalid profile UID is never forwarded",
+  );
+  await page.keyboard.press("Escape");
+  await panel.waitFor({ state: "detached" });
+  await submissionTrigger.click();
+  await here.getByText("Outside recent page", { exact: true }).waitFor();
+  delayFirstContest = true;
+  await here
+    .getByRole("button", { name: "Refresh submissions", exact: true })
+    .click();
+  await page.waitForTimeout(100);
+  await page.goto(base + `/org/contests/${secondContest}#submissions`);
+  await submissionTrigger.click();
+  await here.getByText("Second contest only", { exact: true }).waitFor();
+  releaseFirstContest();
+  delayFirstContest = false;
+  await page.waitForTimeout(150);
+  assert.equal(
+    await here.getByText("Wrong contest late", { exact: true }).count(),
+    0,
+    "late response for previous contest stays out of this contest",
+  );
+  await page.goto(base + `/org/contests/${uid}#participants`);
+  console.log(
+    "PASS invalid UID blocks the read and contest switching rejects late responses",
+  );
+
   // Touch: controls are at least 44px tall on a phone.
   await page.setViewportSize({ width: 390, height: 844 });
   resumes = [{ ...resumes[0], uid: "r3", status: "pending", reason: "Again" }];
@@ -334,6 +542,70 @@ try {
     .waitFor({ state: "detached" });
   console.log(
     "PASS person panel labels retained data after a failed refresh and clears the warning after recovery",
+  );
+  submissionForeign = true;
+  await here
+    .getByRole("button", { name: "Refresh submissions", exact: true })
+    .click();
+  await here
+    .getByText("The submissions response did not verify this participant.", {
+      exact: false,
+    })
+    .waitFor();
+  assert.equal(
+    await here
+      .getByText("Another person's submission", { exact: true })
+      .count(),
+    0,
+  );
+  submissionForeign = false;
+  submissionForbidden = true;
+  await here
+    .getByRole("button", { name: "Refresh submissions", exact: true })
+    .click();
+  await here.getByText("Permission removed.", { exact: false }).waitFor();
+  assert.equal(
+    await here.getByText("Outside recent page", { exact: true }).count(),
+    0,
+    "permission loss clears cached rows",
+  );
+  submissionForbidden = false;
+  await here
+    .getByRole("button", { name: "Refresh submissions", exact: true })
+    .click();
+  await here.getByText("Outside recent page", { exact: true }).waitFor();
+  submissionForbidden = "null";
+  await here
+    .getByRole("button", { name: "Refresh submissions", exact: true })
+    .click();
+  await here
+    .getByText("You cannot view these submissions.", { exact: true })
+    .waitFor();
+  assert.equal(
+    await here.getByText("Outside recent page", { exact: true }).count(),
+    0,
+  );
+  submissionForbidden = false;
+  await here
+    .getByRole("button", { name: "Refresh submissions", exact: true })
+    .click();
+  await here.getByText("Outside recent page", { exact: true }).waitFor();
+  submissionAuthLost = true;
+  await here
+    .getByRole("button", { name: "Refresh submissions", exact: true })
+    .click();
+  await here
+    .getByText("Sign in again to view this participant’s submissions.", {
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(
+    await here.getByText("Outside recent page", { exact: true }).count(),
+    0,
+    "auth loss clears visible participant submissions",
+  );
+  console.log(
+    "PASS participant submissions fail closed on authentication loss",
   );
 } finally {
   await browser.close();

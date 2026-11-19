@@ -39,7 +39,13 @@ export type Student = {
   email?: string;
   mailable?: boolean;
   /** Which contests, not just how many. */
-  contests?: { uid: string; title: string; starts_at: string; status: string; is_practice: boolean }[];
+  contests?: {
+    uid: string;
+    title: string;
+    starts_at: string;
+    status: string;
+    is_practice: boolean;
+  }[];
   problems_solved: number;
 };
 
@@ -78,7 +84,8 @@ export type ContestProblem = {
   memory_limit_mb: number;
 };
 
-export type ContestStatus = "draft" | "scheduled" | "running" | "ended" | string;
+export type ContestStatus =
+  "draft" | "scheduled" | "running" | "ended" | string;
 
 export type Contest = {
   uid: string;
@@ -102,6 +109,7 @@ export type Contest = {
 };
 
 export type ContestSubmission = {
+  user_uid?: string | null;
   uid: string;
   problem_label: string;
   language: string;

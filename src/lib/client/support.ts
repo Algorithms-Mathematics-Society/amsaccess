@@ -8,6 +8,8 @@ export type SupportMessage = {
 export type SupportSummary = {
   uid: string;
   contest_uid?: string | null;
+  /** Present only on staff responses; never infer ownership from contact details. */
+  user_uid?: string | null;
   email: string;
   phone: string;
   name: string;
@@ -90,6 +92,7 @@ export function isSupportSummary(value: unknown): value is SupportSummary {
   return (
     isRecord(value) &&
     isUuid(value.uid) &&
+    (value.user_uid == null || isUuid(value.user_uid)) &&
     typeof value.email === "string" &&
     typeof value.phone === "string" &&
     typeof value.name === "string" &&
@@ -114,17 +117,27 @@ export async function loadSupportInbox(
   status: "open" | "resolved",
   offset = 0,
   signal?: AbortSignal,
+  contestUid?: string,
+  userUid?: string,
 ): Promise<SupportInbox> {
-  const data = await supportApi<unknown>(
-    `?status=${status}&offset=${offset}`,
-    "GET",
-    undefined,
-    { signal },
-  );
+  if (userUid !== undefined && (!isUuid(userUid) || !isUuid(contestUid)))
+    throw new Error(
+      "Choose a verified participant and contest before loading tickets.",
+    );
+  const query = new URLSearchParams({ status, offset: String(offset) });
+  if (contestUid !== undefined) query.set("contest_uid", contestUid);
+  if (userUid !== undefined) query.set("user_uid", userUid);
+  const data = await supportApi<unknown>(`?${query}`, "GET", undefined, {
+    signal,
+  });
   if (
     !isRecord(data) ||
     !Array.isArray(data.items) ||
     !data.items.every(isSupportSummary) ||
+    (userUid !== undefined &&
+      !data.items.every(
+        (item) => item.user_uid === userUid && item.contest_uid === contestUid,
+      )) ||
     typeof data.has_more !== "boolean"
   )
     throw new Error(
