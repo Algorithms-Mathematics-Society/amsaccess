@@ -47,6 +47,7 @@ import {
   Plus,
   Printer,
   RefreshCw,
+  Undo2,
   Upload,
   Ban,
   Users,
@@ -1489,7 +1490,7 @@ const RosterTable = memo(function RosterTable({
       const controller = new AbortController();
       requests.current.add(controller);
       const timeout =
-        !refresh || action === "credentials"
+        !refresh || action === "credentials" || action === "restore"
           ? window.setTimeout(() => controller.abort(), 30_000)
           : undefined;
       let httpRejected = false;
@@ -1545,6 +1546,14 @@ const RosterTable = memo(function RosterTable({
             return next;
           });
         }
+        const interrupted =
+          action === "credentials"
+            ? "Could not load credentials. Retry to show the same password."
+            : action === "restore"
+              ? "Could not confirm restoration. Refresh the roster or try again."
+              : unknown
+                ? "Request interrupted; its result is unknown. Refresh and check status before retrying."
+                : null;
         setActions((previous) => ({
           ...previous,
           [loginId]: {
@@ -1552,13 +1561,10 @@ const RosterTable = memo(function RosterTable({
             queued: false,
             unknown: unknownEmails.current.has(loginId),
             error:
-              action === "credentials" && !httpRejected
-                ? "Could not load credentials. Retry to show the same password."
-                : unknown
-                  ? "Request interrupted; its result is unknown. Refresh and check status before retrying."
-                  : err instanceof Error
-                    ? err.message
-                    : `Could not ${action === "reemail" ? "queue the email" : action}.`,
+              (!httpRejected && interrupted) ||
+              (err instanceof Error
+                ? err.message
+                : `Could not ${action === "reemail" ? "queue the email" : action}.`),
           },
         }));
         if (action === "credentials") {
@@ -1580,28 +1586,24 @@ const RosterTable = memo(function RosterTable({
   // Row buttons go through here so a one-click Revoke can't lock someone out by accident.
   const rowAction = useCallback(
     async (loginId: string, action: RowAction) => {
-      if (action === "revoke") {
+      if (action === "revoke" || action === "restore") {
+        const restoring = action === "restore";
+        const verb = restoring ? "Restore" : "Revoke";
         const name =
           currentRows.current.find(
             (candidate) => candidate.login_id === loginId,
           )?.display_name ?? loginId;
         const ok = await confirm({
-          title: `Revoke ${name}’s login?`,
+          title: `${verb} ${name}’s login?`,
           body: (
-            <>
-              <p>
-                Their one login is shared by every contest they’re registered
-                for, so this signs them out of all of them. Records and
-                submissions are kept.
-              </p>
-              <p>
-                It can’t be undone yet: a revoked login can’t be restored or
-                issued again.
-              </p>
-            </>
+            <p>
+              {restoring
+                ? "This re-enables their login across all their contests. Their existing password stays the same."
+                : "This disables their login across all their contests. Records and submissions are kept. Use Undo revoke on their roster row to restore the login."}
+            </p>
           ),
-          confirmLabel: "Revoke login",
-          danger: true,
+          confirmLabel: `${verb} login`,
+          danger: !restoring,
         });
         if (!ok) return null;
       }
@@ -1757,18 +1759,12 @@ const RosterTable = memo(function RosterTable({
     const ok = await confirm({
       title: `Revoke ${targets.length} login${targets.length === 1 ? "" : "s"}?`,
       body: (
-        <>
-          <p>
-            Each person’s one login is shared by every contest they’re
-            registered for, so this signs them out of all of them. Records and
-            submissions are kept. This includes selected participants hidden by
-            filters.
-          </p>
-          <p>
-            It can’t be undone yet: a revoked login can’t be restored or issued
-            again.
-          </p>
-        </>
+        <p>
+          This disables each selected login across all of that person’s
+          contests. The selection includes participants hidden by filters.
+          Records and submissions are kept. Use Undo revoke on each person’s
+          roster row to restore their login.
+        </p>
       ),
       confirmLabel: `Revoke ${targets.length}`,
       danger: true,
@@ -2091,7 +2087,7 @@ function canEmailParticipant(row: Participant) {
   );
 }
 
-type RowAction = "revoke" | "credentials" | "reemail";
+type RowAction = "revoke" | "restore" | "credentials" | "reemail";
 type RowActionState = {
   pending: RowAction | null;
   error: string;
@@ -2128,7 +2124,7 @@ const RosterRow = memo(
     onAction: (loginId: string, action: RowAction) => void;
   }) {
     return (
-      <tr className={row.revoked ? "opacity-50" : undefined}>
+      <tr>
         <td className="px-3 py-2.5">
           <input
             type="checkbox"
@@ -2267,7 +2263,25 @@ const RosterRow = memo(
               )}
               Show Credentials
             </button>
-            {!row.revoked && (
+            {row.revoked ? (
+              <button
+                type="button"
+                onClick={() => onAction(row.login_id, "restore")}
+                disabled={pending !== null || credentialLocked}
+                title="Restore this login across all their contests"
+                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40"
+              >
+                {pending === "restore" ? (
+                  <Loader2
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 motion-safe:animate-spin"
+                  />
+                ) : (
+                  <Undo2 aria-hidden="true" className="h-3.5 w-3.5" />
+                )}
+                {pending === "restore" ? "Restoring…" : "Undo revoke"}
+              </button>
+            ) : (
               <button
                 type="button"
                 onClick={() => onAction(row.login_id, "revoke")}
