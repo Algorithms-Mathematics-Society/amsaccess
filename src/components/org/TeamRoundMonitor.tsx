@@ -269,8 +269,7 @@ export function TeamRoundMonitor({
             <span className="font-medium text-slate-900">
               {PHASE_LABEL[phase]}
             </span>
-            . Teams whose members are all ready can lock earlier; ready flags
-            are not shown here.
+            . Teams whose members are all ready can lock earlier.
           </p>
         </div>
         {/* Stays enabled during background reads so keyboard focus is never lost;
@@ -433,6 +432,11 @@ export function TeamRoundMonitor({
                               <li key={m.user_uid} className="break-words">
                                 {m.display_name}: {m.part_label ?? "not chosen"}
                                 {m.assigned_by === "auto" && " (auto)"}
+                                {m.ready === null
+                                  ? " · readiness unknown"
+                                  : m.ready
+                                    ? " · ready"
+                                    : " · not ready"}
                                 {online &&
                                   (online.has(m.user_uid) ? (
                                     " · online"

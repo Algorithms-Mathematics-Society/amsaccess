@@ -11,6 +11,13 @@ export const TEAM_WRITERS = [
 ];
 export function teamAction(method: string, action: string[]): string | null {
   if (!action.length && ["GET", "PUT"].includes(method)) return "";
+  if (
+    method === "POST" &&
+    action.length === 2 &&
+    action[0] === "seed" &&
+    action[1] === "preview"
+  )
+    return "/seed/preview";
   if (action.length !== 1) return null;
   if (
     method === "GET" &&
@@ -19,9 +26,13 @@ export function teamAction(method: string, action: string[]): string | null {
     return "/" + action[0];
   if (
     method === "POST" &&
-    ["seed", "publish", "lock-allocation", "benchmark-input"].includes(
-      action[0],
-    )
+    [
+      "seed",
+      "publish",
+      "unpublish",
+      "lock-allocation",
+      "benchmark-input",
+    ].includes(action[0])
   )
     return "/" + action[0];
   return null;
@@ -33,33 +44,33 @@ export function validateTeamBody(
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Expected an object.");
   const b = value as Record<string, unknown>;
-  const allowed =
-    action === "/seed"
-      ? [
-          "source_contest_uid",
-          "take",
-          "add_user_uids",
-          "method",
-          "bands",
-          "reset",
-        ]
-      : [
-          "project_uid",
-          "team_size",
-          "discussion_seconds",
-          "selection_opens_at",
-          "allocation_locks_at",
-          "submit_deadline",
-          "integration_score",
-          "benchmark_enabled",
-          "benchmark_cooldown_seconds",
-        ];
+  const seeding = action === "/seed" || action === "/seed/preview";
+  const allowed = seeding
+    ? [
+        "source_contest_uid",
+        "take",
+        "add_user_uids",
+        "method",
+        "bands",
+        "reset",
+      ]
+    : [
+        "project_uid",
+        "team_size",
+        "discussion_seconds",
+        "selection_opens_at",
+        "allocation_locks_at",
+        "submit_deadline",
+        "integration_score",
+        "benchmark_enabled",
+        "benchmark_cooldown_seconds",
+      ];
   if (Object.keys(b).some((k) => !allowed.includes(k)))
     throw new Error("Unexpected field.");
   for (const k of ["source_contest_uid", "project_uid"])
     if (k in b && (typeof b[k] !== "string" || !UUID.test(b[k] as string)))
       throw new Error("Use a valid project or contest UID.");
-  if (action === "/seed" && !b.source_contest_uid)
+  if (seeding && !b.source_contest_uid)
     throw new Error("Choose a source contest.");
   const ranges: Record<string, [number, number]> = {
     team_size: [1, 5],
@@ -124,4 +135,66 @@ export function validateTeamBody(
   )
     throw new Error("Submission deadline must not precede allocation lock.");
   return b;
+}
+
+export type CatalogProject = { uid: string; name: string; part_count: number };
+
+export function parseProjectCatalog(data: unknown): CatalogProject[] {
+  if (
+    !Array.isArray(data) ||
+    data.some(
+      (project) =>
+        typeof project?.uid !== "string" ||
+        !UUID.test(project.uid) ||
+        typeof project.name !== "string" ||
+        !Number.isSafeInteger(project.part_count) ||
+        project.part_count < 0,
+    )
+  )
+    throw new Error("The project catalog response was incomplete.");
+  return data;
+}
+
+type DrawMember = {
+  user_uid: string;
+  username: string;
+  display_name: string | null;
+  seed_rank: number;
+};
+type DrawTeam = { number: number; name: string; members: DrawMember[] };
+export type DrawPreview = {
+  team_list: DrawTeam[];
+  rank_sums: number[];
+  rank_sum_spread: number;
+};
+
+export function parseDrawPreview(data: unknown): DrawPreview {
+  const preview = data as Partial<DrawPreview> | null;
+  if (
+    !Array.isArray(preview?.team_list) ||
+    !preview.team_list.length ||
+    !Array.isArray(preview.rank_sums) ||
+    preview.team_list.length !== preview.rank_sums.length ||
+    !Number.isSafeInteger(preview.rank_sum_spread) ||
+    preview.rank_sums.some((sum) => !Number.isSafeInteger(sum)) ||
+    preview.team_list.some(
+      (team) =>
+        !Number.isSafeInteger(team?.number) ||
+        typeof team.name !== "string" ||
+        !Array.isArray(team.members) ||
+        !team.members.length ||
+        team.members.some(
+          (member) =>
+            typeof member?.user_uid !== "string" ||
+            typeof member.username !== "string" ||
+            !(
+              member.display_name === null ||
+              typeof member.display_name === "string"
+            ) ||
+            !Number.isSafeInteger(member.seed_rank),
+        ),
+    )
+  )
+    throw new Error("The draw preview response was incomplete.");
+  return preview as DrawPreview;
 }

@@ -2,7 +2,7 @@
  * Read-only team-round monitor model. Parses the staff `GET .../team-round/teams`
  * roster (ams-api `routes/teams.py::list_teams`) and derives what organizers watch
  * during a round. The API stays authoritative: phases here are the schedule, and
- * per-team early locks and ready flags are not part of this response.
+ * per-team early locks are not part of this response.
  *
  * Only structural problems reject the roster. Display fields degrade instead,
  * because one odd name must never blank the monitor during a live round.
@@ -17,6 +17,8 @@ export type MonitorMember = {
   seed_rank: number | null;
   part_label: string | null;
   assigned_by: "claim" | "auto" | null;
+  /** Older roster responses omit readiness. */
+  ready: boolean | null;
 };
 export type MonitorResult = {
   revision: number;
@@ -51,7 +53,11 @@ export type MonitorSchedule = {
   contest_ends_at: string | null;
 };
 export type Phase =
-  "unscheduled" | "waiting" | "discussion" | "choosing" | "locked";
+  | "unscheduled"
+  | "waiting"
+  | "discussion"
+  | "choosing"
+  | "locked";
 export type Attention = "unassigned" | "unsubmitted" | "slow-result";
 export type TeamView = {
   team: MonitorTeam;
@@ -126,6 +132,7 @@ function member(v: unknown, at: string): MonitorMember {
     display_name: label(v.display_name, label(v.username, "(no name)")),
     seed_rank: count(v.seed_rank) ? v.seed_rank : null,
     part_label: v.part_label,
+    ready: typeof v.ready === "boolean" ? v.ready : null,
     assigned_by:
       v.assigned_by === "claim" || v.assigned_by === "auto"
         ? v.assigned_by
