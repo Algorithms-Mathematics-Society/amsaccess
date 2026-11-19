@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useOrgRole } from "@/lib/client/useOrgRole";
-import { PROJECT_LIMIT, TEAM_WRITERS, validateTeamBody } from "@/lib/teamSetup";
+import {
+  PROJECT_LIMIT,
+  TEAM_WRITERS,
+  parseDrawPreview,
+  parseProjectCatalog,
+  validateTeamBody,
+  type CatalogProject,
+  type DrawPreview,
+} from "@/lib/teamSetup";
 import { parseTeamRoster, type MonitorTeam } from "@/lib/teamMonitor";
 import { TeamRoundMonitor } from "./TeamRoundMonitor";
 
@@ -68,6 +76,8 @@ export function TeamRoundPanel({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [project, setProject] = useState("");
+  const [projects, setProjects] = useState<CatalogProject[]>([]);
+  const [catalogUnavailable, setCatalogUnavailable] = useState(false);
   const [size, setSize] = useState(4);
   const [discussion, setDiscussion] = useState(120);
   const [opens, setOpens] = useState("");
@@ -78,6 +88,10 @@ export function TeamRoundPanel({
   const [method, setMethod] = useState("snake");
   const [bands, setBands] = useState(4);
   const [additions, setAdditions] = useState("");
+  const [drawPreview, setDrawPreview] = useState<{
+    body: Record<string, unknown>;
+    plan: DrawPreview;
+  } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [imported, setImported] = useState(false);
@@ -114,6 +128,7 @@ export function TeamRoundPanel({
     }
   }
   async function load() {
+    setDrawPreview(null);
     const state = (await request(base, {}, true)) as Round | null;
     if (!mounted.current) return;
     setRound(state);
@@ -124,11 +139,10 @@ export function TeamRoundPanel({
       setOpens(localTime(state.selection_opens_at));
       setLocks(localTime(state.allocation_locks_at));
       setDeadline(localTime(state.submit_deadline));
-      const data: unknown = await request(base + "/teams");
       let roster: MonitorTeam[] = [];
       let problem = "";
       try {
-        roster = parseTeamRoster(data);
+        roster = parseTeamRoster(await request(base + "/teams"));
       } catch (e) {
         problem =
           e instanceof Error
@@ -147,6 +161,19 @@ export function TeamRoundPanel({
       setRuns(null);
     }
     if (mounted.current) setLoaded(true);
+  }
+  async function refresh() {
+    await load();
+    if (!mounted.current) return;
+    try {
+      const catalog = parseProjectCatalog(await request("/api/org/projects"));
+      if (mounted.current) {
+        setProjects(catalog);
+        setCatalogUnavailable(false);
+      }
+    } catch {
+      if (mounted.current) setCatalogUnavailable(true);
+    }
   }
   async function action(work: () => Promise<void>, mutation = false) {
     if (flight.current) return;
@@ -172,7 +199,7 @@ export function TeamRoundPanel({
   useEffect(() => {
     mounted.current = true;
     const start = setTimeout(() => {
-      void action(load);
+      void action(refresh);
     }, 0);
     return () => {
       clearTimeout(start);
@@ -184,6 +211,20 @@ export function TeamRoundPanel({
   }, []);
   const frozen = Boolean(round?.seeded_at);
   const hasClaims = teams.some((t) => t.members.some((m) => m.part_label));
+  const allocationLocked = Boolean(
+    round?.allocation_locked_at ||
+      (round?.allocation_locks_at &&
+        Date.parse(round.allocation_locks_at) <= Date.now()),
+  );
+  const drawBlocked = Boolean(
+    round?.published_at ||
+      hasClaims ||
+      rosterError ||
+      (frozen && allocationLocked),
+  );
+  const projectPartCount = projects.find(
+    (item) => item.uid === project,
+  )?.part_count;
   async function mutate(
     suffix: string,
     body?: Record<string, unknown>,
@@ -213,7 +254,7 @@ export function TeamRoundPanel({
         <button
           className={button}
           disabled={busy}
-          onClick={() => void action(load)}
+          onClick={() => void action(refresh)}
         >
           Refresh state
         </button>
@@ -331,10 +372,26 @@ export function TeamRoundPanel({
                     body: form,
                   });
                   if (mounted.current) {
-                    setProject(result.uid);
+                    const [added] = parseProjectCatalog([
+                      {
+                        uid: result?.uid,
+                        name: preview.name,
+                        part_count: preview.parts.length,
+                      },
+                    ]);
+                    setProjects((prior) => [
+                      ...prior.filter((item) => item.uid !== added.uid),
+                      added,
+                    ]);
+                    if (!frozen) {
+                      setProject(added.uid);
+                      setSize(added.part_count);
+                    }
                     setImported(true);
                     setNotice(
-                      "Project imported. Save round settings to attach it.",
+                      frozen
+                        ? "Project imported into the organization catalog."
+                        : "Project imported. Save round settings to attach it.",
                     );
                   }
                 }, true)
@@ -344,15 +401,56 @@ export function TeamRoundPanel({
             </button>
           </div>
         )}
-        <label className="block text-sm">
-          Project UID (or paste an existing project UID)
-          <input
-            className={input}
-            value={project}
-            onChange={(e) => setProject(e.target.value.trim())}
-            disabled={frozen}
-          />
-        </label>
+        {catalogUnavailable ? (
+          <label className="block text-sm">
+            Project UID
+            <input
+              className={input}
+              value={project}
+              onChange={(e) => setProject(e.target.value.trim())}
+              disabled={frozen}
+              aria-describedby="team-project-catalog-error"
+            />
+            <span
+              id="team-project-catalog-error"
+              className="block text-slate-600"
+            >
+              The project catalog could not load. Refresh state or enter an
+              existing project UID.
+            </span>
+          </label>
+        ) : (
+          <label className="block text-sm">
+            Imported project
+            <select
+              className={input}
+              value={project}
+              disabled={frozen}
+              onChange={(e) => {
+                const uid = e.target.value;
+                setProject(uid);
+                const selected = projects.find((item) => item.uid === uid);
+                if (selected) setSize(selected.part_count);
+              }}
+            >
+              <option value="">
+                {projects.length ? "Choose a project" : "No imported projects"}
+              </option>
+              {round?.project &&
+                !projects.some((item) => item.uid === round.project?.uid) && (
+                  <option value={round.project.uid}>
+                    {round.project.name} (current project)
+                  </option>
+                )}
+              {projects.map((item) => (
+                <option key={item.uid} value={item.uid}>
+                  {item.name} ({item.part_count}{" "}
+                  {item.part_count === 1 ? "part" : "parts"})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </fieldset>
       <form
         onSubmit={(e) => {
@@ -370,9 +468,9 @@ export function TeamRoundPanel({
             ])
               if (value) body[key] = new Date(value).toISOString();
             validateTeamBody("", body);
-            if (preview && imported && preview.parts.length !== size)
+            if (projectPartCount !== undefined && projectPartCount !== size)
               throw new Error(
-                "Team size must equal the imported project’s number of parts.",
+                "Team size must equal the selected project’s number of parts.",
               );
             if (
               !window.confirm(
@@ -458,13 +556,13 @@ export function TeamRoundPanel({
       </form>
       <fieldset
         disabled={!canWrite || busy || !loaded || !round}
+        onChangeCapture={() => setDrawPreview(null)}
         className="space-y-4 rounded border p-4"
       >
         <legend className="px-2 font-semibold">3. Draw teams</legend>
         <p className="text-sm">
-          This draws and saves teams; it is not a dry run. Review the roster
-          below before publishing. Participants need credentials through the
-          Participants tab.
+          Preview a draw before saving teams. Participants need credentials
+          through the Participants tab.
         </p>
         <label className="block">
           Source contest UID
@@ -522,9 +620,7 @@ export function TeamRoundPanel({
         </label>
         <button
           className={button}
-          disabled={
-            Boolean(round?.published_at) || hasClaims || Boolean(rosterError)
-          }
+          disabled={drawBlocked}
           onClick={() =>
             void action(async () => {
               const body = validateTeamBody("/seed", {
@@ -535,20 +631,74 @@ export function TeamRoundPanel({
                 add_user_uids: additions.split(/\s+/).filter(Boolean),
                 reset: Boolean(round?.seeded_at),
               });
-              if (
-                !window.confirm(
-                  round?.seeded_at
-                    ? "Replace the unpublished team draw? The API will refuse if any part is held."
-                    : "Draw and save teams from this source contest?",
-                )
-              )
-                return;
-              await mutate("/seed", body);
-            }, true)
+              setDrawPreview(null);
+              const plan = parseDrawPreview(
+                await request(base + "/seed/preview", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(body),
+                }),
+              );
+              if (mounted.current) setDrawPreview({ body, plan });
+            })
           }
         >
-          {round?.seeded_at ? "Redraw unpublished teams" : "Draw teams"}
+          {round?.seeded_at ? "Preview redraw" : "Preview draw"}
         </button>
+        {drawPreview && (
+          <section
+            className="space-y-2 rounded border p-3"
+            aria-label="Draw preview"
+          >
+            <h4 className="font-medium">Proposed teams</h4>
+            <p>
+              {drawPreview.plan.team_list.length} teams · Rank-sum spread:{" "}
+              {drawPreview.plan.rank_sum_spread}
+            </p>
+            <p className="text-sm text-slate-600">
+              Saving recalculates the draw from the live source standings. If
+              standings change after this preview, the saved teams can differ.
+              Review the saved roster before publishing.
+            </p>
+            <div className="grid gap-3 md:grid-cols-2">
+              {drawPreview.plan.team_list.map((team, index) => (
+                <article key={team.number}>
+                  <h5 className="font-medium">
+                    {team.name} · Rank sum {drawPreview.plan.rank_sums[index]}
+                  </h5>
+                  <ul>
+                    {team.members.map((member) => (
+                      <li key={member.user_uid}>
+                        {member.display_name || member.username} · Rank{" "}
+                        {member.seed_rank}
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+            <button
+              className={button}
+              disabled={drawBlocked}
+              onClick={() =>
+                void action(async () => {
+                  if (
+                    !window.confirm(
+                      round?.seeded_at
+                        ? "Replace the unpublished draw using the current source standings?"
+                        : "Save teams using the current source standings?",
+                    )
+                  )
+                    return;
+                  setDrawPreview(null);
+                  await mutate("/seed", drawPreview.body);
+                }, true)
+              }
+            >
+              {round?.seeded_at ? "Save redraw" : "Save draw"}
+            </button>
+          </section>
+        )}
       </fieldset>
       <div className="space-y-3 rounded border p-4">
         <h3 className="font-semibold">4. Review and publish</h3>
@@ -592,7 +742,7 @@ export function TeamRoundPanel({
               void action(async () => {
                 if (
                   window.confirm(
-                    "Publish these teams to participants? There is no unpublish control.",
+                    "Publish these teams to participants? Teams can only be unpublished before any part is claimed or allocation is locked.",
                   )
                 )
                   await mutate("/publish");
@@ -601,6 +751,30 @@ export function TeamRoundPanel({
           >
             Publish teams
           </button>
+          {round?.published_at && (
+            <button
+              className={button}
+              disabled={
+                !canWrite ||
+                busy ||
+                hasClaims ||
+                allocationLocked ||
+                Boolean(rosterError)
+              }
+              onClick={() =>
+                void action(async () => {
+                  if (
+                    window.confirm(
+                      "Hide the team lobby from participants? The saved draw and participant roster will remain.",
+                    )
+                  )
+                    await mutate("/unpublish");
+                }, true)
+              }
+            >
+              Unpublish teams
+            </button>
+          )}
           <button
             className={button}
             disabled={
@@ -626,6 +800,12 @@ export function TeamRoundPanel({
             Participant credentials
           </a>
         </div>
+        {round?.published_at && (hasClaims || allocationLocked) && (
+          <p className="text-sm text-slate-600">
+            Teams can only be unpublished before any part is claimed or
+            allocation is locked.
+          </p>
+        )}
         <p className="text-sm text-slate-600">
           Publishing teams does not publish the contest. Use the contest’s
           Publish control separately after checking settings and credentials.

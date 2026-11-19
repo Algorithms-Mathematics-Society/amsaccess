@@ -76,6 +76,22 @@ const schedule = (extra = {}) => ({
 });
 const MIN = 60_000;
 
+test("readiness preserves true, false and unknown from staff roster rows", () => {
+  const [{ members }] = parseTeamRoster([
+    team(1, {
+      members: [
+        { ...member(1), ready: true },
+        { ...member(2), ready: false },
+        member(3),
+        { ...member(4), ready: "false" },
+      ],
+    }),
+  ]);
+  assert.deepEqual(
+    members.map(({ ready }) => ready),
+    [true, false, null, null],
+  );
+});
 test("a realistic roster keeps the monitored fields and drops the rest", () => {
   const input = [
     team(1, {
@@ -98,6 +114,7 @@ test("a realistic roster keeps the monitored fields and drops the rest", () => {
     "votes",
   ]);
   assert.deepEqual(t.members[0], {
+    ready: null,
     user_uid: uid(1004),
     username: "user4",
     display_name: "Tester 4",
@@ -533,8 +550,9 @@ test("seed_rank is carried for the setup panel and degrades to null when invalid
 });
 
 test("optional feeds: standings, voice presence and online members degrade to null", async () => {
-  const { parseStandings, voicePresence, voiceKey, onlineUsers } =
-    await import("../../src/lib/teamMonitor.ts");
+  const { parseStandings, voicePresence, voiceKey, onlineUsers } = await import(
+    "../../src/lib/teamMonitor.ts"
+  );
   // ams-api teams.py::_board_out; rows without a usable uid/rank/score are skipped.
   const board = parseStandings({
     teams: [
@@ -572,8 +590,9 @@ test("optional feeds: standings, voice presence and online members degrade to nu
 });
 
 test("live feed freshness distinguishes empty success from failed, missing and stale reads", async () => {
-  const { feedIsCurrent, onlineUsers, voicePresence } =
-    await import("../../src/lib/teamMonitor.ts");
+  const { feedIsCurrent, onlineUsers, voicePresence } = await import(
+    "../../src/lib/teamMonitor.ts"
+  );
   assert.equal(feedIsCurrent(null, "", 100_000, 30_000), false);
   assert.equal(feedIsCurrent(99_000, "failed", 100_000, 30_000), false);
   assert.equal(feedIsCurrent(50_000, "", 100_000, 30_000), false);

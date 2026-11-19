@@ -144,7 +144,7 @@ const malformed = async ({ page, setup }) => {
   );
   assert.ok(
     await page
-      .getByRole("button", { name: "Redraw unpublished teams", exact: true })
+      .getByRole("button", { name: "Preview redraw", exact: true })
       .isDisabled(),
     "cannot redraw over an unreadable roster",
   );
