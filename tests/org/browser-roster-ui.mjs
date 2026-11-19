@@ -237,18 +237,94 @@ try {
       console.log('PASS: show-credentials serialized, row actions locked while open, copy/close retained');
     });
     await scenario(async ({ page, state, calls, row, load }) => {
+      let restoreConflict = true;
       state.write = async ({ request, url, respond }) => {
-        assert.equal(request.method(), 'POST'); assert.equal(url.pathname, '/api/org/contests/a/participants/candidate-0'); assert.equal(url.search, '?action=revoke');
-        state.roster[0] = { ...state.roster[0], revoked: true }; return respond(state.roster[0]);
+        assert.equal(request.method(), "POST");
+        assert.equal(
+          url.pathname,
+          "/api/org/contests/a/participants/candidate-0",
+        );
+        if (url.search === "?action=restore" && restoreConflict) {
+          return respond(
+            { error: "Participant already has another active credential" },
+            409,
+          );
+        }
+        assert(["?action=revoke", "?action=restore"].includes(url.search));
+        state.roster[0] = {
+          ...state.roster[0],
+          revoked: url.search === "?action=revoke",
+        };
+        return respond(state.roster[0]);
       };
-      await load(); await row(0).getByRole('button', { name: 'Revoke', exact: true }).click();
-      assert.equal(calls.filter(c => c.method === 'POST').length, 0, 'Revoke waits for confirmation');
-      await page.getByRole('dialog').getByRole('button', { name: 'Revoke login', exact: true }).click();
-      await row(0).getByText('revoked', { exact: true }).waitFor();
-      assert.equal(await row(0).getByRole('button', { name: 'Revoke', exact: true }).count(), 0);
-      assert(await row(0).getByRole('button', { name: 'Send email', exact: true }).isDisabled());
-      assert.equal(calls.filter(c => c.method === 'POST').length, 1);
-      console.log('PASS: revoke keeps exact endpoint and refreshes eligibility');
+      await load();
+      const revoke = row(0).getByRole("button", {
+        name: "Revoke",
+        exact: true,
+      });
+      const undo = row(0).getByRole("button", {
+        name: "Undo revoke",
+        exact: true,
+      });
+      const dialog = page.getByRole("dialog");
+      await revoke.click();
+      assert.equal(
+        calls.filter((c) => c.method === "POST").length,
+        0,
+        "Revoke waits for confirmation",
+      );
+      assert.match(
+        await dialog.innerText(),
+        /across all their contests.*Undo revoke/s,
+      );
+      await dialog
+        .getByRole("button", { name: "Revoke login", exact: true })
+        .click();
+      await row(0).getByText("revoked", { exact: true }).waitFor();
+      assert.equal(await revoke.count(), 0);
+      assert(
+        await row(0)
+          .getByRole("button", { name: "Send email", exact: true })
+          .isDisabled(),
+      );
+
+      await undo.click();
+      assert.match(
+        await dialog.innerText(),
+        /across all their contests.*existing password stays the same/s,
+      );
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      assert.equal(calls.filter((c) => c.method === "POST").length, 1);
+
+      await undo.click();
+      await dialog
+        .getByRole("button", { name: "Restore login", exact: true })
+        .click();
+      await row(0)
+        .getByRole("alert")
+        .filter({ hasText: /already has another active credential/ })
+        .waitFor();
+      assert(await row(0).getByText("revoked", { exact: true }).isVisible());
+
+      restoreConflict = false;
+      await undo.click();
+      await dialog
+        .getByRole("button", { name: "Restore login", exact: true })
+        .click();
+      await revoke.waitFor();
+      assert(
+        await row(0)
+          .getByRole("button", { name: "Send email", exact: true })
+          .isEnabled(),
+      );
+      assert.equal(await row(0).getByRole("alert").count(), 0);
+      assert.deepEqual(
+        calls.filter((c) => c.method === "POST").map((c) => c.query),
+        ["?action=revoke", "?action=restore", "?action=restore"],
+      );
+      console.log(
+        "PASS: confirmed revoke and Undo refresh eligibility, cancellation and conflicts preserve revocation",
+      );
     });
     await scenario(async ({ page, state, row, load }) => {
       state.roster[0].email = 'a-very-long-candidate-email-address-that-must-remain-readable@example-college.test';

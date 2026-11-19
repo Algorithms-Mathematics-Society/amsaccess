@@ -20,7 +20,13 @@ try {
   if(p===`/api/org/contests/${uid}`)return ok({uid,title:'Bulk test',slug:'bulk-test',status:'scheduled',starts_at:'2026-12-01T10:00:00Z',ends_at:'2026-12-01T13:00:00Z',invite_code:'TEST',is_practice:false,problems:[],joined:false,frozen:false});
   if(p.endsWith('/participants')&&route.request().method()==='GET')return ok(roster);
   const m=p.match(/\/participants\/(p\d)$/);
-  if(m&&u.searchParams.get('action')==='revoke'){revokes.push(m[1]);return m[1]==='p2'?ok({error:'Mock failure'},500):ok({...person(+m[1][1]),revoked:true});}
+  if (m && u.searchParams.get("action") === "revoke") {
+    revokes.push(m[1]);
+    if (m[1] === "p2") return ok({ error: "Mock failure" }, 500);
+    const row = roster.find((row) => row.login_id === m[1]);
+    row.revoked = true;
+    return ok(row);
+  }
   if(route.request().method()!=='GET')return ok({error:'unexpected write'},405);
   return ok(p.endsWith('/summary')?{total:0,pending:0,verdicts:{}}:[]);
  });
@@ -30,12 +36,26 @@ try {
  await page.getByText('4 selected · 0 can be emailed · 3 can be revoked').waitFor();
  await page.getByRole('button',{name:'Revoke selected'}).click();
  const dialog=page.getByRole('dialog');
+ assert.match(
+   await dialog.innerText(),
+   /across all of that person’s contests.*hidden by filters.*Undo revoke/s,
+ );
  const go=dialog.getByRole('button',{name:'Revoke 3'});
  assert(await go.isDisabled(),'typed confirmation required');
  await dialog.getByRole('textbox').fill('revoke');
  await go.click();
  await page.getByText('2 revoked · 1 failed · 0 skipped',{exact:false}).waitFor();
  assert.deepEqual(revokes.sort(),['p1','p2','p3'],'already-revoked p4 is not sent');
+ const row = (name) =>
+   page
+     .getByRole("row")
+     .filter({ has: page.getByRole("button", { name, exact: true }) });
+ await row("Person 1")
+   .getByRole("button", { name: "Undo revoke", exact: true })
+   .waitFor();
+ await row("Person 3")
+   .getByRole("button", { name: "Undo revoke", exact: true })
+   .waitFor();
  await page.getByText('1 selected',{exact:false}).waitFor();
  assert(await page.getByRole('checkbox',{name:'Select Person 2 (p2)'}).isChecked(),'the failure stays selected for retry');
  assert.deepEqual(errors,[]);

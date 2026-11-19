@@ -33,6 +33,7 @@ async function until(fn, label = "Condition not reached") {
 }
 const at = (m) =>
   new Date(Date.parse("2026-11-16T10:00:00Z") + m * 60_000).toISOString();
+const contestUid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const T1 = "11111111-1111-4111-8111-111111111111",
   T2 = "22222222-2222-4222-8222-222222222222",
   T3 = "33333333-3333-4333-8333-333333333333",
@@ -86,15 +87,12 @@ const readiness = [
     created_at: at(2),
   },
 ];
-// Two org inbox pages: the contest filter is client-side, so the other contest's ticket must not show.
-const openPages = [
-  [
-    ticket(T1, "a", "Tara Ticket", "open", -30),
-    ticket(T2, "other", "Elsewhere Person", "open", -40),
-  ],
-  [ticket(T3, "a", "Uma Ticket", "open", -20)],
+const openTickets = [
+  ticket(T1, contestUid, "Tara Ticket", "open", -30),
+  ticket(T2, "other", "Elsewhere Person", "open", -40),
+  ticket(T3, contestUid, "Uma Ticket", "open", -20),
 ];
-const resolvedTickets = [ticket(T4, "a", "Old Ticket", "resolved", -50)];
+const resolvedTickets = [ticket(T4, contestUid, "Old Ticket", "resolved", -50)];
 await page.route("**/*", async (route) => {
   const req = route.request(),
     url = new URL(req.url());
@@ -110,9 +108,9 @@ await page.route("**/*", async (route) => {
     } catch {}
   };
   if (url.pathname === "/api/auth/me") return ok({ role: "admin" });
-  if (url.pathname === "/api/org/contests/a")
+  if (url.pathname === `/api/org/contests/${contestUid}`)
     return ok({
-      uid: "a",
+      uid: contestUid,
       title: "Inbox contest",
       status: "running",
       starts_at: "2026-01-01",
@@ -125,18 +123,21 @@ await page.route("**/*", async (route) => {
   if (url.pathname.endsWith("/submissions/summary"))
     return ok({ total: 0, pending: 0, verdicts: {} });
   if (url.pathname === "/api/org/support") {
-    if (url.searchParams.get("status") === "resolved")
-      return ok({ items: resolvedTickets, has_more: false });
+    const status = url.searchParams.get("status");
+    const scope = url.searchParams.get("contest_uid");
     const offset = Number(url.searchParams.get("offset"));
-    return ok(
-      offset === 0
-        ? { items: openPages[0], has_more: true }
-        : { items: openPages[1], has_more: false },
-    );
+    const items = (
+      status === "resolved" ? resolvedTickets : openTickets
+    ).filter((item) => scope === null || item.contest_uid === scope);
+    const limit = scope ? 1 : 2;
+    return ok({
+      items: items.slice(offset, offset + limit),
+      has_more: items.length > offset + limit,
+    });
   }
   if (url.pathname === `/api/org/support/${T1}`)
     return ok({
-      ...openPages[0][0],
+      ...openTickets[0],
       messages: [
         {
           uid: "55555555-5555-4555-8555-555555555555",
@@ -195,7 +196,7 @@ const typeChip = (name) =>
     .getByRole("button", { name: new RegExp(`^${name} \\d+$`) });
 const posts = () => calls.filter((c) => c.method === "POST");
 try {
-  await page.goto(base + "/org/contests/a#invigilation");
+  await page.goto(`${base}/org/contests/${contestUid}#invigilation`);
   await list().waitFor();
   await until(async () => (await rows()).length === 5, "five open issues");
   assert.deepEqual(await rows(), [
@@ -212,7 +213,10 @@ try {
   );
   assert.deepEqual(
     calls.filter((c) => c.path === "/api/org/support").map((c) => c.query),
-    ["?status=open&offset=0", "?status=open&offset=2"],
+    [
+      `?status=open&offset=0&contest_uid=${contestUid}`,
+      `?status=open&offset=1&contest_uid=${contestUid}`,
+    ],
   );
   for (const view of ["resume-requests", "incidents"])
     assert.equal(
@@ -301,7 +305,7 @@ try {
     calls.some(
       (c) =>
         c.path === "/api/org/support" &&
-        c.query === "?status=resolved&offset=0",
+        c.query === `?status=resolved&offset=0&contest_uid=${contestUid}`,
     ),
   );
   assert.equal(
@@ -361,9 +365,16 @@ try {
     true,
     "no full page reload",
   );
+  await page.getByText("Elsewhere Person", { exact: true }).waitFor();
+  assert(
+    calls.some(
+      (c) =>
+        c.path === "/api/org/support" && c.query === "?status=open&offset=0",
+    ),
+  );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: open ticket deep-links to the conversation without a reload; no browser errors",
+    "PASS: open ticket deep-links to the conversation without a reload; the support inbox still spans all contests",
   );
 } finally {
   await browser.close();

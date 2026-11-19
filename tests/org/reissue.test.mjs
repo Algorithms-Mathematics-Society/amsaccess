@@ -21,8 +21,9 @@ const route = compile(
   ),
 );
 
-test("proxy requests stored credentials and never caches passwords", async () => {
+test("proxy requests stored credentials and restores the same login", async () => {
   const calls = [];
+  let restoreResponse = { ok: true, data: { revoked: false } };
   const context = {
     exports: {},
     URL,
@@ -37,7 +38,9 @@ test("proxy requests stored credentials and never caches passwords", async () =>
         return {
           callAmsApi: async (...args) => {
             calls.push(args);
-            return { ok: true, data: { password: "synthetic-only" } };
+            return args[1].endsWith("/restore")
+              ? restoreResponse
+              : { ok: true, data: { password: "synthetic-only" } };
           },
           errorMessage: String,
         };
@@ -45,10 +48,10 @@ test("proxy requests stored credentials and never caches passwords", async () =>
     },
   };
   vm.runInNewContext(route, context);
-  const send = (action) =>
+  const send = (action, loginId = "candidate") =>
     context.exports.POST(
       { url: `https://portal.test/?action=${action}` },
-      { params: Promise.resolve({ uid: "contest", loginId: "candidate" }) },
+      { params: Promise.resolve({ uid: "contest", loginId }) },
     );
   assert.equal((await send("unknown")).status, 400);
   assert.equal(calls.length, 0);
@@ -61,6 +64,19 @@ test("proxy requests stored credentials and never caches passwords", async () =>
     );
     assert.equal(Object.keys(calls.at(-1)[2]).length, 0);
   }
+  const restored = await send("restore", "candidate@test");
+  assert.equal(restored.headers["Cache-Control"], "no-store");
+  assert.equal(restored.data.revoked, false);
+  const [method, path, body, subject] = calls.at(-1);
+  assert.equal(method, "POST");
+  assert.equal(path, "/contests/contest/participants/candidate%40test/restore");
+  assert.equal(subject, "staff");
+  assert.equal(Object.keys(body).length, 0);
+
+  restoreResponse = { ok: false, status: 409, data: "Already active" };
+  const conflict = await send("restore");
+  assert.equal(conflict.status, 409);
+  assert.equal(conflict.data.error, "Already active");
 });
 
 const panel = readFileSync(
