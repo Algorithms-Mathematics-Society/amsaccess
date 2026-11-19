@@ -16,7 +16,10 @@ import {
   loadSupportThread,
   type SupportInbox as InboxData,
   type SupportThread,
+  type SupportSummary,
 } from "@/lib/client/support";
+import { ContestReadProvider } from "@/lib/client/useContestRead";
+import { ParticipantModal } from "./ParticipantModal";
 import {
   readSupportDraft,
   saveSupportDraft,
@@ -26,6 +29,17 @@ import { OrgAstryxTheme } from "./OrgAstryxTheme";
 
 const messageError = (e: unknown) =>
   e instanceof Error ? e.message : "Unable to load support.";
+
+function trustedPerson(ticket: SupportSummary) {
+  const uuid =
+    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+  return typeof ticket.user_uid === "string" &&
+    uuid.test(ticket.user_uid) &&
+    typeof ticket.contest_uid === "string" &&
+    uuid.test(ticket.contest_uid)
+    ? { userUid: ticket.user_uid, contestUid: ticket.contest_uid }
+    : null;
+}
 
 /** Visible on the main dashboard, independently of any contest. */
 export function SupportAttention() {
@@ -98,12 +112,35 @@ export function SupportInbox() {
 }
 
 function Inbox() {
+  const { role, known } = useOrgRole();
+  const [person, setPerson] = useState<{
+    userUid: string;
+    contestUid: string;
+  } | null>(null);
+  const canReadPerson =
+    known &&
+    [
+      "owner",
+      "admin",
+      "problemsetter",
+      "contest_manager",
+      "judge_manager",
+    ].includes(role ?? "");
   const [filter, setFilter] = useState<"open" | "resolved">("open");
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<InboxData | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    const reset = () => setPerson(null);
+    window.addEventListener("ams:org-session-reset", reset);
+    window.addEventListener("ams:org-signed-out", reset);
+    return () => {
+      window.removeEventListener("ams:org-session-reset", reset);
+      window.removeEventListener("ams:org-signed-out", reset);
+    };
+  }, []);
   // Opened from a contest's issues inbox as /org/support?t=<ticket uid>; read after hydration.
   useEffect(() => {
     const ticket = new URLSearchParams(window.location.search).get("t");
@@ -201,6 +238,13 @@ function Inbox() {
             >
               <HStack gap={2} justify="between" align="start" wrap="wrap">
                 <Text>{item.name}</Text>
+                {canReadPerson && trustedPerson(item) && (
+                  <Button
+                    label="View participant"
+                    variant="ghost"
+                    onClick={() => setPerson(trustedPerson(item))}
+                  />
+                )}
                 <Text type="supporting">
                   {item.category.toLowerCase().replaceAll("_", " ")}
                 </Text>
@@ -253,6 +297,11 @@ function Inbox() {
               key={selected}
               uid={selected}
               onChange={() => setRefresh((n) => n + 1)}
+              onOpenPerson={
+                canReadPerson
+                  ? (ticket) => setPerson(trustedPerson(ticket))
+                  : undefined
+              }
             />
           ) : (
             <Text color="secondary">
@@ -261,17 +310,35 @@ function Inbox() {
           )}
         </VStack>
       </HStack>
+      {person && canReadPerson && (
+        <ContestReadProvider
+          key={person.contestUid}
+          contestUid={person.contestUid}
+        >
+          <ParticipantModal
+            handle={person.userUid}
+            onClose={() => setPerson(null)}
+            contest={{ uid: person.contestUid, live: true }}
+          />
+        </ContestReadProvider>
+      )}
     </VStack>
   );
 }
 
-function Conversation({
+export function Conversation({
   uid,
   onChange,
+  person,
+  onOpenPerson,
 }: {
   uid: string;
   onChange: () => void;
+  person?: { userUid: string; contestUid: string };
+  onOpenPerson?: (ticket: SupportSummary) => void;
 }) {
+  const scopedUserUid = person?.userUid;
+  const scopedContestUid = person?.contestUid;
   const [thread, setThread] = useState<SupportThread | null>(null);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState<{ uid: string; body: string } | null>(
@@ -332,6 +399,17 @@ function Conversation({
             const last = messages.current.at(-1)?.uid;
             const d = await loadSupportThread(uid, last, signal);
             if (stopped) return;
+            if (
+              scopedUserUid &&
+              (d.user_uid !== scopedUserUid ||
+                d.contest_uid !== scopedContestUid)
+            ) {
+              messages.current = [];
+              setThread(null);
+              throw new Error(
+                "This ticket is no longer linked to the selected participant and contest.",
+              );
+            }
             const seen = new Set(messages.current.map((m) => m.uid));
             const nextMessages = [
               ...messages.current,
@@ -348,7 +426,13 @@ function Conversation({
             more = d.has_more;
           }
         } catch (e) {
-          if (!stopped) setReadError(messageError(e));
+          if (!stopped) {
+            if ([401, 403].includes((e as { status?: number })?.status ?? 0)) {
+              messages.current = [];
+              setThread(null);
+            }
+            setReadError(messageError(e));
+          }
           throw e;
         }
       },
@@ -358,7 +442,7 @@ function Conversation({
       stopped = true;
       stop();
     };
-  }, [uid, refresh]);
+  }, [uid, refresh, scopedUserUid, scopedContestUid]);
   useEffect(() => {
     if (stream.current) stream.current.scrollTop = stream.current.scrollHeight;
   }, [thread?.messages.length]);
@@ -368,6 +452,10 @@ function Conversation({
     if (
       !ready ||
       inFlight.current ||
+      (person &&
+        (!thread ||
+          thread.user_uid !== person.userUid ||
+          thread.contest_uid !== person.contestUid)) ||
       thread?.chat_enabled === false ||
       (!pending && thread?.status !== "open")
     )
@@ -409,6 +497,12 @@ function Conversation({
   }
   async function changeStatus() {
     if (!thread || inFlight.current) return;
+    if (
+      person &&
+      (thread.user_uid !== person.userUid ||
+        thread.contest_uid !== person.contestUid)
+    )
+      return;
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -466,6 +560,13 @@ function Conversation({
           <Heading level={3} accessibilityLevel={2}>
             {thread.name}
           </Heading>
+          {onOpenPerson && trustedPerson(thread) && (
+            <Button
+              label="View participant"
+              variant="secondary"
+              onClick={() => onOpenPerson(thread)}
+            />
+          )}
           <Text>
             {thread.email} · {thread.phone}
           </Text>
