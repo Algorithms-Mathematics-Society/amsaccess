@@ -156,6 +156,11 @@ try {
   status = "archived";
   await page.clock.fastForward(12_000);
   await page.getByText("archived", { exact: true }).waitFor();
+  await checklist.click();
+  await page
+    .getByRole("heading", { name: "Contest workflow", exact: true })
+    .waitFor();
+  assert.equal(new URL(page.url()).pathname, "/org/contests/a/workflow");
   assert.deepEqual(errors, []);
   console.log(
     "PASS scheduled start and end refresh status, live overview, strip navigation, and checklist link",
