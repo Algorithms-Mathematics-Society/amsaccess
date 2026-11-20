@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import {
+  DRAW_METHODS,
   PROJECT_LIMIT,
   TEAM_WRITERS,
+  parseContestOptions,
   parseDrawPreview,
   parseProjectCatalog,
   validateTeamBody,
   type CatalogProject,
+  type ContestOption,
   type DrawPreview,
 } from "@/lib/teamSetup";
 import { parseTeamRoster, type MonitorTeam } from "@/lib/teamMonitor";
@@ -84,14 +87,17 @@ export function TeamRoundPanel({
   const [locks, setLocks] = useState("");
   const [deadline, setDeadline] = useState("");
   const [source, setSource] = useState(contestUid);
+  const [contests, setContests] = useState<ContestOption[] | null>(null);
+  const [typedSource, setTypedSource] = useState(false);
   const [take, setTake] = useState(4);
   const [method, setMethod] = useState("snake");
   const [bands, setBands] = useState(4);
   const [additions, setAdditions] = useState("");
-  const [drawPreview, setDrawPreview] = useState<{
-    body: Record<string, unknown>;
-    plan: DrawPreview;
-  } | null>(null);
+  type Draw = { body: Record<string, unknown>; plan: DrawPreview };
+  const [drawPreview, setDrawPreview] = useState<Draw | null>(null);
+  const [comparison, setComparison] = useState<
+    (Draw & { method: string })[] | null
+  >(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [imported, setImported] = useState(false);
@@ -101,6 +107,7 @@ export function TeamRoundPanel({
   const flight = useRef(false);
   const mounted = useRef(true);
   const base = `/api/org/contests/${encodeURIComponent(contestUid)}/team-round`;
+  const catalogPath = `/api/org/projects?contest_uid=${encodeURIComponent(contestUid)}`;
 
   async function request(path: string, init: RequestInit = {}, absent = false) {
     const abort = new AbortController();
@@ -166,7 +173,7 @@ export function TeamRoundPanel({
     await load();
     if (!mounted.current) return;
     try {
-      const catalog = parseProjectCatalog(await request("/api/org/projects"));
+      const catalog = parseProjectCatalog(await request(catalogPath));
       if (mounted.current) {
         setProjects(catalog);
         setCatalogUnavailable(false);
@@ -174,6 +181,27 @@ export function TeamRoundPanel({
     } catch {
       if (mounted.current) setCatalogUnavailable(true);
     }
+    // Best effort: without the list, the source contest UID can still be typed.
+    const list = await request("/api/org/contests").catch(() => null);
+    if (mounted.current) setContests(parseContestOptions(list));
+  }
+  async function previewDraw(drawMethod: string): Promise<Draw> {
+    const body = validateTeamBody("/seed", {
+      source_contest_uid: source,
+      take,
+      method: drawMethod,
+      bands,
+      add_user_uids: additions.split(/\s+/).filter(Boolean),
+      reset: Boolean(round?.seeded_at),
+    });
+    const plan = parseDrawPreview(
+      await request(base + "/seed/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+    return { body, plan };
   }
   async function action(work: () => Promise<void>, mutation = false) {
     if (flight.current) return;
@@ -213,14 +241,14 @@ export function TeamRoundPanel({
   const hasClaims = teams.some((t) => t.members.some((m) => m.part_label));
   const allocationLocked = Boolean(
     round?.allocation_locked_at ||
-      (round?.allocation_locks_at &&
-        Date.parse(round.allocation_locks_at) <= Date.now()),
+    (round?.allocation_locks_at &&
+      Date.parse(round.allocation_locks_at) <= Date.now()),
   );
   const drawBlocked = Boolean(
     round?.published_at ||
-      hasClaims ||
-      rosterError ||
-      (frozen && allocationLocked),
+    hasClaims ||
+    rosterError ||
+    (frozen && allocationLocked),
   );
   const projectPartCount = projects.find(
     (item) => item.uid === project,
@@ -328,10 +356,13 @@ export function TeamRoundPanel({
                 throw new Error("Choose a package up to 32 MiB.");
               const form = new FormData();
               form.set("package", file);
-              const result = await request("/api/org/projects/inspect", {
-                method: "POST",
-                body: form,
-              });
+              const result = await request(
+                `/api/org/projects/inspect?contest_uid=${encodeURIComponent(contestUid)}`,
+                {
+                  method: "POST",
+                  body: form,
+                },
+              );
               if (mounted.current) setPreview(result);
             })
           }
@@ -367,7 +398,7 @@ export function TeamRoundPanel({
                     return;
                   const form = new FormData();
                   form.set("package", file);
-                  const result = await request("/api/org/projects", {
+                  const result = await request(catalogPath, {
                     method: "POST",
                     body: form,
                   });
@@ -556,7 +587,10 @@ export function TeamRoundPanel({
       </form>
       <fieldset
         disabled={!canWrite || busy || !loaded || !round}
-        onChangeCapture={() => setDrawPreview(null)}
+        onChangeCapture={() => {
+          setDrawPreview(null);
+          setComparison(null);
+        }}
         className="space-y-4 rounded border p-4"
       >
         <legend className="px-2 font-semibold">3. Draw teams</legend>
@@ -564,14 +598,51 @@ export function TeamRoundPanel({
           Preview a draw before saving teams. Participants need credentials
           through the Participants tab.
         </p>
-        <label className="block">
-          Source contest UID
-          <input
-            className={input}
-            value={source}
-            onChange={(e) => setSource(e.target.value.trim())}
-          />
-        </label>
+        {contests?.length && !typedSource ? (
+          <label className="block">
+            Source contest
+            <select
+              className={input}
+              value={contests.some((c) => c.uid === source) ? source : ""}
+              onChange={(e) =>
+                e.target.value === "other"
+                  ? setTypedSource(true)
+                  : setSource(e.target.value)
+              }
+            >
+              {!contests.some((c) => c.uid === source) && (
+                <option value="">Choose the contest to rank from</option>
+              )}
+              {contests.map((c) => (
+                <option key={c.uid} value={c.uid}>
+                  {c.title}
+                  {c.uid === contestUid ? " (this contest)" : ""}
+                </option>
+              ))}
+              <option value="other">Another contest (enter its UID)…</option>
+            </select>
+          </label>
+        ) : (
+          <div>
+            <label className="block">
+              Source contest UID
+              <input
+                className={input}
+                value={source}
+                onChange={(e) => setSource(e.target.value.trim())}
+              />
+            </label>
+            {contests?.length ? (
+              <button
+                type="button"
+                className="mt-1 text-sm underline"
+                onClick={() => setTypedSource(false)}
+              >
+                Choose from the contest list
+              </button>
+            ) : null}
+          </div>
+        )}
         <div className="grid gap-4 md:grid-cols-3">
           <label>
             Top-ranked count
@@ -591,9 +662,11 @@ export function TeamRoundPanel({
               value={method}
               onChange={(e) => setMethod(e.target.value)}
             >
-              <option value="snake">Snake — balanced across ranks</option>
-              <option value="tiered">Tiered — consecutive ranks</option>
-              <option value="banded">Banded — balanced within tiers</option>
+              {DRAW_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
             </select>
           </label>
           {method === "banded" && (
@@ -618,33 +691,84 @@ export function TeamRoundPanel({
             onChange={(e) => setAdditions(e.target.value)}
           />
         </label>
-        <button
-          className={button}
-          disabled={drawBlocked}
-          onClick={() =>
-            void action(async () => {
-              const body = validateTeamBody("/seed", {
-                source_contest_uid: source,
-                take,
-                method,
-                bands,
-                add_user_uids: additions.split(/\s+/).filter(Boolean),
-                reset: Boolean(round?.seeded_at),
-              });
-              setDrawPreview(null);
-              const plan = parseDrawPreview(
-                await request(base + "/seed/preview", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(body),
-                }),
-              );
-              if (mounted.current) setDrawPreview({ body, plan });
-            })
-          }
-        >
-          {round?.seeded_at ? "Preview redraw" : "Preview draw"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className={button}
+            disabled={drawBlocked}
+            onClick={() =>
+              void action(async () => {
+                setDrawPreview(null);
+                const draw = await previewDraw(method);
+                if (mounted.current) setDrawPreview(draw);
+              })
+            }
+          >
+            {round?.seeded_at ? "Preview redraw" : "Preview draw"}
+          </button>
+          <button
+            className={button}
+            disabled={drawBlocked}
+            onClick={() =>
+              void action(async () => {
+                setComparison(null);
+                const rows = [];
+                for (const m of DRAW_METHODS)
+                  rows.push({
+                    method: m.value,
+                    ...(await previewDraw(m.value)),
+                  });
+                if (mounted.current) setComparison(rows);
+              })
+            }
+          >
+            Compare methods
+          </button>
+        </div>
+        {comparison && (
+          <table
+            className="w-full text-left text-sm"
+            aria-label="Method comparison"
+          >
+            <thead>
+              <tr>
+                <th scope="col">Method</th>
+                <th scope="col">Teams</th>
+                <th scope="col">Rank-sum spread</th>
+                <th scope="col">Rank sums (lowest–highest)</th>
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparison.map((row) => (
+                <tr key={row.method}>
+                  <th scope="row" className="font-normal">
+                    {DRAW_METHODS.find((m) => m.value === row.method)?.label}
+                  </th>
+                  <td>{row.plan.team_list.length}</td>
+                  <td>{row.plan.rank_sum_spread}</td>
+                  <td>
+                    {Math.min(...row.plan.rank_sums)}–
+                    {Math.max(...row.plan.rank_sums)}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={() => {
+                        setMethod(row.method);
+                        setDrawPreview(row);
+                      }}
+                    >
+                      Review this draw
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
         {drawPreview && (
           <section
             className="space-y-2 rounded border p-3"

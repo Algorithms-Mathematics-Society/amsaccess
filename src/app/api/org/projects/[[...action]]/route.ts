@@ -2,7 +2,16 @@ import { NextResponse } from "next/server";
 import { teamAccess } from "@/lib/server/teamAccess";
 import { callAmsApi, uploadToAmsApi, errorMessage } from "@/lib/server/amsApi";
 import { boundedForm } from "@/lib/server/boundedUpload";
-import { PROJECT_LIMIT } from "@/lib/teamSetup";
+import { PROJECT_LIMIT, UUID } from "@/lib/teamSetup";
+
+// The catalog belongs to the contest's organization; ams-api checks the caller is its staff.
+function scoped(request: Request, path: string): string | null {
+  const contest = new URL(request.url).searchParams.get("contest_uid");
+  if (contest === null) return path;
+  return UUID.test(contest) ? `${path}?contest_uid=${contest}` : null;
+}
+const BAD_CONTEST = () =>
+  NextResponse.json({ error: "Unknown contest." }, { status: 400 });
 export async function GET(
   request: Request,
   context: { params: Promise<{ action?: string[] }> },
@@ -15,9 +24,11 @@ export async function GET(
       { error: "Unknown project operation." },
       { status: 404 },
     );
+  const path = scoped(request, "/projects");
+  if (path === null) return BAD_CONTEST();
   const res = await callAmsApi(
     "GET",
-    "/projects",
+    path,
     null,
     subject,
     25000,
@@ -40,6 +51,11 @@ export async function POST(
       { error: "Unknown project operation." },
       { status: 404 },
     );
+  const path = scoped(
+    request,
+    action.length ? "/projects/inspect" : "/projects",
+  );
+  if (path === null) return BAD_CONTEST();
   const length = Number(request.headers.get("content-length"));
   if (length > PROJECT_LIMIT + 65536)
     return NextResponse.json(
@@ -68,11 +84,7 @@ export async function POST(
     );
   const form = new FormData();
   form.set("package", file);
-  const res = await uploadToAmsApi(
-    action.length ? "/projects/inspect" : "/projects",
-    form,
-    subject,
-  );
+  const res = await uploadToAmsApi(path, form, subject);
   return NextResponse.json(
     res.ok
       ? res.data
