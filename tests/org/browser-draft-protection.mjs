@@ -89,6 +89,9 @@ async function scenario(run, fallback = false) {
       return ok([]);
     if (url.pathname.endsWith("/submissions/summary"))
       return ok({ total: 0, pending: 0, verdicts: {} });
+    // The support inbox polls on its own timer, so whether it fires during a scenario is timing.
+    if (url.pathname === "/api/org/support" && request.method() === "GET")
+      return ok({ items: [], has_more: false });
     errors.push(`Unexpected ${request.method()} ${url.pathname}`);
     return ok([]);
   });
