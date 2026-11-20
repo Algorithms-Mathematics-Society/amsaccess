@@ -204,7 +204,18 @@ try {
     .getByRole("option", { name: "reminder — Reminder" })
     .waitFor({ state: "attached" });
   templateGate = gate();
-  await page.getByRole("button", { name: "Templates", exact: true }).click();
+  const sends = page.getByRole("tab", { name: "Sends" });
+  const templates = page.getByRole("tab", { name: "Templates" });
+  await sends.focus();
+  await page.keyboard.press("ArrowRight");
+  assert(await templates.evaluate((el) => el === document.activeElement));
+  assert.equal(await sends.getAttribute("aria-selected"), "true");
+  await page.keyboard.press("Space");
+  assert.equal(await templates.getAttribute("aria-selected"), "true");
+  assert.equal(
+    await page.getByRole("tabpanel", { name: "Templates" }).count(),
+    1,
+  );
   await until(() =>
     calls.some(
       (c) => c.path === "/api/org/mail/templates" && c.query === "?variables=1",
@@ -214,7 +225,7 @@ try {
   await page.getByRole("cell", { name: "reminder", exact: true }).waitFor();
   console.log("PASS: both mail request pairs start concurrently");
 
-  await page.getByRole("button", { name: "Sends", exact: true }).click();
+  await page.getByRole("tab", { name: "Sends", exact: true }).click();
   await page.getByText("Test batch", { exact: true }).click();
   await page.getByRole("heading", { name: "Test batch" }).waitFor();
   const listCount = count("/api/org/mail/batches");

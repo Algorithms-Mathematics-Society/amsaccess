@@ -148,7 +148,7 @@ function IdentityDialog({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="min-h-11 min-w-11 xl:min-h-0 xl:min-w-0 rounded-lg p-2.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 xl:p-1.5"
+            className="min-h-[24px] min-w-[24px] rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
           >
             <X className="h-4 w-4" />
           </button>

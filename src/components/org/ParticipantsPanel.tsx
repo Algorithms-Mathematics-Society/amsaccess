@@ -5,6 +5,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -1333,6 +1334,21 @@ const RosterTable = memo(function RosterTable({
 }) {
   // Opened over the contest instead of navigating away: /org/participants
   // belongs to the Students section, so Back from there abandons the contest.
+  const overflowHintId = useId();
+  const tableScroll = useRef<HTMLDivElement>(null);
+  const [tableOverflows, setTableOverflows] = useState(false);
+  useEffect(() => {
+    const scroll = tableScroll.current;
+    const table = scroll?.firstElementChild;
+    if (!scroll || !table) return;
+    const update = () =>
+      setTableOverflows(scroll.scrollWidth > scroll.clientWidth);
+    const resize = new ResizeObserver(update);
+    resize.observe(scroll);
+    resize.observe(table);
+    update();
+    return () => resize.disconnect();
+  }, []);
   const [openParticipant, setOpenParticipant] = useState<string | null>(null);
   const [reissued, setReissued] = useState<IssuedCredential | null>(null);
   const [actions, setActions] = useState<Record<string, RowActionState>>({});
@@ -2031,16 +2047,25 @@ const RosterTable = memo(function RosterTable({
           </p>
         )}
       </div>
-      <p className="mb-2 text-xs text-slate-500 lg:hidden">
-        Scroll the table sideways to see email and actions.
-      </p>
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      {tableOverflows && (
+        <p id={overflowHintId} className="mb-2 text-xs text-slate-600">
+          Scroll the table sideways to see more columns.
+        </p>
+      )}
+      <div
+        ref={tableScroll}
+        role="region"
+        aria-label="Participant roster"
+        aria-describedby={tableOverflows ? overflowHintId : undefined}
+        tabIndex={tableOverflows ? 0 : undefined}
+        className="overflow-x-auto rounded-xl border border-slate-200 bg-white"
+      >
         <table
           className="w-full min-w-[1120px] table-fixed text-sm"
           aria-label="Contest participants"
         >
           <colgroup>
-            <col className="w-[40px]" />
+            <col className="w-[28px] [@media(pointer:coarse)]:w-[44px]" />
             <col className="w-[16%]" />
             <col className="w-[18%]" />
             <col className="w-[10%]" />
@@ -2050,27 +2075,34 @@ const RosterTable = memo(function RosterTable({
           </colgroup>
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th scope="col" className="px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  aria-label={`Select all ${selectableVisible.length} shown`}
-                  checked={allVisibleSelected}
-                  disabled={bulkBusy || selectableVisible.length === 0}
-                  ref={(el) => {
-                    if (el)
-                      el.indeterminate =
-                        someVisibleSelected && !allVisibleSelected;
-                  }}
-                  onChange={toggleVisible}
-                  className="h-4 w-4 accent-slate-900"
-                />
+              <th scope="col" className="p-0">
+                <label className="flex min-h-[24px] min-w-[24px] items-center justify-center [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]">
+                  <input
+                    type="checkbox"
+                    aria-label={`Select all ${selectableVisible.length} shown`}
+                    checked={allVisibleSelected}
+                    disabled={bulkBusy || selectableVisible.length === 0}
+                    ref={(el) => {
+                      if (el)
+                        el.indeterminate =
+                          someVisibleSelected && !allVisibleSelected;
+                    }}
+                    onChange={toggleVisible}
+                    className="h-4 w-4 accent-slate-900"
+                  />
+                </label>
               </th>
               <th className="px-4 py-2.5">Name</th>
               <th className="px-4 py-2.5">Handle</th>
               <th className="px-4 py-2.5">Status</th>
               <th className="px-4 py-2.5">Email</th>
               <th className="px-4 py-2.5">Credential email</th>
-              <th className="px-4 py-2.5 text-right">Actions</th>
+              <th
+                scope="col"
+                className="px-4 py-2.5 text-right sm:sticky sm:right-0 sm:z-10 sm:border-l sm:border-slate-200 sm:bg-slate-50"
+              >
+                Actions
+              </th>
             </tr>
           </thead>
           {tableBody}
@@ -2126,15 +2158,17 @@ const RosterRow = memo(
   }) {
     return (
       <tr>
-        <td className="px-3 py-2.5">
-          <input
-            type="checkbox"
-            aria-label={`Select ${row.display_name} (${row.login_id})`}
-            checked={selected}
-            disabled={!selected && (pending !== null || credentialLocked)}
-            onChange={() => onSelect(row.login_id)}
-            className="h-4 w-4 accent-slate-900"
-          />
+        <td className="p-0">
+          <label className="flex min-h-[24px] min-w-[24px] items-center justify-center [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]">
+            <input
+              type="checkbox"
+              aria-label={`Select ${row.display_name} (${row.login_id})`}
+              checked={selected}
+              disabled={!selected && (pending !== null || credentialLocked)}
+              onChange={() => onSelect(row.login_id)}
+              className="h-4 w-4 accent-slate-900"
+            />
+          </label>
         </td>
         <td className="px-4 py-2.5 text-slate-700">
           {/* The profile is reachable from the Students directory but
@@ -2145,7 +2179,7 @@ const RosterRow = memo(
           <button
             type="button"
             onClick={() => onOpen(row.user_uid)}
-            className={`break-words text-left font-medium hover:underline ${entered ? "text-emerald-700" : "text-slate-900"}`}
+            className={`min-h-[24px] break-words text-left font-medium hover:underline [@media(pointer:coarse)]:min-h-[44px] ${entered ? "text-emerald-700" : "text-slate-900"}`}
           >
             {row.display_name}
             {entered && (
@@ -2210,7 +2244,7 @@ const RosterRow = memo(
                           ? "Email accepted into the queue; delivery is not yet confirmed"
                           : "Queue a fresh credential email"
                   }
-                  className="inline-flex min-h-8 w-[108px] items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-50"
+                  className="inline-flex min-h-8 w-[108px] items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-50 [@media(pointer:coarse)]:min-h-[44px]"
                 >
                   {pending === "reemail" ? (
                     <Loader2
@@ -2245,14 +2279,14 @@ const RosterRow = memo(
             </p>
           )}
         </td>
-        <td className="px-4 py-2.5">
+        <td className="px-4 py-2.5 sm:sticky sm:right-0 sm:border-l sm:border-slate-200 sm:bg-white">
           <div className="flex justify-end gap-1">
             <button
               type="button"
               onClick={() => onAction(row.login_id, "credentials")}
               disabled={pending !== null || credentialLocked || reissueLocked}
               title="Show the existing password without changing it"
-              className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40"
+              className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
             >
               {pending === "credentials" ? (
                 <Loader2
@@ -2270,7 +2304,7 @@ const RosterRow = memo(
                 onClick={() => onAction(row.login_id, "restore")}
                 disabled={pending !== null || credentialLocked}
                 title="Restore this login across all their contests"
-                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40"
+                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
               >
                 {pending === "restore" ? (
                   <Loader2
@@ -2288,7 +2322,7 @@ const RosterRow = memo(
                 onClick={() => onAction(row.login_id, "revoke")}
                 disabled={pending !== null || credentialLocked}
                 title="Disable this login. The record is kept."
-                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:opacity-40"
+                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
               >
                 <Ban className="h-3.5 w-3.5" />
                 Revoke

@@ -75,7 +75,7 @@ try {
     1,
   );
   releaseChild();
-  await page.getByRole("button", { name: /^Problems/i }).waitFor();
+  await page.getByRole("tab", { name: /^Problems/i }).waitFor();
   assert.equal(
     await page.evaluate(
       () => document.querySelector("#org-main") === window.__serverMain,

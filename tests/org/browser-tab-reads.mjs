@@ -43,7 +43,13 @@ async function scenario(run) {
     if(url.pathname.endsWith('/runs')) return respond([]);
     errors.push('Unexpected API '+url.pathname+url.search); return respond({error:'Unmocked request'},500);
   });
-  const tab=name=>page.getByRole('button',name==='submissions'?{name:/^submissions(?:\s*\d+)?$/}:{name,exact:true});
+  const tab = (name) =>
+    page.getByRole(
+      "tab",
+      name === "submissions"
+        ? { name: /^submissions(?:\s*\d+)?$/ }
+        : { name, exact: true },
+    );
   const count=suffix=>calls.filter(c=>c.method==='GET' && c.path.endsWith(suffix)).length;
   try { await run({page,state,calls,hold,tab,count}); assert.deepEqual(errors,[]); }
   finally { releases.forEach(release=>release()); await context.close(); }
@@ -174,7 +180,7 @@ try {
     });
     await page.goto(base+'/org/contests/a#submissions');
     await page.getByText('Busy Fixture Candidate',{exact:true}).waitFor();
-    await page.getByRole('button',{name:/^submissions\s*7$/}).waitFor();
+    await page.getByRole("tab", { name: /^submissions\s*7$/ }).waitFor();
     assert.equal(await page.getByText(/Submission totals could not refresh/).count(),0,'Summary must remain healthy for this regression');
     const before=count('/submissions');
     await until(()=>count('/submissions')>before,'Visible '+status+' row must preserve fast polling despite healthy idle totals');

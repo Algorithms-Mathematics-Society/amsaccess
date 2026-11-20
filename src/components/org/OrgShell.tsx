@@ -49,13 +49,11 @@ const FOCUS =
 
 export function OrgShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // Asked once per page load and shared with every other panel that needs
-  // it. A failure leaves the full nav rather than an empty one: guessing
-  // "intern" on a network blip would lock an admin out of their own sidebar.
+  // The layout seeds this before rendering role-specific navigation.
   const { role } = useOrgRole();
 
   const nav =
-    role === "intern"
+    !role || role === "intern"
       ? NAV.filter((i) => !INTERN_HIDDEN.includes(i.href))
       : NAV;
   const headerRef = useRef<HTMLElement>(null);
@@ -70,7 +68,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     if (!nav || !active) return;
     nav.scrollLeft =
       active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
-  }, [pathname]);
+  }, [pathname, role]);
 
   // Fade the edge the nav can still scroll toward, so hidden sections show.
   const navMask = useEdgeMask(mobileNavRef);
@@ -85,6 +83,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     const root = document.documentElement;
     const update = () => {
       const h = header.offsetHeight;
+      root.style.setProperty("--org-shell-header-height", `${h}px`);
       root.style.scrollPaddingTop = h > 0 ? `calc(${h}px + 0.5rem)` : "0px";
     };
     update();
@@ -92,6 +91,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     ro.observe(header);
     return () => {
       ro.disconnect();
+      root.style.removeProperty("--org-shell-header-height");
       root.style.scrollPaddingTop = "";
     };
   }, []);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -21,10 +21,18 @@ import type { Contest, ContestSubmission, Problem } from "@/lib/orgTypes";
 import { formatWhen, relativeWhen, statusClass } from "@/lib/orgTypes";
 import { verdictClassLight } from "@/lib/contestTypes";
 import { invalidate } from "@/lib/client/useApiQuery";
-import { reportOrgResponse, startOrgPolling } from "@/lib/client/orgPolling";
+import {
+  orgSignedOut,
+  reportOrgResponse,
+  startOrgPolling,
+} from "@/lib/client/orgPolling";
+import {
+  CONTEST_STATUS_POLL_MS,
+  contestStatusRefreshDelay,
+} from "@/lib/client/contestStatus";
 import { useOrgRole } from "@/lib/client/useOrgRole";
 import { personUserUid } from "@/lib/client/personPanel";
-import { useEdgeMask } from "@/lib/client/useEdgeMask";
+import { OrgTabPanel, OrgTabs } from "./OrgTabs";
 import { ContestNotifications } from "./ContestNotifications";
 import { useConfirm } from "./ConfirmDialog";
 import {
@@ -36,7 +44,11 @@ import {
   ContestReadProvider,
   useContestReadStore,
 } from "@/lib/client/useContestRead";
-import type { ContestReadResource } from "@/lib/client/contestReads";
+import {
+  equivalentJson,
+  type ContestReadResource,
+} from "@/lib/client/contestReads";
+import { ContestOverview } from "./ContestOverview";
 
 const loadTeamRound = () => import("./TeamRoundPanel");
 const TeamRoundPanel = dynamic(
@@ -84,52 +96,6 @@ const ContestJudging = dynamic(
   { loading: LoadingPanel },
 );
 
-/** The eight tabs need about 870px, so below that they scroll inside the strip
- *  (never the page), with a fade on the side that still has tabs. Its own
- *  component so scroll-driven fade changes do not re-render the console. */
-function TabStrip({
-  activeTab,
-  children,
-}: {
-  activeTab: Tab;
-  children: React.ReactNode;
-}) {
-  const ref = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const strip = ref.current;
-    const active = strip?.querySelector('[aria-current="true"]');
-    if (!strip || !active) return;
-
-    const reveal = () => {
-      const tab = active.getBoundingClientRect();
-      const viewport = strip.getBoundingClientRect();
-      if (tab.left < viewport.left || tab.right > viewport.right) {
-        // Scroll only this strip so the page and keyboard focus stay in place.
-        strip.scrollLeft +=
-          tab.left - viewport.left + (tab.width - viewport.width) / 2;
-      }
-    };
-    reveal();
-
-    // A live count can widen an earlier tab and clip the selection again.
-    const resize = new ResizeObserver(reveal);
-    resize.observe(strip);
-    for (const tab of strip.children) resize.observe(tab);
-    return () => resize.disconnect();
-  }, [activeTab]);
-
-  return (
-    <nav
-      ref={ref}
-      aria-label="Contest sections"
-      className="flex gap-6 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      style={useEdgeMask(ref)}
-    >
-      {children}
-    </nav>
-  );
-}
-
 function preloadTab(tab: Tab) {
   const loaders: Partial<Record<Tab, () => Promise<unknown>>> = {
     "team-round": loadTeamRound,
@@ -146,6 +112,7 @@ function preloadTab(tab: Tab) {
 }
 
 const TABS = [
+  "overview",
   "problems",
   "team-round",
   "participants",
@@ -168,7 +135,7 @@ function tabFromHash(hash: string): Tab | null {
 /** Where a contest opens when the link names no tab: what matters at that stage. */
 function defaultTab(status: Contest["status"]): Tab {
   return status === "running"
-    ? "invigilation"
+    ? "overview"
     : status === "ended" || status === "archived"
       ? "leaderboard"
       : "problems";
@@ -275,6 +242,10 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   const [error, setError] = useState("");
   const [tab, setTabState] = useState<Tab>("problems");
   const { role, known } = useOrgRole();
+  const visibleTabs: readonly Tab[] =
+    contest?.status === "running"
+      ? TABS
+      : TABS.filter((item) => item !== "overview");
   const notificationsEnabled =
     Boolean(contest) &&
     known &&
@@ -285,6 +256,10 @@ function ContestContent({ contestUid }: { contestUid: string }) {
       "contest_manager",
       "judge_manager",
     ].includes(role ?? "");
+  const canAnnounce =
+    notificationsEnabled ||
+    (role === "intern" && Boolean(contest?.is_practice));
+  const canReadContestStats = canAnnounce;
 
   // The tab lives in the URL fragment, so reloading keeps you where you
   // were. It was React state alone: Ctrl+R on the Leaderboard dropped you
@@ -332,8 +307,13 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     );
   }, [tab]);
 
-  const keepAlive = (t: Tab, panel: React.ReactNode) =>
-    (visited.has(t) || tab === t) && <div hidden={tab !== t}>{panel}</div>;
+  const tabsId = useId();
+  const panel = (value: Tab, content: React.ReactNode, keepMounted = false) =>
+    visibleTabs.includes(value) && (
+      <OrgTabPanel id={tabsId} value={value} active={tab}>
+        {(tab === value || (keepMounted && visited.has(value))) && content}
+      </OrgTabPanel>
+    );
 
   // replaceState, not push: Back should leave the contest the way it
   // arrived, not walk backwards through every tab that was glanced at.
@@ -347,7 +327,11 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   );
 
   const mounted = useRef(true);
-  const contestRequest = useRef<AbortController | null>(null);
+  const onContestRead = useRef<(data: Contest) => void>(() => {});
+  const contestFlight = useRef<{
+    controller: AbortController;
+    promise: Promise<boolean | void>;
+  } | null>(null);
   const submissionFlight = useRef<{
     controller: AbortController;
     promise: Promise<boolean | void>;
@@ -360,7 +344,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     mounted.current = true;
     const reset = () => {
       suspended.current = true;
-      contestRequest.current?.abort();
+      contestFlight.current?.controller.abort();
       submissionFlight.current?.controller.abort();
       summaryFlight.current?.controller.abort();
       setContest(null);
@@ -372,38 +356,67 @@ function ContestContent({ contestUid }: { contestUid: string }) {
     return () => {
       window.removeEventListener("ams:org-session-reset", reset);
       mounted.current = false;
-      contestRequest.current?.abort();
+      contestFlight.current?.controller.abort();
       submissionFlight.current?.controller.abort();
       summaryFlight.current?.controller.abort();
     };
   }, []);
 
-  const loadContest = useCallback(async () => {
-    if (suspended.current) return;
-    invalidate("/api/org/contests");
-    contestRequest.current?.abort();
-    const controller = new AbortController();
-    contestRequest.current = controller;
-    try {
-      const data = await readConsoleJson<Contest>(
-        `/api/org/contests/${contestUid}`,
-        controller,
-      );
-      if (!mounted.current || readCancelled(controller)) return;
-      setContest(data);
-      setError("");
-    } catch (err) {
-      if (!mounted.current || readCancelled(controller)) return;
-      setError(
-        err instanceof Error ? err.message : "Could not load the contest.",
-      );
-    }
-  }, [contestUid]);
+  const loadContest = useCallback(
+    (force = false): Promise<boolean | void> => {
+      if (suspended.current) return Promise.resolve();
+      if (
+        contestFlight.current &&
+        !contestFlight.current.controller.signal.aborted
+      ) {
+        if (!force) return contestFlight.current.promise;
+        contestFlight.current.controller.abort();
+      }
+      const controller = new AbortController();
+      const promise = (async () => {
+        try {
+          const data = await readConsoleJson<Contest>(
+            `/api/org/contests/${encodeURIComponent(contestUid)}`,
+            controller,
+            () => {
+              if (mounted.current && !readCancelled(controller))
+                setContest(null);
+            },
+          );
+          if (!mounted.current || readCancelled(controller)) return;
+          if (
+            !data ||
+            typeof data.status !== "string" ||
+            !Array.isArray(data.problems)
+          )
+            throw new Error("Invalid contest response.");
+          onContestRead.current(data);
+          setContest((previous) =>
+            equivalentJson(previous, data) ? previous : data,
+          );
+          setError("");
+        } catch (err) {
+          if (!mounted.current || readCancelled(controller)) return;
+          setError(
+            err instanceof Error ? err.message : "Could not load the contest.",
+          );
+          return false;
+        } finally {
+          if (contestFlight.current?.controller === controller)
+            contestFlight.current = null;
+        }
+      })();
+      contestFlight.current = { controller, promise };
+      return promise;
+    },
+    [contestUid],
+  );
 
   const refreshContestAfterWrite = useCallback(() => {
     readStore.invalidate("scoreboard");
     readStore.invalidate("analytics");
-    return loadContest();
+    invalidate("/api/org/contests");
+    return loadContest(true);
   }, [readStore, loadContest]);
 
   // Counts remain live on every tab; the heavy table is read only when open.
@@ -512,8 +525,33 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   );
 
   useEffect(() => {
-    void loadContest();
-  }, [loadContest]);
+    if (sessionReset) return;
+    let boundary: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
+    const scheduleBoundary = (data: Contest) => {
+      if (stopped) return;
+      clearTimeout(boundary);
+      const delay = contestStatusRefreshDelay(data, Date.now());
+      if (delay !== null) {
+        boundary = setTimeout(() => {
+          if (document.visibilityState !== "hidden" && !orgSignedOut())
+            void loadContest(true);
+        }, delay);
+      }
+    };
+    onContestRead.current = scheduleBoundary;
+    const stop = startOrgPolling(loadContest, CONTEST_STATUS_POLL_MS);
+    return () => {
+      stopped = true;
+      clearTimeout(boundary);
+      stop();
+    };
+  }, [loadContest, sessionReset]);
+
+  useEffect(() => {
+    if (!contest || contest.status === "running" || tab !== "overview") return;
+    setTab(defaultTab(contest.status));
+  }, [contest, tab, setTab]);
 
   const pagePending = (submissions ?? []).some(
     (s) => s.status === "queued" || s.status === "running",
@@ -563,8 +601,18 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   if (error && !contest) {
     return (
       <div className="px-4 py-5 sm:px-6 md:px-8 md:py-6">
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <p
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}{" "}
+          <button
+            type="button"
+            className="min-h-11 underline"
+            onClick={() => void loadContest()}
+          >
+            Retry status
+          </button>
         </p>
       </div>
     );
@@ -606,7 +654,13 @@ function ContestContent({ contestUid }: { contestUid: string }) {
   const total = summary?.total ?? submissions?.length ?? 0;
 
   return (
-    <div>
+    <div
+      className={
+        notificationsEnabled
+          ? "pb-[calc(5rem+env(safe-area-inset-bottom))] has-[[data-notification-preview]]:pb-[calc(12rem+env(safe-area-inset-bottom))]"
+          : "pb-6"
+      }
+    >
       <header className="border-b border-slate-200 bg-white px-4 py-5 sm:px-6 md:px-8 md:py-6">
         <Link
           href="/org/contests"
@@ -657,7 +711,14 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={`/org/contests/${contest.uid}/workflow`}
+              prefetch={false}
+              className="inline-flex min-h-11 items-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-violet-600"
+            >
+              Setup checklist
+            </Link>
             {contest.status === "draft" && (
               <PublishButton
                 contestUid={contest.uid}
@@ -667,30 +728,21 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             {/* Only once there is somebody to reach. A draft has no
                 candidates, so the control would be an offer the contest
                 cannot honour. */}
-            {contest.status !== "draft" && (
-              <button
-                type="button"
-                onClick={() => setAnnouncing(true)}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
-              >
-                <Megaphone className="h-4 w-4 text-slate-400" aria-hidden />
-                Issue announcement
-              </button>
-            )}
+            {canAnnounce &&
+              contest.status !== "draft" &&
+              contest.status !== "running" && (
+                <button
+                  type="button"
+                  onClick={() => setAnnouncing(true)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                >
+                  <Megaphone className="h-4 w-4 text-slate-400" aria-hidden />
+                  Issue announcement
+                </button>
+              )}
             {contest.invite_code && <InviteCode code={contest.invite_code} />}
           </div>
         </div>
-
-        {contest.status === "running" && (
-          <LiveStatusStrip
-            contestUid={contest.uid}
-            startsAt={contest.starts_at}
-            endsAt={contest.ends_at}
-            notificationsEnabled={notificationsEnabled}
-            judgingPending={summary?.pending ?? null}
-            onNavigate={setTab}
-          />
-        )}
 
         {contest.status === "draft" && (
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
@@ -703,6 +755,41 @@ function ContestContent({ contestUid }: { contestUid: string }) {
         )}
       </header>
 
+      {contest.status === "running" && (
+        <div className="bg-white px-4 py-2 sm:sticky sm:top-[var(--org-shell-header-height,0px)] sm:z-20 sm:px-6 md:px-8">
+          <LiveStatusStrip
+            contestUid={contest.uid}
+            startsAt={contest.starts_at}
+            endsAt={contest.ends_at}
+            isPractice={contest.is_practice}
+            notificationsEnabled={notificationsEnabled}
+            judgingPending={
+              canReadContestStats ? (summary?.pending ?? null) : null
+            }
+            judgingEnabled={canReadContestStats}
+            onNavigate={setTab}
+            onAnnounce={canAnnounce ? () => setAnnouncing(true) : undefined}
+            onRefresh={() => void loadContest()}
+          />
+        </div>
+      )}
+
+      {error && (
+        <p
+          role="status"
+          className="px-4 py-2 text-xs text-amber-800 sm:px-6 md:px-8"
+        >
+          Could not refresh contest status. Showing the last update.{" "}
+          <button
+            type="button"
+            className="min-h-11 underline"
+            onClick={() => void loadContest()}
+          >
+            Retry status
+          </button>
+        </p>
+      )}
+
       {announcing && (
         <IssueAnnouncementModal
           contestUid={contest.uid}
@@ -712,39 +799,49 @@ function ContestContent({ contestUid }: { contestUid: string }) {
       )}
 
       <div className="border-b border-slate-200 bg-white px-4 sm:px-6 md:px-8">
-        <TabStrip activeTab={tab}>
-          {TABS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-current={tab === t ? true : undefined}
-              onPointerEnter={() => prepareTab(t)}
-              onFocus={() => prepareTab(t)}
-              onClick={() => setTab(t)}
-              className={`relative min-h-[44px] flex-shrink-0 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium capitalize transition focus-visible:-outline-offset-2 ${
-                tab === t
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              {t === "team-round" ? "Team round" : t}
-              {t === "invigilation" && (
+        <OrgTabs
+          id={tabsId}
+          label="Contest sections"
+          tabs={visibleTabs}
+          active={tab}
+          onSelect={setTab}
+          onIntent={prepareTab}
+          className="gap-5"
+          tabClassName="px-2 capitalize"
+        >
+          {(value) => (
+            <>
+              {value === "team-round" ? "Team round" : value}
+              {value === "invigilation" && (
                 <WaitingOnStaffBadge
                   contestUid={contestUid}
                   enabled={notificationsEnabled}
                 />
               )}
-              {t === "submissions" && total > 0 && (
+              {value === "submissions" && total > 0 && (
                 <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
                   {total.toLocaleString()}
                 </span>
               )}
-            </button>
-          ))}
-        </TabStrip>
+            </>
+          )}
+        </OrgTabs>
       </div>
 
-      {tab === "team-round" && (
+      {panel(
+        "overview",
+        <div className="px-4 pt-5 sm:px-6 md:px-8 md:pt-6">
+          <ContestOverview
+            contestUid={contest.uid}
+            pulseEnabled={canReadContestStats}
+            timelineEnabled={notificationsEnabled}
+            announcementsEnabled={canAnnounce && !announcing}
+          />
+        </div>,
+      )}
+
+      {panel(
+        "team-round",
         <TeamRoundPanel
           key={contestUid}
           contestUid={contestUid}
@@ -752,7 +849,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           contestStartsAt={contest?.starts_at ?? null}
           contestEndsAt={contest?.ends_at ?? null}
           notificationsEnabled={notificationsEnabled}
-        />
+        />,
       )}
 
       {summaryError && summary !== null && (
@@ -765,43 +862,59 @@ function ContestContent({ contestUid }: { contestUid: string }) {
           above every tab — so the Problems tab offered to download a
           submissions CSV, and Rejudge was one stray click away at all times
           from a screen that has nothing to do with it. */}
-      {tab === "submissions" && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 md:px-8">
-          <RejudgeButton
-            contestUid={contest.uid}
-            onDone={async () => {
-              readStore.invalidate("scoreboard");
-              readStore.invalidate("analytics");
-              await Promise.all([loadSubmissions(true), loadSummary(true)]);
-            }}
-          />
-          <a
-            href={`/api/org/contests/${contest.uid}/export?kind=standings`}
-            download
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Standings CSV
-          </a>
-          <a
-            href={`/api/org/contests/${contest.uid}/export?kind=submissions`}
-            download
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Submissions CSV
-          </a>
-        </div>
+      {panel(
+        "submissions",
+        <>
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 md:px-8">
+            <RejudgeButton
+              contestUid={contest.uid}
+              onDone={async () => {
+                readStore.invalidate("scoreboard");
+                readStore.invalidate("analytics");
+                await Promise.all([loadSubmissions(true), loadSummary(true)]);
+              }}
+            />
+            <a
+              href={`/api/org/contests/${contest.uid}/export?kind=standings`}
+              download
+              className="inline-flex min-h-[24px] items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 [@media(pointer:coarse)]:min-h-[44px]"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Standings CSV
+            </a>
+            <a
+              href={`/api/org/contests/${contest.uid}/export?kind=submissions`}
+              download
+              className="inline-flex min-h-[24px] items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 [@media(pointer:coarse)]:min-h-[44px]"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Submissions CSV
+            </a>
+          </div>
+          <div className="px-4 pt-5 sm:px-6 md:px-8 md:pt-6">
+            <SubmissionsTab
+              submissions={submissions}
+              error={submissionError}
+              refreshing={submissionsRefreshing}
+              onRetry={() => void loadSubmissions()}
+              summaryAvailable={summary !== null}
+              counts={counts}
+              total={total}
+              pending={pending}
+              contestUid={contestUid}
+              live={notificationsEnabled}
+            />
+          </div>
+        </>,
       )}
-
-      {/* pb-24 lets the last row scroll clear of the floating notifications button. */}
-      <div className="px-4 pt-5 pb-24 sm:px-6 md:px-8 md:pt-6">
+      <div className="px-4 pt-5 sm:px-6 md:px-8 md:pt-6">
         {/* Visited tabs stay mounted but hidden; each one polls only while shown. */}
-        {keepAlive(
+        {panel(
           "problems",
           <ProblemsTab contest={contest} onChange={refreshContestAfterWrite} />,
+          true,
         )}
-        {keepAlive(
+        {panel(
           "participants",
           <ParticipantsPanel
             contestUid={contest.uid}
@@ -813,45 +926,35 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             }
             notificationsEnabled={notificationsEnabled}
           />,
+          true,
         )}
-        {tab === "submissions" && (
-          <SubmissionsTab
-            submissions={submissions}
-            error={submissionError}
-            refreshing={submissionsRefreshing}
-            onRetry={() => void loadSubmissions()}
-            summaryAvailable={summary !== null}
-            counts={counts}
-            total={total}
-            pending={pending}
-            contestUid={contestUid}
-            live={notificationsEnabled}
-          />
-        )}
-        {keepAlive(
+        {panel(
           "leaderboard",
           <LeaderboardPanel
             contestUid={contest.uid}
             problemLabels={contest.problems.map((p) => p.label)}
             live={tab === "leaderboard" && contest.status === "running"}
           />,
+          true,
         )}
-        {keepAlive("analytics", <AnalyticsPanel contestUid={contest.uid} />)}
-        {keepAlive(
+        {panel("analytics", <AnalyticsPanel contestUid={contest.uid} />, true)}
+        {panel(
           "invigilation",
           <InvigilationPanel
             contestUid={contest.uid}
             notificationsEnabled={notificationsEnabled}
             active={tab === "invigilation"}
           />,
+          true,
         )}
         {/* Not kept alive: the fleet panel polls on its own timer. */}
-        {tab === "judging" && (
+        {panel(
+          "judging",
           <ContestJudging
             contestUid={contest.uid}
             isPractice={contest.is_practice}
             isDraft={contest.status === "draft"}
-          />
+          />,
         )}
       </div>
       <ContestNotifications
@@ -925,7 +1028,7 @@ function Reschedule({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+        className="inline-flex min-h-[24px] items-center gap-1.5 rounded px-2 py-0.5 text-xs text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 [@media(pointer:coarse)]:min-h-[44px]"
       >
         <CalendarClock className="h-3.5 w-3.5" />
         Reschedule
@@ -991,7 +1094,7 @@ function Reschedule({
             save(new Date(starts).toISOString(), new Date(ends).toISOString())
           }
           disabled={busy || invalid}
-          className="rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
+          className="min-h-[24px] rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
         >
           {busy ? "Saving…" : "Save"}
         </button>
@@ -1022,14 +1125,14 @@ function Reschedule({
             );
           }}
           disabled={busy}
-          className="rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-700 disabled:opacity-40"
+          className="min-h-[24px] rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
         >
           Start now (3h)
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="rounded px-2 py-1 text-xs text-slate-500"
+          className="min-h-[24px] rounded px-2 py-1 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-[44px]"
         >
           Cancel
         </button>
@@ -1146,7 +1249,7 @@ function InviteCode({ code }: { code: string }) {
           type="button"
           onClick={copy}
           aria-label="Copy invite code"
-          className="rounded p-1 text-slate-400 transition hover:bg-white hover:text-slate-900"
+          className="grid min-h-[24px] min-w-[24px] place-items-center rounded text-slate-500 transition hover:bg-white hover:text-slate-900 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
         >
           {copied ? (
             <Check className="h-4 w-4 text-emerald-600" />
@@ -1655,7 +1758,7 @@ function RejudgeButton({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900"
+        className="inline-flex min-h-[24px] items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 [@media(pointer:coarse)]:min-h-[44px]"
       >
         <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
         Rejudge
@@ -1667,7 +1770,7 @@ function RejudgeButton({
             type="button"
             onClick={() => run("SE")}
             disabled={busy}
-            className="rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
+            className="min-h-[24px] rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
           >
             System errors only (SE)
           </button>
@@ -1675,7 +1778,7 @@ function RejudgeButton({
             type="button"
             onClick={() => run("")}
             disabled={busy}
-            className="rounded border border-amber-400 px-2.5 py-1 text-xs text-amber-800 disabled:opacity-40"
+            className="min-h-[24px] rounded border border-amber-400 px-2.5 py-1 text-xs text-amber-800 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
           >
             Everything
           </button>
@@ -1731,7 +1834,7 @@ function RemoveProblem({
         type="button"
         onClick={() => setArmed(true)}
         title="Remove from this contest"
-        className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+        className="grid min-h-[24px] min-w-[24px] place-items-center rounded text-slate-500 transition hover:bg-red-50 hover:text-red-600 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
@@ -1743,14 +1846,14 @@ function RemoveProblem({
       <button
         type="button"
         onClick={remove}
-        className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white"
+        className="min-h-[24px] rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white [@media(pointer:coarse)]:min-h-[44px]"
       >
         Remove
       </button>
       <button
         type="button"
         onClick={() => setArmed(false)}
-        className="rounded px-1.5 text-xs text-slate-500"
+        className="min-h-[24px] rounded px-1.5 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-[44px]"
       >
         Cancel
       </button>

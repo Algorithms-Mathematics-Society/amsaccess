@@ -20,7 +20,7 @@ import { osLabel } from "@/lib/client/peopleFilter.ts";
 
 type Count = { name: string; count: number };
 
-type ProblemStat = {
+export type ProblemStat = {
   label: string;
   title: string;
   attempted: number;
@@ -54,8 +54,16 @@ const VERDICT_TONE: Record<string, string> = {
 };
 
 export function AnalyticsPanel(_props: { contestUid: string }) {
-  const { data, error, refreshing: busy, load, open } = useContestRead<Analytics>("analytics");
-  useEffect(() => { void open(); }, [open]);
+  const {
+    data,
+    error,
+    refreshing: busy,
+    load,
+    open,
+  } = useContestRead<Analytics>("analytics");
+  useEffect(() => {
+    void open();
+  }, [open]);
 
   const colleges = useMemo(() => {
     if (!data) return { shown: [] as Count[], rest: 0 };

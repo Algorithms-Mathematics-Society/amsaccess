@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { clearApiCache } from "@/lib/client/useApiQuery";
-import { fetchOrgMe } from "@/lib/client/useOrgRole";
+import {
+  confirmOrgMe,
+  fetchOrgMe,
+  useOrgInitialSession,
+} from "@/lib/client/useOrgRole";
 import {
   ORG_SIGNED_IN_EVENT,
   ORG_SIGNED_OUT_EVENT,
@@ -16,6 +20,7 @@ import { sessionNotice } from "@/lib/client/orgSession";
  *  replacing the page: drafts and filters stay put while the organizer signs
  *  in again in another tab. */
 export function SessionExpiryNotice() {
+  const initialMe = useOrgInitialSession();
   const [expiresAt, setExpiresAt] = useState<unknown>(null);
   const [signedOut, setSignedOut] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -24,9 +29,14 @@ export function SessionExpiryNotice() {
   useEffect(() => {
     let cancelled = false;
     const wasSignedOut = orgSignedOut();
-    void fetchOrgMe(wasSignedOut).then((me) => {
+    const read =
+      initialMe && !wasSignedOut
+        ? Promise.resolve(initialMe)
+        : fetchOrgMe(wasSignedOut);
+    void read.then((me) => {
       if (cancelled) return;
       account.current = me?.uid;
+      confirmOrgMe(me);
       setExpiresAt(me?.session_expires_at ?? null);
       if (
         wasSignedOut &&
@@ -46,7 +56,7 @@ export function SessionExpiryNotice() {
       window.removeEventListener(ORG_SIGNED_OUT_EVENT, onSignedOut);
       window.removeEventListener(ORG_SIGNED_IN_EVENT, onSignedIn);
     };
-  }, []);
+  }, [initialMe]);
 
   const notice = sessionNotice(expiresAt, now, signedOut);
 
@@ -75,9 +85,11 @@ export function SessionExpiryNotice() {
         const next = me?.session_expires_at;
         if (typeof next !== "number" || next <= Date.now()) return;
         if (account.current == null || me?.uid !== account.current) {
+          confirmOrgMe(null);
           clearApiCache();
           return;
         }
+        confirmOrgMe(me);
         setExpiresAt(next);
         if (orgSignedOut()) resumeOrgPolling();
       } finally {

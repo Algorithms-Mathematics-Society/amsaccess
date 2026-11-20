@@ -439,7 +439,7 @@ try {
   await page.screenshot({ path: shot, fullPage: true });
 
   // Leaving the tab unmounts the monitor and stops its reads.
-  await page.getByRole("button", { name: "problems", exact: true }).click();
+  await page.getByRole("tab", { name: "problems", exact: true }).click();
   await table.waitFor({ state: "detached" });
   const after = teamReads;
   await page.clock.runFor(8 * POLL);

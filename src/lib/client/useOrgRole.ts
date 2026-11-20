@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  createContext,
+  createElement,
+  useContext,
+  useSyncExternalStore,
+} from "react";
 import { reportOrgResponse } from "./orgPolling";
 
 /**
@@ -17,9 +22,8 @@ import { reportOrgResponse } from "./orgPolling";
  * courtesy, not a boundary, and this file must never be the only thing
  * standing between a role and an action.
  *
- * The request is shared across components and made once per page load.
- * Mounting four panels that each want the role should not be four calls, and
- * a role does not change while someone is looking at a screen.
+ * The layout seeds the role. A failed server lookup can fall back to the
+ * same client read that handles re-sign-in.
  */
 
 export type OrgRole =
@@ -40,6 +44,39 @@ export type OrgMe = {
   session_expires_at?: unknown;
 };
 let inFlight: Promise<OrgMe | null> | null = null;
+// An explicit null discards the server seed after the session changes.
+let confirmedMe: OrgMe | null | undefined;
+const listeners = new Set<() => void>();
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+const getMe = () => confirmedMe;
+const getServerMe = () => undefined;
+const OrgSession = createContext<OrgMe | null>(null);
+
+export function OrgSessionProvider({
+  initialMe,
+  children,
+}: {
+  initialMe: OrgMe | null;
+  children: React.ReactNode;
+}) {
+  return createElement(OrgSession.Provider, { value: initialMe }, children);
+}
+
+export function useOrgInitialSession() {
+  return useContext(OrgSession);
+}
+
+// Only the session notice adopts this account after its identity checks.
+export function confirmOrgMe(me: OrgMe | null) {
+  if (confirmedMe === me) return;
+  confirmedMe = me;
+  listeners.forEach((listener) => listener());
+}
 
 /** The shared `/api/auth/me` read; `fresh` replaces it, e.g. after re-sign-in. */
 export function fetchOrgMe(fresh = false): Promise<OrgMe | null> {
@@ -56,41 +93,23 @@ export function fetchOrgMe(fresh = false): Promise<OrgMe | null> {
   return inFlight;
 }
 
-function fetchRole(): Promise<OrgRole | null> {
-  return fetchOrgMe().then((me) =>
-    me && typeof me.role === "string" ? (me.role as OrgRole) : null,
-  );
-}
-
 export function useOrgRole(): { role: OrgRole | null; known: boolean } {
-  const [role, setRole] = useState<OrgRole | null>(null);
-  const [known, setKnown] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchRole().then((value) => {
-      if (cancelled) return;
-      setRole(value);
-      setKnown(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return { role, known };
+  const initialMe = useOrgInitialSession();
+  const refreshedMe = useSyncExternalStore(subscribe, getMe, getServerMe);
+  const me =
+    refreshedMe !== undefined &&
+    (refreshedMe === null || !initialMe || refreshedMe.uid === initialMe.uid)
+      ? refreshedMe
+      : initialMe;
+  const role = typeof me?.role === "string" ? me.role : null;
+  return { role, known: role !== null };
 }
 
 /**
  * May this person change the size of the fleet?
  *
- * Unknown counts as yes. The alternative — hiding the controls until the
- * role arrives — means an admin watching a contest open sees a page with no
- * buttons for as long as one fetch takes, which on a bad connection is
- * exactly when they need them. A wrong guess here costs a 403; the other
- * wrong guess costs a contest.
+ * Wait for a confirmed role when the server lookup could not seed one.
  */
 export function canSpend(role: OrgRole | null, known: boolean): boolean {
-  if (!known || role === null) return true;
-  return SPENDING.includes(role);
+  return known && role !== null && SPENDING.includes(role);
 }

@@ -1,9 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { X, Loader2, FileText, AlertTriangle, Check, Copy } from "lucide-react";
 import { useApiQuery } from "@/lib/client/useApiQuery";
 import { SkeletonText } from "@/components/org/Skeleton";
+import { OrgTabPanel, OrgTabs } from "./OrgTabs";
 import type { Problem, ProblemVersion } from "@/lib/orgTypes";
 import {
   getAvailableProblemTabs,
@@ -44,10 +52,11 @@ export function ProblemPreviewModal({
   // Newest first, matching the catalogue card. A problem with no version has
   // nothing to preview and the card does not open this.
   const versions = problem.versions;
+  const tabsId = useId();
   const [versionUid, setVersionUid] = useState(
     initialVersionUid ?? versions[0]?.uid ?? "",
   );
-  const [tab, setTab] = useState<ProblemSectionKey>("statement");
+  const [selectedTab, setTab] = useState<ProblemSectionKey>("statement");
   const [copied, setCopied] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -106,16 +115,15 @@ export function ProblemPreviewModal({
 
   const sections = useMemo(() => splitProblemDescription(markdown), [markdown]);
   const tabs = useMemo(() => getAvailableProblemTabs(sections), [sections]);
+  const tab = tabs.includes(selectedTab) ? selectedTab : "statement";
   const bodyHtml = useMemo(
     () => renderStatementHtml(sections[tab]),
     [sections, tab],
   );
 
-  // A statement whose examples live in its own section leaves the previous
-  // tab selected when the version changes; fall back rather than render blank.
   useEffect(() => {
-    if (!tabs.includes(tab)) setTab("statement");
-  }, [tabs, tab]);
+    if (!tabs.includes(selectedTab)) setTab("statement");
+  }, [tabs, selectedTab]);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -150,6 +158,39 @@ export function ProblemPreviewModal({
   const limits = projection?.limits ?? {};
   const wallMs = limits.wall_time_ms ?? 0;
   const memoryMb = limits.memory_mb ?? 0;
+
+  const samples = projection?.samples ?? [];
+  const content = (
+    <>
+      {markdown.trim() ? (
+        <div
+          ref={bodyRef}
+          onClick={onBodyClick}
+          className="text-sm"
+          dangerouslySetInnerHTML={{ __html: bodyHtml }}
+        />
+      ) : (
+        <div className="py-10 text-center">
+          <FileText className="mx-auto h-7 w-7 text-slate-300" />
+          <p className="mt-2 text-sm font-medium text-slate-700">
+            No statement stored
+          </p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+            This version has no statement in its projection. Upload a package
+            built with{" "}
+            <code className="rounded bg-slate-100 px-1">
+              cxxprobe package pack
+            </code>
+            .
+          </p>
+        </div>
+      )}
+
+      {tab === "statement" && samples.length > 0 && (
+        <Samples samples={samples} copied={copied} onCopy={setCopied} />
+      )}
+    </>
+  );
 
   return (
     <div
@@ -271,63 +312,35 @@ export function ProblemPreviewModal({
             )}
 
             {tabs.length > 1 && (
-              <div
-                role="tablist"
-                aria-label="Problem sections"
-                className="flex border-b border-slate-200 px-6"
+              <OrgTabs
+                id={tabsId}
+                label="Problem sections"
+                tabs={tabs}
+                active={tab}
+                onSelect={setTab}
+                className="border-b border-slate-200 px-6"
               >
-                {tabs.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === key}
-                    onClick={() => setTab(key)}
-                    className={
-                      tab === key
-                        ? "-mb-px border-b-2 border-slate-900 px-4 py-2.5 text-sm font-medium text-slate-900"
-                        : "-mb-px border-b-2 border-transparent px-4 py-2.5 text-sm text-slate-500 transition hover:text-slate-800"
-                    }
-                  >
-                    {TAB_LABELS[key]}
-                  </button>
-                ))}
-              </div>
+                {(value) => TAB_LABELS[value]}
+              </OrgTabs>
             )}
 
-            <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
-              {markdown.trim() ? (
-                <div
-                  ref={bodyRef}
-                  onClick={onBodyClick}
-                  className="text-sm"
-                  dangerouslySetInnerHTML={{ __html: bodyHtml }}
-                />
-              ) : (
-                <div className="py-10 text-center">
-                  <FileText className="mx-auto h-7 w-7 text-slate-300" />
-                  <p className="mt-2 text-sm font-medium text-slate-700">
-                    No statement stored
-                  </p>
-                  <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                    This version has no statement in its projection. Upload a
-                    package built with{" "}
-                    <code className="rounded bg-slate-100 px-1">
-                      cxxprobe package pack
-                    </code>
-                    .
-                  </p>
-                </div>
-              )}
-
-              {tab === "statement" && (projection.samples?.length ?? 0) > 0 && (
-                <Samples
-                  samples={projection.samples ?? []}
-                  copied={copied}
-                  onCopy={setCopied}
-                />
-              )}
-            </div>
+            {tabs.length > 1 ? (
+              tabs.map((value) => (
+                <OrgTabPanel
+                  key={value}
+                  id={tabsId}
+                  value={value}
+                  active={tab}
+                  className="max-h-[60vh] overflow-y-auto px-6 py-5"
+                >
+                  {tab === value && content}
+                </OrgTabPanel>
+              ))
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+                {content}
+              </div>
+            )}
 
             <Families families={projection.families} />
           </>

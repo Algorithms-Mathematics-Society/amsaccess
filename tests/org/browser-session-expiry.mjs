@@ -230,7 +230,9 @@ try {
     "PASS: clock expiry pauses polling without a 401 and same-account re-login resumes it",
   );
 
-  // A different account signing in must not inherit this page.
+  // A different account signing in must not inherit this page or its role.
+  const mails = page.getByRole("link", { name: "Mails", exact: true });
+  await mails.first().waitFor();
   expired = true;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await signedOut().waitFor();
@@ -242,6 +244,7 @@ try {
   };
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await page.getByText("Your session changed").waitFor();
+  assert.equal(await mails.count(), 0);
   console.log(
     "PASS: re-sign-in as another account resets the page like any account change",
   );
