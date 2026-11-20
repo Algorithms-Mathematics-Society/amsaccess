@@ -13,7 +13,9 @@ async function handle(request: Request, ctx: Context) {
   const valid =
     path.length === 0 ||
     (UUID.test(path[0]) &&
-      (path.length === 1 || (path.length === 2 && path[1] === "messages")));
+      (path.length === 1 ||
+        (path.length === 2 &&
+          ["messages", "assignees", "assignment", "notes"].includes(path[1]))));
   if (!valid)
     return NextResponse.json(
       { error: "Unknown support route." },
@@ -21,7 +23,7 @@ async function handle(request: Request, ctx: Context) {
     );
   const search = new URL(request.url).searchParams;
   const query = new URLSearchParams();
-  for (const key of ["status", "offset", "after"])
+  for (const key of ["status", "offset", "after", "pagination", "cursor"])
     if (search.has(key)) query.set(key, search.get(key)!);
   if (request.method === "GET" && path.length === 0) {
     for (const key of ["contest_uid", "user_uid"])
