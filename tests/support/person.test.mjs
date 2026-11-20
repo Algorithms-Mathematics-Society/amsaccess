@@ -23,20 +23,32 @@ test("person tickets require both UUIDs and scope every page at the server", asy
   const calls = [];
   t.mock.method(globalThis, "fetch", async (url) => {
     calls.push(url);
-    return Response.json({ items: [ticket], has_more: true });
+    return Response.json({
+      items: [ticket],
+      has_more: true,
+      next_cursor: "next",
+    });
   });
-  const result = await loadSupportInbox("open", 50, undefined, contest, user);
+  const result = await loadSupportInbox(
+    "open",
+    "previous",
+    undefined,
+    contest,
+    user,
+  );
   const query = new URL(calls[0], "https://example.test").searchParams;
   assert.equal(query.get("user_uid"), user);
   assert.equal(query.get("contest_uid"), contest);
-  assert.equal(query.get("offset"), "50");
+  assert.equal(query.get("cursor"), "previous");
+  assert.equal(query.get("pagination"), "cursor");
+  assert.equal(query.has("offset"), false);
   assert.equal(result.items[0].uid, ticket.uid);
   await assert.rejects(
-    loadSupportInbox("open", 0, undefined, undefined, user),
+    loadSupportInbox("open", undefined, undefined, undefined, user),
     /verified participant and contest/,
   );
   await assert.rejects(
-    loadSupportInbox("open", 0, undefined, contest, "Same name"),
+    loadSupportInbox("open", undefined, undefined, contest, "Same name"),
     /verified participant and contest/,
   );
   assert.equal(calls.length, 1);
@@ -57,7 +69,7 @@ test("contacts cannot link guest, historical, foreign-person or foreign-contest 
   ]) {
     response = { ...ticket, ...fields };
     await assert.rejects(
-      loadSupportInbox("open", 0, undefined, contest, user),
+      loadSupportInbox("open", undefined, undefined, contest, user),
       /incomplete/,
     );
   }

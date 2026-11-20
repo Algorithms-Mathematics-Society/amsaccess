@@ -60,6 +60,16 @@ let role = "admin",
   foreignThread = false,
   authLost = false,
   failReply = true;
+const staffMember = {
+  uid: id(900),
+  display_name: "Eligible staff",
+  email: "staff@example.test",
+};
+const internalNotes = new Map(all.map((item) => [item.uid, []]));
+const noteWrites = [],
+  assignmentWrites = [];
+let failNote = true,
+  failAssignment = true;
 const scopedReads = [],
   replies = [],
   writes = [],
@@ -112,12 +122,12 @@ try {
         });
       } catch {}
     };
-    if (path === "/api/auth/me") return ok({ role });
+    if (path === "/api/auth/me") return ok({ role, uid: staffMember.uid });
     if (path === "/api/org/support") {
       const user = url.searchParams.get("user_uid"),
         contest = url.searchParams.get("contest_uid"),
         status = url.searchParams.get("status"),
-        offset = Number(url.searchParams.get("offset"));
+        offset = url.searchParams.get("cursor") ? 50 : 0;
       if (!user)
         return ok({
           items: [primary, guest, historical, otherPerson, otherContest].filter(
@@ -143,12 +153,47 @@ try {
           ? mine.slice(offset ? 1 : 0, offset ? undefined : 1)
           : mine,
         has_more: paged && offset === 0 && mine.length > 1,
+        next_cursor: paged && offset === 0 && mine.length > 1 ? "page2" : null,
       });
     }
     if (path.startsWith("/api/org/support/")) {
       const uid = path.split("/")[4],
         item = all.find((item) => item.uid === uid);
       assert(item, `unexpected support ticket ${path}`);
+      if (path.endsWith("/assignees")) return ok({ items: [staffMember] });
+      if (path.endsWith("/assignment")) {
+        const body = request.postDataJSON();
+        assignmentWrites.push(body);
+        if (failAssignment) {
+          failAssignment = false;
+          return ok({ error: "Assignment unavailable" }, 503);
+        }
+        item.assignee = body.assignee_uid ? staffMember : null;
+        return ok(item);
+      }
+      if (path.endsWith("/notes")) {
+        if (request.method() === "POST") {
+          const note = request.postDataJSON();
+          noteWrites.push(note);
+          const notes = internalNotes.get(uid);
+          if (!notes.some((saved) => saved.uid === note.uid))
+            notes.push({ ...note, created_at: now, author: staffMember });
+          if (failNote) {
+            failNote = false;
+            return ok({ error: "Note delivery unconfirmed" }, 503);
+          }
+          return ok({ uid: note.uid });
+        }
+        const notes = internalNotes.get(uid),
+          after = url.searchParams.get("after");
+        return ok({
+          notes: after
+            ? notes.slice(notes.findIndex((note) => note.uid === after) + 1)
+            : notes,
+          has_more: false,
+          next_cursor: null,
+        });
+      }
       if (request.method() === "POST") {
         const reply = request.postDataJSON();
         replies.push({ ticket: uid, ...reply });
@@ -301,6 +346,24 @@ try {
       ),
     "person ticket page 2 missing",
   );
+  primary.updated_at = "2026-11-19T11:00:00Z";
+  const readCountBeforeRefresh = scopedReads.length;
+  await support
+    .getByRole("button", { name: "Refresh tickets", exact: true })
+    .click();
+  await until(
+    () =>
+      scopedReads.length > readCountBeforeRefresh &&
+      scopedReads.at(-1).offset === 0,
+    "refresh did not reset the cursor",
+  );
+  await support
+    .getByRole("button", { name: "Next tickets", exact: true })
+    .click();
+  await until(
+    () => scopedReads.at(-1).offset === 50,
+    "cursor page did not survive a reply update",
+  );
   await support
     .getByRole("button", { name: "Previous tickets", exact: true })
     .click();
@@ -360,6 +423,54 @@ try {
   assert.equal(replies.length, 2);
   assert.equal(replies[0].uid, replies[1].uid, "retry uses the saved reply ID");
   assert.equal(replies[0].body, replies[1].body);
+  const assigneeBox = support.getByRole("combobox", { name: "Assigned staff" });
+  await assigneeBox.selectOption(staffMember.uid);
+  await support
+    .getByRole("button", { name: "Save assignment", exact: true })
+    .click();
+  await support
+    .getByRole("alert")
+    .getByText("Assignment unavailable", { exact: true })
+    .waitFor();
+  assert.equal(await assigneeBox.inputValue(), staffMember.uid);
+  await support
+    .getByRole("button", { name: "Save assignment", exact: true })
+    .click();
+  await until(() => assignmentWrites.length === 2, "assignment retry missing");
+  const noteBox = support.getByRole("textbox", {
+    name: "Internal note (staff only)",
+  });
+  await noteBox.fill("Private staff investigation");
+  await closePanel();
+  await openPerson();
+  await support
+    .getByRole("button", { name: "Open ticket", exact: true })
+    .first()
+    .click();
+  await until(
+    async () => (await noteBox.inputValue()) === "Private staff investigation",
+    "private draft recovery failed",
+  );
+  await support
+    .getByRole("button", { name: "Add internal note", exact: true })
+    .click();
+  await support
+    .getByRole("button", { name: "Retry internal note", exact: true })
+    .click();
+  await support
+    .getByRole("log", { name: "Internal staff notes" })
+    .getByText("Private staff investigation", { exact: true })
+    .waitFor();
+  assert.equal(noteWrites.length, 2);
+  assert.equal(noteWrites[0].uid, noteWrites[1].uid);
+  assert.equal(
+    await support
+      .getByRole("log", { name: "Participant support messages" })
+      .getByText("Private staff investigation", { exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(internalNotes.get(primary.uid).length, 1);
   await support
     .getByRole("button", { name: "Resolve issue", exact: true })
     .click();
@@ -383,6 +494,14 @@ try {
   await page
     .getByRole("log", { name: "Participant support messages" })
     .waitFor();
+  await page
+    .getByRole("log", { name: "Internal staff notes" })
+    .getByText("Private staff investigation", { exact: true })
+    .waitFor();
+  assert.equal(
+    await page.getByRole("combobox", { name: "Assigned staff" }).inputValue(),
+    staffMember.uid,
+  );
   const threadTrigger = links.last();
   await threadTrigger.click();
   await support
