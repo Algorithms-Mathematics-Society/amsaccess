@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { OrgTabPanel, OrgTabs } from "./OrgTabs";
 import { ProblemsView } from "./ProblemsView";
 import { ProblemSetting } from "./authoring/ProblemSetting";
 
@@ -17,34 +18,27 @@ import { ProblemSetting } from "./authoring/ProblemSetting";
 export function ProblemsTabs() {
   const [tab, setTab] = useState<"catalogue" | "setting">("catalogue");
 
+  const id = useId();
+  const tabs = ["catalogue", "setting"] as const;
+
   return (
     <div className="px-8 py-6">
-      <div
-        role="tablist"
-        aria-label="Problems"
-        className="mb-6 inline-flex rounded-lg border border-slate-200 p-0.5"
+      <OrgTabs
+        id={id}
+        label="Problems"
+        tabs={tabs}
+        active={tab}
+        onSelect={setTab}
+        className="mb-6 gap-1 border-b border-slate-200"
       >
-        {(
-          [
-            ["catalogue", "Catalogue"],
-            ["setting", "Problemsetting"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition ${
-              tab === key ? "bg-violet-600 text-white" : "text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "catalogue" ? <ProblemsView embedded /> : <ProblemSetting />}
+        {(value) => (value === "catalogue" ? "Catalogue" : "Problemsetting")}
+      </OrgTabs>
+      <OrgTabPanel id={id} value="catalogue" active={tab}>
+        {tab === "catalogue" && <ProblemsView embedded />}
+      </OrgTabPanel>
+      <OrgTabPanel id={id} value="setting" active={tab}>
+        {tab === "setting" && <ProblemSetting />}
+      </OrgTabPanel>
     </div>
   );
 }

@@ -197,7 +197,7 @@ try {
           .isEnabled(),
     );
   }
-  await drawer().getByRole("button", { name: /^Help/ }).click();
+  await drawer().getByRole("tab", { name: /^Help/ }).click();
   const help = drawer()
     .getByRole("listitem")
     .filter({ hasText: "Help Person" });
@@ -230,7 +230,7 @@ try {
   console.log("PASS: notification render measurement and single action POST");
 
   await drawer()
-    .getByRole("button", { name: /^Flags/ })
+    .getByRole("tab", { name: /^Flags/ })
     .click();
   let release;
   releaseScripts = {
@@ -248,7 +248,7 @@ try {
   release();
   await launcher().click();
   await drawer()
-    .getByRole("button", { name: /^Flags/ })
+    .getByRole("tab", { name: /^Flags/ })
     .click();
   await drawer().getByRole("button", { name: "Review participant" }).click();
   await modal.getByText("Review Person", { exact: true }).first().waitFor();
@@ -258,7 +258,7 @@ try {
     "PASS: profile shell closes during delayed chunk load, reopened profile works without navigating away",
   );
 
-  const participants = page.getByRole("button", {
+  const participants = page.getByRole("tab", {
     name: "participants",
     exact: true,
   });

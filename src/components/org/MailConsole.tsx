@@ -1,7 +1,8 @@
 "use client";
 
 import { useConfirm } from "./ConfirmDialog";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useId, useState } from "react";
+import { OrgTabPanel, OrgTabs } from "./OrgTabs";
 import { reportOrgResponse, startOrgPolling } from "@/lib/client/orgPolling";
 import { useOrgReadTask } from "@/lib/client/useOrgReadTask";
 import { SkeletonText } from "@/components/org/Skeleton";
@@ -108,30 +109,27 @@ function inFlight(counts: Counts): boolean {
 export function MailConsole() {
   const [tab, setTab] = useState<"sends" | "templates">("sends");
 
+  const id = useId();
+  const tabs = ["sends", "templates"] as const;
+
   return (
     <div className="px-8 py-6">
-      <div className="mb-6 flex gap-1 border-b border-slate-200">
-        {(
-          [
-            ["sends", "Sends"],
-            ["templates", "Templates"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm transition ${
-              tab === key
-                ? "border-slate-900 font-medium text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {tab === "sends" ? <Sends /> : <Templates />}
+      <OrgTabs
+        id={id}
+        label="Mails"
+        tabs={tabs}
+        active={tab}
+        onSelect={setTab}
+        className="mb-6 gap-1 border-b border-slate-200"
+      >
+        {(value) => (value === "sends" ? "Sends" : "Templates")}
+      </OrgTabs>
+      <OrgTabPanel id={id} value="sends" active={tab}>
+        {tab === "sends" && <Sends />}
+      </OrgTabPanel>
+      <OrgTabPanel id={id} value="templates" active={tab}>
+        {tab === "templates" && <Templates />}
+      </OrgTabPanel>
     </div>
   );
 }

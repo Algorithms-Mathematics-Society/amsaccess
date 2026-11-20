@@ -47,8 +47,8 @@ try {
  }, null, {timeout:30_000});
  assert.ok(runReads >= 2,'post-action history refresh recovers without releasing the stalled read');
  releaseRuns();
- await page.getByRole('button',{name:'participants',exact:true}).click();
- await page.getByRole('button',{name:'judging',exact:true}).click();
+ await page.getByRole("tab", { name: "participants", exact: true }).click();
+ await page.getByRole("tab", { name: "judging", exact: true }).click();
  await page.getByText('All 2 running. Judging now.',{exact:false}).waitFor();
  assert.ok(fleetReads >= 4,'returning to judging gets a fresh fleet snapshot');
  await Promise.all([

@@ -878,7 +878,7 @@ function RemoveStudent({
         // Someone with submissions is disabled rather than deleted: their
         // attempts sit on a scoreboard others were ranked against.
         title="Remove, or disable if they have submitted"
-        className="rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+        className="grid min-h-6 min-w-6 place-items-center rounded text-slate-500 transition hover:bg-red-50 hover:text-red-600 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
@@ -890,14 +890,14 @@ function RemoveStudent({
       <button
         type="button"
         onClick={remove}
-        className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white"
+        className="min-h-6 rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white [@media(pointer:coarse)]:min-h-11"
       >
         Confirm
       </button>
       <button
         type="button"
         onClick={() => setArmed(false)}
-        className="rounded px-1.5 text-xs text-slate-500"
+        className="min-h-6 rounded px-1.5 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-11"
       >
         Cancel
       </button>

@@ -311,11 +311,11 @@ try {
     0,
     "help requests have their own group",
   );
-  await drawer().getByRole("button", { name: /^Help/ }).click();
+  await drawer().getByRole("tab", { name: /^Help/ }).click();
   await card("Mira Help").waitFor();
   assert.equal(await card("Asha Resume").count(), 0);
   await drawer()
-    .getByRole("button", { name: /^Entries/ })
+    .getByRole("tab", { name: /^Entries/ })
     .click();
   postGate = gate();
   await card("Asha Resume")
@@ -339,7 +339,7 @@ try {
   postGate = null;
   await until(async () => (await card("Asha Resume").count()) === 0);
   await drawer()
-    .getByRole("button", { name: /^History/ })
+    .getByRole("tab", { name: /^History/ })
     .click();
   await card("Asha Resume").getByText("approved", { exact: true }).waitFor();
   assert.equal(
@@ -354,7 +354,7 @@ try {
   );
 
   await drawer()
-    .getByRole("button", { name: /^Entries/ })
+    .getByRole("tab", { name: /^Entries/ })
     .click();
   await card("Rohan Resume")
     .getByRole("button", { name: "Block request" })
@@ -362,21 +362,21 @@ try {
   await card("Rohan Resume")
     .getByRole("button", { name: "Yes, block" })
     .click();
-  await drawer().getByRole("button", { name: /^Help/ }).click();
+  await drawer().getByRole("tab", { name: /^Help/ }).click();
   await card("Mira Help")
     .getByRole("button", { name: "Mark resolved" })
     .click();
   await card("Mira Help").getByRole("button", { name: "Yes, resolve" }).click();
   await drawer()
-    .getByRole("button", { name: /^History/ })
+    .getByRole("tab", { name: /^History/ })
     .click();
   await card("Rohan Resume").getByText("rejected", { exact: true }).waitFor();
   await card("Mira Help").getByText("resolved", { exact: true }).waitFor();
   await drawer().getByRole("button", { name: "Close notifications" }).click();
-  await page.getByRole("button", { name: "problems", exact: true }).click();
+  await page.getByRole("tab", { name: "problems", exact: true }).click();
   await launcher().click();
   await drawer()
-    .getByRole("button", { name: /^History/ })
+    .getByRole("tab", { name: /^History/ })
     .click();
   await card("Asha Resume").waitFor();
   console.log(
@@ -386,7 +386,7 @@ try {
   resumes = [resume("r3", "New Arrival")];
   await refresh();
   await drawer()
-    .getByRole("button", { name: /^Entries/ })
+    .getByRole("tab", { name: /^Entries/ })
     .click();
   await card("New Arrival").waitFor();
   actionFailure = true;
@@ -396,7 +396,7 @@ try {
     .click();
   await card("New Arrival").getByRole("button", { name: "Yes, allow" }).click();
   await drawer()
-    .getByRole("button", { name: /^History/ })
+    .getByRole("tab", { name: /^History/ })
     .click();
   await card("New Arrival")
     .getByText("Status unconfirmed", { exact: true })
@@ -417,7 +417,7 @@ try {
   resumes = [resume("r5", "Uncertain Request")];
   await refresh();
   await drawer()
-    .getByRole("button", { name: /^Entries/ })
+    .getByRole("tab", { name: /^Entries/ })
     .click();
   await card("Uncertain Request").waitFor();
   actionFailure = true;
@@ -497,7 +497,7 @@ try {
     .click();
   await launcher().click();
   await drawer()
-    .getByRole("button", { name: /^Entries/ })
+    .getByRole("tab", { name: /^Entries/ })
     .click();
   await card("Toast Arrival").waitFor();
   resumes = [];
@@ -507,7 +507,7 @@ try {
   );
 
   await drawer()
-    .getByRole("button", { name: /^Flags/ })
+    .getByRole("tab", { name: /^Flags/ })
     .click();
   await card("Dev Flagged").waitFor();
   await card("Dev Flagged")
@@ -525,7 +525,7 @@ try {
   );
   await launcher().click();
   await drawer()
-    .getByRole("button", { name: /^Flags/ })
+    .getByRole("tab", { name: /^Flags/ })
     .click();
   await card("Dev Flagged").waitFor();
   count = 3;
@@ -559,14 +559,14 @@ try {
   await launcher().click();
   await refresh();
   await drawer()
-    .getByRole("button", { name: /^Flags/ })
+    .getByRole("tab", { name: /^Flags/ })
     .click();
   assert.equal(await drawer().getByRole("listitem").count(), 50);
   await drawer()
     .getByRole("button", { name: /^Show more/ })
     .click();
   assert.equal(await drawer().getByRole("listitem").count(), 100);
-  const scroll = drawer().locator(".overflow-y-auto");
+  const scroll = drawer().getByRole("tabpanel");
   await scroll.evaluate((el) => {
     el.scrollTop = 600;
   });
@@ -608,7 +608,7 @@ try {
     `PROFILE: 5,000 flags + 200 requests: reopen next paint ${openPaintMs.toFixed(1)}ms; five unchanged refreshes browser task time ${taskMs.toFixed(1)}ms`,
   );
   await drawer()
-    .getByRole("button", { name: /^Entries/ })
+    .getByRole("tab", { name: /^Entries/ })
     .click();
   assert.equal(await drawer().getByRole("listitem").count(), 50);
   assert.equal(

@@ -79,6 +79,7 @@ async function scenario(run, fallback = false) {
         },
       ]);
     }
+    if (url.pathname.endsWith("/analytics")) return ok({ problems: [] });
     if (url.pathname.endsWith("/announcements"))
       return ok({ sitting: 5, announcements: [] });
     if (
@@ -211,13 +212,13 @@ try {
       await page
         .getByRole("link", { name: "Draft protection", exact: true })
         .click();
-      await page.getByRole("button", { name: /^participants$/i }).click();
+      await page.getByRole("tab", { name: /^participants$/i }).click();
       await page
         .getByRole("button", { name: "Add test candidates", exact: true })
         .waitFor();
       await issue();
-      await page.getByRole("button", { name: /^problems$/i }).click();
-      await page.getByRole("button", { name: /^participants$/i }).click();
+      await page.getByRole("tab", { name: /^problems$/i }).click();
+      await page.getByRole("tab", { name: /^participants$/i }).click();
       await page.getByText("private-bulk-password", { exact: true }).waitFor();
       await dialog(page, () =>
         page
@@ -364,7 +365,7 @@ try {
       await page
         .getByRole("link", { name: "Draft protection", exact: true })
         .click();
-      await page.getByRole("button", { name: /^participants$/i }).click();
+      await page.getByRole("tab", { name: /^participants$/i }).click();
       await page
         .getByRole("button", { name: "Add test candidates", exact: true })
         .waitFor();
@@ -402,7 +403,7 @@ try {
     await page
       .getByRole("link", { name: "Draft protection", exact: true })
       .click();
-    await page.getByRole("button", { name: /^participants$/i }).click();
+    await page.getByRole("tab", { name: /^participants$/i }).click();
     await page
       .getByRole("button", { name: "Add test candidates", exact: true })
       .waitFor();

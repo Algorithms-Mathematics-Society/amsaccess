@@ -174,9 +174,13 @@ function ProblemCard({ problem, onChange }: { problem: Problem; onChange: () => 
               <Eye className="h-3.5 w-3.5 flex-shrink-0 text-slate-300 transition group-hover:text-slate-500" />
             </button>
           ) : (
-            <h3 className="truncate text-base font-semibold text-slate-950">{problem.title}</h3>
+            <h3 className="truncate text-base font-semibold text-slate-950">
+              {problem.title}
+            </h3>
           )}
-          <p className="mt-0.5 font-mono text-xs text-slate-400">{problem.slug}</p>
+          <p className="mt-0.5 font-mono text-xs text-slate-400">
+            {problem.slug}
+          </p>
           <div className="mt-2">
             <TopicPicker
               problemUid={problem.uid}
@@ -215,15 +219,19 @@ function ProblemCard({ problem, onChange }: { problem: Problem; onChange: () => 
               <span className="text-slate-500">
                 {v.time_limit_ms ? `${v.time_limit_ms} ms` : "default limit"}
                 {" · "}
-                {v.memory_limit_mb ? `${v.memory_limit_mb} MB` : "default memory"}
+                {v.memory_limit_mb
+                  ? `${v.memory_limit_mb} MB`
+                  : "default memory"}
               </span>
-              <span className="ml-auto text-xs text-slate-400">{formatWhen(v.created_at)}</span>
+              <span className="ml-auto text-xs text-slate-400">
+                {formatWhen(v.created_at)}
+              </span>
               <button
                 type="button"
                 onClick={() => setPreviewing(v.uid)}
                 aria-label={`Preview v${v.version}`}
                 title={`Preview v${v.version} as a candidate sees it`}
-                className="rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+                className="grid min-h-6 min-w-6 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
               >
                 <Eye className="h-3.5 w-3.5" />
               </button>
@@ -464,8 +472,8 @@ function DeleteButton({
         type="button"
         onClick={() => setArmed(true)}
         title={label}
-        className={`rounded text-slate-400 transition hover:bg-red-50 hover:text-red-600 ${
-          compact ? "p-1" : "p-2"
+        className={`rounded text-slate-500 transition hover:bg-red-50 hover:text-red-600 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 ${
+          compact ? "p-1.5" : "p-2"
         }`}
       >
         <Trash2 className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
@@ -479,14 +487,14 @@ function DeleteButton({
         type="button"
         onClick={remove}
         disabled={busy}
-        className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-40"
+        className="min-h-6 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
       >
         {busy ? "Deleting…" : "Confirm"}
       </button>
       <button
         type="button"
         onClick={() => setArmed(false)}
-        className="rounded px-1.5 py-1 text-xs text-slate-500"
+        className="min-h-6 rounded px-1.5 py-1 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-11"
       >
         Cancel
       </button>

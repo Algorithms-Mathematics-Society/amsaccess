@@ -101,7 +101,9 @@ try {
           version: 1,
           problem: {
             statement: {
-              markdown: backfilled ? "Old statement" : "Fresh statement",
+              markdown: backfilled
+                ? "Old statement\n\n## Examples\n\nAn example input."
+                : "Fresh statement",
             },
             samples: [],
             limits: { wall_time_ms: 1000, memory_mb: 256 },
@@ -134,6 +136,28 @@ try {
       .getByRole("button", { name: "Old problem", exact: true })
       .click();
     await page.getByText("Old statement").waitFor();
+    const catalogue = page.getByRole("tab", { name: "Catalogue" });
+    assert.equal(await catalogue.getAttribute("aria-selected"), "true");
+    assert.equal(
+      await page
+        .getByRole("tabpanel", { name: "Catalogue" })
+        .getAttribute("id"),
+      await catalogue.getAttribute("aria-controls"),
+    );
+    const sections = page.getByRole("tablist", { name: "Problem sections" });
+    await sections.getByRole("tab", { name: "Statement" }).focus();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    const examples = sections.getByRole("tab", { name: "Examples" });
+    assert.equal(await examples.getAttribute("aria-selected"), "true");
+    await page
+      .getByRole("tabpanel", { name: "Examples" })
+      .getByText("An example input.")
+      .waitFor();
+    assert.equal(
+      await page.getByRole("tabpanel", { name: "Statement" }).count(),
+      0,
+    );
     const rebuild = page.getByRole("button", {
       name: "Rebuild preview",
       exact: true,
@@ -166,6 +190,11 @@ try {
       .filter({ hasText: "Preview rebuilt from the stored package." })
       .waitFor();
     await page.getByText("Fresh statement").waitFor();
+    assert.equal(
+      await sections.count(),
+      0,
+      "single-section preview needs no tab list",
+    );
     assert.equal(reprojects, 2);
     assert(previewReads > reads, "preview re-read after reproject");
     assert.equal(
@@ -293,13 +322,11 @@ try {
         { exact: false },
       )
       .waitFor();
-    await page
-      .getByLabel("Input file", { exact: true })
-      .setInputFiles({
-        name: "hidden.in",
-        mimeType: "application/octet-stream",
-        buffer: Buffer.from("1 2 3\n"),
-      });
+    await page.getByLabel("Input file", { exact: true }).setInputFiles({
+      name: "hidden.in",
+      mimeType: "application/octet-stream",
+      buffer: Buffer.from("1 2 3\n"),
+    });
     await page
       .getByRole("button", { name: "Upload benchmark input", exact: true })
       .click();

@@ -99,7 +99,7 @@ try {
     await page
       .getByRole("heading", { name: "Profile response fixture" })
       .waitFor();
-    await page.getByRole("button", { name: "problems", exact: true }).click();
+    await page.getByRole("tab", { name: "problems", exact: true }).click();
     await page.getByText("No problems yet.", { exact: false }).waitFor();
     assert.deepEqual(
       errors,

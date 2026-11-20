@@ -130,6 +130,22 @@ function Inbox() {
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<InboxData | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const revealDetail = () => {
+    const detail = detailRef.current;
+    const list = detail?.previousElementSibling;
+    if (
+      !detail ||
+      !list ||
+      detail.getBoundingClientRect().top <= list.getBoundingClientRect().top + 1
+    )
+      return;
+    detail.focus({ preventScroll: true });
+    detail.scrollIntoView({ block: "start", behavior: "instant" });
+  };
+  useEffect(() => {
+    if (selected) revealDetail();
+  }, [selected]);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
@@ -269,7 +285,10 @@ function Inbox() {
                       : `Open conversation with ${item.name}`
                 }
                 variant={selected === item.uid ? "primary" : "secondary"}
-                onClick={() => setSelected(item.uid)}
+                onClick={() => {
+                  if (selected === item.uid) revealDetail();
+                  else setSelected(item.uid);
+                }}
               />
             </VStack>
           ))}
@@ -288,8 +307,12 @@ function Inbox() {
             />
           </HStack>
         </VStack>
-        <VStack
-          gap={4}
+        <div
+          ref={detailRef}
+          role="region"
+          aria-label="Support conversation"
+          tabIndex={-1}
+          className="scroll-mt-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-500"
           style={{ flex: "2 1 calc(var(--spacing-10) * 12)", minWidth: 0 }}
         >
           {selected ? (
@@ -308,7 +331,7 @@ function Inbox() {
               Select an issue to read the conversation and reply.
             </Text>
           )}
-        </VStack>
+        </div>
       </HStack>
       {person && canReadPerson && (
         <ContestReadProvider
