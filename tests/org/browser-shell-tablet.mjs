@@ -444,16 +444,28 @@ try {
   await touch.goto(base + "/org/contests/a#participants");
   const copy = touch.getByRole("button", { name: "Copy invite code" });
   await copy.waitFor();
-  const box = await copy.boundingBox();
-  assert(
-    box.height >= 44 && box.width >= 44,
-    "Copy invite code has a 44px hit area",
-  );
   const selectAll = touch.getByRole("checkbox", {
     name: /Select all 30 shown/,
   });
   const target = selectAll.locator("..");
-  assert((await target.boundingBox()).height >= 44, "Padded checkbox hit area");
+  const revoke = touch
+    .getByRole("region", { name: "Participant roster" })
+    .getByRole("button", { name: "Revoke", exact: true })
+    .first();
+  for (const width of [768, 1024]) {
+    await touch.setViewportSize({ width, height: 900 });
+    for (const [name, locator] of [
+      ["Copy invite code", copy],
+      ["Padded checkbox", target],
+      ["Revoke", revoke],
+    ]) {
+      const box = await locator.boundingBox();
+      assert(
+        box.height >= 44 && box.width >= 44,
+        `${name} has a 44px hit area at ${width}px`,
+      );
+    }
+  }
   await target.tap();
   assert(
     await selectAll.isChecked(),
@@ -461,6 +473,7 @@ try {
   );
 
   supportList = true;
+  await touch.setViewportSize({ width: 768, height: 900 });
   await touch.goto(base + "/org/support");
   const openIssue = touch.getByRole("button", {
     name: "Open conversation with Candidate ticket",

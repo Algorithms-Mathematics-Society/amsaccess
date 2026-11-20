@@ -115,7 +115,7 @@ export function OrgTabs<T extends string>({
           }}
           onKeyDown={(event) => moveFocus(event, index)}
           onClick={() => onSelect(value)}
-          className={`relative min-h-11 shrink-0 whitespace-nowrap border-b-2 py-2 text-sm font-medium transition focus-visible:-outline-offset-2 ${tabClassName} ${
+          className={`relative min-h-[44px] shrink-0 whitespace-nowrap border-b-2 py-2 text-sm font-medium transition focus-visible:-outline-offset-2 ${tabClassName} ${
             active === value
               ? "border-slate-900 text-slate-900"
               : "border-transparent text-slate-600 hover:text-slate-900"

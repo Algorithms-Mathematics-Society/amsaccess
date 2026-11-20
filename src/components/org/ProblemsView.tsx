@@ -231,7 +231,7 @@ function ProblemCard({ problem, onChange }: { problem: Problem; onChange: () => 
                 onClick={() => setPreviewing(v.uid)}
                 aria-label={`Preview v${v.version}`}
                 title={`Preview v${v.version} as a candidate sees it`}
-                className="grid min-h-6 min-w-6 place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+                className="grid min-h-[24px] min-w-[24px] place-items-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
               >
                 <Eye className="h-3.5 w-3.5" />
               </button>
@@ -472,7 +472,7 @@ function DeleteButton({
         type="button"
         onClick={() => setArmed(true)}
         title={label}
-        className={`rounded text-slate-500 transition hover:bg-red-50 hover:text-red-600 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 ${
+        className={`inline-grid min-h-[24px] min-w-[24px] place-items-center rounded text-slate-500 transition hover:bg-red-50 hover:text-red-600 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] ${
           compact ? "p-1.5" : "p-2"
         }`}
       >
@@ -487,14 +487,14 @@ function DeleteButton({
         type="button"
         onClick={remove}
         disabled={busy}
-        className="min-h-6 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+        className="min-h-[24px] rounded bg-red-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
       >
         {busy ? "Deleting…" : "Confirm"}
       </button>
       <button
         type="button"
         onClick={() => setArmed(false)}
-        className="min-h-6 rounded px-1.5 py-1 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-11"
+        className="min-h-[24px] rounded px-1.5 py-1 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-[44px]"
       >
         Cancel
       </button>

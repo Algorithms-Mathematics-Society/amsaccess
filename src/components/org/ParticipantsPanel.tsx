@@ -2065,7 +2065,7 @@ const RosterTable = memo(function RosterTable({
           aria-label="Contest participants"
         >
           <colgroup>
-            <col className="w-7 [@media(pointer:coarse)]:w-11" />
+            <col className="w-[28px] [@media(pointer:coarse)]:w-[44px]" />
             <col className="w-[16%]" />
             <col className="w-[18%]" />
             <col className="w-[10%]" />
@@ -2076,7 +2076,7 @@ const RosterTable = memo(function RosterTable({
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th scope="col" className="p-0">
-                <label className="flex min-h-7 min-w-7 items-center justify-center [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11">
+                <label className="flex min-h-[24px] min-w-[24px] items-center justify-center [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]">
                   <input
                     type="checkbox"
                     aria-label={`Select all ${selectableVisible.length} shown`}
@@ -2159,7 +2159,7 @@ const RosterRow = memo(
     return (
       <tr>
         <td className="p-0">
-          <label className="flex min-h-7 min-w-7 items-center justify-center [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11">
+          <label className="flex min-h-[24px] min-w-[24px] items-center justify-center [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]">
             <input
               type="checkbox"
               aria-label={`Select ${row.display_name} (${row.login_id})`}
@@ -2179,7 +2179,7 @@ const RosterRow = memo(
           <button
             type="button"
             onClick={() => onOpen(row.user_uid)}
-            className={`min-h-6 break-words text-left font-medium hover:underline [@media(pointer:coarse)]:min-h-11 ${entered ? "text-emerald-700" : "text-slate-900"}`}
+            className={`min-h-[24px] break-words text-left font-medium hover:underline [@media(pointer:coarse)]:min-h-[44px] ${entered ? "text-emerald-700" : "text-slate-900"}`}
           >
             {row.display_name}
             {entered && (
@@ -2244,7 +2244,7 @@ const RosterRow = memo(
                           ? "Email accepted into the queue; delivery is not yet confirmed"
                           : "Queue a fresh credential email"
                   }
-                  className="inline-flex min-h-8 w-[108px] items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-50 [@media(pointer:coarse)]:min-h-11"
+                  className="inline-flex min-h-8 w-[108px] items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-50 [@media(pointer:coarse)]:min-h-[44px]"
                 >
                   {pending === "reemail" ? (
                     <Loader2
@@ -2286,7 +2286,7 @@ const RosterRow = memo(
               onClick={() => onAction(row.login_id, "credentials")}
               disabled={pending !== null || credentialLocked || reissueLocked}
               title="Show the existing password without changing it"
-              className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+              className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
             >
               {pending === "credentials" ? (
                 <Loader2
@@ -2304,7 +2304,7 @@ const RosterRow = memo(
                 onClick={() => onAction(row.login_id, "restore")}
                 disabled={pending !== null || credentialLocked}
                 title="Restore this login across all their contests"
-                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
               >
                 {pending === "restore" ? (
                   <Loader2
@@ -2322,7 +2322,7 @@ const RosterRow = memo(
                 onClick={() => onAction(row.login_id, "revoke")}
                 disabled={pending !== null || credentialLocked}
                 title="Disable this login. The record is kept."
-                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+                className="inline-flex min-h-8 items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
               >
                 <Ban className="h-3.5 w-3.5" />
                 Revoke

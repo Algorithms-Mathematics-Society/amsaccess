@@ -877,7 +877,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             <a
               href={`/api/org/contests/${contest.uid}/export?kind=standings`}
               download
-              className="inline-flex min-h-6 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 [@media(pointer:coarse)]:min-h-11"
+              className="inline-flex min-h-[24px] items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 [@media(pointer:coarse)]:min-h-[44px]"
             >
               <Download className="h-3.5 w-3.5" />
               Standings CSV
@@ -885,7 +885,7 @@ function ContestContent({ contestUid }: { contestUid: string }) {
             <a
               href={`/api/org/contests/${contest.uid}/export?kind=submissions`}
               download
-              className="inline-flex min-h-6 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 [@media(pointer:coarse)]:min-h-11"
+              className="inline-flex min-h-[24px] items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 [@media(pointer:coarse)]:min-h-[44px]"
             >
               <Download className="h-3.5 w-3.5" />
               Submissions CSV
@@ -1028,7 +1028,7 @@ function Reschedule({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-6 items-center gap-1.5 rounded px-2 py-0.5 text-xs text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 [@media(pointer:coarse)]:min-h-11"
+        className="inline-flex min-h-[24px] items-center gap-1.5 rounded px-2 py-0.5 text-xs text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 [@media(pointer:coarse)]:min-h-[44px]"
       >
         <CalendarClock className="h-3.5 w-3.5" />
         Reschedule
@@ -1094,7 +1094,7 @@ function Reschedule({
             save(new Date(starts).toISOString(), new Date(ends).toISOString())
           }
           disabled={busy || invalid}
-          className="min-h-6 rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+          className="min-h-[24px] rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
         >
           {busy ? "Saving…" : "Save"}
         </button>
@@ -1125,14 +1125,14 @@ function Reschedule({
             );
           }}
           disabled={busy}
-          className="min-h-6 rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+          className="min-h-[24px] rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-700 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
         >
           Start now (3h)
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="min-h-6 rounded px-2 py-1 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-11"
+          className="min-h-[24px] rounded px-2 py-1 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-[44px]"
         >
           Cancel
         </button>
@@ -1249,7 +1249,7 @@ function InviteCode({ code }: { code: string }) {
           type="button"
           onClick={copy}
           aria-label="Copy invite code"
-          className="grid min-h-6 min-w-6 place-items-center rounded text-slate-500 transition hover:bg-white hover:text-slate-900 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+          className="grid min-h-[24px] min-w-[24px] place-items-center rounded text-slate-500 transition hover:bg-white hover:text-slate-900 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
         >
           {copied ? (
             <Check className="h-4 w-4 text-emerald-600" />
@@ -1758,7 +1758,7 @@ function RejudgeButton({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex min-h-6 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 [@media(pointer:coarse)]:min-h-11"
+        className="inline-flex min-h-[24px] items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:border-slate-900 [@media(pointer:coarse)]:min-h-[44px]"
       >
         <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
         Rejudge
@@ -1770,7 +1770,7 @@ function RejudgeButton({
             type="button"
             onClick={() => run("SE")}
             disabled={busy}
-            className="min-h-6 rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+            className="min-h-[24px] rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
           >
             System errors only (SE)
           </button>
@@ -1778,7 +1778,7 @@ function RejudgeButton({
             type="button"
             onClick={() => run("")}
             disabled={busy}
-            className="min-h-6 rounded border border-amber-400 px-2.5 py-1 text-xs text-amber-800 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+            className="min-h-[24px] rounded border border-amber-400 px-2.5 py-1 text-xs text-amber-800 disabled:opacity-40 [@media(pointer:coarse)]:min-h-[44px]"
           >
             Everything
           </button>
@@ -1834,7 +1834,7 @@ function RemoveProblem({
         type="button"
         onClick={() => setArmed(true)}
         title="Remove from this contest"
-        className="grid min-h-6 min-w-6 place-items-center rounded text-slate-500 transition hover:bg-red-50 hover:text-red-600 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+        className="grid min-h-[24px] min-w-[24px] place-items-center rounded text-slate-500 transition hover:bg-red-50 hover:text-red-600 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
@@ -1846,14 +1846,14 @@ function RemoveProblem({
       <button
         type="button"
         onClick={remove}
-        className="min-h-6 rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white [@media(pointer:coarse)]:min-h-11"
+        className="min-h-[24px] rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white [@media(pointer:coarse)]:min-h-[44px]"
       >
         Remove
       </button>
       <button
         type="button"
         onClick={() => setArmed(false)}
-        className="min-h-6 rounded px-1.5 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-11"
+        className="min-h-[24px] rounded px-1.5 text-xs text-slate-600 [@media(pointer:coarse)]:min-h-[44px]"
       >
         Cancel
       </button>
