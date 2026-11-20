@@ -198,3 +198,22 @@ export function parseDrawPreview(data: unknown): DrawPreview {
     throw new Error("The draw preview response was incomplete.");
   return preview as DrawPreview;
 }
+
+export const DRAW_METHODS = [
+  { value: "snake", label: "Snake — balanced across ranks" },
+  { value: "tiered", label: "Tiered — consecutive ranks" },
+  { value: "banded", label: "Banded — balanced within tiers" },
+] as const;
+
+export type ContestOption = { uid: string; title: string };
+// Source contests for a draw; rows without a UUID and title are dropped, not guessed.
+export function parseContestOptions(data: unknown): ContestOption[] | null {
+  if (!Array.isArray(data)) return null;
+  return data.flatMap((row) =>
+    typeof row?.uid === "string" &&
+    UUID.test(row.uid) &&
+    typeof row.title === "string"
+      ? [{ uid: row.uid, title: row.title }]
+      : [],
+  );
+}

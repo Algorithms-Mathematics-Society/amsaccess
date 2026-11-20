@@ -17,6 +17,7 @@ function compile(path, modules) {
     File,
     FormData,
     AbortController,
+    URL,
     Number,
     Error,
     JSON,
@@ -172,6 +173,15 @@ test("project catalog is authenticated and permits only the collection GET", asy
   assert.equal(result.headers["Cache-Control"], "no-store");
   assert.deepEqual(result.data, [{ uid }]);
   assert.deepEqual(calls[0].slice(0, 4), ["GET", "/projects", null, "staff"]);
+  // The contest picks the organization; only a UUID is forwarded.
+  await route.GET(new Request(`https://test?contest_uid=${uid}`), ctx([]));
+  assert.equal(calls[1][1], `/projects?contest_uid=${uid}`);
+  const bad = await route.GET(
+    new Request("https://test?contest_uid=x%26organization%3Dother"),
+    ctx([]),
+  );
+  assert.equal(bad.status, 400);
+  assert.equal(calls.length, 2);
 });
 test("project upload cannot forward extra form fields or unsupported paths", async () => {
   let forwarded;
@@ -197,6 +207,14 @@ test("project upload cannot forward extra form fields or unsupported paths", asy
   assert.equal(result.status, 200);
   assert.equal(forwarded.path, "/projects/inspect");
   assert.deepEqual([...forwarded.form.keys()], ["package"]);
+  await route.POST(
+    new Request(`https://test?contest_uid=${uid}`, {
+      method: "POST",
+      body: form,
+    }),
+    { params: Promise.resolve({ action: [] }) },
+  );
+  assert.equal(forwarded.path, `/projects?contest_uid=${uid}`);
 });
 test("team proxy 403 shows the server denial and falls back to fixed text", async () => {
   const { errorMessage } = compile("lib/server/amsApi.ts", {});

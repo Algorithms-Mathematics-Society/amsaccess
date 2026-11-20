@@ -6,6 +6,7 @@ const { chromium } = await import(
 const base = process.env.ORG_TEST_URL || "http://127.0.0.1:3124";
 const uid = "3fbf9cee-8b6e-4872-947f-c52b46bb572e";
 const existingProjectUid = "ce789597-e678-4a45-8c38-5a456418d87a";
+const sourceUid = "7d0c6a1e-2f4b-4c3a-9e5d-1b2c3d4e5f60";
 const members = [1, 2, 3, 4].map((n) => ({
   user_uid: uid + n,
   username: `tester${n}`,
@@ -41,6 +42,7 @@ try {
   let savedDraw;
   let catalogAvailable = false;
   let unpublishConflict = true;
+  const catalogQueries = [];
   await page.route("**/*", async (route) => {
     const u = new URL(route.request().url());
     if (u.origin !== base) return route.abort();
@@ -53,6 +55,14 @@ try {
         body: JSON.stringify(data),
       });
     if (u.pathname === "/api/auth/me") return ok({ role: "admin" });
+    if (u.pathname.startsWith("/api/org/projects"))
+      catalogQueries.push(u.searchParams.get("contest_uid"));
+    if (u.pathname === "/api/org/contests")
+      return ok([
+        { uid, title: "Team test" },
+        { uid: sourceUid, title: "Round 1" },
+        { uid: "not-a-uuid", title: "Dropped" },
+      ]);
     if (u.pathname === `/api/org/contests/${uid}`)
       return ok({
         uid,
@@ -197,6 +207,41 @@ try {
     name: "Save draw",
     exact: true,
   });
+  const sourcePicker = page.getByRole("combobox", { name: "Source contest" });
+  assert.equal(
+    await sourcePicker.inputValue(),
+    uid,
+    "defaults to this contest",
+  );
+  assert.equal(
+    await sourcePicker.getByRole("option", { name: "Dropped" }).count(),
+    0,
+  );
+  await sourcePicker.selectOption({ label: "Round 1" });
+  await page
+    .getByRole("button", { name: "Compare methods", exact: true })
+    .click();
+  const methods = page.getByRole("table", { name: "Method comparison" });
+  await methods
+    .getByRole("row", { name: /Tiered/ })
+    .getByRole("button", { name: "Review this draw" })
+    .click();
+  await preview.waitFor();
+  assert.deepEqual(
+    previews.map((p) => [p.method, p.source_contest_uid]),
+    [
+      ["snake", sourceUid],
+      ["tiered", sourceUid],
+      ["banded", sourceUid],
+    ],
+  );
+  assert.equal(
+    await page.getByRole("combobox", { name: /^Method/ }).inputValue(),
+    "tiered",
+  );
+  await page.getByRole("combobox", { name: /^Method/ }).selectOption("snake");
+  await preview.waitFor({ state: "hidden" });
+  await methods.waitFor({ state: "hidden" });
   await previewDraw.click();
   await preview.getByText("Tester 4 · Rank 4", { exact: true }).waitFor();
   await preview.getByText("Team 1 · Rank sum 10", { exact: true }).waitFor();
@@ -215,7 +260,7 @@ try {
   await page
     .getByText("Tester 4 · Rank 4 · Part not chosen", { exact: true })
     .waitFor();
-  assert.deepEqual(savedDraw, previews[1]);
+  assert.deepEqual(savedDraw, previews[4]);
   assert.equal(savedDraw.take, 5);
   await page
     .getByRole("button", { name: "Publish teams", exact: true })
@@ -262,7 +307,7 @@ try {
   await preview
     .getByRole("button", { name: "Save redraw", exact: true })
     .waitFor();
-  assert.equal(previews[2].reset, true);
+  assert.equal(previews[5].reset, true);
   assert.deepEqual(writes, [
     "import",
     "save",
@@ -274,9 +319,14 @@ try {
   const count = reads;
   await page.waitForTimeout(1000);
   assert.equal(reads, count, "no recurring team poll");
+  assert(catalogQueries.length >= 3, "catalog, inspect and import requests");
+  assert(
+    catalogQueries.every((q) => q === uid),
+    "every project request names this contest",
+  );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS catalog, import, read-only preview, save, publish, readiness, and guarded unpublish",
+    "PASS catalog, import, source picker, method comparison, read-only preview, save, publish, readiness, and guarded unpublish",
   );
   await page.screenshot({
     path: "/tmp/amsaccess-team-setup.png",
