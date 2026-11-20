@@ -153,21 +153,28 @@ export async function loadContestTickets(
 ) {
   const scope = contestUid.toLowerCase();
   const tickets: SupportSummary[] = [];
+  let cursor: string | undefined;
+  const seen = new Set<string>();
+  const cursors = new Set<string>();
   for (;;) {
-    const { items, has_more } = await loadSupportInbox(
+    const { items, has_more, next_cursor } = await loadSupportInbox(
       status,
-      tickets.length,
+      cursor,
       signal,
       scope,
     );
     if (
       (has_more && items.length === 0) ||
-      items.some((item) => item.contest_uid !== scope)
+      items.some((item) => item.contest_uid !== scope || seen.has(item.uid)) ||
+      (has_more && cursors.has(next_cursor!))
     )
       throw new Error(
         "The contest support inbox response was incomplete. Refresh to retry.",
       );
+    items.forEach((item) => seen.add(item.uid));
     tickets.push(...items);
     if (!has_more) return tickets;
+    cursor = next_cursor!;
+    cursors.add(cursor);
   }
 }

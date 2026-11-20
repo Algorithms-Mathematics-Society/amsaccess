@@ -107,7 +107,8 @@ await page.route("**/*", async (route) => {
       });
     } catch {}
   };
-  if (url.pathname === "/api/auth/me") return ok({ role: "admin" });
+  if (url.pathname === "/api/auth/me")
+    return ok({ role: "admin", uid: "99999999-9999-4999-8999-999999999999" });
   if (url.pathname === `/api/org/contests/${contestUid}`)
     return ok({
       uid: contestUid,
@@ -125,7 +126,7 @@ await page.route("**/*", async (route) => {
   if (url.pathname === "/api/org/support") {
     const status = url.searchParams.get("status");
     const scope = url.searchParams.get("contest_uid");
-    const offset = Number(url.searchParams.get("offset"));
+    const offset = Number(url.searchParams.get("cursor") || 0);
     const items = (
       status === "resolved" ? resolvedTickets : openTickets
     ).filter((item) => scope === null || item.contest_uid === scope);
@@ -133,8 +134,17 @@ await page.route("**/*", async (route) => {
     return ok({
       items: items.slice(offset, offset + limit),
       has_more: items.length > offset + limit,
+      next_cursor:
+        items.length > offset + limit ? String(offset + limit) : null,
     });
   }
+  if (
+    url.pathname === `/api/org/support/${T1}/assignees` &&
+    req.method() === "GET"
+  )
+    return ok({ items: [] });
+  if (url.pathname === `/api/org/support/${T1}/notes` && req.method() === "GET")
+    return ok({ notes: [], has_more: false, next_cursor: null });
   if (url.pathname === `/api/org/support/${T1}`)
     return ok({
       ...openTickets[0],
@@ -214,8 +224,8 @@ try {
   assert.deepEqual(
     calls.filter((c) => c.path === "/api/org/support").map((c) => c.query),
     [
-      `?status=open&offset=0&contest_uid=${contestUid}`,
-      `?status=open&offset=1&contest_uid=${contestUid}`,
+      `?status=open&pagination=cursor&contest_uid=${contestUid}`,
+      `?status=open&pagination=cursor&cursor=1&contest_uid=${contestUid}`,
     ],
   );
   for (const view of ["resume-requests", "incidents"])
@@ -305,7 +315,8 @@ try {
     calls.some(
       (c) =>
         c.path === "/api/org/support" &&
-        c.query === `?status=resolved&offset=0&contest_uid=${contestUid}`,
+        c.query ===
+          `?status=resolved&pagination=cursor&contest_uid=${contestUid}`,
     ),
   );
   assert.equal(
@@ -369,7 +380,8 @@ try {
   assert(
     calls.some(
       (c) =>
-        c.path === "/api/org/support" && c.query === "?status=open&offset=0",
+        c.path === "/api/org/support" &&
+        c.query === "?status=open&pagination=cursor",
     ),
   );
   assert.deepEqual(errors, []);

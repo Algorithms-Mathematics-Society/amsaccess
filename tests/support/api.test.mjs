@@ -90,3 +90,16 @@ test("malformed response and network errors describe delivery as unconfirmed", a
     /unconfirmed/,
   );
 });
+
+test("cursor pages reject repeated tokens, duplicate items and missing continuation", async (t) => {
+  let data;
+  t.mock.method(globalThis, "fetch", async () => Response.json(data));
+  for (const page of [
+    { items: [summary], has_more: true, next_cursor: "current" },
+    { items: [summary], has_more: true },
+    { items: [summary, summary], has_more: false },
+  ]) {
+    data = page;
+    await assert.rejects(loadSupportInbox("open", "current"), /incomplete/);
+  }
+});

@@ -16,6 +16,8 @@ export type SupportSummary = {
   category: string;
   status: "open" | "resolved";
   updated_at: string;
+  assignee?: SupportStaff | null;
+  internal_note_count?: number;
   /** Older servers omit this field; absent means the existing chat behavior. */
   chat_enabled?: boolean;
 };
@@ -23,7 +25,11 @@ export type SupportThread = SupportSummary & {
   messages: SupportMessage[];
   has_more: boolean;
 };
-export type SupportInbox = { items: SupportSummary[]; has_more: boolean };
+export type SupportInbox = {
+  items: SupportSummary[];
+  has_more: boolean;
+  next_cursor: string | null;
+};
 
 export async function supportApi<T>(
   path: string,
@@ -100,6 +106,13 @@ export function isSupportSummary(value: unknown): value is SupportSummary {
     (value.status === "open" || value.status === "resolved") &&
     (value.chat_enabled === undefined ||
       typeof value.chat_enabled === "boolean") &&
+    (value.assignee === undefined ||
+      value.assignee === null ||
+      isSupportStaff(value.assignee)) &&
+    (value.internal_note_count === undefined ||
+      (typeof value.internal_note_count === "number" &&
+        Number.isInteger(value.internal_note_count) &&
+        value.internal_note_count >= 0)) &&
     isDate(value.updated_at)
   );
 }
@@ -115,7 +128,7 @@ export function isSupportMessage(value: unknown): value is SupportMessage {
 }
 export async function loadSupportInbox(
   status: "open" | "resolved",
-  offset = 0,
+  cursor?: string,
   signal?: AbortSignal,
   contestUid?: string,
   userUid?: string,
@@ -124,7 +137,8 @@ export async function loadSupportInbox(
     throw new Error(
       "Choose a verified participant and contest before loading tickets.",
     );
-  const query = new URLSearchParams({ status, offset: String(offset) });
+  const query = new URLSearchParams({ status, pagination: "cursor" });
+  if (cursor) query.set("cursor", cursor);
   if (contestUid !== undefined) query.set("contest_uid", contestUid);
   if (userUid !== undefined) query.set("user_uid", userUid);
   const data = await supportApi<unknown>(`?${query}`, "GET", undefined, {
@@ -138,7 +152,13 @@ export async function loadSupportInbox(
       !data.items.every(
         (item) => item.user_uid === userUid && item.contest_uid === contestUid,
       )) ||
-    typeof data.has_more !== "boolean"
+    typeof data.has_more !== "boolean" ||
+    new Set(data.items.map((item) => item.uid)).size !== data.items.length ||
+    (data.has_more &&
+      (!data.items.length ||
+        typeof data.next_cursor !== "string" ||
+        !data.next_cursor ||
+        data.next_cursor === cursor))
   )
     throw new Error(
       "The support inbox response was incomplete. Refresh to retry.",
@@ -170,4 +190,102 @@ export async function loadSupportThread(
       "The conversation response was incomplete. Refresh to retry.",
     );
   return data as SupportThread;
+}
+
+export type SupportStaff = { uid: string; display_name: string; email: string };
+export type SupportNote = {
+  uid: string;
+  body: string;
+  created_at: string;
+  author?: SupportStaff | null;
+};
+const isSupportStaff = (value: unknown): value is SupportStaff =>
+  isRecord(value) &&
+  isUuid(value.uid) &&
+  typeof value.display_name === "string" &&
+  typeof value.email === "string";
+export async function loadSupportAssignees(
+  uid: string,
+  signal?: AbortSignal,
+): Promise<SupportStaff[]> {
+  const data = await supportApi<unknown>(
+    `/${uid}/assignees`,
+    "GET",
+    undefined,
+    { signal },
+  );
+  if (
+    !isRecord(data) ||
+    !Array.isArray(data.items) ||
+    !data.items.every(isSupportStaff)
+  )
+    throw new Error(
+      "Eligible staff response was incomplete. Refresh to retry.",
+    );
+  return data.items;
+}
+export async function assignSupport(
+  uid: string,
+  assignee: string | null,
+): Promise<SupportSummary> {
+  const data = await supportApi<unknown>(`/${uid}/assignment`, "PATCH", {
+    assignee_uid: assignee,
+  });
+  if (
+    !isSupportSummary(data) ||
+    data.uid !== uid ||
+    !isRecord(data) ||
+    (assignee === null
+      ? data.assignee !== null
+      : !isSupportStaff(data.assignee) || data.assignee.uid !== assignee)
+  )
+    throw new Error(
+      "Assignment was not confirmed. Retry the same assignment safely.",
+    );
+  return data;
+}
+export async function loadSupportNotes(
+  uid: string,
+  after?: string,
+  signal?: AbortSignal,
+): Promise<{
+  notes: SupportNote[];
+  has_more: boolean;
+  next_cursor: string | null;
+}> {
+  const data = await supportApi<unknown>(
+    `/${uid}/notes${after ? `?after=${encodeURIComponent(after)}` : ""}`,
+    "GET",
+    undefined,
+    { signal },
+  );
+  if (
+    !isRecord(data) ||
+    !Array.isArray(data.notes) ||
+    !data.notes.every(
+      (note) =>
+        isRecord(note) &&
+        isUuid(note.uid) &&
+        typeof note.body === "string" &&
+        note.body.length <= 4000 &&
+        isDate(note.created_at) &&
+        (note.author === undefined ||
+          note.author === null ||
+          isSupportStaff(note.author)),
+    ) ||
+    typeof data.has_more !== "boolean" ||
+    (data.has_more &&
+      (!data.notes.length ||
+        typeof data.next_cursor !== "string" ||
+        !data.next_cursor ||
+        data.next_cursor === after))
+  )
+    throw new Error(
+      "Internal notes response was incomplete. Refresh to retry.",
+    );
+  return data as {
+    notes: SupportNote[];
+    has_more: boolean;
+    next_cursor: string | null;
+  };
 }

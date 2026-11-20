@@ -172,12 +172,13 @@ test("contest tickets use the scoped API and traverse more than 20 pages", async
   const calls = [];
   context.mock.method(globalThis, "fetch", async (url) => {
     const { searchParams } = new URL(url, "https://example.test");
-    const offset = Number(searchParams.get("offset"));
+    const offset = Number(searchParams.get("cursor") || 0);
     calls.push(Object.fromEntries(searchParams));
     const uid = `11111111-1111-4111-8111-${String(offset).padStart(12, "0")}`;
     return Response.json({
       items: [ticket(uid, contestUid, "resolved", t(0))],
       has_more: offset < 21,
+      next_cursor: offset < 21 ? String(offset + 1) : null,
     });
   });
 
@@ -186,7 +187,8 @@ test("contest tickets use the scoped API and traverse more than 20 pages", async
     calls,
     Array.from({ length: 22 }, (_, offset) => ({
       status: "resolved",
-      offset: String(offset),
+      pagination: "cursor",
+      ...(offset ? { cursor: String(offset) } : {}),
       contest_uid: contestUid,
     })),
   );
@@ -216,4 +218,47 @@ test("a contest ticket read fails when the server ignores the contest filter", a
     }),
   );
   await assert.rejects(loadContestTickets("c", "open"), /incomplete/);
+});
+
+test("cursor traversal keeps all tickets when replies change updated timestamps", async (context) => {
+  const contest = "d364cd25-61df-402a-949a-d169afcc1741";
+  const ids = [1, 2, 3].map(
+    (n) => `11111111-1111-4111-8111-${String(n).padStart(12, "0")}`,
+  );
+  const calls = [];
+  context.mock.method(globalThis, "fetch", async (url) => {
+    const query = new URL(url, "https://example.test").searchParams;
+    calls.push(Object.fromEntries(query));
+    const index = query.has("cursor") ? Number(query.get("cursor")) : 0;
+    return Response.json({
+      items: [ticket(ids[index], contest, "open", t(99 - index))],
+      has_more: index < 2,
+      next_cursor: index < 2 ? String(index + 1) : null,
+    });
+  });
+  const items = await loadContestTickets(contest, "open");
+  assert.deepEqual(
+    items.map((item) => item.uid),
+    ids,
+  );
+  assert(
+    calls.every(
+      (query) => query.pagination === "cursor" && !("offset" in query),
+    ),
+  );
+});
+
+test("fresh cursor tokens cannot hide duplicate ticket pages", async (context) => {
+  let page = 0;
+  context.mock.method(globalThis, "fetch", async () =>
+    Response.json({
+      items: [
+        ticket("11111111-1111-4111-8111-111111111111", "c", "open", t(page++)),
+      ],
+      has_more: true,
+      next_cursor: String(page),
+    }),
+  );
+  await assert.rejects(loadContestTickets("c", "open"), /incomplete/);
+  assert.equal(page, 2);
 });

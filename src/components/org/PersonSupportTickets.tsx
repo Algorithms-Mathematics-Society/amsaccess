@@ -24,7 +24,17 @@ export function PersonSupportTickets({
   contestUid: string;
 }) {
   const [status, setStatus] = useState<"open" | "resolved">("open");
-  const [offset, setOffset] = useState(0);
+  const identity = `${contestUid}:${userUid}`;
+  const [pagination, setPagination] = useState<{
+    identity: string;
+    cursors: (string | undefined)[];
+  }>({ identity, cursors: [undefined] });
+  const cursors =
+    pagination.identity === identity ? pagination.cursors : [undefined];
+  const cursor = cursors.at(-1);
+  const pageIds = useRef(new Map<string | undefined, Set<string>>());
+  const setCursors = (values: (string | undefined)[]) =>
+    setPagination({ identity, cursors: values });
   const [refresh, setRefresh] = useState(0);
   const [snapshot, setSnapshot] = useState<{
     scope: string;
@@ -37,7 +47,7 @@ export function PersonSupportTickets({
     // A settled action can remove its focused button; keep Escape inside the panel.
     if (document.activeElement === document.body) section.current?.focus();
   }, [refresh]);
-  const scope = `${contestUid}:${userUid}:${status}:${offset}`;
+  const scope = `${contestUid}:${userUid}:${status}:${cursor ?? ""}`;
   const data = snapshot?.scope === scope ? snapshot.data : null;
   useEffect(() => {
     let stopped = false;
@@ -52,12 +62,27 @@ export function PersonSupportTickets({
         try {
           const page = await loadSupportInbox(
             status,
-            offset,
+            cursor,
             signal,
             contestUid,
             userUid,
           );
           if (!stopped) {
+            if (!cursor) pageIds.current.clear();
+            const earlier = cursors
+              .slice(0, -1)
+              .flatMap((token) => [...(pageIds.current.get(token) ?? [])]);
+            if (
+              page.items.some((item) => earlier.includes(item.uid)) ||
+              (page.has_more && cursors.includes(page.next_cursor!))
+            )
+              throw new Error(
+                "The support inbox did not advance. Refresh to retry.",
+              );
+            pageIds.current.set(
+              cursor,
+              new Set(page.items.map((item) => item.uid)),
+            );
             setSnapshot({ scope, data: page });
             setError("");
           }
@@ -81,7 +106,7 @@ export function PersonSupportTickets({
       stop();
       window.removeEventListener("ams:org-session-reset", reset);
     };
-  }, [contestUid, userUid, status, offset, scope, refresh]);
+  }, [contestUid, userUid, status, cursor, scope, refresh]);
 
   const chosen =
     selected?.user_uid === userUid && selected.contest_uid === contestUid
@@ -104,6 +129,9 @@ export function PersonSupportTickets({
         shown. Guest and unlinked historical tickets remain in the support
         inbox.
       </p>
+      <p className="text-xs text-slate-600">
+        Newest tickets first. Refresh to include new arrivals.
+      </p>
       <div className="flex flex-wrap gap-2">
         {(["open", "resolved"] as const).map((value) => (
           <button
@@ -113,7 +141,7 @@ export function PersonSupportTickets({
             aria-pressed={status === value}
             onClick={() => {
               setStatus(value);
-              setOffset(0);
+              setCursors([undefined]);
             }}
           >
             {value === "open" ? "Open tickets" : "Resolved tickets"}
@@ -122,7 +150,10 @@ export function PersonSupportTickets({
         <button
           type="button"
           className={button}
-          onClick={() => setRefresh((value) => value + 1)}
+          onClick={() => {
+            setCursors([undefined]);
+            setRefresh((value) => value + 1);
+          }}
         >
           Refresh tickets
         </button>
@@ -168,13 +199,13 @@ export function PersonSupportTickets({
           ))}
         </ul>
       )}
-      {(offset > 0 || data?.has_more) && (
+      {(cursors.length > 1 || data?.has_more) && (
         <div className="flex items-center gap-2">
           <button
             type="button"
             className={button}
-            disabled={offset === 0}
-            onClick={() => setOffset((value) => Math.max(0, value - 50))}
+            disabled={cursors.length === 1}
+            onClick={() => setCursors(cursors.slice(0, -1))}
           >
             Previous tickets
           </button>
@@ -182,7 +213,10 @@ export function PersonSupportTickets({
             type="button"
             className={button}
             disabled={!data?.has_more}
-            onClick={() => setOffset((value) => value + 50)}
+            onClick={() => {
+              if (data?.next_cursor && !cursors.includes(data.next_cursor))
+                setCursors([...cursors, data.next_cursor]);
+            }}
           >
             Next tickets
           </button>

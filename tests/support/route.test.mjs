@@ -117,3 +117,33 @@ test("reply preserves UUID body and rejects malformed payloads", async () => {
   }
   assert.equal(h.calls.length, 1);
 });
+
+test("staff coordination routes forward bodies and cursor queries", async () => {
+  const h = harness();
+  await h.GET(
+    new Request(
+      "https://example.test/api/org/support?status=open&pagination=cursor&cursor=opaque&secret=no",
+    ),
+    context([]),
+  );
+  assert.equal(
+    h.calls[0][1],
+    "/org/support?status=open&pagination=cursor&cursor=opaque",
+  );
+  for (const endpoint of ["assignees", "notes", "assignment"]) {
+    const method = endpoint === "assignment" ? "PATCH" : "GET";
+    await h[method](
+      new Request("https://example.test/api/org/support?after=last", {
+        method,
+        ...(method === "PATCH"
+          ? { body: JSON.stringify({ assignee_uid: null }) }
+          : {}),
+      }),
+      context([uid, endpoint]),
+    );
+    assert.equal(
+      h.calls.at(-1)[1],
+      `/org/support/${uid}/${endpoint}?after=last`,
+    );
+  }
+});
