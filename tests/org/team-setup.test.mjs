@@ -13,6 +13,28 @@ const uid = "3fbf9cee-8b6e-4872-947f-c52b46bb572e";
 test("proxy route allowlist excludes traversal and unsupported operations", () => {
   assert.equal(teamAction("POST", ["seed"]), "/seed");
   assert.equal(teamAction("POST", ["seed", "preview"]), "/seed/preview");
+  const t = "3fbf9cee-8b6e-4872-947f-c52b46bb572e";
+  assert.equal(
+    teamAction("POST", ["teams", t, "members", t, "absent"]),
+    `/teams/${t}/members/${t}/absent`,
+  );
+  assert.equal(
+    teamAction("POST", ["teams", "x", "members", t, "absent"]),
+    null,
+  );
+  assert.equal(teamAction("GET", ["teams", t, "members", t, "absent"]), null);
+  assert.deepEqual(
+    validateTeamBody("/teams/a/members/b/absent", { absent: true }),
+    {
+      absent: true,
+    },
+  );
+  assert.throws(() =>
+    validateTeamBody("/teams/a/members/b/absent", { absent: "yes" }),
+  );
+  assert.throws(() =>
+    validateTeamBody("/teams/a/members/b/absent", { absent: true, extra: 1 }),
+  );
   assert.equal(teamAction("POST", ["unpublish"]), "/unpublish");
   assert.equal(teamAction("GET", ["seed", "preview"]), null);
   assert.equal(teamAction("GET", ["unpublish"]), null);

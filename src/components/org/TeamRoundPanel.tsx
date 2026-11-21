@@ -317,6 +317,7 @@ export function TeamRoundPanel({
           base={base}
           contestUid={contestUid}
           notificationsEnabled={notificationsEnabled}
+          canMarkAbsent={canWrite}
           schedule={{
             selection_opens_at: round.selection_opens_at,
             discussion_seconds: round.discussion_seconds,

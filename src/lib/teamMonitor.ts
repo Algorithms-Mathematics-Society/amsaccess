@@ -19,6 +19,8 @@ export type MonitorMember = {
   assigned_by: "claim" | "auto" | null;
   /** Older roster responses omit readiness. */
   ready: boolean | null;
+  /** Marked absent by staff; the team carries on and the vote skips them. */
+  absent: boolean;
 };
 export type MonitorResult = {
   revision: number;
@@ -38,6 +40,8 @@ export type MonitorTeam = {
   name: string;
   revision: number;
   votes: number;
+  /** Approvals that submit; older APIs omit it and need every member. */
+  votes_needed: number;
   submitted_revision: number | null;
   submitted_by: "vote" | "deadline" | null;
   members: MonitorMember[];
@@ -53,11 +57,7 @@ export type MonitorSchedule = {
   contest_ends_at: string | null;
 };
 export type Phase =
-  | "unscheduled"
-  | "waiting"
-  | "discussion"
-  | "choosing"
-  | "locked";
+  "unscheduled" | "waiting" | "discussion" | "choosing" | "locked";
 export type Attention = "unassigned" | "unsubmitted" | "slow-result";
 export type TeamView = {
   team: MonitorTeam;
@@ -133,6 +133,7 @@ function member(v: unknown, at: string): MonitorMember {
     seed_rank: count(v.seed_rank) ? v.seed_rank : null,
     part_label: v.part_label,
     ready: typeof v.ready === "boolean" ? v.ready : null,
+    absent: v.absent === true,
     assigned_by:
       v.assigned_by === "claim" || v.assigned_by === "auto"
         ? v.assigned_by
@@ -195,6 +196,7 @@ export function parseTeamRoster(value: unknown): MonitorTeam[] {
       name: label(v.name, `Team ${v.number}`),
       revision: v.revision,
       votes: v.votes,
+      votes_needed: count(v.votes_needed) ? v.votes_needed : v.members.length,
       submitted_revision: v.submitted_revision,
       submitted_by:
         v.submitted_by === "vote" || v.submitted_by === "deadline"

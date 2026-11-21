@@ -51,7 +51,8 @@ async function handle(request: Request, context: Context) {
   if (
     request.method === "PUT" ||
     suffix === "/seed" ||
-    suffix === "/seed/preview"
+    suffix === "/seed/preview" ||
+    suffix.endsWith("/absent")
   ) {
     try {
       body = validateTeamBody(suffix, await request.json());
