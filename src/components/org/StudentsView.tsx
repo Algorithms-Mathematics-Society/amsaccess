@@ -287,6 +287,12 @@ export function StudentsView() {
     )
       return;
     const eligible = rows.filter((student) => !mailIneligible(student)).length;
+    if (chosenAction === "mail" && eligible === 0) {
+      setError(
+        "None of the selected students can be emailed: each needs a deliverable login email and a contest.",
+      );
+      return;
+    }
     if (
       !(await confirm({
         title:

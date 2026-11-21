@@ -134,6 +134,17 @@ try {
   );
   await page.getByLabel("Select Student 0001", { exact: true }).check();
   await page.getByLabel("Select Student 0002", { exact: true }).check();
+  // Without 0000, neither selected student can be emailed (no login email;
+  // no contest): refuse without a dialog.
+  await page.getByLabel("Select Student 0000", { exact: true }).uncheck();
+  await page.getByLabel("Selected student action").selectOption("mail");
+  await page.getByRole("button", { name: "Review selected action" }).click();
+  await page
+    .getByText(/None of the selected students can be emailed/)
+    .waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 0);
+  assert.equal(writes.length, 0);
+  await page.getByLabel("Select Student 0000", { exact: true }).check();
   await page.getByRole("button", { name: "Next page", exact: true }).click();
   await page.getByLabel("Select Student 0200", { exact: true }).check();
   assert(reads.some((read) => read.includes("offset=200")));

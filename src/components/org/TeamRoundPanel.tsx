@@ -7,6 +7,7 @@ import {
   PROJECT_LIMIT,
   TEAM_WRITERS,
   parseContestOptions,
+  sameOrganization,
   parseDrawPreview,
   parseProjectCatalog,
   validateTeamBody,
@@ -86,7 +87,8 @@ export function TeamRoundPanel({
   const [opens, setOpens] = useState("");
   const [locks, setLocks] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [source, setSource] = useState(contestUid);
+  // Ranking from the team contest itself is rarely meant; make staff choose.
+  const [source, setSource] = useState("");
   const [contests, setContests] = useState<ContestOption[] | null>(null);
   const [typedSource, setTypedSource] = useState(false);
   const [take, setTake] = useState(4);
@@ -183,7 +185,9 @@ export function TeamRoundPanel({
     }
     // Best effort: without the list, the source contest UID can still be typed.
     const list = await request("/api/org/contests").catch(() => null);
-    if (mounted.current) setContests(parseContestOptions(list));
+    const options = parseContestOptions(list);
+    if (mounted.current)
+      setContests(options && sameOrganization(options, contestUid));
   }
   async function previewDraw(drawMethod: string): Promise<Draw> {
     const body = validateTeamBody("/seed", {
@@ -694,7 +698,7 @@ export function TeamRoundPanel({
         <div className="flex flex-wrap gap-2">
           <button
             className={button}
-            disabled={drawBlocked}
+            disabled={drawBlocked || !source}
             onClick={() =>
               void action(async () => {
                 setDrawPreview(null);
@@ -707,7 +711,7 @@ export function TeamRoundPanel({
           </button>
           <button
             className={button}
-            disabled={drawBlocked}
+            disabled={drawBlocked || !source}
             onClick={() =>
               void action(async () => {
                 setComparison(null);
