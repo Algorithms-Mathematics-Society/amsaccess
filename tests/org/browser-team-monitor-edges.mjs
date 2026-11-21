@@ -60,7 +60,7 @@ const results = [];
  * roster; `teams` then answers the monitor's reads in order (the last one repeats). */
 async function scenario(
   name,
-  { roundBody = round(), teams, viewport, time = CLOCK },
+  { roundBody = round(), teams, viewport, time = CLOCK, absent },
   check,
 ) {
   const context = await browser.newContext({
@@ -76,11 +76,24 @@ async function scenario(
   const page = await context.newPage();
   const pageErrors = [];
   page.on("pageerror", (e) => pageErrors.push(e.message));
-  const state = { teamReads: 0, mutations: [] };
+  const state = { teamReads: 0, mutations: [], absent: [] };
+  page.on("dialog", (d) => d.accept());
   await page.route("**/*", async (route) => {
     const u = new URL(route.request().url());
     if (u.origin !== base) return route.abort();
     if (!u.pathname.startsWith("/api/")) return route.continue();
+    // Only the scenario's absent marking may write.
+    if (
+      absent &&
+      route.request().method() === "POST" &&
+      u.pathname.endsWith("/absent")
+    ) {
+      state.absent.push([u.pathname, route.request().postDataJSON()]);
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(absent),
+      });
+    }
     if (route.request().method() !== "GET") {
       state.mutations.push(u.pathname);
       return route.fulfill({ status: 405, body: "" });
@@ -292,6 +305,48 @@ try {
         box.x + box.width <= width,
         `monitor fits the viewport (${box.x + box.width} > ${width})`,
       );
+    },
+  );
+
+  await scenario(
+    "staff mark an absent member; the vote then counts present members",
+    {
+      time: Date.parse("2026-12-01T11:00:00Z"),
+      absent: { absent: true, votes: 0, votes_needed: 3, submitted: false },
+      teams: [
+        [team(1)],
+        [
+          team(1, {
+            votes_needed: 3,
+            members: [1, 2, 3, 4].map((i) => ({
+              ...member(1, i),
+              absent: i === 4,
+            })),
+          }),
+        ],
+      ],
+    },
+    async ({ monitor, state }) => {
+      await monitor.getByRole("table").waitFor({ timeout: 8000 });
+      assert.match(await textOf(monitor), /0\/4 on revision 1/);
+      await monitor
+        .getByRole("button", { name: "Mark absent: Team 1 Member 4, Team 1" })
+        .click();
+      await monitor
+        .getByRole("button", { name: "Mark present: Team 1 Member 4, Team 1" })
+        .waitFor({ timeout: 8000 });
+      assert.deepEqual(state.absent, [
+        [
+          `/api/org/contests/${contest}/team-round/teams/${uid(1)}/members/${uid(100104)}/absent`,
+          { absent: true },
+        ],
+      ]);
+      const text = await textOf(monitor);
+      assert.match(
+        text,
+        /Team 1 Member 4: 4 · readiness unknown(?: · offline)? · absent/,
+      );
+      assert.match(text, /0\/3 on revision 1/);
     },
   );
 

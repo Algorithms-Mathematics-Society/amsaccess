@@ -31,6 +31,7 @@ import {
   voiceKey,
   voicePresence,
   type MonitorSchedule,
+  type MonitorMember,
   type MonitorTeam,
   type Standing,
   type TeamView,
@@ -95,12 +96,15 @@ export function TeamRoundMonitor({
   schedule,
   contestUid,
   notificationsEnabled = false,
+  canMarkAbsent = false,
 }: {
   base: string;
   schedule: MonitorSchedule;
   contestUid: string;
   /** Contest-staff roles only: the session roster behind "online". */
   notificationsEnabled?: boolean;
+  /** Team writers may mark a member who did not come absent. */
+  canMarkAbsent?: boolean;
 }) {
   const [teams, setTeams] = useState<MonitorTeam[] | null>(null);
   const [standings, setStandings] = useState<Map<string, Standing> | null>(
@@ -129,6 +133,8 @@ export function TeamRoundMonitor({
     [notificationsEnabled, sessions, now],
   );
   const [onlyAttention, setOnlyAttention] = useState(false);
+  const [marking, setMarking] = useState<string | null>(null);
+  const [markError, setMarkError] = useState("");
   const [reading, setReading] = useState(false);
   const [manual, setManual] = useState(false);
   const pending = useRef(
@@ -220,6 +226,47 @@ export function TeamRoundMonitor({
 
   const phase = scheduledPhase(schedule, now);
   const deadline = submitDeadline(schedule);
+
+  async function markAbsent(team: MonitorTeam, member: MonitorMember) {
+    const absent = !member.absent;
+    if (
+      !window.confirm(
+        absent
+          ? `Mark ${member.display_name} absent from ${team.name}? The team carries on without them, their part runs on the default code, and the submit vote stops waiting for them.`
+          : `Mark ${member.display_name} present again? ${team.name}'s submit vote will need their approval.`,
+      )
+    )
+      return;
+    setMarking(member.user_uid);
+    setMarkError("");
+    try {
+      const response = await fetch(
+        `${base}/teams/${encodeURIComponent(team.uid)}/members/${encodeURIComponent(member.user_uid)}/absent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ absent }),
+        },
+      );
+      reportOrgResponse(response.status);
+      const data: unknown = await response.json().catch(() => null);
+      if (!response.ok)
+        throw new Error(
+          data && typeof data === "object" && "error" in data
+            ? String(data.error)
+            : `Request failed (${response.status}).`,
+        );
+    } catch (e) {
+      if (mounted.current)
+        setMarkError(
+          (e instanceof Error ? e.message : "Request failed.") +
+            " Refresh to check whether the change was saved.",
+        );
+    } finally {
+      if (mounted.current) setMarking(null);
+    }
+    void load();
+  }
   const views = useMemo(
     () =>
       (teams ?? [])
@@ -264,8 +311,10 @@ export function TeamRoundMonitor({
         <div>
           <h3 className="font-semibold">Live monitor</h3>
           <p className="text-sm text-slate-600">
-            Read-only. Refreshes every {MONITOR_POLL_MS / 1000} seconds while
-            this tab is visible. Scheduled phase:{" "}
+            Refreshes every {MONITOR_POLL_MS / 1000} seconds while this tab is
+            visible. A member who does not come can be marked absent: the team
+            carries on, their part runs on the default code, and the submit vote
+            counts only present members. Scheduled phase:{" "}
             <span className="font-medium text-slate-900">
               {PHASE_LABEL[phase]}
             </span>
@@ -295,6 +344,11 @@ export function TeamRoundMonitor({
             : "No roster read yet."
           : `Updated ${age(now - updatedAt)}${readMs !== null ? ` · read took ${readMs} ms` : ""}`}
       </p>
+      {markError && (
+        <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">
+          {markError}
+        </p>
+      )}
       {error && (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">
           {error}
@@ -449,12 +503,32 @@ export function TeamRoundMonitor({
                                 {currentVoice?.has(
                                   voiceKey(t.name, m.username),
                                 ) && " · in voice"}
+                                {m.absent && (
+                                  <span className="font-medium text-amber-800">
+                                    {" "}
+                                    · absent
+                                  </span>
+                                )}
+                                {canMarkAbsent &&
+                                  (deadline === null || now < deadline) && (
+                                    <button
+                                      type="button"
+                                      className="ml-2 inline-flex min-h-[44px] items-center underline disabled:opacity-50"
+                                      disabled={marking !== null}
+                                      aria-label={`${m.absent ? "Mark present" : "Mark absent"}: ${m.display_name}, ${t.name}`}
+                                      onClick={() => void markAbsent(t, m)}
+                                    >
+                                      {m.absent
+                                        ? "Mark present"
+                                        : "Mark absent"}
+                                    </button>
+                                  )}
                               </li>
                             ))}
                           </ul>
                         </td>
                         <td className="px-4 py-2.5">
-                          {t.votes}/{t.members.length} on revision {t.revision}
+                          {t.votes}/{t.votes_needed} on revision {t.revision}
                         </td>
                         <td className="px-4 py-2.5">
                           {t.submitted_revision === null

@@ -18,6 +18,16 @@ export function teamAction(method: string, action: string[]): string | null {
     action[1] === "preview"
   )
     return "/seed/preview";
+  if (
+    method === "POST" &&
+    action.length === 5 &&
+    action[0] === "teams" &&
+    UUID.test(action[1]) &&
+    action[2] === "members" &&
+    UUID.test(action[3]) &&
+    action[4] === "absent"
+  )
+    return `/teams/${action[1]}/members/${action[3]}/absent`;
   if (action.length !== 1) return null;
   if (
     method === "GET" &&
@@ -44,6 +54,11 @@ export function validateTeamBody(
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Expected an object.");
   const b = value as Record<string, unknown>;
+  if (action.endsWith("/absent")) {
+    if (Object.keys(b).join() !== "absent" || typeof b.absent !== "boolean")
+      throw new Error("Expected only absent: true or false.");
+    return { absent: b.absent };
+  }
   const seeding = action === "/seed" || action === "/seed/preview";
   const allowed = seeding
     ? [

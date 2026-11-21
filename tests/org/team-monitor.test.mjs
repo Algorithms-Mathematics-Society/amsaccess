@@ -112,9 +112,16 @@ test("a realistic roster keeps the monitored fields and drops the rest", () => {
     "submitted_revision",
     "uid",
     "votes",
+    "votes_needed",
   ]);
+  assert.equal(
+    t.votes_needed,
+    t.members.length,
+    "older APIs need every member",
+  );
   assert.deepEqual(t.members[0], {
     ready: null,
+    absent: false,
     user_uid: uid(1004),
     username: "user4",
     display_name: "Tester 4",
@@ -550,9 +557,8 @@ test("seed_rank is carried for the setup panel and degrades to null when invalid
 });
 
 test("optional feeds: standings, voice presence and online members degrade to null", async () => {
-  const { parseStandings, voicePresence, voiceKey, onlineUsers } = await import(
-    "../../src/lib/teamMonitor.ts"
-  );
+  const { parseStandings, voicePresence, voiceKey, onlineUsers } =
+    await import("../../src/lib/teamMonitor.ts");
   // ams-api teams.py::_board_out; rows without a usable uid/rank/score are skipped.
   const board = parseStandings({
     teams: [
@@ -590,13 +596,31 @@ test("optional feeds: standings, voice presence and online members degrade to nu
 });
 
 test("live feed freshness distinguishes empty success from failed, missing and stale reads", async () => {
-  const { feedIsCurrent, onlineUsers, voicePresence } = await import(
-    "../../src/lib/teamMonitor.ts"
-  );
+  const { feedIsCurrent, onlineUsers, voicePresence } =
+    await import("../../src/lib/teamMonitor.ts");
   assert.equal(feedIsCurrent(null, "", 100_000, 30_000), false);
   assert.equal(feedIsCurrent(99_000, "failed", 100_000, 30_000), false);
   assert.equal(feedIsCurrent(50_000, "", 100_000, 30_000), false);
   assert.equal(feedIsCurrent(99_000, "", 100_000, 30_000), true);
   assert.equal(onlineUsers([]).size, 0);
   assert.equal(voicePresence([]).size, 0);
+});
+
+test("absent members and the present-member vote threshold are kept", () => {
+  const [t] = parseTeamRoster([
+    team(1, {
+      votes_needed: 3,
+      members: [
+        { ...member(1), absent: true },
+        member(2),
+        member(3),
+        member(4),
+      ],
+    }),
+  ]);
+  assert.equal(t.votes_needed, 3);
+  assert.deepEqual(
+    t.members.map((m) => m.absent),
+    [true, false, false, false],
+  );
 });
