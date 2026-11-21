@@ -59,8 +59,13 @@ try {
       catalogQueries.push(u.searchParams.get("contest_uid"));
     if (u.pathname === "/api/org/contests")
       return ok([
-        { uid, title: "Team test" },
-        { uid: sourceUid, title: "Round 1" },
+        { uid, title: "Team test", organization_name: "Org A" },
+        { uid: sourceUid, title: "Round 1", organization_name: "Org A" },
+        {
+          uid: "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d",
+          title: "Other org round",
+          organization_name: "Org B",
+        },
         { uid: "not-a-uuid", title: "Dropped" },
       ]);
     if (u.pathname === `/api/org/contests/${uid}`)
@@ -208,10 +213,12 @@ try {
     exact: true,
   });
   const sourcePicker = page.getByRole("combobox", { name: "Source contest" });
+  assert.equal(await sourcePicker.inputValue(), "", "no default source");
+  assert(await previewDraw.isDisabled(), "a source must be chosen first");
   assert.equal(
-    await sourcePicker.inputValue(),
-    uid,
-    "defaults to this contest",
+    await sourcePicker.getByRole("option", { name: "Other org round" }).count(),
+    0,
+    "other organizations' contests are not offered",
   );
   assert.equal(
     await sourcePicker.getByRole("option", { name: "Dropped" }).count(),

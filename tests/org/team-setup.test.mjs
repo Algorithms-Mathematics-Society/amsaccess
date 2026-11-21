@@ -6,6 +6,7 @@ import {
   TEAM_WRITERS,
   parseDrawPreview,
   parseProjectCatalog,
+  sameOrganization,
 } from "../../src/lib/teamSetup.ts";
 import { boundedForm } from "../../src/lib/server/boundedUpload.ts";
 const uid = "3fbf9cee-8b6e-4872-947f-c52b46bb572e";
@@ -131,4 +132,12 @@ test("bounded multipart reader preserves package bytes", async () => {
     1024,
   );
   assert.equal(await parsed.get("package").text(), "fixture");
+});
+test("draw sources stay in the team contest's organization", () => {
+  const a = { uid: "a", title: "Team", organization_name: "Org A" };
+  const b = { uid: "b", title: "Round 1", organization_name: "Org A" };
+  const c = { uid: "c", title: "Public", organization_name: "Org B" };
+  assert.deepEqual(sameOrganization([a, b, c], "a"), [a, b]);
+  // Unknown organization (older API or contest not listed): keep the list.
+  assert.deepEqual(sameOrganization([b, c], "a"), [b, c]);
 });

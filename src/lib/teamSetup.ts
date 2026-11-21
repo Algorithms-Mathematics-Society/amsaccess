@@ -205,7 +205,11 @@ export const DRAW_METHODS = [
   { value: "banded", label: "Banded — balanced within tiers" },
 ] as const;
 
-export type ContestOption = { uid: string; title: string };
+export type ContestOption = {
+  uid: string;
+  title: string;
+  organization_name?: string;
+};
 // Source contests for a draw; rows without a UUID and title are dropped, not guessed.
 export function parseContestOptions(data: unknown): ContestOption[] | null {
   if (!Array.isArray(data)) return null;
@@ -213,7 +217,27 @@ export function parseContestOptions(data: unknown): ContestOption[] | null {
     typeof row?.uid === "string" &&
     UUID.test(row.uid) &&
     typeof row.title === "string"
-      ? [{ uid: row.uid, title: row.title }]
+      ? [
+          {
+            uid: row.uid,
+            title: row.title,
+            ...(typeof row.organization_name === "string"
+              ? { organization_name: row.organization_name }
+              : {}),
+          },
+        ]
       : [],
   );
+}
+
+/** Draws must rank from the team contest's organization; the list also holds
+ * other organizations' public contests. Unknown organizations keep the list. */
+export function sameOrganization(
+  options: ContestOption[],
+  contestUid: string,
+): ContestOption[] {
+  const org = options.find((c) => c.uid === contestUid)?.organization_name;
+  return org === undefined
+    ? options
+    : options.filter((c) => c.organization_name === org);
 }

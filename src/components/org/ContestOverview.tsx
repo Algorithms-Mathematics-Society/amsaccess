@@ -88,16 +88,15 @@ function StaffTimeline({
     if (!announcementsEnabled) return;
     const lifetime = new AbortController();
     const stop = startOrgPolling(async () => {
+      // Not AbortSignal.any: hall iPads on Safari before 17.4 lack it.
+      const read = new AbortController();
+      const timer = setTimeout(() => read.abort(), 12_000);
+      const cancel = () => read.abort();
+      lifetime.signal.addEventListener("abort", cancel);
       try {
         const response = await fetch(
           `/api/org/contests/${encodeURIComponent(contestUid)}/announcements`,
-          {
-            cache: "no-store",
-            signal: AbortSignal.any([
-              lifetime.signal,
-              AbortSignal.timeout(12_000),
-            ]),
-          },
+          { cache: "no-store", signal: read.signal },
         );
         if (lifetime.signal.aborted) return;
         reportOrgResponse(response.status);
@@ -115,6 +114,9 @@ function StaffTimeline({
       } catch {
         if (!lifetime.signal.aborted) setError(true);
         return false;
+      } finally {
+        clearTimeout(timer);
+        lifetime.signal.removeEventListener("abort", cancel);
       }
     }, OVERVIEW_POLL_MS);
     return () => {
